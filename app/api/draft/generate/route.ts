@@ -19,34 +19,50 @@ type DraftOutput = {
   meta: { language: Lang; reading_time_seconds: number; version: string };
 };
 
-function loadSchema() {
-  const p = resolve(process.cwd(), "gpts", "draft", "schema.json");
-  // strip BOM just in case
-  return JSON.parse(readFileSync(p, "utf-8").replace(/^\uFEFF/, ""));
-}
-
 const ajv = new Ajv({ allErrors: true, strict: false, removeAdditional: "all" });
 addFormats(ajv);
 
-const draftSchema = loadSchema();
-const validate = ajv.compile<DraftOutput>(draftSchema);
+function loadSchema() {
+  const p = resolve(process.cwd(), "gpts", "draft", "schema.json");
+  return JSON.parse(readFileSync(p, "utf-8").replace(/^\uFEFF/, ""));
+}
+
+// Simple request schema (adjust as needed)
+const requestSchema = {
+  type: "object",
+  additionalProperties: false,
+  properties: {
+    language: { type: "string", enum: ["EN", "DE", "ES", "FR", "IT"] },
+    tone: { type: "string", enum: ["supportive", "firm", "neutral", "celebratory"] },
+    notes: { type: "string", maxLength: 2000 } // teacher’s draft notes/context
+  }
+};
+
+const validateReq = ajv.compile(requestSchema);
+const validateOut = ajv.compile<DraftOutput>(loadSchema());
 
 export async function POST(req: Request) {
   try {
     const body = await req.json().catch(() => ({}));
+    if (!validateReq(body)) {
+      return new Response(JSON.stringify({ error: "Invalid request", details: validateReq.errors }), {
+        status: 400, headers: { "content-type": "application/json" }
+      });
+    }
 
+    // TODO: replace with model call using `body`
     const mock: DraftOutput = {
       opening_line: "Thank you for your ongoing support.",
       main_comment:
         "Based on the details you shared, I drafted a clear, empathetic update that acknowledges strengths and outlines one next step. We will focus on structuring ideas before writing and using a simple checklist to get started independently.",
       closing_line: "If helpful, I can share example prompts for that checklist.",
-      tone: "supportive",
+      tone: (body.tone as Tone) || "supportive",
       safeguards_applied: ["privacy", "tone-check", "bias-check"],
-      meta: { language: (body?.language as Lang) || "EN", reading_time_seconds: 18, version: "1.0.0" }
+      meta: { language: (body.language as Lang) || "EN", reading_time_seconds: 18, version: "1.0.0" }
     };
 
-    if (!validate(mock)) {
-      return new Response(JSON.stringify({ error: "Mock failed schema validation", details: validate.errors }), {
+    if (!validateOut(mock)) {
+      return new Response(JSON.stringify({ error: "Output failed schema validation", details: validateOut.errors }), {
         status: 500, headers: { "content-type": "application/json" }
       });
     }

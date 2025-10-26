@@ -1,4 +1,4 @@
-﻿# Zaza Draft – GPT Marketplace Package
+# Zaza Draft – GPT Marketplace Package
 
 ## Files
 - `instructions.md` – system prompt
@@ -8,16 +8,17 @@
 - `policy.md` – risks, mitigations, refusal patterns
 - `faq.jsonld` – zero-click AEO FAQ
 
-## Publish Steps (GPTs)
-1. Create a new GPT → paste `instructions.md` into **Instructions**.
-2. Set **Name/Descriptions/Tags** from `listing.md`.
-3. Add example files (paste JSON as example outputs).
-4. Disable tools you won’t use (no fake browsing/tools).
-5. Test with short prompts; verify schema compliance.
-6. Save Unlisted → QA → then Publish.
+## How to publish this GPT
+1. Create a new GPT and paste `instructions.md` into **Instructions**.
+2. Set **Name**, **Short/Long Description**, and **Tags** using `listing.md`.
+3. Add example outputs (copy from `examples/*.json`).
+4. Configure tools: disable any not needed (no browsing or plugins).
+5. Test with short prompts; verify outputs match `schema.json` exactly.
+6. Save as Unlisted, QA thoroughly, then Publish.
 
 ## Output Contract
 All outputs must match `schema.json`. If a user asks for content outside scope, refuse and offer a safe alternative that still follows the schema.
 
 ## Safety
 See `policy.md`. Always emphasize teacher review before sending messages.
+
