@@ -1,0 +1,6 @@
+{
+  "version": 3,
+  "sources": [],
+  "sections": [
+    {"offset": {"line": 14, "column": 0}, "map": {"version":3,"sources":["file:///C:/Users/User/Projects/zaza-draft/app/page.tsx"],"sourcesContent":["export default function Page() {\n  return (\n    <main>\n      <h1>Zaza Draft – Dev</h1>\n      <p>API: <code>/api/draft/generate</code></p>\n    </main>\n  )\n}\r\n"],"names":[],"mappings":";;;;;;AAAe,SAAS;IACtB,qBACE,6WAAC;;0BACC,6WAAC;0BAAG;;;;;;0BACJ,6WAAC;;oBAAE;kCAAK,6WAAC;kCAAK;;;;;;;;;;;;;;;;;;AAGpB","debugId":null}}]
+}
