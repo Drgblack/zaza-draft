@@ -1,1 +1,22 @@
-﻿{} 
+﻿{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
+    {
+      "@type": "Question",
+      "name": "How does Zaza Draft save teachers time?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Draft turns teacher notes into professional parent comments in minutes using safe, explainable AI and teacher-first templates."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Is Zaza Draft safe for schools?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Yes. Draft is designed with GDPR/FERPA/COPPA awareness, avoids personal data generation, and emphasizes teacher review before sending."
+      }
+    }
+  ]
+}
