@@ -1,6 +1,0 @@
-{
-  "version": 3,
-  "sources": [],
-  "sections": [
-    {"offset": {"line": 40, "column": 0}, "map": {"version":3,"sources":["file:///C:/Users/User/Projects/zaza-draft/app/api/health/route.ts"],"sourcesContent":["export async function GET() {\n  return new Response(JSON.stringify({ ok: true, ts: Date.now() }), {\n    headers: { \"content-type\": \"application/json\" },\n  });\n}\r\n"],"names":[],"mappings":";;;;AAAO,eAAe;IACpB,OAAO,IAAI,SAAS,KAAK,SAAS,CAAC;QAAE,IAAI;QAAM,IAAI,KAAK,GAAG;IAAG,IAAI;QAChE,SAAS;YAAE,gBAAgB;QAAmB;IAChD;AACF","debugId":null}}]
-}
