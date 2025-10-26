@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 import { useState } from "react";
 
 type Tone = "warm" | "professional" | "direct" | "empathetic";
@@ -63,15 +63,15 @@ export default function DraftClient() {
           >
             <option value="en">English</option>
             <option value="de">Deutsch</option>
-            <option value="es">Español</option>
-            <option value="fr">Français</option>
+            <option value="es">EspaÃ±ol</option>
+            <option value="fr">FranÃ§ais</option>
           </select>
           <button
             onClick={onGenerate}
             disabled={loading || !notes.trim()}
             className="ml-auto rounded-md bg-black px-4 py-2 text-white disabled:opacity-50"
           >
-            {loading ? "Generating…" : "Generate"}
+            {loading ? "Generatingâ€¦" : "Generate"}
           </button>
         </div>
       </section>
@@ -81,7 +81,13 @@ export default function DraftClient() {
       {resp && (
         <section className="rounded-2xl border p-4 space-y-3">
           <div className="text-sm text-gray-500">
-            tone: {resp.tone} · lang: {resp.meta?.language}
+            tone: {resp.tone} - lang: {resp.meta?.language}
+          </div>
+          <div className="flex gap-2 flex-wrap">
+            <button className="rounded-md border px-2 py-1 text-xs" onClick={() => navigator.clipboard.writeText(resp.opening_line)}>Copy opening</button>
+            <button className="rounded-md border px-2 py-1 text-xs" onClick={() => navigator.clipboard.writeText(resp.main_comment)}>Copy main</button>
+            <button className="rounded-md border px-2 py-1 text-xs" onClick={() => navigator.clipboard.writeText(resp.closing_line)}>Copy closing</button>
+            <button className="rounded-md border px-2 py-1 text-xs" onClick={() => navigator.clipboard.writeText(JSON.stringify(resp))}>Copy JSON</button>
           </div>
           <p className="font-medium">{resp.opening_line}</p>
           <p>{resp.main_comment}</p>
@@ -102,3 +108,8 @@ export default function DraftClient() {
     </main>
   );
 }
+
+
+
+
+

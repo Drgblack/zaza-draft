@@ -1,9 +1,15 @@
 ﻿export type CanonicalTone = "warm" | "professional" | "direct" | "empathetic";
 
 const toneMap: Record<string, CanonicalTone> = {
+  // Friendly UI labels → canonical
   "warm & encouraging": "warm",
+  "professional & neutral": "professional",
+  "direct & clear": "direct",
+  "empathetic & supportive": "empathetic",
+  // Common synonyms
   "supportive": "empathetic",
   "firm": "direct",
+  // Already canonical
   "warm": "warm",
   "professional": "professional",
   "direct": "direct",

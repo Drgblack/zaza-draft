@@ -34,7 +34,8 @@ const requestSchema = {
   additionalProperties: false,
   properties: {
     language: { type: "string", enum: ["en", "de", "es", "fr"] },
-    tone: { type: "string", enum: ["warm", "professional", "direct", "empathetic"] },
+    // Accept friendly labels; route will canonicalize via tone-map
+    tone: { type: "string" },
     notes: { type: "string", maxLength: 2000 } // teacher's draft notes/context
   },
   required: ["language", "tone", "notes"]
@@ -51,6 +52,28 @@ export async function POST(req: Request) {
         status: 400, headers: { "content-type": "application/json" }
       });
     }
+    const toneCanon = canonicalizeTone(body.tone);
+    if (!toneCanon) {
+      return new Response(
+        JSON.stringify({
+          error: "Unsupported tone label",
+          allowedLabels: [
+            "Warm & Encouraging",
+            "Professional & Neutral",
+            "Direct & Clear",
+            "Empathetic & Supportive",
+            "Warm",
+            "Professional",
+            "Direct",
+            "Empathetic",
+            "Supportive",
+            "Firm"
+          ],
+          canonical: ["warm", "professional", "direct", "empathetic"]
+        }),
+        { status: 400, headers: { "content-type": "application/json" } }
+      );
+    }
 
     // TODO: replace with model call using `body`
     const mock: DraftOutput = {
@@ -58,7 +81,7 @@ export async function POST(req: Request) {
       main_comment:
         "Based on the details you shared, here is a clear, school-ready draft that acknowledges strengths and suggests one next step. We will focus on structuring ideas before writing and using a simple checklist to get started independently.",
       closing_line: "If helpful, I can share example prompts for that checklist.",
-      tone: (body.tone as Tone) || "warm",
+      tone: toneCanon,
       safeguards_applied: ["privacy", "tone-check", "bias-check"],
       meta: { language: (body.language as Lang) || "en", reading_time_seconds: 18, version: "1.0.0" }
     };
