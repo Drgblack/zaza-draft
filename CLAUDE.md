@@ -150,6 +150,6 @@ Context, options, decision, consequences. Keep to one page.
 - Update /docs/CHANGELOG.md if behaviour changes
 
 ## Contact and ownership
-- Product owner - Greg (CLO)
+- Product owner - Dr. Greg Blackburn (CLO)
 - Working language - English (UK). Provide German copy for public pages
 - If in doubt, prefer simple and safe over clever and risky
