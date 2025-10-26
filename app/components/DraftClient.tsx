@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 import { useState } from "react";
 
 type Tone = "warm" | "professional" | "direct" | "empathetic";
@@ -63,15 +63,15 @@ export default function DraftClient() {
           >
             <option value="en">English</option>
             <option value="de">Deutsch</option>
-            <option value="es">EspaÃ±ol</option>
-            <option value="fr">FranÃ§ais</option>
+            <option value="es">EspaÃƒÂ±ol</option>
+            <option value="fr">FranÃƒÂ§ais</option>
           </select>
           <button
             onClick={onGenerate}
             disabled={loading || !notes.trim()}
             className="ml-auto rounded-md bg-black px-4 py-2 text-white disabled:opacity-50"
           >
-            {loading ? "Generatingâ€¦" : "Generate"}
+            {loading ? "GeneratingÃ¢â‚¬Â¦" : "Generate"}
           </button>
         </div>
       </section>
@@ -108,6 +108,7 @@ export default function DraftClient() {
     </main>
   );
 }
+
 
 
 
