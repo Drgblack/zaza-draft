@@ -1,4 +1,5 @@
-﻿import { readFileSync } from "node:fs";
+﻿import { canonicalizeTone } from './tone-map';
+import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import Ajv from "ajv";
 import addFormats from "ajv-formats";
@@ -75,3 +76,4 @@ export async function POST(req: Request) {
     });
   }
 }
+
