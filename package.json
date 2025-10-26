@@ -1,17 +1,22 @@
 ﻿{
-  "name": "zaza-draft",
-  "private": true,
-  "version": "0.1.1",
-  "packageManager": "pnpm@9",
-  "engines": { "node": ">=20" },
-  "scripts": {
-    "format": "prettier --write .",
-    "format:check": "prettier --check .",
-    "lint": "eslint .",
-    "build": "echo \"(placeholder) add build script later\" && exit 0",
-    "test": "echo \"(placeholder) add tests later\" && exit 0",
-    "typecheck": "tsc -v >NUL 2>&1 || exit 0"
-  },
-  "devDependencies": {},
-  "dependencies": {}
+    "name":  "zaza-draft",
+    "private":  true,
+    "version":  "0.1.1",
+    "engines":  {
+                    "node":  "\u003e=20"
+                },
+    "scripts":  {
+                    "format":  "prettier --write .",
+                    "format:check":  "prettier --check .",
+                    "lint":  "eslint .",
+                    "build":  "echo \"(placeholder) add build script later\" \u0026\u0026 exit 0",
+                    "test":  "echo \"(placeholder) add tests later\" \u0026\u0026 exit 0",
+                    "typecheck":  "tsc -v \u003eNUL 2\u003e\u00261 || exit 0"
+                },
+    "devDependencies":  {
+
+                        },
+    "dependencies":  {
+
+                     }
 }
