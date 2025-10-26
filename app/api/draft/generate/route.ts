@@ -1,8 +1,9 @@
 ﻿import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import Ajv from "ajv";
+import addFormats from "ajv-formats";
 
-export const runtime = "nodejs";       // enable Node APIs (fs)
+export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 type Tone = "supportive" | "firm" | "neutral" | "celebratory";
@@ -18,13 +19,15 @@ type DraftOutput = {
   meta: { language: Lang; reading_time_seconds: number; version: string };
 };
 
-// Load schema from gpts/draft/schema.json without relying on TS json imports
 function loadSchema() {
   const p = resolve(process.cwd(), "gpts", "draft", "schema.json");
-  return JSON.parse(readFileSync(p, "utf-8"));
+  // strip BOM just in case
+  return JSON.parse(readFileSync(p, "utf-8").replace(/^\uFEFF/, ""));
 }
 
-const ajv = new Ajv({ allErrors: true, removeAdditional: "all" });
+const ajv = new Ajv({ allErrors: true, strict: false, removeAdditional: "all" });
+addFormats(ajv);
+
 const draftSchema = loadSchema();
 const validate = ajv.compile<DraftOutput>(draftSchema);
 
@@ -32,7 +35,6 @@ export async function POST(req: Request) {
   try {
     const body = await req.json().catch(() => ({}));
 
-    // TODO: Replace this mock with a real model call using `body` inputs.
     const mock: DraftOutput = {
       opening_line: "Thank you for your ongoing support.",
       main_comment:
@@ -40,28 +42,19 @@ export async function POST(req: Request) {
       closing_line: "If helpful, I can share example prompts for that checklist.",
       tone: "supportive",
       safeguards_applied: ["privacy", "tone-check", "bias-check"],
-      meta: {
-        language: (body?.language as Lang) || "EN",
-        reading_time_seconds: 18,
-        version: "1.0.0",
-      },
+      meta: { language: (body?.language as Lang) || "EN", reading_time_seconds: 18, version: "1.0.0" }
     };
 
     if (!validate(mock)) {
-      return new Response(
-        JSON.stringify({ error: "Mock failed schema validation", details: validate.errors }),
-        { status: 500, headers: { "content-type": "application/json" } }
-      );
+      return new Response(JSON.stringify({ error: "Mock failed schema validation", details: validate.errors }), {
+        status: 500, headers: { "content-type": "application/json" }
+      });
     }
 
-    return new Response(JSON.stringify(mock), {
-      status: 200,
-      headers: { "content-type": "application/json" },
-    });
+    return new Response(JSON.stringify(mock), { status: 200, headers: { "content-type": "application/json" } });
   } catch (err: any) {
-    return new Response(
-      JSON.stringify({ error: "Bad request", details: err?.message || String(err) }),
-      { status: 400, headers: { "content-type": "application/json" } }
-    );
+    return new Response(JSON.stringify({ error: "Bad request", details: err?.message || String(err) }), {
+      status: 400, headers: { "content-type": "application/json" }
+    });
   }
 }

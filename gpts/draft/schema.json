@@ -1,5 +1,4 @@
 ﻿{
-  "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "Zaza Draft Output",
   "type": "object",
   "required": ["opening_line", "main_comment", "closing_line", "tone", "safeguards_applied", "meta"],
