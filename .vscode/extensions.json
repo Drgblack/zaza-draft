@@ -1,0 +1,9 @@
+{
+  "recommendations": [
+    "esbenp.prettier-vscode",
+    "dbaeumer.vscode-eslint",
+    "ms-vscode.powershell",
+    "github.vscode-github-actions",
+    "eamodio.gitlens"
+  ]
+}
