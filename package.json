@@ -1,14 +1,8 @@
-﻿{
-    "name":  "zaza-draft",
-    "private":  true,
-    "version":  "emplate",
-    "scripts":  {
-
-                },
-    "devDependencies":  {
-
-                        },
-    "dependencies":  {
-
-                     }
+{
+  "name": "zaza-draft",
+  "private": true,
+  "version": "0.1.1",
+  "scripts": {},
+  "devDependencies": {},
+  "dependencies": {}
 }
