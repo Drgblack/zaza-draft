@@ -3,7 +3,6 @@
 )
 
 $ErrorActionPreference = "Stop"
-
 $repo = (git rev-parse --show-toplevel)
 
 function RunStep($name, $cmd) {
@@ -12,15 +11,20 @@ function RunStep($name, $cmd) {
   if ($LASTEXITCODE -ne 0) { throw "$name failed" }
 }
 
-# 1) Run Prettier (docs, configs, source files)
+# 1) Run Prettier (prefer local, fallback to dlx)
 if (Test-Path (Join-Path $repo "package.json")) {
-  RunStep "Prettier" "pnpm prettier --write ."
+  $hasLocal = Test-Path (Join-Path $repo "node_modules\.bin\prettier")
+  if ($hasLocal) {
+    RunStep "Prettier" "pnpm prettier --write ."
+  } else {
+    RunStep "Prettier (dlx)" "pnpm dlx prettier --write ."
+  }
 } else {
   Write-Host "package.json not found - skipping Prettier" -ForegroundColor Yellow
 }
 
-# 2) Run ESLint autofix if available
-if (Test-Path (Join-Path $repo ".eslintrc") -or (Test-Path (Join-Path $repo ".eslintrc.js"))) {
+# 2) Run ESLint autofix only if config exists
+if (Test-Path (Join-Path $repo ".eslintrc.cjs")) {
   RunStep "ESLint" "pnpm eslint . --fix"
 }
 
