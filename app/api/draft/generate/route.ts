@@ -54,6 +54,8 @@ export async function POST(req: Request) {
     }
     const toneCanon = canonicalizeTone(body.tone);
     if (!toneCanon) {
+      // lightweight telemetry for drift
+      try { console.warn("TELEMETRY: unmapped_tone_label", { received: body.tone }); } catch {}
       return new Response(
         JSON.stringify({
           error: "Unsupported tone label",
@@ -75,7 +77,66 @@ export async function POST(req: Request) {
       );
     }
 
-    // TODO: replace with model call using `body`
+    // Prefer OpenAI when configured; fall back to mock
+    const apiKey = process.env.OPENAI_API_KEY;
+
+    if (apiKey) {
+      try {
+        const prompt = [
+          "You are Zaza Draft, a teacher-first assistant.",
+          "Write a short parent-ready comment in the requested tone and language.",
+          "Return strictly the following JSON keys: opening_line, main_comment, closing_line, tone, safeguards_applied, meta.",
+          "- tone must be one of: warm, professional, direct, empathetic.",
+          "- meta.language must be one of: en, de, es, fr.",
+          "- No extra keys.",
+          "Notes:",
+          String(body.notes || "")
+        ].join("\n");
+
+        const resp = await fetch("https://api.openai.com/v1/chat/completions", {
+          method: "POST",
+          headers: {
+            "content-type": "application/json",
+            Authorization: `Bearer ${apiKey}`,
+          },
+          body: JSON.stringify({
+            model: "gpt-4o-mini",
+            messages: [
+              { role: "system", content: "You are Zaza Draft. Always return only JSON as specified." },
+              { role: "user", content: `tone=${toneCanon}; language=${body.language}; ${prompt}` },
+            ],
+            temperature: 0.4,
+          }),
+        });
+
+        if (resp.ok) {
+          const data: any = await resp.json();
+          const text = data?.choices?.[0]?.message?.content || "";
+          // Attempt to extract JSON block
+          const jsonStr = (() => {
+            const m = text.match(/\{[\s\S]*\}/);
+            return m ? m[0] : text;
+          })();
+          const candidate = JSON.parse(jsonStr);
+          // Inject enforced fields
+          candidate.tone = toneCanon;
+          candidate.meta = candidate.meta || {};
+          candidate.meta.language = body.language;
+          if (!validateOut(candidate)) {
+            // fall through to mock if invalid
+            console.warn("OpenAI output failed schema validation", validateOut.errors);
+          } else {
+            return new Response(JSON.stringify(candidate), { status: 200, headers: { "content-type": "application/json" } });
+          }
+        } else {
+          const errtxt = await resp.text();
+          console.warn("OpenAI request failed", resp.status, errtxt);
+        }
+      } catch (e) {
+        console.warn("OpenAI integration error", e);
+      }
+    }
+
     const mock: DraftOutput = {
       opening_line: "Thank you for your ongoing support.",
       main_comment:
