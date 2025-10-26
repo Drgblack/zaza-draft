@@ -1,15 +1,17 @@
 ﻿{
-    "name":  "zaza-draft",
-    "private":  true,
-    "version":  "0.1.1",
-    "scripts":  {
-
-                },
-    "devDependencies":  {
-                            "@typescript-eslint/eslint-plugin":  "^8.38.0",
-                            "@typescript-eslint/parser":  "^8.38.0",
-                            "eslint":  "^9.38.0",
-                            "eslint-config-prettier":  "^10.1.8",
-                            "prettier":  "^3.6.2"
-                        }
+  "name": "zaza-draft",
+  "private": true,
+  "version": "0.1.1",
+  "packageManager": "pnpm@9",
+  "engines": { "node": ">=20" },
+  "scripts": {
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "lint": "eslint .",
+    "build": "echo \"(placeholder) add build script later\" && exit 0",
+    "test": "echo \"(placeholder) add tests later\" && exit 0",
+    "typecheck": "tsc -v >NUL 2>&1 || exit 0"
+  },
+  "devDependencies": {},
+  "dependencies": {}
 }
