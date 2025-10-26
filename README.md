@@ -8,9 +8,11 @@
 Product scope and dev specs live in /docs.
 
 ## Releases
+
 <!-- releases:start -->
+
 No tags published yet.
 
 See all releases → https://github.com/Drgblack/zaza-draft/releases
-<!-- releases:end -->
 
+<!-- releases:end -->

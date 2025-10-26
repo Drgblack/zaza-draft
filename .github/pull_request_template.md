@@ -1,13 +1,16 @@
 ﻿## Summary
+
 Describe what this PR changes and why it is needed. Keep it short and clear.
 
 Closes: #<issue-id> (if applicable)
 ADR: docs/decisions/ADR-XXX-<title>.md (if this PR changes a decision)
 
 ## Screenshots or clips
+
 Include a screenshot or short clip if the UI changed.
 
 ## Type of change
+
 - [ ] feat - new feature
 - [ ] fix - bug fix
 - [ ] chore - tooling or maintenance
@@ -17,6 +20,7 @@ Include a screenshot or short clip if the UI changed.
 - [ ] ci - build or pipeline changes
 
 ## Checklist
+
 - [ ] Small, focused scope
 - [ ] Code builds locally
 - [ ] Lints clean
@@ -32,6 +36,7 @@ Include a screenshot or short clip if the UI changed.
 - [ ] Feature flagged or safe defaults if risk of regression
 
 ## Risk
+
 - [ ] Low
 - [ ] Medium
 - [ ] High
@@ -39,4 +44,5 @@ Include a screenshot or short clip if the UI changed.
 If Medium or High, include a short rollback plan.
 
 ## Notes for reviewers
+
 Anything that will help reviewers understand scope, decisions, or trade offs.
