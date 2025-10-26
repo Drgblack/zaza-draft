@@ -1,0 +1,8 @@
+# Node / general
+node_modules/
+dist/
+.build/
+.vercel/
+.env
+.env.*
+.DS_Store
