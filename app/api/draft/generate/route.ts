@@ -6,9 +6,9 @@ import addFormats from "ajv-formats";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-type Tone = "supportive" | "firm" | "neutral" | "celebratory";
+type Tone = "warm" | "professional" | "direct" | "empathetic";
 type Safeguard = "privacy" | "tone-check" | "de-escalation" | "bias-check" | "no-diagnosis";
-type Lang = "EN" | "DE" | "ES" | "FR" | "IT";
+type Lang = "en" | "de" | "es" | "fr";
 
 type DraftOutput = {
   opening_line: string;
@@ -27,15 +27,16 @@ function loadSchema() {
   return JSON.parse(readFileSync(p, "utf-8").replace(/^\uFEFF/, ""));
 }
 
-// Simple request schema (adjust as needed)
+// Simple request schema (mapped to Tech/Product spec)
 const requestSchema = {
   type: "object",
   additionalProperties: false,
   properties: {
-    language: { type: "string", enum: ["EN", "DE", "ES", "FR", "IT"] },
-    tone: { type: "string", enum: ["supportive", "firm", "neutral", "celebratory"] },
-    notes: { type: "string", maxLength: 2000 } // teacher’s draft notes/context
-  }
+    language: { type: "string", enum: ["en", "de", "es", "fr"] },
+    tone: { type: "string", enum: ["warm", "professional", "direct", "empathetic"] },
+    notes: { type: "string", maxLength: 2000 } // teacher's draft notes/context
+  },
+  required: ["language", "tone", "notes"]
 };
 
 const validateReq = ajv.compile(requestSchema);
@@ -54,11 +55,11 @@ export async function POST(req: Request) {
     const mock: DraftOutput = {
       opening_line: "Thank you for your ongoing support.",
       main_comment:
-        "Based on the details you shared, I drafted a clear, empathetic update that acknowledges strengths and outlines one next step. We will focus on structuring ideas before writing and using a simple checklist to get started independently.",
+        "Based on the details you shared, here is a clear, school-ready draft that acknowledges strengths and suggests one next step. We will focus on structuring ideas before writing and using a simple checklist to get started independently.",
       closing_line: "If helpful, I can share example prompts for that checklist.",
-      tone: (body.tone as Tone) || "supportive",
+      tone: (body.tone as Tone) || "warm",
       safeguards_applied: ["privacy", "tone-check", "bias-check"],
-      meta: { language: (body.language as Lang) || "EN", reading_time_seconds: 18, version: "1.0.0" }
+      meta: { language: (body.language as Lang) || "en", reading_time_seconds: 18, version: "1.0.0" }
     };
 
     if (!validateOut(mock)) {
