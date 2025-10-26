@@ -1,0 +1,26 @@
+{
+  "title": "Zaza Draft Output",
+  "type": "object",
+  "required": ["opening_line", "main_comment", "closing_line", "tone", "safeguards_applied", "meta"],
+  "properties": {
+    "opening_line": { "type": "string", "minLength": 3 },
+    "main_comment": { "type": "string", "minLength": 10 },
+    "closing_line": { "type": "string", "minLength": 3 },
+    "tone": { "type": "string", "enum": ["warm", "professional", "direct", "empathetic"] },
+    "safeguards_applied": {
+      "type": "array",
+      "items": { "type": "string", "enum": ["privacy", "tone-check", "de-escalation", "bias-check", "no-diagnosis"] },
+      "minItems": 1
+    },
+    "meta": {
+      "type": "object",
+      "required": ["language", "reading_time_seconds", "version"],
+      "properties": {
+        "language": { "type": "string", "enum": ["en", "de", "es", "fr"] },
+        "reading_time_seconds": { "type": "integer", "minimum": 1 },
+        "version": { "type": "string" }
+      }
+    }
+  },
+  "additionalProperties": false
+}

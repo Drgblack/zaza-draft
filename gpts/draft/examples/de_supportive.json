@@ -1,0 +1,8 @@
+{
+  "opening_line": "Vielen Dank für Ihre Unterstützung.",
+  "main_comment": "In den letzten Wochen beteiligt sich Lea aktiver in Gruppenarbeiten. Sie stellt klärende Fragen und setzt Feedback um. Als Nächstes üben wir, Ideen vor dem Schreiben zu strukturieren. Eine kurze Checkliste zu Hause kann ihr helfen, selbstständig zu starten.",
+  "closing_line": "Gern sende ich Ihnen Beispiel-Prompts für die Checkliste.",
+  "tone": "empathetic",
+  "safeguards_applied": ["privacy", "tone-check", "bias-check"],
+  "meta": { "language": "de", "reading_time_seconds": 20, "version": "1.0.0" }
+}

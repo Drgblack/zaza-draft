@@ -1,0 +1,5 @@
+﻿import DraftClient from "./components/DraftClient";
+
+export default function Page() {
+  return <DraftClient />;
+}

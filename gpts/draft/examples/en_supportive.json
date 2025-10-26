@@ -1,0 +1,8 @@
+﻿{
+  "opening_line": "Thank you for your ongoing support.",
+  "main_comment": "In recent weeks, Ava has been engaging more confidently during group tasks. She asks clarifying questions and applies feedback. Next, we’ll focus on structuring ideas before writing. A short checklist at home could help her get started independently.",
+  "closing_line": "Please let me know if you’d like suggested prompts for the checklist.",
+  "tone": "empathetic",
+  "safeguards_applied": ["privacy", "tone-check", "bias-check"],
+  "meta": { "language": "en", "reading_time_seconds": 20, "version": "1.0.0" }
+}
