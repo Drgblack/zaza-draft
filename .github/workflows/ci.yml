@@ -42,3 +42,35 @@ jobs:
 
       - name: Build
         run: pnpm build
+
+  preview-smoke:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    needs: checks
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'pnpm'
+
+      - name: Enable corepack and pnpm
+        run: |
+          corepack enable
+          corepack prepare pnpm@latest --activate
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Preview smoke (with protection bypass)
+        env:
+          BASE_URL: ${{ secrets.PREVIEW_URL }}
+          PROTECTION_BYPASS: ${{ secrets.VERCEL_PROTECTION_BYPASS }}
+        run: |
+          if [ -z "$BASE_URL" ]; then
+            echo "No PREVIEW_URL configured; skipping preview smoke." && exit 0;
+          fi
+          node scripts/smoke-draft.mjs

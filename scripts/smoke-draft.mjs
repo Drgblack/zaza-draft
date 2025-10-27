@@ -5,9 +5,15 @@
 */
 
 const BASE_URL = process.env.BASE_URL || 'http://localhost:3000';
+const BYPASS = process.env.PROTECTION_BYPASS; // Vercel Protection Bypass token
 
-async function req(path, opts) {
-  const res = await fetch(`${BASE_URL}${path}`, opts);
+async function req(path, opts = {}) {
+  const headers = { ...(opts.headers || {}) };
+  if (BYPASS) {
+    headers['x-vercel-protection-bypass'] = BYPASS;
+    headers['cookie'] = `vercel-bypass=${BYPASS}`;
+  }
+  const res = await fetch(`${BASE_URL}${path}`, { ...opts, headers });
   const text = await res.text();
   let json;
   try { json = JSON.parse(text); } catch { json = text; }
@@ -62,4 +68,3 @@ async function main() {
 }
 
 main().catch((e) => { console.error('Smoke error', e); process.exit(1); });
-
