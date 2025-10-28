@@ -1,0 +1,6 @@
+{
+  "version": 3,
+  "sources": [],
+  "sections": [
+    {"offset": {"line": 1, "column": 0}, "map": {"version":3,"sources":["file:///C:/Users/User/Projects/zaza-draft/app/globals.css"],"sourcesContent":["@import \"tailwindcss\";\r\n"],"names":[],"mappings":"","debugId":null}}]
+}

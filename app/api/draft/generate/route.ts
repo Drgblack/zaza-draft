@@ -93,11 +93,14 @@ export async function POST(req: Request) {
           String(body.notes || "")
         ].join("\n");
 
-        const resp = await fetch("https://api.openai.com/v1/chat/completions", {
+        // Import withRetry at the top of the file
+        const { withRetry } = await import('./retry');
+        
+        const resp = await withRetry(() => fetch("https://api.openai.com/v1/chat/completions", {
           method: "POST",
           headers: {
-            "content-type": "application/json",
-            Authorization: `Bearer ${apiKey}`,
+            "content-type": "application/json; charset=utf-8",
+            Authorization: `Bearer ${apiKey}`
           },
           body: JSON.stringify({
             model: "gpt-4o-mini",
@@ -106,8 +109,8 @@ export async function POST(req: Request) {
               { role: "user", content: `tone=${toneCanon}; language=${body.language}; ${prompt}` },
             ],
             temperature: 0.4,
-          }),
-        });
+          })
+        }));
 
         if (resp.ok) {
           const data: any = await resp.json();

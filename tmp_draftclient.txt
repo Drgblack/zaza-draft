@@ -1,7 +1,5 @@
-﻿"use client";
+"use client";
 import { useState } from "react";
-import { TONE_DESCRIPTIONS, SAFEGUARD_DESCRIPTIONS, ERROR_MESSAGES } from "./draft-constants";
-import { Tooltip } from "./Tooltip";
 
 type Tone = "warm" | "professional" | "direct" | "empathetic";
 type Lang = "en" | "de" | "es" | "fr";
@@ -25,12 +23,7 @@ export default function DraftClient() {
       if (!r.ok) throw new Error(await r.text());
       setResp(await r.json());
     } catch (e: any) {
-      const errMsg = e?.message?.toLowerCase() || "";
-      if (errMsg.includes("network")) setErr(ERROR_MESSAGES.network);
-      else if (errMsg.includes("validation")) setErr(ERROR_MESSAGES.validation);
-      else if (errMsg.includes("openai")) setErr(ERROR_MESSAGES.openai);
-      else if (errMsg.includes("bad request")) setErr(ERROR_MESSAGES.badRequest);
-      else setErr(ERROR_MESSAGES.default);
+      setErr(e?.message ?? "Request failed");
     } finally {
       setLoading(false);
     }
@@ -54,22 +47,19 @@ export default function DraftClient() {
         />
         <div className="flex gap-3 flex-wrap">
           {(["warm","professional","direct","empathetic"] as Tone[]).map(t => (
-            <Tooltip key={t} content={TONE_DESCRIPTIONS[t]}>
-              <button
-                type="button"
-                className={`rounded-full border px-3 py-1 text-sm ${tone===t ? "bg-black text-white" : ""}`}
-                onClick={() => setTone(t)}
-                aria-pressed={tone === t ? "true" : "false"}
-              >
-                {t}
-              </button>
-            </Tooltip>
+            <button
+              key={t}
+              type="button"
+              className={`rounded-full border px-3 py-1 text-sm ${tone===t ? "bg-black text-white" : ""}`}
+              onClick={() => setTone(t)}
+            >
+              {t}
+            </button>
           ))}
           <select
             className="ml-auto rounded-md border px-3 py-1 text-sm"
             value={language}
             onChange={(e) => setLanguage(e.target.value as Lang)}
-            aria-label="Select language"
           >
             <option value="en">English</option>
             <option value="de">Deutsch</option>
@@ -81,7 +71,7 @@ export default function DraftClient() {
             disabled={loading || !notes.trim()}
             className="ml-auto rounded-md bg-black px-4 py-2 text-white disabled:opacity-50"
           >
-            {loading ? "Generating..." : "Generate"}
+            {loading ? "Generating…" : "Generate"}
           </button>
         </div>
       </section>
@@ -91,23 +81,15 @@ export default function DraftClient() {
       {resp && (
         <section className="rounded-2xl border p-4 space-y-3">
           <div className="text-sm text-gray-500">
-            tone: {resp.tone} - lang: {resp.meta?.language}
-          </div>
-          <div className="flex gap-2 flex-wrap">
-            <button className="rounded-md border px-2 py-1 text-xs" onClick={() => navigator.clipboard.writeText(resp.opening_line)}>Copy opening</button>
-            <button className="rounded-md border px-2 py-1 text-xs" onClick={() => navigator.clipboard.writeText(resp.main_comment)}>Copy main</button>
-            <button className="rounded-md border px-2 py-1 text-xs" onClick={() => navigator.clipboard.writeText(resp.closing_line)}>Copy closing</button>
-            <button className="rounded-md border px-2 py-1 text-xs" onClick={() => navigator.clipboard.writeText(JSON.stringify(resp))}>Copy JSON</button>
+            tone: {resp.tone} · lang: {resp.meta?.language}
           </div>
           <p className="font-medium">{resp.opening_line}</p>
           <p>{resp.main_comment}</p>
           <p className="italic">{resp.closing_line}</p>
           {Array.isArray(resp.safeguards_applied) && (
             <div className="flex gap-2 flex-wrap pt-2">
-              {resp.safeguards_applied.map((s: keyof typeof SAFEGUARD_DESCRIPTIONS) => (
-                <Tooltip key={s} content={SAFEGUARD_DESCRIPTIONS[s]}>
-                  <span className="rounded-full border px-2 py-0.5 text-xs cursor-help">{s}</span>
-                </Tooltip>
+              {resp.safeguards_applied.map((s: string) => (
+                <span key={s} className="rounded-full border px-2 py-0.5 text-xs">{s}</span>
               ))}
             </div>
           )}
@@ -120,9 +102,4 @@ export default function DraftClient() {
     </main>
   );
 }
-
-
-
-
-
 
