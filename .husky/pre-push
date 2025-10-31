@@ -1,5 +1,9 @@
 #!/usr/bin/env sh
-. "$(dirname "$0")/_/husky.sh"
+set -e
+
+# Ensure we’re in the repo root (hooks sometimes execute from .git/)
+repo="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
+cd "$repo"
 
 # Prefer pnpm; fall back to npx vitest if pnpm isn't on PATH in Git Bash
 if command -v pnpm >/dev/null 2>&1; then
