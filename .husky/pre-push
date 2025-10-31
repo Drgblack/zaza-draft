@@ -7,7 +7,7 @@ cd "$repo"
 
 # Prefer pnpm; fall back to npx vitest if pnpm isn't on PATH in Git Bash
 if command -v pnpm >/dev/null 2>&1; then
-  pnpm run test:ci
+  pnpm run test:fast
 else
-  npx -y vitest vitest --run --reporter=dot
+  npx -y vitest vitest --run --reporter=dot -c vitest.fast.config.ts
 fi
