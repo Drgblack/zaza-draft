@@ -11,3 +11,6 @@ dist/
 .vercel
 
 .vercel/
+
+# local backups
+*.bak*
