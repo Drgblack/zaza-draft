@@ -1,0 +1,9 @@
+#!/usr/bin/env sh
+. "$(dirname "$0")/_/husky.sh"
+
+# Prefer pnpm; fall back to npx vitest if pnpm isn't on PATH in Git Bash
+if command -v pnpm >/dev/null 2>&1; then
+  pnpm run test:ci
+else
+  npx -y vitest vitest --run --reporter=dot
+fi
