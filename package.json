@@ -27,8 +27,8 @@
         "test:unit": "vitest --run -c vitest.config.ts",
         "test:file": "vitest --run",
         "test:name": "vitest --run -t",
-        "test:app": "vitest --run --include=app/**/*.test.ts",
-        "test:core": "vitest --run --include=**/__tests__/**/*.test.ts --include=app/**/*.test.ts",
+        "test:app": "node scripts/test-glob.js app/**/*.test.ts",
+        "test:core": "node scripts/test-glob.js __tests__/**/*.test.ts app/**/*.test.ts",
         "test:changed:staged": "node scripts/test-changed.js --staged",
         "test:changed:last": "node scripts/test-changed.js --last"
     },
