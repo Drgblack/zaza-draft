@@ -21,7 +21,8 @@
     "dev:3012": "next dev -p 3012",
     "start": "next start",
     "release:check": "node scripts/release-check.js",
-    "test:ci": "vitest --run --reporter=dot"
+    "test:ci": "vitest --run --reporter=dot",
+    "prepare": "husky"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",
