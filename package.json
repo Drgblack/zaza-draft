@@ -23,7 +23,7 @@
     "release:check": "node scripts/release-check.js",
     "test:ci": "vitest --run --reporter=dot",
     "prepare": "husky",
-    "test:fast": "vitest --run --reporter=dot -c vitest.fast.config.ts"
+    "test:fast": "cross-env VITEST_LOG_LEVEL=error vitest --run --reporter=dot -c vitest.fast.config.ts"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",
