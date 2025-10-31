@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-const { execSync } = require("child_process");
+const { execFileSync, execSync } = require("child_process");
 
 const patterns = process.argv.slice(2);
 if (patterns.length === 0) {
@@ -7,18 +7,20 @@ if (patterns.length === 0) {
   process.exit(2);
 }
 
-let files = "";
+let files = [];
 try {
-  // use git pathspecs to expand globs portably
-  const args = patterns.map(p => `'` + p.replace(/'/g, `'\\''`) + `'`).join(" ");
-  files = execSync(`git ls-files -- ${args}`, { stdio: ["ignore", "pipe", "ignore"] })
-    .toString()
+  // Use execFileSync to avoid shell quoting issues on Windows
+  const out = execFileSync("git", ["ls-files", "--", ...patterns], {
+    stdio: ["ignore", "pipe", "ignore"],
+  }).toString();
+
+  files = out
     .split("\n")
     .filter(Boolean)
-    .map(f => f.replace(/\\/g, "/"));
+    .map((f) => f.replace(/\\/g, "/"));
 } catch {
-  // fall back to running vitest with the raw patterns (best effort)
-  files = patterns;
+  // Fallback: run Vitest with raw patterns (best effort)
+  files = [];
 }
 
 if (!files.length) {
@@ -26,6 +28,6 @@ if (!files.length) {
   process.exit(0);
 }
 
-const cmd = `vitest --run ${files.map(f => `"${f}"`).join(" ")}`;
+const cmd = `vitest --run ${files.map((f) => `"${f}"`).join(" ")}`;
 console.log("Running:", cmd);
 execSync(cmd, { stdio: "inherit" });
