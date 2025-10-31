@@ -5,6 +5,12 @@ set -e
 repo="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
 cd "$repo"
 
+# --- Skip tests for docs-only changes ---
+CHANGED=$(git diff --name-only --cached)
+if [ -n "$CHANGED" ] && echo "$CHANGED" | grep -E -q '^(README\.md|CHANGELOG\.md|CONTRIBUTING\.md|docs/|\.github/)' ; then
+  echo "Docs-only changes detected – skipping tests."
+  exit 0
+fi
 # Prefer pnpm; fall back to npx vitest if pnpm isn't on PATH in Git Bash
 if command -v pnpm >/dev/null 2>&1; then
   pnpm run test:fast
