@@ -55,6 +55,7 @@
     "@vitest/coverage-v8": "^4.0.5",
     "autoprefixer": "^10.4.21",
     "firebase-functions-test": "^3.4.1",
+    "husky": "9",
     "jest": "^30.2.0",
     "jest-environment-jsdom": "^30.2.0",
     "jsdom": "^27.1.0",

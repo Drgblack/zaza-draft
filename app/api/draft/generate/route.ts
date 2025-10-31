@@ -7,6 +7,12 @@ import addFormats from "ajv-formats";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
+import { headers } from 'next/headers';
+import { authAdmin } from '@/lib/firebase/admin';
+import { incrementSnippetUsage } from '@/lib/firestore/usage';
+import { rateLimit } from '@/lib/rateLimit';
+import { writeAudit } from '@/lib/log';
+
 type Tone = "warm" | "professional" | "direct" | "empathetic";
 type Safeguard = "privacy" | "tone-check" | "de-escalation" | "bias-check" | "no-diagnosis";
 type Lang = "en" | "de" | "es" | "fr";
@@ -46,6 +52,44 @@ const validateOut = ajv.compile<DraftOutput>(loadSchema());
 
 export async function POST(req: Request) {
   try {
+    // Check authentication and usage limits
+    const authHeader = headers().get('Authorization');
+    if (!authHeader?.startsWith('Bearer ')) {
+      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+        status: 401,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
+
+    // Verify token
+    const token = authHeader.split('Bearer ')[1];
+    const decodedToken = await authAdmin.verifyIdToken(token);
+
+    // Simple per-user rate limiting
+    try {
+      const rl = rateLimit(`uid:${decodedToken.uid}`, 60, 60_000);
+      if (!rl.ok) {
+        await writeAudit({ event: 'rate_limited', uid: decodedToken.uid, route: 'api/draft/generate', details: { remaining: rl.remaining } });
+        return new Response(JSON.stringify({ error: 'Too many requests' }), { status: 429, headers: { 'Content-Type': 'application/json' } });
+      }
+    } catch (e) {
+      // noop
+    }
+
+    // Increment usage (enforces freemium limits)
+    try {
+      await incrementSnippetUsage(decodedToken.uid);
+    } catch (e: any) {
+      if (e.message === 'Free plan limit reached') {
+        await writeAudit({ event: 'snippet_blocked', uid: decodedToken.uid, route: 'api/draft/generate', details: { reason: 'limit_reached' } });
+        return new Response(JSON.stringify({ error: 'Free plan limit reached' }), {
+          status: 402, // Payment Required
+          headers: { 'Content-Type': 'application/json' },
+        });
+      }
+      throw e; // Re-throw other errors
+    }
+
     const body = await req.json().catch(() => ({}));
     if (!validateReq(body)) {
       return new Response(JSON.stringify({ error: "Invalid request", details: validateReq.errors }), {
@@ -77,6 +121,15 @@ export async function POST(req: Request) {
       );
     }
 
+    // Import helpers
+    const { withRetry } = await import('./retry');
+    const { withTimeout } = await import('./timeout');
+    const { logApiEvent } = await import('./logger');
+    
+    const startTime = Date.now();
+    const timeoutMs = parseInt(process.env.DRAFT_AI_TIMEOUT_MS || '10000', 10);
+    let mockUsed = false;
+
     // Prefer OpenAI when configured; fall back to mock
     const apiKey = process.env.OPENAI_API_KEY;
 
@@ -92,25 +145,25 @@ export async function POST(req: Request) {
           "Notes:",
           String(body.notes || "")
         ].join("\n");
-
-        // Import withRetry at the top of the file
-        const { withRetry } = await import('./retry');
         
-        const resp = await withRetry(() => fetch("https://api.openai.com/v1/chat/completions", {
-          method: "POST",
-          headers: {
-            "content-type": "application/json; charset=utf-8",
-            Authorization: `Bearer ${apiKey}`
-          },
-          body: JSON.stringify({
-            model: "gpt-4o-mini",
-            messages: [
-              { role: "system", content: "You are Zaza Draft. Always return only JSON as specified." },
-              { role: "user", content: `tone=${toneCanon}; language=${body.language}; ${prompt}` },
-            ],
-            temperature: 0.4,
-          })
-        }));
+        const resp = await withTimeout(
+          () => withRetry(() => fetch("https://api.openai.com/v1/chat/completions", {
+            method: "POST",
+            headers: {
+              "content-type": "application/json; charset=utf-8",
+              Authorization: `Bearer ${apiKey}`
+            },
+            body: JSON.stringify({
+              model: "gpt-4o-mini",
+              messages: [
+                { role: "system", content: "You are Zaza Draft. Always return only JSON as specified." },
+                { role: "user", content: `tone=${toneCanon}; language=${body.language}; ${prompt}` },
+              ],
+              temperature: 0.4,
+            })
+          })), 
+          { timeoutMs }
+        );
 
         if (resp.ok) {
           const data: any = await resp.json();
@@ -135,11 +188,34 @@ export async function POST(req: Request) {
           const errtxt = await resp.text();
           console.warn("OpenAI request failed", resp.status, errtxt);
         }
-      } catch (e) {
-        console.warn("OpenAI integration error", e);
+      } catch (e: any) {
+        const errorType = e.name === 'TimeoutError' ? 'timeout' :
+                         e.status >= 500 ? 'server_error' :
+                         e.status === 429 ? 'rate_limit' :
+                         e.status >= 400 ? 'client_error' : 'network_error';
+                         
+        logApiEvent({
+          ts: new Date().toISOString(),
+          route: 'api/draft/generate',
+          model: 'gpt-4o-mini',
+          dur_ms: Date.now() - startTime,
+          ok: false,
+          status: e.status || 500,
+          err_type: errorType,
+          err_code: e.code,
+          mock_used: false
+        });
+        
+        console.warn("OpenAI integration error", { 
+          type: errorType,
+          status: e.status,
+          code: e.code,
+          message: e.message
+        });
       }
     }
 
+    mockUsed = true;
     const mock: DraftOutput = {
       opening_line: "Thank you for your ongoing support.",
       main_comment:
@@ -151,15 +227,51 @@ export async function POST(req: Request) {
     };
 
     if (!validateOut(mock)) {
+      logApiEvent({
+        ts: new Date().toISOString(),
+        route: 'api/draft/generate',
+        model: 'gpt-4o-mini',
+        dur_ms: Date.now() - startTime,
+        ok: false,
+        status: 500,
+        err_type: 'validation_error',
+        mock_used: mockUsed
+      });
+      
       return new Response(JSON.stringify({ error: "Output failed schema validation", details: validateOut.errors }), {
         status: 500, headers: { "content-type": "application/json" }
       });
     }
 
-    return new Response(JSON.stringify(mock), { status: 200, headers: { "content-type": "application/json" } });
+    logApiEvent({
+      ts: new Date().toISOString(),
+      route: 'api/draft/generate',
+      model: 'gpt-4o-mini',
+      dur_ms: Date.now() - startTime,
+      ok: true,
+      status: 200,
+      mock_used: mockUsed
+    });
+
+    return new Response(JSON.stringify(mock), { 
+      status: 200, 
+      headers: { "content-type": "application/json; charset=utf-8" } 
+    });
   } catch (err: any) {
+    logApiEvent({
+      ts: new Date().toISOString(),
+      route: 'api/draft/generate',
+      model: 'gpt-4o-mini',
+      dur_ms: Date.now() - startTime,
+      ok: false,
+      status: 400,
+      err_type: 'bad_request',
+      err_code: err?.code,
+      mock_used: mockUsed
+    });
+    
     return new Response(JSON.stringify({ error: "Bad request", details: err?.message || String(err) }), {
-      status: 400, headers: { "content-type": "application/json" }
+      status: 400, headers: { "content-type": "application/json; charset=utf-8" }
     });
   }
 }

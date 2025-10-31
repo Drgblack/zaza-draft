@@ -1,1 +1,11 @@
-@import "tailwindcss";
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Project-wide base styles */
+html, body, #__next {
+	height: 100%;
+}
+body {
+	@apply bg-white text-slate-900;
+}
