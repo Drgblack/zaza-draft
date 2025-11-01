@@ -153,7 +153,7 @@ const guardedSafe = (guarded as Promise<any>).catch((err: any) => {
   });
 
   try {
-    const result = await Promise.race<[T | typeof TIMEOUT]>([guardedSafe as any, timeout as any]);
+    const result = await Promise.race<[T | typeof TIMEOUT]>([(guarded as Promise<any>).catch((err: any) => { if (signal?.aborted && (err?.name === 'AbortError' || err?.code === 'ABORT_ERR')) return TIMEOUT as any; throw err; }) as any, timeout as any]);
     if (result === TIMEOUT) throw new TimeoutError();return result as T;
   } finally {
     clearTimeout(t!);
