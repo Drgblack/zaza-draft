@@ -149,7 +149,7 @@ async function promiseWithTimeout<T>(
 
   try {
     const result = await Promise.race<[T | typeof TIMEOUT]>([guarded as any, timeout as any]);
-    if (result === TIMEOUT) { await Promise.resolve(); throw new TimeoutError(); }return result as T;
+    if (result === TIMEOUT) throw new TimeoutError();return result as T;
   } finally {
     clearTimeout(t!);
   }
