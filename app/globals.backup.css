@@ -1,0 +1,13 @@
+﻿/* Tailwind v4 entry */
+@import "tailwindcss";
+
+/* Your global tweaks */
+:root { color-scheme: light dark; }
+
+/* Make sure the editor types LTR and not backwards */
+#editor-root {
+  direction: ltr;
+  unicode-bidi: normal;
+  writing-mode: horizontal-tb;
+  text-align: left;
+}

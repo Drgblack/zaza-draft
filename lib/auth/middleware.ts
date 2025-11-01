@@ -1,6 +1,6 @@
-import { NextResponse } from 'next/server';
+﻿import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
-import { authAdmin } from '@/lib/firebase/admin';
+import { dbAdmin } from '@/lib/firebase/admin';
 
 export async function authMiddleware(req: NextRequest) {
   try {
@@ -9,8 +9,8 @@ export async function authMiddleware(req: NextRequest) {
       return NextResponse.json({ error: 'No token provided' }, { status: 401 });
     }
 
-    const decodedToken = await authAdmin.verifyIdToken(token);
-    const user = await authAdmin.getUser(decodedToken.uid);
+    const decodedToken = await dbAdmin.verifyIdToken(token);
+    const user = await dbAdmin.getUser(decodedToken.uid);
 
     // Attach user to request for route handlers
     req.headers.set('X-User-Id', user.uid);

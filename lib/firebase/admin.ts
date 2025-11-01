@@ -1,15 +1,7 @@
-import { initializeApp, getApps, applicationDefault } from "firebase-admin/app";
-import { getAuth } from "firebase-admin/auth";
-import { getFirestore } from "firebase-admin/firestore";
+﻿import "server-only";
 
-// Reuse app in tests & dev; use applicationDefault so emulators work if set
-const app = getApps()[0] ?? initializeApp({
-  credential: applicationDefault(),
-});
+// Minimal placeholder – keep your real admin init here:
+export const dbAdmin = {} as any;
 
-// Primary handles
-export const dbAdmin   = getFirestore(app);
-export const authAdmin = getAuth(app);
-
-// Optional default export (some codebases import default)
-export default app;
+// Keep a single alias only (remove duplicates)
+export const authAdmin = dbAdmin;

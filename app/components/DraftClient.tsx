@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import { TONE_DESCRIPTIONS, SAFEGUARD_DESCRIPTIONS, ERROR_MESSAGES } from "./draft-constants";
 import { Tooltip } from "./Tooltip";
 import { useAuth } from "@/lib/auth/hooks";
-import { getUserProfile } from "@/lib/firestore/usage";
+import { getUserProfile } from "@/lib/firestore/usage-client";
 import { UpgradeButton } from "./billing/UpgradeButton";
 import toast from "react-hot-toast";
 

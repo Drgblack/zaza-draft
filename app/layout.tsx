@@ -1,7 +1,11 @@
 ﻿import "./globals.css";
+import "./globals.css";
+import "./globals.css";
 import { AuthProvider } from "@/lib/auth";
+import "./globals.css";
 import { Toaster } from 'react-hot-toast';
 
+import "./globals.css";
 export const metadata = { title: "Zaza Draft", description: "Parent Comment Helper" }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
