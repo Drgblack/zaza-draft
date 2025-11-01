@@ -125,21 +125,26 @@ async function promiseWithTimeout<T>(
   controller: AbortController
 ): Promise<T> {
   let t: NodeJS.Timeout;
-  let timedOut = false;
 
-  // Guard late rejections if the timeout wins the race
-  p.catch(() => {});
+  const guarded = p.then(
+    (v) => v,
+    (e) => {
+      if (controller.signal.aborted) {
+        return new Promise<T>(() => {});
+      }
+      throw e;
+    }
+  );
 
   const timeout = new Promise<never>((_, reject) => {
     t = setTimeout(() => {
-      timedOut = true;
       controller.abort();
       reject(new TimeoutError());
     }, ms);
   });
 
   try {
-    return await Promise.race([p, timeout]) as T;
+    return (await Promise.race([guarded, timeout])) as T;
   } finally {
     clearTimeout(t!);
   }
