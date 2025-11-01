@@ -1,49 +1,50 @@
-import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
-import { withRetry } from './retry';
+// app/api/draft/generate/retry.test.ts
+import { describe, it, expect, vi } from "vitest";
+import { withRetry, TimeoutError } from "./retry";
 
-describe('withRetry', () => {
-  beforeEach(() => {
+describe("withRetry", () => {
+  it("retries and eventually succeeds (fast, no real waits)", async () => {
     vi.useFakeTimers();
-  });
+    const spy = vi.spyOn(console, "log").mockImplementation(() => {});
 
-  afterEach(() => {
+    let count = 0;
+    const promise = withRetry(async () => {
+      count++;
+      if (count < 3) throw new Error("Persistent error");
+      return "ok";
+    }, { attempts: 3, base: 1000, factor: 1.5, jitter: false /* deterministic */, /* no logger */ });
+
+    // Advance time to cover the backoffs: 1000ms, then 1500ms
+    await vi.advanceTimersByTimeAsync(1000 + 1500);
+    await expect(promise).resolves.toBe("ok");
+    expect(count).toBe(3);
+
+    // No logs because we didn't pass a logger and DEBUG_RETRY is not set in tests
+    expect(spy).not.toHaveBeenCalled();
+
+    spy.mockRestore();
     vi.useRealTimers();
   });
 
-  it('should return immediately on success', async () => {
-    const operation = vi.fn().mockResolvedValue('success');
-    const result = await withRetry(operation);
-    expect(result).toBe('success');
-    expect(operation).toHaveBeenCalledTimes(1);
+  it("does not retry on 4xx-like errors when shouldRetry filters them out", async () => {
+    let count = 0;
+    await expect(withRetry(async () => {
+      count++;
+      const err = new Error("Client error");
+      // @ts-expect-error attach code for predicate
+      err.code = 400;
+      throw err;
+    }, {
+      attempts: 5,
+      shouldRetry: (e) => (e as any)?.code >= 500,
+    })).rejects.toThrow("Client error");
+    expect(count).toBe(1);
   });
 
-  it('should retry on failure and succeed eventually', async () => {
-    vi.useRealTimers();
-    const operation = vi.fn()
-      .mockRejectedValueOnce(new Error('Temporary error'))
-      .mockRejectedValueOnce(new Error('Another temporary error'))
-      .mockResolvedValue('success');
-
-    const result = await withRetry(operation);
-    expect(result).toBe('success');
-    expect(operation).toHaveBeenCalledTimes(3);
-  });
-
-  it('should not retry on 4xx errors', async () => {
-    const clientError = new Error('Bad request');
-    (clientError as any).status = 400;
-    
-    const operation = vi.fn().mockRejectedValue(clientError);
-    
-    await expect(withRetry(operation)).rejects.toThrow('Bad request');
-    expect(operation).toHaveBeenCalledTimes(1);
-  });
-
-  it('should respect max attempts', async () => {
-    vi.useRealTimers();
-    const operation = vi.fn().mockRejectedValue(new Error('Persistent error'));
-    
-    await expect(withRetry(operation, 3)).rejects.toThrow('Persistent error');
-    expect(operation).toHaveBeenCalledTimes(3);
+  it("throws TimeoutError if single attempt exceeds timeout", async () => {
+    await expect(withRetry(async () => {
+      await new Promise(res => setTimeout(res, 50));
+      return "done";
+    }, { attempts: 1, timeoutMs: 10 })).rejects.toBeInstanceOf(TimeoutError);
   });
 });

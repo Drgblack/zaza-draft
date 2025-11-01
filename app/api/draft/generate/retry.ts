@@ -1,35 +1,139 @@
+// app/api/draft/generate/retry.ts
+export class TimeoutError extends Error {
+  constructor(message = "Operation timed out") {
+    super(message);
+    this.name = "TimeoutError";
+  }
+}
+
+export class CancelError extends Error {
+  constructor(message = "Operation cancelled") {
+    super(message);
+    this.name = "CancelError";
+  }
+}
+
+export type RetryOptions = {
+  attempts?: number;          // total attempts incl. the first run (default 3)
+  base?: number;              // base backoff in ms (default 500)
+  factor?: number;            // exponential factor (default 1.5)
+  jitter?: boolean;           // add +/- 50 % jitter (default true)
+  maxDelay?: number;          // cap the backoff (default 10_000)
+  timeoutMs?: number;         // per-attempt timeout (default undefined = no per-attempt timeout)
+  signal?: AbortSignal;       // external cancellation
+  shouldRetry?: (err: unknown) => boolean; // retry predicate
+  onRetry?: (err: unknown, attempt: number, delayMs: number) => void; // hook
+  logger?: (msg: string) => void; // optional logger; if omitted, silent by default
+};
+
+function sleep(ms: number, signal?: AbortSignal) {
+  return new Promise<void>((resolve, reject) => {
+    const t = setTimeout(() => {
+      if (signal) signal.removeEventListener("abort", onAbort);
+      resolve();
+    }, ms);
+    function onAbort() {
+      clearTimeout(t);
+      reject(new CancelError());
+    }
+    if (signal) signal.addEventListener("abort", onAbort, { once: true });
+  });
+}
+
 export async function withRetry<T>(
-  operation: () => Promise<T>,
-  maxAttempts = 3,
-  baseDelayMs = 1000
+  fn: (attempt: number, signal?: AbortSignal) => Promise<T>,
+  opts: RetryOptions = {}
 ): Promise<T> {
-  let lastError: Error | undefined;
+  const {
+    attempts = 3,
+    base = 500,
+    factor = 1.5,
+    jitter = true,
+    maxDelay = 10_000,
+    timeoutMs,
+    signal,
+    shouldRetry = () => true,
+    onRetry,
+    logger: loggerOpt,
+  } = opts;
 
-  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+  // Only log if explicitly asked to or env flag set
+  const logger =
+    loggerOpt ||
+    (process.env.DEBUG_RETRY === "1" ? (msg: string) => console.log(msg) : undefined);
+
+  for (let attempt = 1; attempt <= attempts; attempt++) {
+    // Per-attempt timeout wrapper
+    const controller = new AbortController();
+    const composite = mergeSignals(signal, controller.signal);
+
     try {
-      return await operation();
-    } catch (error: any) {
-      lastError = error;
-      
-      // Don't retry on 400-level errors (client errors)
-      if (error?.status >= 400 && error?.status < 500) {
-        throw error;
+      const run = fn(attempt, composite);
+      const result = timeoutMs
+        ? await promiseWithTimeout(run, timeoutMs, controller)
+        : await run;
+      return result;
+    } catch (err) {
+      // External cancellation should surface immediately
+      if (isAbort(signal)) throw new CancelError();
+
+      // Non-retryable? bubble out
+      if (!shouldRetry(err) || attempt === attempts) {
+        throw err;
       }
 
-      if (attempt === maxAttempts) {
-        break;
+      // Backoff
+      let delay = Math.min(maxDelay, Math.floor(base * Math.pow(factor, attempt - 1)));
+      if (jitter) {
+        const jitterFactor = 1 + (Math.random() * 1.0 - 0.5); // +/- 50%
+        delay = Math.max(0, Math.floor(delay * jitterFactor));
       }
 
-      // Exponential backoff with jitter
-      const delayMs = Math.min(
-        baseDelayMs * Math.pow(2, attempt - 1) * (0.5 + Math.random()),
-        10000 // Max 10s delay
-      );
-      
-      console.warn(`Retry attempt ${attempt}/${maxAttempts} after ${delayMs}ms:`, error);
-      await new Promise(resolve => setTimeout(resolve, delayMs));
+      if (logger) logger(`Retry attempt ${attempt}/${attempts} after ${delay}ms: ${formatErr(err)}`);
+      if (onRetry) onRetry(err, attempt, delay);
+
+      await sleep(delay, signal);
+      continue;
     }
   }
+  // Should never reach here
+  // eslint-disable-next-line no-throw-literal
+  throw new Error("withRetry: exhausted attempts unexpectedly");
+}
 
-  throw lastError || new Error('Operation failed after retries');
+function isAbort(signal?: AbortSignal) {
+  return !!(signal && signal.aborted);
+}
+
+function formatErr(err: unknown) {
+  return err instanceof Error ? err.message : String(err);
+}
+
+function mergeSignals(a?: AbortSignal, b?: AbortSignal): AbortSignal | undefined {
+  if (!a && !b) return undefined;
+  const ctrl = new AbortController();
+  const onAbort = () => ctrl.abort();
+  if (a) a.addEventListener("abort", onAbort);
+  if (b) b.addEventListener("abort", onAbort);
+  if (a?.aborted || b?.aborted) ctrl.abort();
+  return ctrl.signal;
+}
+
+async function promiseWithTimeout<T>(
+  p: Promise<T>,
+  ms: number,
+  controller: AbortController
+): Promise<T> {
+  let t: NodeJS.Timeout;
+  const timeout = new Promise<never>((_, reject) => {
+    t = setTimeout(() => {
+      controller.abort();
+      reject(new TimeoutError());
+    }, ms);
+  });
+  try {
+    return await Promise.race([p, timeout]) as T;
+  } finally {
+    clearTimeout(t!);
+  }
 }
