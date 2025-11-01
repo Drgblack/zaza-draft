@@ -126,25 +126,31 @@ async function promiseWithTimeout<T>(
 ): Promise<T> {
   let t: NodeJS.Timeout;
 
+  // Resolve with a sentinel on timeout instead of rejecting to avoid unhandled rejections
+  const TIMEOUT = Symbol("timeout");
+
+  // Guard the original promise: if we aborted, swallow its late rejection
   const guarded = p.then(
     (v) => v,
     (e) => {
       if (controller.signal.aborted) {
-        return new Promise<T>(() => {});
+        return new Promise<T>(() => {}); // never settles; prevents late unhandled rejection
       }
       throw e;
     }
   );
 
-  const timeout = new Promise<never>((_, reject) => {
+  const timeout = new Promise<typeof TIMEOUT>((resolve) => {
     t = setTimeout(() => {
       controller.abort();
-      reject(new TimeoutError());
+      resolve(TIMEOUT);
     }, ms);
   });
 
   try {
-    return (await Promise.race([guarded, timeout])) as T;
+    const result = await Promise.race<[T | typeof TIMEOUT]>([guarded as any, timeout as any]);
+    if (result === TIMEOUT) throw new TimeoutError();
+    return result as T;
   } finally {
     clearTimeout(t!);
   }
