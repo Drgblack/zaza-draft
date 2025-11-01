@@ -1,4 +1,6 @@
 // app/api/draft/generate/retry.ts
+const TIMEOUT = Symbol('TIMEOUT');
+
 export class TimeoutError extends Error {
   constructor(message = "Operation timed out") {
     super(message);
@@ -120,25 +122,47 @@ function mergeSignals(a?: AbortSignal, b?: AbortSignal): AbortSignal | undefined
 }
 
 async function promiseWithTimeout<T>(
-  p: Promise<T>,
+  fn: (signal: AbortSignal) => Promise<T>,
   ms: number,
-  controller: AbortController
+  externalSignal?: AbortSignal
 ): Promise<T> {
-  let t: NodeJS.Timeout;
+  const controller = new AbortController();
+  const signal = controller.signal;
+  let timer: any;
 
-  // Resolve with a sentinel on timeout instead of rejecting to avoid unhandled rejections
-  const TIMEOUT = Symbol("timeout");
+  const guarded = (async () => {
+    if (externalSignal?.aborted) {
+      throw externalSignal.reason ?? new DOMException('Aborted', 'AbortError');
+    }
+    const onAbort = () =>
+      controller.abort(externalSignal!.reason ?? new DOMException('Aborted', 'AbortError'));
+    externalSignal?.addEventListener('abort', onAbort, { once: true });
+    try {
+      return await fn(signal);
+    } finally {
+      externalSignal?.removeEventListener('abort', onAbort);
+    }
+  })().catch((err: any) => {
+    if (signal.aborted && (err?.name === 'AbortError' || err?.code === 'ABORT_ERR')) {
+      return TIMEOUT as any;
+    }
+    throw err;
+  });
 
-  // Guard the original promise: if we aborted, swallow its late rejection
-  const guarded = p.then(
-    (v) => v,
-    (e) => {
-      if (controller.signal.aborted) {
-        return new Promise<T>(() => {});
-const guardedSafe = (guarded as Promise<any>).catch((err: any) => {
-  // If we aborted due to our own timeout, swallow abort-related errors
-  if (signal?.aborted && (err?.name === 'AbortError' || err?.code === 'ABORT_ERR')) return TIMEOUT as any;
-  throw err;
+  const timeout = new Promise<typeof TIMEOUT>((resolve) => {
+    timer = setTimeout(() => {
+      controller.abort(new DOMException('Timeout', 'AbortError'));
+      resolve(TIMEOUT);
+    }, ms);
+  });
+
+  try {
+    const result = await Promise.race<[T | typeof TIMEOUT]>([guarded as any, timeout as any]);
+    if (result === TIMEOUT) throw new TimeoutError();
+    return result as T;
+  } finally {
+    clearTimeout(timer);
+  }
 }); // never settles; prevents late unhandled rejection
       }
       throw e;
