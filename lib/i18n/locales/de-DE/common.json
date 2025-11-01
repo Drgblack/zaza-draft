@@ -1,0 +1,107 @@
+{
+  "footer.taglineShort": "Entdecken Sie wieder die Freude am Unterrichten.",
+  "footer.col.product": "Produkt",
+  "footer.col.company": "Unternehmen",
+  "footer.link.draft": "Zaza Draft",
+  "footer.link.teach": "Zaza Teach",
+  "footer.link.about": "Über uns",
+  "footer.link.privacy": "Datenschutz",
+  "footer.link.terms": "Nutzungsbedingungen",
+  "footer.link.contact": "Kontakt"
+
+  "metrics.words.zero": "0 Wörter",
+  "metrics.words.one": "1 Wort",
+  "metrics.words.other": "{count} Wörter",
+  "metrics.readingLevel": "Lesestufe: {level}",
+
+  "toolbar.bold": "Fett",
+  "toolbar.italic": "Kursiv",
+  "toolbar.underline": "Unterstreichen",
+  "toolbar.bulleted": "Aufzählung",
+  "toolbar.numbered": "Nummerierte Liste",
+  "toolbar.h2": "Überschrift 2",
+  "toolbar.undo": "Rückgängig",
+  "toolbar.redo": "Wiederholen",
+
+  "sidebar.search": "Dokumente suchen",
+  "sidebar.recent": "Zuletzt verwendet",
+
+  "zara.empty.title": "Noch keine Vorschläge",
+  "zara.empty.hint": "Markiere Text oder klicke auf AI fragen, um zu starten.",
+  "zara.history.none": "Noch kein Verlauf",
+
+  "top.saved": "Gespeichert",
+  "streak.days": "{count}-Tage-Serie"
+
+  "ui.tone.label": "Ton",
+  "ui.tone.professional": "Professionell",
+  "ui.tone.friendly": "Freundlich",
+  "ui.tone.warm": "Warm",
+  "ui.tone.firm": "Bestimmt",
+  "ui.tone.neutral": "Neutral",
+  "ui.tone.empathetic": "Einfühlsam",
+  "ui.tone.concise": "Prägnant",
+  "ui.tone.custom": "Eigener Stil",
+
+  "ui.tabs.suggestions": "Vorschläge",
+  "ui.tabs.explain": "Erklären",
+  "ui.tabs.history": "Verlauf"
+
+  "language.name": "Deutsch (DE)",
+  "language.code": "de-DE",
+
+  "greeting.morning": "Guten Morgen, {name} 👋",
+  "greeting.afternoon": "Guten Tag, {name}",
+  "greeting.evening": "Guten Abend, {name}",
+  "greeting.sub.friendly": "Bereit für einen warmen und klaren Ton?",
+  "greeting.sub.professional": "Lassen wir es prägnant und professionell.",
+  "greeting.sub.default": "Wobei kann ich heute helfen?",
+
+  "zara.header.context": "Hallo {name}, ich habe {count} Vorschläge gefunden - lass uns den Text gemeinsam verfeinern.",
+  "zara.tip.email": "Tipp: Kurze Absätze und zu einer Antwort einladen.",
+  "zara.tip.lesson": "Tipp: Füge überprüfbare Erfolgskriterien hinzu.",
+  "zara.tip.report": "Tipp: Stärken würdigen und einen gezielten nächsten Schritt nennen.",
+  "zara.toggle.show": "AI-Panel anzeigen",
+  "zara.toggle.hide": "AI-Panel ausblenden",
+  "zara.toggle.shortcut": "Alt + ]",
+
+  "footer.tagline": "Zaza Draft - unterstützt Lehrkräfte beim sicheren Schreiben.",
+
+  "share.title": "Dokument teilen",
+  "share.note": "Teilen erstellt einen Nur-Lesen-Link. Keine Schülerdaten enthalten.",
+  "share.link.label": "Link",
+  "share.link.copy": "Link kopieren",
+  "share.link.copied": "Kopiert!",
+  "share.open": "In neuem Tab öffnen",
+  "share.manage": "Zugriff verwalten",
+  "share.manage.tooltip": "Bald verfügbar",
+  "share.quick": "Schnell teilen",
+  "share.quick.whatsapp": "WhatsApp",
+  "share.quick.email": "E-Mail",
+  "share.quick.facebook": "Facebook",
+  "share.quick.reddit": "Reddit",
+  "share.quick.webshare": "Mit Gerät teilen",
+  "share.quick.aria": "Auf {network} teilen",
+
+  "cmd.palette.title": "Befehlsübersicht",
+  "cmd.newDoc": "Neues Dokument",
+  "cmd.askAI": "AI fragen",
+  "cmd.insertComment": "Als Kommentar einfügen",
+  "cmd.toggleDark": "Dunkelmodus umschalten",
+  "cmd.togglePanel": "AI-Panel umschalten",
+  "cmd.share": "Dokument teilen",
+
+  "coachmark.showPanel": "Hier das AI-Panel einblenden",
+  "toast.welcomeBack": "Willkommen zurück, {name}! Deine Einstellungen wurden geladen.",
+  "toast.preferenceApplied": "{pref} wurde aus deinen Einstellungen übernommen.",
+
+  "buttons.use": "Übernehmen",
+  "buttons.insertAsComment": "Als Kommentar einfügen",
+  "buttons.cancel": "Abbrechen",
+  "buttons.close": "Schließen",
+
+  "a11y.shareDialog": "Teilen-Dialog",
+  "a11y.toggleAIPanel": "AI-Panel umschalten",
+  "a11y.quickShareRow": "Schnell-Teilen Optionen",
+  "a11y.streakChip": "Schreib-Serie {count} Tage"
+}

@@ -1,0 +1,107 @@
+{
+  "footer.taglineShort": "Experience the joy of teaching again.",
+  "footer.col.product": "Product",
+  "footer.col.company": "Company",
+  "footer.link.draft": "Zaza Draft",
+  "footer.link.teach": "Zaza Teach",
+  "footer.link.about": "About",
+  "footer.link.privacy": "Privacy",
+  "footer.link.terms": "Terms",
+  "footer.link.contact": "Contact"
+
+  "metrics.words.zero": "0 words",
+  "metrics.words.one": "1 word",
+  "metrics.words.other": "{count} words",
+  "metrics.readingLevel": "Reading level: {level}",
+
+  "toolbar.bold": "Bold",
+  "toolbar.italic": "Italic",
+  "toolbar.underline": "Underline",
+  "toolbar.bulleted": "Bulleted list",
+  "toolbar.numbered": "Numbered list",
+  "toolbar.h2": "Heading 2",
+  "toolbar.undo": "Undo",
+  "toolbar.redo": "Redo",
+
+  "sidebar.search": "Search documents",
+  "sidebar.recent": "Recent documents",
+
+  "zara.empty.title": "No suggestions yet",
+  "zara.empty.hint": "Highlight some text or click Ask AI to get started.",
+  "zara.history.none": "No history yet",
+
+  "top.saved": "Saved",
+  "streak.days": "{count} day streak"
+
+  "ui.tone.label": "Tone",
+  "ui.tone.professional": "Professional",
+  "ui.tone.friendly": "Friendly",
+  "ui.tone.warm": "Warm",
+  "ui.tone.firm": "Firm",
+  "ui.tone.neutral": "Neutral",
+  "ui.tone.empathetic": "Empathetic",
+  "ui.tone.concise": "Concise",
+  "ui.tone.custom": "Custom",
+
+  "ui.tabs.suggestions": "Suggestions",
+  "ui.tabs.explain": "Explain",
+  "ui.tabs.history": "History"
+
+  "language.name": "English (UK)",
+  "language.code": "en-GB",
+
+  "greeting.morning": "Good morning, {name} 👋",
+  "greeting.afternoon": "Good afternoon, {name}",
+  "greeting.evening": "Good evening, {name}",
+  "greeting.sub.friendly": "Ready to write something warm and clear?",
+  "greeting.sub.professional": "Let’s keep it crisp and professional.",
+  "greeting.sub.default": "How can I help with today’s writing?",
+
+  "zara.header.context": "Hi {name}, I found {count} suggestions - let’s polish this together.",
+  "zara.tip.email": "Tip: Keep paragraphs short and invite a reply.",
+  "zara.tip.lesson": "Tip: Add success criteria students can check.",
+  "zara.tip.report": "Tip: Balance strengths with one targeted next step.",
+  "zara.toggle.show": "Show AI panel",
+  "zara.toggle.hide": "Hide AI panel",
+  "zara.toggle.shortcut": "Alt + ]",
+
+  "footer.tagline": "Zaza Draft - helping teachers write with confidence.",
+
+  "share.title": "Share this document",
+  "share.note": "Sharing sends a view-only link. No student data is included.",
+  "share.link.label": "Link",
+  "share.link.copy": "Copy link",
+  "share.link.copied": "Copied!",
+  "share.open": "Open in new tab",
+  "share.manage": "Manage access",
+  "share.manage.tooltip": "Coming soon",
+  "share.quick": "Quick share",
+  "share.quick.whatsapp": "WhatsApp",
+  "share.quick.email": "Email",
+  "share.quick.facebook": "Facebook",
+  "share.quick.reddit": "Reddit",
+  "share.quick.webshare": "Share with device",
+  "share.quick.aria": "Share on {network}",
+
+  "cmd.palette.title": "Command palette",
+  "cmd.newDoc": "New document",
+  "cmd.askAI": "Ask AI",
+  "cmd.insertComment": "Insert as comment",
+  "cmd.toggleDark": "Toggle dark mode",
+  "cmd.togglePanel": "Toggle AI panel",
+  "cmd.share": "Share document",
+
+  "coachmark.showPanel": "Show AI panel here",
+  "toast.welcomeBack": "Welcome back, {name}! Your preferences have been restored.",
+  "toast.preferenceApplied": "Using your saved {pref} setting.",
+
+  "buttons.use": "Use",
+  "buttons.insertAsComment": "Insert as comment",
+  "buttons.cancel": "Cancel",
+  "buttons.close": "Close",
+
+  "a11y.shareDialog": "Share dialog",
+  "a11y.toggleAIPanel": "Toggle AI panel",
+  "a11y.quickShareRow": "Quick share options",
+  "a11y.streakChip": "Writing streak {count} days"
+}
