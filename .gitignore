@@ -15,3 +15,7 @@ dist/
 # local backups
 *.bak*
 .next/
+
+.env.local
+
+!*.example
