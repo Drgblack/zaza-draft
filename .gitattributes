@@ -1,13 +1,1 @@
-﻿* text=auto eol=lf
-*.ps1 text eol=lf
-*.js  text eol=lf
-*.ts  text eol=lf
-*.tsx text eol=lf
-*.json text eol=lf
-*.md  text eol=lf
-*.png -text
-*.jpg -text
-*.jpeg -text
-*.gif -text
-*.ico -text
-*.pdf -text
+* text=auto eol=lf
