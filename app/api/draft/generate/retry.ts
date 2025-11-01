@@ -134,7 +134,12 @@ async function promiseWithTimeout<T>(
     (v) => v,
     (e) => {
       if (controller.signal.aborted) {
-        return new Promise<T>(() => {}); // never settles; prevents late unhandled rejection
+        return new Promise<T>(() => {});
+const guardedSafe = (guarded as Promise<any>).catch((err: any) => {
+  // If we aborted due to our own timeout, swallow abort-related errors
+  if (signal?.aborted && (err?.name === 'AbortError' || err?.code === 'ABORT_ERR')) return TIMEOUT as any;
+  throw err;
+}); // never settles; prevents late unhandled rejection
       }
       throw e;
     }
@@ -148,7 +153,7 @@ async function promiseWithTimeout<T>(
   });
 
   try {
-    const result = await Promise.race<[T | typeof TIMEOUT]>([guarded as any, timeout as any]);
+    const result = await Promise.race<[T | typeof TIMEOUT]>([guardedSafe as any, timeout as any]);
     if (result === TIMEOUT) throw new TimeoutError();return result as T;
   } finally {
     clearTimeout(t!);
