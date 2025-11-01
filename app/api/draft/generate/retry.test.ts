@@ -81,5 +81,8 @@ describe("withRetry", () => {
     // Advance just beyond the attempt timeout
     await vi.advanceTimersByTimeAsync(11);
     await expect(p).rejects.toBeInstanceOf(TimeoutError);
-  });
+
+// Drain any pending timers/microtasks created during the race
+await Promise.resolve();
+await vi.runAllTimersAsync();});
 });
