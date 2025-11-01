@@ -1,9 +1,15 @@
-/**
- * Test-time stub for Admin Firestore.
- * Prevents Vitest/Vite import errors for "@/lib/firebase/admin".
- * Replace with real Admin SDK in server/runtime if needed.
- */
-export const dbAdmin = { __mock: true } as any;
+import { initializeApp, getApps, applicationDefault } from "firebase-admin/app";
+import { getAuth } from "firebase-admin/auth";
+import { getFirestore } from "firebase-admin/firestore";
 
-// Alias for code that expects authAdmin
-export const authAdmin = dbAdmin;
+// Reuse app in tests & dev; use applicationDefault so emulators work if set
+const app = getApps()[0] ?? initializeApp({
+  credential: applicationDefault(),
+});
+
+// Primary handles
+export const dbAdmin   = getFirestore(app);
+export const authAdmin = getAuth(app);
+
+// Optional default export (some codebases import default)
+export default app;
