@@ -61,3 +61,6 @@ describe('withTimeout', () => {
     await expect(promise).rejects.toThrow('Operation canceled');
   });
 });
+// tmp: edit 2025-11-01T12:49:32.6707271+01:00
+
+// tmp edit 2025-11-01T12:51:20.4592023+01:00
