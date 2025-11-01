@@ -130,20 +130,22 @@ async function promiseWithTimeout<T>(
   const signal = controller.signal;
   let timer: any;
 
+  // Attach catch immediately to avoid async-handled rejection warnings
   const guarded = (async () => {
     if (externalSignal?.aborted) {
-      throw externalSignal.reason ?? new DOMException('Aborted', 'AbortError');
+      throw externalSignal.reason ?? new DOMException("Aborted", "AbortError");
     }
     const onAbort = () =>
-      controller.abort(externalSignal!.reason ?? new DOMException('Aborted', 'AbortError'));
-    externalSignal?.addEventListener('abort', onAbort, { once: true });
+      controller.abort(externalSignal!.reason ?? new DOMException("Aborted", "AbortError"));
+    externalSignal?.addEventListener("abort", onAbort, { once: true });
     try {
       return await fn(signal);
     } finally {
-      externalSignal?.removeEventListener('abort', onAbort);
+      externalSignal?.removeEventListener("abort", onAbort);
     }
   })().catch((err: any) => {
-    if (signal.aborted && (err?.name === 'AbortError' || err?.code === 'ABORT_ERR')) {
+    // If our own timeout aborted the task, swallow its AbortError from the losing branch
+    if (signal.aborted && (err?.name === "AbortError" || err?.code === "ABORT_ERR")) {
       return TIMEOUT as any;
     }
     throw err;
@@ -151,7 +153,7 @@ async function promiseWithTimeout<T>(
 
   const timeout = new Promise<typeof TIMEOUT>((resolve) => {
     timer = setTimeout(() => {
-      controller.abort(new DOMException('Timeout', 'AbortError'));
+      controller.abort(new DOMException("Timeout", "AbortError"));
       resolve(TIMEOUT);
     }, ms);
   });
