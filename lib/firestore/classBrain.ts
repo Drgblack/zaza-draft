@@ -1,5 +1,5 @@
-import { db } from '@/lib/firebase/client';
-import { dbAdmin } from '@/lib/firebase/admin';
+﻿import { db } from '@/lib/firebase/client';
+import { dbAdmin } from '@/lib/firestore/server';
 import {
   collection,
   doc,
@@ -167,3 +167,4 @@ export function normalizeClass(docData: any): ClassMeta {
     updatedAt: docData.updatedAt?.toDate ? docData.updatedAt.toDate() : docData.updatedAt,
   };
 }
+

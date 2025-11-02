@@ -1,4 +1,4 @@
-# Zaza Draft - Product Requirements Document
+﻿# Zaza Draft - Product Requirements Document
 
 **Version:** 2.0  
 **Last Updated:** October 6, 2025  
@@ -148,10 +148,10 @@ Transform the teaching experience by eliminating the burden of repetitive, emoti
 ### 3.1 Core User Flows
 
 **Flow 1: New User Onboarding (Psychological Anchoring)**
-1. Landing page → Sign up (Google SSO or email/password)
+1. Landing page â†’ Sign up (Google SSO or email/password)
 2. **Emotional Hook Screen:** "What's your biggest communication challenge?"
    - Options: "Writing report cards," "Difficult parent conversations," "Finding the right words," "Time pressure," "Language barriers"
-   - User selects → Instant empathy + promise of relief
+   - User selects â†’ Instant empathy + promise of relief
 3. **Instant Relief Demo:** Based on selection, show AI generating a relevant snippet in real-time
    - User watches their specific pain point being solved (15-20 seconds)
    - "See? We get it. Let's save you hours each week."
@@ -184,7 +184,7 @@ Transform the teaching experience by eliminating the burden of repetitive, emoti
 3. Search by keyword
 4. View snippet card with metadata
 5. Actions: Edit, Delete, Export, Share (post-MVP)
-6. Bulk actions: Select multiple → Export as PDF/CSV
+6. Bulk actions: Select multiple â†’ Export as PDF/CSV
 
 **Success Criteria:** >50% of users return to library, average 5+ saved snippets per active user
 
@@ -351,9 +351,9 @@ Transform the teaching experience by eliminating the burden of repetitive, emoti
 - Continuous model fine-tuning based on feedback
 
 **Fallback Strategy:**
-- If GPT-4 fails or times out → retry once
-- If second failure → fall back to GPT-3.5-turbo (faster, cheaper)
-- If all AI fails → show friendly error with option to try again or contact support
+- If GPT-4 fails or times out â†’ retry once
+- If second failure â†’ fall back to GPT-3.5-turbo (faster, cheaper)
+- If all AI fails â†’ show friendly error with option to try again or contact support
 - All failures logged with context for engineering review
 
 **Output Specifications:**
@@ -549,7 +549,7 @@ Transform the teaching experience by eliminating the burden of repetitive, emoti
 
 **Time-Saved Celebrations:**
 - After every 5th snippet: "You've saved approximately 45 minutes this week! Want to share your productivity win?"
-- Pre-filled social post: "I just saved 45 minutes on teacher communications with @ZazaEdu's Draft app! 🙌 #TeacherProductivity #EdTech"
+- Pre-filled social post: "I just saved 45 minutes on teacher communications with @ZazaEdu's Draft app! ðŸ™Œ #TeacherProductivity #EdTech"
 - Includes referral link
 
 **Milestone Sharing:**
@@ -657,11 +657,11 @@ Zaza Draft is one pillar of the integrated Zaza educator platform, designed to w
 
 ### 4.2 Integration Points
 
-#### 4.2.1 Draft ↔ Teach Integration
+#### 4.2.1 Draft â†” Teach Integration
 
 **Snippet-to-Lesson Flow:**
 - Parent communication snippets from Draft can be linked to lesson plans in Teach
-- Example: Report card comment in Draft → Auto-reference to related unit in Teach
+- Example: Report card comment in Draft â†’ Auto-reference to related unit in Teach
 - Teachers can see which lessons correspond to communications about student progress
 
 **Shared Context:**
@@ -1015,18 +1015,18 @@ Target: 120+ minutes (2+ hours) by Month 3
 
 ### 10.4 Alignment with Zaza Mandate
 
-**Viral Mechanics:** ✅ Implemented shareable cards, referral program, milestone sharing in MVP
-**Smart Defaults:** ✅ Pricing aligned at $7.50/month, $59/year per mandate
-**Cross-App Integration:** ✅ Draft integrates with Teach, Zara, and KnowledgeCore
-**Psychological Onboarding:** ✅ Emotional anchoring with instant relief demo
-**AI Safety:** ✅ Multi-layer pipeline with structured prompts and fallback logic
+**Viral Mechanics:** âœ… Implemented shareable cards, referral program, milestone sharing in MVP
+**Smart Defaults:** âœ… Pricing aligned at $7.50/month, $59/year per mandate
+**Cross-App Integration:** âœ… Draft integrates with Teach, Zara, and KnowledgeCore
+**Psychological Onboarding:** âœ… Emotional anchoring with instant relief demo
+**AI Safety:** âœ… Multi-layer pipeline with structured prompts and fallback logic
 
 ### 10.5 Alignment with Cursor Rules
 
-**Authentication:** ✅ Firebase email/password primary, Google Auth optional
-**Database:** ✅ Firestore collections: users, snippets, classes, subscriptions, feedback
-**AI Strategy:** ✅ GPT-4 with GPT-3.5 fallback, comprehensive logging
-**Safety:** ✅ Hallucination prevention, post-processing filters, user feedback loop
+**Authentication:** âœ… Firebase email/password primary, Google Auth optional
+**Database:** âœ… Firestore collections: users, snippets, classes, subscriptions, feedback
+**AI Strategy:** âœ… GPT-4 with GPT-3.5 fallback, comprehensive logging
+**Safety:** âœ… Hallucination prevention, post-processing filters, user feedback loop
 
 ### 10.6 Glossary
 
@@ -1041,7 +1041,7 @@ Target: 120+ minutes (2+ hours) by Month 3
 
 | Version | Date | Changes | Author |
 |---------|------|---------|--------|
-| 2.0 | Oct 6, 2025 | **Major Update - Mandate & Cursor Rules Compliance**<br>• Added viral mechanics (shareable cards, referral program, social sharing)<br>• Added cross-app ecosystem integration section (Draft ↔ Teach, Zara, KnowledgeCore)<br>• Enhanced psychological onboarding with emotional anchoring<br>• Updated pricing to $7.50/mo, $59/yr per mandate<br>• Expanded AI safety pipeline to 5-layer system<br>• Changed auth priority: email/password primary, Google OAuth optional<br>• Added compliance sections for mandate & Cursor Rules | Product Team |
+| 2.0 | Oct 6, 2025 | **Major Update - Mandate & Cursor Rules Compliance**<br>â€¢ Added viral mechanics (shareable cards, referral program, social sharing)<br>â€¢ Added cross-app ecosystem integration section (Draft â†” Teach, Zara, KnowledgeCore)<br>â€¢ Enhanced psychological onboarding with emotional anchoring<br>â€¢ Updated pricing to $7.50/mo, $59/yr per mandate<br>â€¢ Expanded AI safety pipeline to 5-layer system<br>â€¢ Changed auth priority: email/password primary, Google OAuth optional<br>â€¢ Added compliance sections for mandate & Cursor Rules | Product Team |
 | 1.0 | Oct 6, 2025 | Initial PRD based on consolidated spec | Product Team |
 
 ---
@@ -1057,9 +1057,9 @@ Target: 120+ minutes (2+ hours) by Month 3
 **Next Review Date:** November 15, 2025
 **Authors:** Dr. Greg Blackburn
 
-# Zaza – Emotionally Intelligent AI Additions Pack
+# Zaza â€“ Emotionally Intelligent AI Additions Pack
 
-This pack defines the extensions required to align Zaza Draft (and all Zaza apps) with the **Strategic Vision – The Emotionally Intelligent AI Ecosystem**.  
+This pack defines the extensions required to align Zaza Draft (and all Zaza apps) with the **Strategic Vision â€“ The Emotionally Intelligent AI Ecosystem**.  
 It supplements both the Product Requirements Document (PRD) and Technical Specification (TS).
 
 ---
@@ -1070,7 +1070,7 @@ It supplements both the Product Requirements Document (PRD) and Technical Specif
 - Add reflective layer: AI explains why a suggestion was made.  
 
 ## 2. Teacher Agency & Feedback Loop
-- Feedback system to include qualitative EI dimensions (‘supportive’, ‘appropriate tone’).  
+- Feedback system to include qualitative EI dimensions (â€˜supportiveâ€™, â€˜appropriate toneâ€™).  
 - Store per-teacher EI feedback in profile for Zara adaptation.  
 
 ## 3. Cross-App EI Memory
@@ -1090,33 +1090,225 @@ It supplements both the Product Requirements Document (PRD) and Technical Specif
 ## Implementation Guidance
 - Add section **'Emotionally Intelligent AI Enhancements'** to Technical Spec.  
 - Update schemas: users, feedback, generation_logs with EI fields.  
-- Update Zara’s system prompt: always explain reasoning in 1–2 sentences.  
+- Update Zaraâ€™s system prompt: always explain reasoning in 1â€“2 sentences.  
 
 
-### 3.3 Teacher Insights (MVP)
+### 3.3 Teacher Insights Dashboard (Enhanced)
 
-**Goal.** Give each teacher a clear, privacy-safe picture of how Draft helps them, without exposing student PII. Insights live in-app (Profile → Insights) and export on demand (CSV).
+**Goal.** Provide actionable, privacy-safe intelligence that helps teachers understand their productivity gains, communication patterns, and wellbeing signals—without exposing student PII.
 
-**What teachers see (week view by default).**
-- **Drafts created** (count)
-- **Average time-to-first-draft** (ms) and a transparent **time-saved estimate**  
-  _Formula:_ `time_saved_minutes = drafts * 12 − (avg_gen_ms/1000/60 * drafts)` with a 12-minute baseline assumption explained inline
-- **Tone usage** distribution (warm / professional / direct / empathetic)
-- **Languages used** (top 3)
-- **Streaks & milestones** (days active; badges at 10/50/100 drafts)
-- **Download my data (CSV)** — date, drafts, avg_gen_ms, tone_counts
+**Dashboard Location:** Profile → Insights (default: last 7 days, toggle to 30/90 days)
 
-**Out of scope (MVP).** Org/admin analytics, raw text analysis, or any student-identifying metrics.
+---
 
-**Acceptance criteria.**
-- Insights page loads < 1s with last 7 days’ roll-ups
-- CSV export downloads in ≤ 2s and contains only aggregated, non-PII fields
-- Time-saved copy includes the baseline assumption text
-- Works offline-tolerant for display (cached last report); export requires network
+#### **3.3.1 Core Metrics Display**
 
-**Why now.** Supports core value props (time saved, confidence) and complements MVP KPIs.
+**Time Intelligence**
+- **Total time saved** (week/month view)
+  - Formula: `time_saved_minutes = (drafts × baseline_minutes) - (sum(generation_time_ms) / 60000)`
+  - Baseline: 12 min/draft for reports, 8 min for emails, 15 min for recommendations
+  - Transparent tooltip: "Based on teacher time-use studies (NCES 2020)"
+- **Peak productivity hours** (heatmap visualization)
+  - Shows when teacher generates most drafts
+  - Insight: "You're most productive Tuesday afternoons—consider blocking that time"
+- **Average response time** (prompt → usable draft)
+  - Target: <30 seconds for 80% of generations
+  - Trend indicator: improving/stable/declining
 
+**Quality Signals**
+- **Edit depth score** (0-100, higher = less editing needed)
+  - Formula: `100 - (characters_changed / original_length × 100)`
+  - Insight: "Your edit rate dropped 15% this month—growing confidence!"
+- **One-shot success rate** (% of drafts used without regeneration)
+  - Target: >70% after 10 drafts
+- **Tone consistency** (variance in tone selection over time)
+  - Flags: sudden shifts may indicate stress/context change
 
+**Communication Patterns**
+- **Draft type distribution** (report cards, parent emails, recommendations, incident reports)
+  - Derived from prompt analysis (keyword extraction)
+- **Tone usage over time** (stacked area chart)
+  - Warm, Professional, Direct, Empathetic
+  - Insight: "You used 'Empathetic' 40% more in difficult conversations this month"
+- **Language diversity** (top 3 languages used)
+  - Celebrate multilingual support: "You communicated in 3 languages this week!"
+
+---
+
+#### **3.3.2 Wellbeing & Work-Life Balance Indicators**
+
+**Boundary Signals** (opt-in, privacy-first)
+- **After-hours drafting** (% of drafts created 7pm-7am or weekends)
+  - Warning threshold: >30% of drafts after hours
+  - Zara nudge: "You've drafted 5 times this Sunday—consider scheduling responses instead"
+- **Late-night spike detection** (drafts after 10pm)
+  - Trigger: 3+ consecutive late nights
+  - Intervention: "Taking care of yourself? Here are some boundary-setting tips."
+- **Consecutive days active** (streak tracking)
+  - Celebrate: 5-day streaks
+  - Concern: 14+ day streaks without break → wellbeing check-in
+
+**Stress Indicators** (derived, never exposed as "stress score")
+- **Regeneration frequency** (avg attempts per draft)
+  - Baseline: 1.2 attempts
+  - Alert: >2.0 suggests difficulty finding right words
+- **Edit intensity** (substantial rewrites vs. minor tweaks)
+  - High edit intensity + late hours = potential burnout signal
+- **Difficult conversation density** (% of "empathetic" + "direct" tones)
+  - Spike detection: >50% challenging tones in 1 week
+  - Support: "This week had tough conversations—you handled them well"
+
+---
+
+#### **3.3.3 Growth & Achievement Tracking**
+
+**Confidence Progression**
+- **Edit rate trajectory** (declining over time = growing trust)
+  - Visualization: Line graph with trend line
+  - Milestone: "Your first 10 drafts averaged 8 edits. Your last 10 averaged 3!"
+- **Feature adoption curve** (tags, Class Brain, tone experimentation)
+  - Insight: "You started using Class Brain—personalization improved 25%"
+
+**Milestones & Badges** (gamification, but meaningful)
+- **Time Reclaimed badges**
+  - Bronze: 2 hours saved
+  - Silver: 10 hours saved
+  - Gold: 50 hours saved
+- **Consistency badges**
+  - "5-Week Streak" (used Draft 5 weeks in a row)
+  - "Weekend Warrior Retired" (reduced weekend drafting by 50%)
+- **Mastery badges**
+  - "Tone Master" (used all 4 tones effectively)
+  - "Multilingual Champion" (drafted in 3+ languages)
+  - "One-Shot Wonder" (90% first-draft success rate for 1 month)
+
+**Personal Goals** (user-defined)
+- Teachers set custom goals:
+  - "Reduce weekend work by 30 minutes/week"
+  - "Respond to parent emails within 24 hours"
+  - "Write all report cards in one session instead of 3"
+- Progress tracking with weekly check-ins
+- Celebration when achieved + share option
+
+---
+
+#### **3.3.4 Comparative Context (Non-Competitive)**
+
+**Anonymized Benchmarks** (opt-in data sharing)
+- "Teachers using Draft save an average of 3.2 hours/week"
+- "Your edit rate is better than 68% of users in your grade level"
+- "Most teachers see their best results on [Tuesday afternoons]"
+
+**Trend Analysis**
+- Month-over-month comparison (personal)
+  - "This month vs. last: +40% efficiency, -20% after-hours work"
+- Seasonal patterns
+  - "Report card season: You saved 6 extra hours this quarter"
+
+---
+
+#### **3.3.5 Actionable Recommendations**
+
+**Usage Optimization**
+- "You regenerate often on parent emails—try the 'Empathetic' tone first"
+- "Your Wednesday drafts have 50% fewer edits—schedule heavy writing then"
+- "Class Brain increases your one-shot rate by 35%—add more student context"
+
+**Wellbeing Suggestions**
+- "You drafted 4 times after 10pm this week—consider these time-saving strategies"
+- "Difficult conversations spiked—here are self-care resources"
+- "You're working weekends—explore our scheduling features to protect your time"
+
+**Feature Discovery**
+- "You haven't tried bulk export yet—save 10 minutes on report card compilation"
+- "Tag your snippets to find them 80% faster next time"
+
+---
+
+#### **3.3.6 Export & Portability**
+
+**CSV Export** (Settings → Privacy → Download My Data)
+- Fields: date, drafts_count, time_saved_min, avg_generation_ms, tone_warm, tone_professional, tone_direct, tone_empathetic, languages_used, edit_rate
+- No PII, no raw text, aggregated only
+- Download completes in <2 seconds
+
+**PDF Summary** (monthly recap, shareable)
+- Formatted dashboard snapshot
+- Highlights: top achievement, most-used feature, time saved
+- Opt-in: Share anonymized data to improve Zaza
+
+---
+
+#### **3.3.7 Privacy & Transparency**
+
+**Data Minimization**
+- Dashboard uses only: generation timestamps, tone/language selections, edit events, regeneration counts
+- Never stores: raw prompt text, generated snippets, student identifiers
+- Aggregated daily (no hourly tracking for privacy)
+
+**Transparency Tooltips**
+- Every metric has "How is this calculated?" explanation
+- Time-saved formula visible inline
+- Benchmark methodology disclosed
+
+**Consent Controls**
+- Analytics opt-in toggle (Settings → Privacy)
+- Clear explanation: "Help improve Zaza by sharing anonymized usage patterns"
+- Opt-out: All analytics stop immediately, historical data retained but not updated
+
+---
+
+#### **3.3.8 Technical Requirements**
+
+**Performance**
+- Dashboard loads in <1 second (cached daily rollups)
+- Real-time metrics: drafts today, current streak
+- Historical metrics: pre-aggregated in metrics_daily collection
+
+**Responsiveness**
+- Mobile-optimized (collapsed cards, swipeable sections)
+- Desktop: 2-column layout with expandable detail views
+
+**Accessibility**
+- WCAG 2.1 AA compliant
+- Screen reader friendly (all charts have text alternatives)
+- High contrast mode support
+
+---
+
+#### **3.3.9 Success Metrics for Insights Feature**
+
+**Engagement**
+- **Insights page weekly reach:** ≥40% of WAU
+- **CSV export adoption:** ≥10% of active teachers in first 60 days
+- **Goal-setting feature usage:** ≥25% of Pro users set at least one goal
+- **Badge unlock rate:** Average 2 badges per active user by Month 3
+
+**Impact**
+- **Verified time saved (self-report survey):** Median ≥30 min/week
+- **Wellbeing intervention effectiveness:** ≥60% of nudged users reduce after-hours work
+- **Feature discovery via recommendations:** ≥30% of users try suggested features
+
+**Retention**
+- **Users who view Insights 2+ times:** 60% higher 30-day retention
+- **Goal-setters conversion rate:** 2× higher free-to-Pro conversion
+
+---
+
+#### **3.3.10 Out of Scope (MVP)**
+
+- Admin/institutional analytics (school-wide dashboards)
+- Predictive modeling (churn risk, burnout forecasting)
+- Peer comparison (teacher-to-teacher benchmarking)
+- Integration with external tools (export to Google Sheets, etc.)
+- A/B test framework for recommendations
+- Natural language insights ("Ask Zara about my usage")
+
+---
+
+**Why This Matters**
+
+The enhanced Insights Dashboard transforms Draft from a utility into a **reflective companion** that helps teachers understand not just what they're doing, but how they're working and whether they're thriving. By combining productivity metrics with wellbeing signals, we differentiate from commodity AI tools and deliver on the Zaza promise: **teacher wellbeing through intelligent automation**.
 ### 4.5 Data & Consent Principles (Teacher-First)
 
 **Consent layers.**
@@ -1126,16 +1318,17 @@ It supplements both the Product Requirements Document (PRD) and Technical Specif
 
 **Controls.**
 - **Data Use toggle** in onboarding and Settings (plain-language explainer)
-- **Right to export/delete:** Settings → Privacy → “Download my data” and “Delete my account”
+- **Right to export/delete:** Settings â†’ Privacy â†’ â€œDownload my dataâ€ and â€œDelete my accountâ€
 - **Retention defaults:** snippet content until teacher deletes; raw event logs 90 days; daily roll-ups retained
 
 **Transparency.**
 - Inline footnotes for time-saved assumptions
-- “What powers these insights?” tooltip listing only the aggregated fields used
+- â€œWhat powers these insights?â€ tooltip listing only the aggregated fields used
 
 
 **Insights KPIs (MVP add-on).**
-- Insights page weekly reach: ≥40% of WAU
-- CSV export usage: ≥10% of active teachers in first 60 days
-- Verified time saved (self-report survey): median ≥30 min/week
-- Opt-in analytics rate (clear consent): ≥60% of active users
+- Insights page weekly reach: â‰¥40% of WAU
+- CSV export usage: â‰¥10% of active teachers in first 60 days
+- Verified time saved (self-report survey): median â‰¥30 min/week
+- Opt-in analytics rate (clear consent): â‰¥60% of active users
+

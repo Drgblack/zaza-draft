@@ -1,4 +1,4 @@
-# Zaza Draft - Technical Specification
+﻿# Zaza Draft - Technical Specification
 
 **Version:** 2.0  
 **Last Updated:** October 6, 2025  
@@ -80,42 +80,42 @@ Zaza Draft follows a modern, serverless web application architecture optimized f
 ### 1.3 Architecture Diagram
 
 ```
-┌─────────────────────────────────────────────────────────────┐
-│                         CLIENT LAYER                         │
-│                                                              │
-│  ┌────────────────────────────────────────────────────┐   │
-│  │         React SPA (Vercel/Firebase Hosting)        │   │
-│  │  - Component Library (MUI/Chakra)                  │   │
-│  │  - State Management (Context + React Query)        │   │
-│  │  - Routing (React Router)                          │   │
-│  └────────────────────────────────────────────────────┘   │
-└─────────────────────────────────────────────────────────────┘
-                            ↕ HTTPS
-┌─────────────────────────────────────────────────────────────┐
-│                     API/BACKEND LAYER                        │
-│                                                              │
-│  ┌──────────────────┐  ┌──────────────────┐               │
-│  │ Firebase Auth    │  │ Cloud Functions  │               │
-│  │ - OAuth          │  │ - Snippet Gen    │               │
-│  │ - JWT Tokens     │  │ - Export         │               │
-│  └──────────────────┘  │ - Webhooks       │               │
-│                        │ - Utilities      │               │
-│                        └──────────────────┘               │
-└─────────────────────────────────────────────────────────────┘
-                            ↕
-┌─────────────────────────────────────────────────────────────┐
-│                      DATA & AI LAYER                         │
-│                                                              │
-│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐     │
-│  │  Firestore   │  │  OpenAI API  │  │  Stripe API  │     │
-│  │  Database    │  │  (GPT-4)     │  │  (Payments)  │     │
-│  └──────────────┘  └──────────────┘  └──────────────┘     │
-│                                                              │
-│  ┌──────────────┐  ┌──────────────┐                        │
-│  │ Cloud Storage│  │  Analytics   │                        │
-│  │ (Files/PDFs) │  │  (Mixpanel)  │                        │
-│  └──────────────┘  └──────────────┘                        │
-└─────────────────────────────────────────────────────────────┘
+â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”
+â”‚                         CLIENT LAYER                         â”‚
+â”‚                                                              â”‚
+â”‚  â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”   â”‚
+â”‚  â”‚         React SPA (Vercel/Firebase Hosting)        â”‚   â”‚
+â”‚  â”‚  - Component Library (MUI/Chakra)                  â”‚   â”‚
+â”‚  â”‚  - State Management (Context + React Query)        â”‚   â”‚
+â”‚  â”‚  - Routing (React Router)                          â”‚   â”‚
+â”‚  â””â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”˜   â”‚
+â””â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”˜
+                            â†• HTTPS
+â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”
+â”‚                     API/BACKEND LAYER                        â”‚
+â”‚                                                              â”‚
+â”‚  â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”  â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”               â”‚
+â”‚  â”‚ Firebase Auth    â”‚  â”‚ Cloud Functions  â”‚               â”‚
+â”‚  â”‚ - OAuth          â”‚  â”‚ - Snippet Gen    â”‚               â”‚
+â”‚  â”‚ - JWT Tokens     â”‚  â”‚ - Export         â”‚               â”‚
+â”‚  â””â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”˜  â”‚ - Webhooks       â”‚               â”‚
+â”‚                        â”‚ - Utilities      â”‚               â”‚
+â”‚                        â””â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”˜               â”‚
+â””â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”˜
+                            â†•
+â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”
+â”‚                      DATA & AI LAYER                         â”‚
+â”‚                                                              â”‚
+â”‚  â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”  â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”  â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”     â”‚
+â”‚  â”‚  Firestore   â”‚  â”‚  OpenAI API  â”‚  â”‚  Stripe API  â”‚     â”‚
+â”‚  â”‚  Database    â”‚  â”‚  (GPT-4)     â”‚  â”‚  (Payments)  â”‚     â”‚
+â”‚  â””â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”˜  â””â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”˜  â””â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”˜     â”‚
+â”‚                                                              â”‚
+â”‚  â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”  â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”                        â”‚
+â”‚  â”‚ Cloud Storageâ”‚  â”‚  Analytics   â”‚                        â”‚
+â”‚  â”‚ (Files/PDFs) â”‚  â”‚  (Mixpanel)  â”‚                        â”‚
+â”‚  â””â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”˜  â””â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”˜                        â”‚
+â””â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”˜
 ```
 
 ---
@@ -413,7 +413,7 @@ function hasAccessToDraft(user: ZazaUser): boolean {
 }
 ```
 
-#### 3.1.2 Class Roster Sync (Draft ↔ Teach)
+#### 3.1.2 Class Roster Sync (Draft â†” Teach)
 
 **Sync Strategy:**
 - Classes created in Draft automatically available in Teach
@@ -489,7 +489,7 @@ async function zaraProactiveSuggestion(context: ZaraContext): Promise<string> {
 
 #### 3.1.4 Snippet-to-Lesson Linking
 
-**Use Case:** Teacher generates parent communication about a lesson unit → Link to that lesson plan in Teach
+**Use Case:** Teacher generates parent communication about a lesson unit â†’ Link to that lesson plan in Teach
 
 **Implementation:**
 ```typescript
@@ -1321,25 +1321,25 @@ jobs:
 - Authentication: Free
 
 **Estimated Monthly Costs (1,000 active users):**
-- 1,000 users × 5 snippets/month = 5,000 generations
-- OpenAI: 5,000 × $0.011 = $55/month
+- 1,000 users Ã— 5 snippets/month = 5,000 generations
+- OpenAI: 5,000 Ã— $0.011 = $55/month
 - Firebase: $0 (within free tier)
 - **Total: ~$55/month**
 
 **Scaling (10,000 active users):**
-- 10,000 × 5 = 50,000 generations/month
-- OpenAI: 50,000 × $0.011 = $550/month
+- 10,000 Ã— 5 = 50,000 generations/month
+- OpenAI: 50,000 Ã— $0.011 = $550/month
 - Firebase: ~$50/month (estimated overage)
 - **Total: ~$600/month**
 
 **With Pro users (20% conversion, unlimited):**
 - Assume Pro users generate 20 snippets/month average
 - 10,000 total users, 2,000 Pro (paying $12/month)
-- Free: 8,000 × 5 = 40,000 generations
-- Pro: 2,000 × 20 = 40,000 generations
+- Free: 8,000 Ã— 5 = 40,000 generations
+- Pro: 2,000 Ã— 20 = 40,000 generations
 - Total: 80,000 generations/month
-- OpenAI: 80,000 × $0.011 = $880/month
-- Revenue: 2,000 × $12 = $24,000/month
+- OpenAI: 80,000 Ã— $0.011 = $880/month
+- Revenue: 2,000 Ã— $12 = $24,000/month
 - **Gross margin: ~96%** (very healthy)
 
 ### 8.2 Cost Optimization Strategies
@@ -1485,71 +1485,71 @@ jobs:
 
 | Version | Date | Changes | Author |
 |---------|------|---------|--------|
-| 2.0 | Oct 6, 2025 | **Major Update - Mandate & Cursor Rules Alignment**<br>• Added cross-app integration architecture (unified accounts, class sync, Zara continuity)<br>• Implemented multi-layer AI safety pipeline with fallback strategy<br>• Changed auth to Firebase email/password primary, Google OAuth optional<br>• Added new Firestore collections: `feedback`, `generation_logs`, `zaza_accounts`<br>• Added viral mechanics implementation (referral tracking, social sharing)<br>• Comprehensive compliance documentation added<br>• Updated pricing and cost analysis | Engineering Team |
+| 2.0 | Oct 6, 2025 | **Major Update - Mandate & Cursor Rules Alignment**<br>â€¢ Added cross-app integration architecture (unified accounts, class sync, Zara continuity)<br>â€¢ Implemented multi-layer AI safety pipeline with fallback strategy<br>â€¢ Changed auth to Firebase email/password primary, Google OAuth optional<br>â€¢ Added new Firestore collections: `feedback`, `generation_logs`, `zaza_accounts`<br>â€¢ Added viral mechanics implementation (referral tracking, social sharing)<br>â€¢ Comprehensive compliance documentation added<br>â€¢ Updated pricing and cost analysis | Engineering Team |
 | 1.0 | Oct 6, 2025 | Initial technical spec | Engineering Team |
 
 ### 11.4 Alignment with Zaza Mandate & Cursor Rules
 
-#### Cursor Rules Compliance ✅
+#### Cursor Rules Compliance âœ…
 
 **Authentication (per Cursor Rules):**
-- ✅ Firebase email/password as primary authentication method
-- ✅ Google Auth as optional convenience feature
-- ✅ Password requirements: 8+ chars, mixed case, number, special char
-- ✅ Email verification required
+- âœ… Firebase email/password as primary authentication method
+- âœ… Google Auth as optional convenience feature
+- âœ… Password requirements: 8+ chars, mixed case, number, special char
+- âœ… Email verification required
 
 **Database Structure (per Cursor Rules):**
-- ✅ Firestore collections: `users`, `snippets`, `classes`, `subscriptions`
-- ✅ Additional collections: `feedback`, `generation_logs`, `zaza_accounts`
-- ✅ All collections properly indexed and secured
-- ✅ Security rules enforce user-level data access
+- âœ… Firestore collections: `users`, `snippets`, `classes`, `subscriptions`
+- âœ… Additional collections: `feedback`, `generation_logs`, `zaza_accounts`
+- âœ… All collections properly indexed and secured
+- âœ… Security rules enforce user-level data access
 
 **AI Safety (per Cursor Rules):**
-- ✅ Multi-layer safety pipeline with structured prompts
-- ✅ GPT-4 primary with GPT-3.5-turbo fallback
-- ✅ Hallucination prevention: fabrication detection, consistency checks
-- ✅ Comprehensive logging of all generations for monitoring
-- ✅ User feedback collection for quality improvement
+- âœ… Multi-layer safety pipeline with structured prompts
+- âœ… GPT-4 primary with GPT-3.5-turbo fallback
+- âœ… Hallucination prevention: fabrication detection, consistency checks
+- âœ… Comprehensive logging of all generations for monitoring
+- âœ… User feedback collection for quality improvement
 
 **Error Handling:**
-- ✅ Retry logic with exponential backoff
-- ✅ Graceful degradation (GPT-4 → GPT-3.5)
-- ✅ User-friendly error messages
-- ✅ All errors logged with context
+- âœ… Retry logic with exponential backoff
+- âœ… Graceful degradation (GPT-4 â†’ GPT-3.5)
+- âœ… User-friendly error messages
+- âœ… All errors logged with context
 
-#### Zaza Mandate Compliance ✅
+#### Zaza Mandate Compliance âœ…
 
 **Viral Mechanics (Mandate requirement):**
-- ✅ Shareable snippet cards with Zaza branding
-- ✅ Social sharing buttons (Twitter, Facebook, WhatsApp)
-- ✅ Referral tracking system via Firestore
-- ✅ Time-saved celebrations with share prompts
-- ✅ "Made with Zaza" watermark on free tier exports
+- âœ… Shareable snippet cards with Zaza branding
+- âœ… Social sharing buttons (Twitter, Facebook, WhatsApp)
+- âœ… Referral tracking system via Firestore
+- âœ… Time-saved celebrations with share prompts
+- âœ… "Made with Zaza" watermark on free tier exports
 
 **Cross-App Integration (Ecosystem requirement):**
-- ✅ Unified Zaza account system across Draft and Teach
-- ✅ Shared authentication and billing
-- ✅ Class roster sync between apps
-- ✅ Zara assistant integration with cross-app context
-- ✅ Snippet-to-lesson linking capability
+- âœ… Unified Zaza account system across Draft and Teach
+- âœ… Shared authentication and billing
+- âœ… Class roster sync between apps
+- âœ… Zara assistant integration with cross-app context
+- âœ… Snippet-to-lesson linking capability
 
 **Smart Defaults (Pricing mandate):**
-- ✅ Free tier: 5 generations/month (aligned)
-- ✅ Pro tier: $7.50/month or $59/year (aligned with mandate)
-- ✅ Clear upgrade prompts without being intrusive
-- ✅ Freemium model designed for conversion
+- âœ… Free tier: 5 generations/month (aligned)
+- âœ… Pro tier: $7.50/month or $59/year (aligned with mandate)
+- âœ… Clear upgrade prompts without being intrusive
+- âœ… Freemium model designed for conversion
 
 **Psychological Onboarding:**
-- ✅ Emotional anchoring ("What's your biggest challenge?")
-- ✅ Instant relief demo before profile setup
-- ✅ First snippet guided with celebration
-- ✅ Quick time-to-value (<3 minutes)
+- âœ… Emotional anchoring ("What's your biggest challenge?")
+- âœ… Instant relief demo before profile setup
+- âœ… First snippet guided with celebration
+- âœ… Quick time-to-value (<3 minutes)
 
 **Quality & Safety:**
-- ✅ 5-layer safety pipeline
-- ✅ <1% hallucination rate target
-- ✅ >90% quality rating target
-- ✅ Continuous monitoring and improvement
+- âœ… 5-layer safety pipeline
+- âœ… <1% hallucination rate target
+- âœ… >90% quality rating target
+- âœ… Continuous monitoring and improvement
 
 ---
 
@@ -1563,9 +1563,9 @@ jobs:
 **Next Review Date:** November 15, 2025
 **Author:** Dr. Greg Blackburn
 
-# Zaza – Emotionally Intelligent AI Additions Pack
+# Zaza â€“ Emotionally Intelligent AI Additions Pack
 
-This pack defines the extensions required to align Zaza Draft (and all Zaza apps) with the **Strategic Vision – The Emotionally Intelligent AI Ecosystem**.  
+This pack defines the extensions required to align Zaza Draft (and all Zaza apps) with the **Strategic Vision â€“ The Emotionally Intelligent AI Ecosystem**.  
 It supplements both the Product Requirements Document (PRD) and Technical Specification (TS).
 
 ---
@@ -1576,7 +1576,7 @@ It supplements both the Product Requirements Document (PRD) and Technical Specif
 - Add reflective layer: AI explains why a suggestion was made.  
 
 ## 2. Teacher Agency & Feedback Loop
-- Feedback system to include qualitative EI dimensions (‘supportive’, ‘appropriate tone’).  
+- Feedback system to include qualitative EI dimensions (â€˜supportiveâ€™, â€˜appropriate toneâ€™).  
 - Store per-teacher EI feedback in profile for Zara adaptation.  
 
 ## 3. Cross-App EI Memory
@@ -1596,38 +1596,351 @@ It supplements both the Product Requirements Document (PRD) and Technical Specif
 ## Implementation Guidance
 - Add section **'Emotionally Intelligent AI Enhancements'** to Technical Spec.  
 - Update schemas: users, feedback, generation_logs with EI fields.  
-- Update Zara’s system prompt: always explain reasoning in 1–2 sentences.  
+- Update Zaraâ€™s system prompt: always explain reasoning in 1â€“2 sentences.  
 
 
-## 2.3 Analytics & Metrics Schema (MVP)
+## 2.3 Analytics & Metrics Schema (Enhanced)
 
-**Collections.**
-- `users/{uid}` — add `analyticsOptIn: boolean`, optional `privacy:{acceptedAt,version}`
-- `events/{eventId}` (server-only write):
-  `{ uid, type, ts, ctx:{screen?,version?}, props: Record<string,any>, receivedAt: number }`
-- `metrics_daily/{uid_YYYY-MM-DD}` (roll-up doc):
-  `{ uid, date: "YYYY-MM-DD", drafts: number, avgGenTimeMs: number, estTokensOut?: number, tones: {warm:number, professional:number, direct:number, empathetic:number}, updatedAt: number }`
+### **2.3.1 Core Collections**
 
-**Event model (authoritative list).**
-- `draft.create`
-- `draft.generate.success` `{ms:number}`
-- `draft.generate.error` `{code?:string}`
-- `draft.edit.save`
-- `tone.select` `{toneId:string}`
-- `language.select` `{lang:string}`
-- `export.copy` | `export.download` `{format?: "csv"|"pdf"}`
-- `session.start` | `session.end` `{durationMs?:number}`
+#### **Users Collection Extension**
+```typescript
+interface User {
+  // ... existing fields ...
+  
+  // Analytics & Insights additions
+  analyticsOptIn: boolean;              // GDPR/consent flag
+  privacySettings: {
+    acceptedAt: Timestamp;
+    version: string;                    // e.g., "1.0"
+    shareAnonymizedData: boolean;       // For benchmarking
+  };
+  
+  // Wellbeing tracking (derived, not user-input)
+  wellbeingSignals?: {
+    afterHoursRate: number;             // % of drafts after 7pm
+    consecutiveDaysActive: number;
+    lastBoundaryNudge?: Timestamp;      // Prevent nudge spam
+  };
+  
+  // Personalization for recommendations
+  usagePatterns?: {
+    peakProductivityHour: number;       // 0-23
+    preferredTones: string[];           // Most-used tones
+    avgEditDepth: number;               // Rolling 30-day avg
+  };
+}
+```
 
-**Security rules.**
-- `users/*`: owner read/write
-- `events/*` and `metrics_daily/*`: deny all (API only)
+#### **Events Collection** (append-only log)
+```typescript
+// Path: events/{eventId}
+interface AnalyticsEvent {
+  eventId: string;                      // Auto-generated
+  uid: string;                          // User reference
+  type: EventType;                      // See enum below
+  timestamp: Timestamp;
+  
+  // Context for debugging/analysis
+  context: {
+    screen?: string;                    // e.g., "home", "snippets"
+    version?: string;                   // App version
+    platform?: "web" | "ios" | "android";
+    sessionId?: string;                 // For journey tracking
+  };
+  
+  // Event-specific properties
+  properties: Record<string, any>;      // Flexible payload
+  
+  // Server metadata
+  receivedAt: number;                   // Server timestamp (ms)
+  processedAt?: number;                 // When rolled up
+}
 
+enum EventType {
+  // Generation events
+  "draft.create",
+  "draft.generate.start",
+  "draft.generate.success",            // { generationTimeMs, tokenCount, modelUsed }
+  "draft.generate.error",              // { errorCode, errorMessage }
+  "draft.regenerate",                  // { attemptNumber }
+  
+  // Quality signals
+  "draft.edit.start",
+  "draft.edit.save",                   // { editDepth, charactersChanged }
+  "draft.copy",
+  "draft.delete",
+  
+  // Context usage
+  "classbrain.used",                   // { studentCount, customFieldsUsed }
+  "tone.select",                       // { toneId, previousTone }
+  "language.select",                   // { languageCode }
+  
+  // Library interactions
+  "snippet.save",
+  "snippet.tag.add",                   // { tagName }
+  "snippet.search",                    // { query, resultsCount }
+  "snippet.export",                    // { format: "csv" | "pdf" }
+  
+  // Insights engagement
+  "insights.view",                     // { timeRange: "7d" | "30d" | "90d" }
+  "insights.export.csv",
+  "insights.goal.set",                 // { goalType, targetValue }
+  "insights.badge.unlock",             // { badgeId }
+  
+  // Wellbeing signals
+  "session.start",
+  "session.end",                       // { durationMs }
+  "boundary.alert.shown",              // { alertType: "late_night" | "weekend" }
+  "boundary.alert.dismissed",
+  
+  // Conversion funnel
+  "paywall.shown",                     // { trigger: "limit_reached" | "premium_feature" }
+  "paywall.dismissed",
+  "checkout.started",
+  "checkout.completed",                // { plan, amount }
+  
+  // Viral mechanics
+  "share.initiated",                   // { platform: "twitter" | "facebook" }
+  "share.completed",
+  "referral.sent",                     // { referralCode }
+  "referral.converted",                // { referrerUid }
+}
+```
 
+#### **Metrics Daily Collection** (pre-aggregated rollups)
+```typescript
+// Path: metrics_daily/{uid}_{YYYY-MM-DD}
+interface DailyMetrics {
+  uid: string;
+  date: string;                         // "YYYY-MM-DD"
+  
+  // Volume metrics
+  draftsCreated: number;
+  draftsRegenerated: number;
+  draftsEdited: number;
+  draftsCopied: number;
+  snippetsSaved: number;
+  
+  // Performance metrics
+  avgGenerationTimeMs: number;
+  p95GenerationTimeMs: number;          // 95th percentile
+  totalTokensUsed: number;              // Cost tracking
+  
+  // Quality metrics
+  avgEditDepth: number;                 // 0-100 scale
+  oneShotSuccessRate: number;           // % without regeneration
+  
+  // Tone distribution
+  tones: {
+    warm: number;
+    professional: number;
+    direct: number;
+    empathetic: number;
+  };
+  
+  // Language distribution
+  languages: Record<string, number>;    // { "en": 5, "es": 2 }
+  
+  // Time-based patterns
+  hourDistribution: number[];           // 24-element array
+  afterHoursDrafts: number;             // Count of drafts 7pm-7am
+  weekendDrafts: number;
+  
+  // Feature adoption
+  classBrainUsageCount: number;
+  tagsCreated: number;
+  exportsPerformed: number;
+  
+  // Session data
+  sessionCount: number;
+  totalActiveTimeMs: number;            // Sum of session durations
+  
+  // Timestamps
+  createdAt: Timestamp;
+  updatedAt: Timestamp;                 // For reprocessing
+}
+```
+
+#### **Cohorts Collection** (for retention analysis)
+```typescript
+// Path: cohorts/{cohortId}
+interface Cohort {
+  cohortId: string;                     // "2025-W42" (weekly cohorts)
+  startDate: string;                    // "2025-10-13"
+  endDate: string;                      // "2025-10-19"
+  
+  userCount: number;                    // Users who joined this week
+  userIds: string[];                    // Array of UIDs
+  
+  // Acquisition metadata
+  channels: Record<string, number>;     // { "organic": 45, "referral": 12 }
+  
+  // Retention tracking (updated weekly)
+  retention: {
+    week0: number;                      // 100% (baseline)
+    week1: number;                      // % of cohort active in week 1
+    week2: number;
+    week4: number;
+    week8: number;
+    week12: number;
+  };
+  
+  // Conversion tracking
+  conversionRate: number;               // % who became Pro
+  avgDaysToConversion: number;
+  
+  createdAt: Timestamp;
+  updatedAt: Timestamp;
+}
+```
+
+#### **Funnel Tracking Collection**
+```typescript
+// Path: funnels/{uid}_{funnelType}
+interface FunnelProgress {
+  uid: string;
+  funnelType: "onboarding" | "activation" | "conversion";
+  
+  steps: {
+    stepId: string;                     // e.g., "profile_setup"
+    completedAt?: Timestamp;
+    abandoned?: boolean;
+    metadata?: Record<string, any>;
+  }[];
+  
+  currentStep: number;                  // Index in steps array
+  completed: boolean;
+  completedAt?: Timestamp;
+  
+  // Attribution
+  acquisitionChannel?: string;
+  referrerUid?: string;
+  
+  createdAt: Timestamp;
+  updatedAt: Timestamp;
+}
+```
+
+---
+
+### **2.3.2 Security Rules**
+```javascript
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Users can read their own analytics opt-in status
+    match /users/{uid} {
+      allow read: if request.auth.uid == uid;
+      allow write: if request.auth.uid == uid;
+    }
+    
+    // Events are write-only via API (no direct client access)
+    match /events/{eventId} {
+      allow read: if false;                   // Server-side only
+      allow write: if false;                  // API only
+    }
+    
+    // Daily metrics are read-only for users, write-only via cloud function
+    match /metrics_daily/{docId} {
+      allow read: if request.auth.uid == docId.split('_')[0];
+      allow write: if false;                  // Cloud Function only
+    }
+    
+    // Cohorts are admin-only
+    match /cohorts/{cohortId} {
+      allow read: if false;
+      allow write: if false;
+    }
+    
+    // Funnels are system-managed
+    match /funnels/{funnelId} {
+      allow read: if false;
+      allow write: if false;
+    }
+  }
+}
+```
+
+---
+
+### **2.3.3 Indexes**
+```javascript
+// events collection
+{
+  "fields": [
+    { "fieldPath": "uid", "order": "ASCENDING" },
+    { "fieldPath": "type", "order": "ASCENDING" },
+    { "fieldPath": "timestamp", "order": "DESCENDING" }
+  ]
+}
+
+{
+  "fields": [
+    { "fieldPath": "receivedAt", "order": "ASCENDING" },
+    { "fieldPath": "processedAt", "order": "ASCENDING" }
+  ]
+}
+
+// metrics_daily collection
+{
+  "fields": [
+    { "fieldPath": "uid", "order": "ASCENDING" },
+    { "fieldPath": "date", "order": "DESCENDING" }
+  ]
+}
+
+// cohorts collection
+{
+  "fields": [
+    { "fieldPath": "startDate", "order": "DESCENDING" }
+  ]
+}
+```
+
+---
+
+### **2.3.4 Data Retention & Lifecycle**
+
+| Collection | Retention Period | Deletion Method |
+|------------|------------------|-----------------|
+| `events` | 90 days | TTL policy (auto-delete) |
+| `metrics_daily` | Indefinite (aggregated) | Manual on account deletion |
+| `cohorts` | Indefinite (anonymized) | N/A (no PII) |
+| `funnels` | 1 year | Cloud Function cleanup job |
+| User snippets | Until user deletes | Cascade on account deletion |
+
+**GDPR Compliance:**
+- Right to access: `/api/export/my-data` endpoint
+- Right to deletion: Cascade delete on account removal
+- Data portability: CSV export with all metrics_daily records
+
+---
+
+### **2.3.5 Cost Optimization**
+
+**Firestore Read/Write Estimates (1,000 MAU):**
+- Events writes: ~50,000/day (50 events/user/day avg)
+- Metrics daily reads: ~7,000/day (7 days × 1,000 users)
+- Metrics daily writes: ~1,000/day (daily rollup)
+
+**Estimated Monthly Cost:**
+- Firestore: ~\ (1.5M writes, 210K reads)
+- Cloud Functions: ~\ (rollup jobs)
+- Storage: <\ (minimal)
+**Total: ~\/month for 1,000 MAU**
+
+**Scaling Strategy:**
+- At 10K MAU: Move to BigQuery for historical analytics (\/month)
+- At 50K MAU: Implement event batching and sampling for free tier
+
+---
 ### 3.6 Analytics Ingestion & Insights APIs
 
 **POST `/api/events/ingest`**
 - **Auth:** Firebase ID token; require `users/{uid}.analyticsOptIn === true`
-- **Body:** Event per §2.3
+- **Body:** Event per Â§2.3
 - **Behavior:** validate schema; set `receivedAt=now`; write `events/*`
 - **Responses:** 200 `{ok:true}` | 200 `{ok:true,ignored:true}` | 401 | 400
 - **Rate limit:** 20 req/min/user
@@ -1667,8 +1980,9 @@ It supplements both the Product Requirements Document (PRD) and Technical Specif
 
 **Job:** `rollupDailyMetrics`
 - **Schedule:** `0 02 * * *` (UTC) via Vercel Cron / Cloud Scheduler
-- **Input:** `events` where `receivedAt ∈ [startOfDay, endOfDay]`
-- **Aggregation:** per `uid` → `{ drafts, avgGenTimeMs, tones }`
+- **Input:** `events` where `receivedAt âˆˆ [startOfDay, endOfDay]`
+- **Aggregation:** per `uid` â†’ `{ drafts, avgGenTimeMs, tones }`
 - **Output:** upsert `metrics_daily/{uid_YYYY-MM-DD}`
 - **Idempotency:** recompute for the window; last write wins
 - **Monitoring:** log users processed; alert if zero on active days
+

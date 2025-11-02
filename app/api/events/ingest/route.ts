@@ -1,13 +1,17 @@
 ﻿import { NextRequest, NextResponse } from "next/server";
 import { EventSchema } from "@/lib/analytics/events";
 import { adminDb } from "@/lib/firebase/admin";
+import { limitPerMinute, requireUidFromRequest } from "@/lib/analytics/auth-limit";
 
-// Replace header validation with your real auth in production.
 export async function POST(req: NextRequest) {
-  try {
-    const uid = req.headers.get("x-user-uid");
-    if (!uid) return NextResponse.json({ error: "Unauthenticated" }, { status: 401 });
+  const uid = await requireUidFromRequest(req);
+  if (!uid) return NextResponse.json({ error: "Unauthenticated" }, { status: 401 });
 
+  if (!limitPerMinute(`ingest:${uid}`, 20)) {
+    return NextResponse.json({ error: "Too many requests" }, { status: 429 });
+  }
+
+  try {
     const body = await req.json();
     const parsed = EventSchema.safeParse(body);
     if (!parsed.success) return NextResponse.json({ error: "Bad event" }, { status: 400 });
@@ -18,7 +22,8 @@ export async function POST(req: NextRequest) {
 
     await adminDb.collection("events").add({ uid, ...parsed.data, receivedAt: Date.now() });
     return NextResponse.json({ ok: true });
-  } catch {
+  } catch (e) {
+    console.error("ingest.error", { message: (e as Error).message });
     return NextResponse.json({ error: "Server error" }, { status: 500 });
   }
 }

@@ -1,13 +1,17 @@
 ﻿async function fillSignup(page, email, password) {
   await page.goto("/auth/sign-up");
-  await page.waitForLoadState("networkidle", { timeout: 30000 }).catch(()=>{});
+  // Wait for any one of the target elements to be available
+  await Promise.race([
+    page.getByTestId("signup-email").waitFor({ timeout: 60000 }),
+    page.getByLabel(/email/i).waitFor({ timeout: 60000 })
+  ]).catch(() => {});
 
   // Try testids first
   let emailCtl = page.getByTestId("signup-email");
   let passCtl  = page.getByTestId("signup-password");
   let submit   = page.getByTestId("signup-submit");
 
-  const hasTestIds = await emailCtl.count().then(n => n > 0).catch(() => false);
+  const hasTestIds = await emailCtl.count().then((n: number) => n > 0).catch(() => false);
 
   if (!hasTestIds) {
     // Fallback to accessible labels
@@ -16,7 +20,7 @@
     submit   = page.getByRole("button", { name: /sign up|create account|continue/i });
   }
 
-  const found = await emailCtl.count().then(n => n > 0).catch(() => false);
+  const found = await emailCtl.count().then((n: number) => n > 0).catch(() => false);
   if (!found) return false; // let caller decide (skip test)
 
   await emailCtl.fill(email);
@@ -41,13 +45,18 @@ async function triggerStripeWebhook(page: Page, eventType: string, customerId: s
 }
 
 test.describe('Critical billing flows', () => {
+  test.beforeEach(async ({ page }) => {
+    console.log('Starting billing test');
+  });
+
   test('Sign up, sign in, usage gate, upgrade, downgrade', async ({ page }) => {
-    // Sign up
+    console.log('Testing billing flow...');
+    // Sign up with explicit waits
     await page.goto('/auth/sign-up');
-await page.waitForLoadState('networkidle', { timeout: 30000 });
-    await page.getByLabel('Email').fill('e2euser@example.com');
-    await page.getByLabel('Password').fill('TestPassword123!');
-    await page.getByRole('button', { name: /sign up|create account/i }).click();
+    await page.waitForSelector('[data-testid="signup-email"]', { timeout: 90_000 });
+    await page.getByTestId('signup-email').fill('e2euser@example.com');
+    await page.getByTestId('signup-password').fill('TestPassword123!');
+    await page.getByTestId('signup-submit').click();
     await expect(page.getByTestId('dashboard')).toBeVisible();
 
     // Sign out and sign in

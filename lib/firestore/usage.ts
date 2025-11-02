@@ -1,5 +1,5 @@
-import { db } from '@/lib/firebase/client';
-import { dbAdmin } from '@/lib/firebase/admin';
+﻿import { db } from '@/lib/firebase/client';
+import { dbAdmin } from '@/lib/firestore/server';
 import { doc, getDoc, updateDoc, increment, serverTimestamp } from 'firebase/firestore';
 import { auth } from '@/lib/firebase/client';
 import { UserProfile } from './classBrain';
