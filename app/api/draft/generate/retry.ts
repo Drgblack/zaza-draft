@@ -184,14 +184,13 @@ return await fn(signal);
       guarded as any,
       timeout as any,
     ]);
-    if (result === TIMEOUT) {
-      return TIMEOUT as any;
-    }
+    if (result === TIMEOUT) { throw new TimeoutError(); }
     return result as T;
   } finally {
     clearTimeout(timer);
   }
 }
+
 
 
 
