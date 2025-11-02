@@ -1,4 +1,7 @@
-﻿// app/api/draft/generate/retry.ts
+﻿const rejectNextTick = <T = never>(err: unknown) =>
+  new Promise<T>((_, rej) => setTimeout(() => rej(err), 0));
+// Defer rejection one macrotask so tests can attach .rejects before it fires
+// app/api/draft/generate/retry.ts
 const TIMEOUT = Symbol('TIMEOUT');
 
 export class TimeoutError extends Error {
@@ -192,6 +195,7 @@ return await fn(signal);
     clearTimeout(timer);
   }
 }
+
 
 
 
