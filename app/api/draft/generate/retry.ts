@@ -138,16 +138,23 @@ async function promiseWithTimeout<T>(
     }
 
     const onAbort = () =>
+
       controller.abort(
+
         externalSignal!.reason ?? new DOMException("Aborted", "AbortError")
+
       );
 
-    externalSignal?.addEventListener("abort", onAbort, { once: true });
+    
+
+    const _hasAdd = !!(externalSignal && typeof (externalSignal as any).addEventListener === "function");
+
+    if (_hasAdd) (externalSignal as any).addEventListener("abort", onAbort, { once: true });
 
     try {
       return await fn(signal);
     } finally {
-      externalSignal?.removeEventListener("abort", onAbort);
+      if (_hasAdd) (externalSignal as any).removeEventListener("abort", onAbort);
     }
   })().catch((err: any) => {
     // if *our* controller aborted, and the error is an AbortError, map to TIMEOUT
@@ -180,3 +187,4 @@ async function promiseWithTimeout<T>(
     clearTimeout(timer);
   }
 }
+
