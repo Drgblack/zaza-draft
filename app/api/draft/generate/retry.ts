@@ -186,15 +186,13 @@ return await fn(signal);
     ]);
     if (result === TIMEOUT) {
       try { await guarded; } catch {}
-      return await new Promise<never>((_, rej) =>
-        setTimeout(() => rej(new TimeoutError()), 0)
-      );
-    }
+      return await rejectNextTick(new TimeoutError());}
     return result as T;
   } finally {
     clearTimeout(timer);
   }
 }
+
 
 
 

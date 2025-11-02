@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+﻿import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { withRetry, TimeoutError } from "./retry";
 
 // Keep the env stable per test to avoid cross-talk with test:debug
@@ -7,6 +7,8 @@ const restoreEnv = (env: Record<string, string | undefined>) => {
   if (env.DEBUG_RETRY === undefined) delete process.env.DEBUG_RETRY;
   else process.env.DEBUG_RETRY = env.DEBUG_RETRY;
 };
+// Important: attach .rejects before advancing fake timers to avoid PromiseRejectionHandledWarning.
+
 
 describe("withRetry", () => {
   let envBackup: Record<string, string | undefined>;
@@ -69,20 +71,20 @@ describe("withRetry", () => {
   });
 
   it("throws TimeoutError if single attempt exceeds timeout (fast via fake timers)", async () => {
-    delete process.env.DEBUG_RETRY;
     vi.useFakeTimers();
-
     const p = withRetry(async () => {
-      // Simulate 50ms work
-      await new Promise(res => setTimeout(res, 50));
-      return "done";
-    }, { attempts: 1, timeoutMs: 10 });
+      await new Promise((r) => setTimeout(r, 1000)); // long op to trigger attempt timeout
+    }, { timeoutMs: 10, attempts: 1 });
 
-    // Advance just beyond the attempt timeout
+    // Attach the rejection handler BEFORE advancing timers
+    const assertion = expect(p).rejects.toBeInstanceOf(TimeoutError);
+
+    // Drive the clock so the deferred rejection fires
     await vi.advanceTimersByTimeAsync(11);
-    await expect(p).rejects.toBeInstanceOf(TimeoutError);
+    await vi.runAllTimersAsync();   // flush macrotasks (setTimeout 0)
+    await Promise.resolve();        // flush microtasks
 
-// Drain any pending timers/microtasks created during the race
-await Promise.resolve();
-await vi.runAllTimersAsync();});
+    // Ensure Vitest awaits the assertion (prevents unhandled rejection)
+    return assertion;
+  });
 });
