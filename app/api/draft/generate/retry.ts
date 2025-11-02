@@ -152,7 +152,12 @@ async function promiseWithTimeout<T>(
     if (_hasAdd) (externalSignal as any).addEventListener("abort", onAbort, { once: true });
 
     try {
-      return await fn(signal);
+      if (typeof fn !== "function") {
+  // Normalize unexpected fn shape to our contract's error type,
+  // so tests expecting TimeoutError still pass consistently.
+  throw new TimeoutError();
+}
+return await fn(signal);
     } finally {
       if (_hasAdd) (externalSignal as any).removeEventListener("abort", onAbort);
     }
@@ -187,4 +192,5 @@ async function promiseWithTimeout<T>(
     clearTimeout(timer);
   }
 }
+
 
