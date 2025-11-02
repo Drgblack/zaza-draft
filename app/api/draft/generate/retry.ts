@@ -185,7 +185,11 @@ return await fn(signal);
       timeout as any,
     ]);
     if (result === TIMEOUT) {
-      try { await guarded; } catch {}
+  try { await guarded; } catch {}
+  return await new Promise<never>((_, rej) =>
+    setTimeout(() => rej(new TimeoutError()), 0)
+  );
+} catch {}
       await new Promise(r => setTimeout(r, 0)); // defer one macrotask so .rejects is attached
       throw new TimeoutError();
     }
@@ -194,6 +198,7 @@ return await fn(signal);
     clearTimeout(timer);
   }
 }
+
 
 
 
