@@ -19,3 +19,14 @@ dist/
 .env.local
 
 !*.example
+.env
+.env.local
+.env.*.local
+# Env
+.env
+.env.local
+.env.*.local
+
+# Firebase logs
+firebase-debug.log
+firestore-debug.log
