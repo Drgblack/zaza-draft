@@ -1597,3 +1597,78 @@ It supplements both the Product Requirements Document (PRD) and Technical Specif
 - Add section **'Emotionally Intelligent AI Enhancements'** to Technical Spec.  
 - Update schemas: users, feedback, generation_logs with EI fields.  
 - Update Zara’s system prompt: always explain reasoning in 1–2 sentences.  
+
+
+## 2.3 Analytics & Metrics Schema (MVP)
+
+**Collections.**
+- `users/{uid}` — add `analyticsOptIn: boolean`, optional `privacy:{acceptedAt,version}`
+- `events/{eventId}` (server-only write):
+  `{ uid, type, ts, ctx:{screen?,version?}, props: Record<string,any>, receivedAt: number }`
+- `metrics_daily/{uid_YYYY-MM-DD}` (roll-up doc):
+  `{ uid, date: "YYYY-MM-DD", drafts: number, avgGenTimeMs: number, estTokensOut?: number, tones: {warm:number, professional:number, direct:number, empathetic:number}, updatedAt: number }`
+
+**Event model (authoritative list).**
+- `draft.create`
+- `draft.generate.success` `{ms:number}`
+- `draft.generate.error` `{code?:string}`
+- `draft.edit.save`
+- `tone.select` `{toneId:string}`
+- `language.select` `{lang:string}`
+- `export.copy` | `export.download` `{format?: "csv"|"pdf"}`
+- `session.start` | `session.end` `{durationMs?:number}`
+
+**Security rules.**
+- `users/*`: owner read/write
+- `events/*` and `metrics_daily/*`: deny all (API only)
+
+
+### 3.6 Analytics Ingestion & Insights APIs
+
+**POST `/api/events/ingest`**
+- **Auth:** Firebase ID token; require `users/{uid}.analyticsOptIn === true`
+- **Body:** Event per §2.3
+- **Behavior:** validate schema; set `receivedAt=now`; write `events/*`
+- **Responses:** 200 `{ok:true}` | 200 `{ok:true,ignored:true}` | 401 | 400
+- **Rate limit:** 20 req/min/user
+
+**GET `/api/insights/weekly`**
+- **Auth:** Firebase ID token
+- **Behavior:** return last 7 docs from `metrics_daily/*` for uid
+- **Response:** `{ items: {date,drafts,avgGenTimeMs,tones}[] }`
+- **Perf target:** p95 < 150ms
+
+**GET `/api/export/my-data.csv`**
+- **Auth:** Firebase ID token
+- **Output:** `text/csv` with `date,drafts,avgGenTimeMs,warm,professional,direct,empathetic`
+
+
+### 4.5 Telemetry, Retention & DSAR
+
+**Consent & scope.**
+- Default: no telemetry beyond essential operational metadata
+- `analyticsOptIn` gates event ingestion; UI toggle in onboarding + Settings
+
+**Retention.**
+- `events/*`: 90 days (TTL job)
+- `metrics_daily/*`: retained (aggregated only)
+- Snippets: until user deletes
+
+**DSAR (export/delete).**
+- Export: `/api/export/my-data.csv` (aggregates only in MVP)
+- Delete account: cascade delete user doc, snippets, metrics, events
+
+**Compliance notes.**
+- GDPR: Access/Deletion/Portability; data minimization
+- FERPA: no student PII; Insights never contain raw text
+
+
+### 7.5 Cron/Batch Roll-ups
+
+**Job:** `rollupDailyMetrics`
+- **Schedule:** `0 02 * * *` (UTC) via Vercel Cron / Cloud Scheduler
+- **Input:** `events` where `receivedAt ∈ [startOfDay, endOfDay]`
+- **Aggregation:** per `uid` → `{ drafts, avgGenTimeMs, tones }`
+- **Output:** upsert `metrics_daily/{uid_YYYY-MM-DD}`
+- **Idempotency:** recompute for the window; last write wins
+- **Monitoring:** log users processed; alert if zero on active days

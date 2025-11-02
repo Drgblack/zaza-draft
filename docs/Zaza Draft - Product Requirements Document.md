@@ -1091,3 +1091,51 @@ It supplements both the Product Requirements Document (PRD) and Technical Specif
 - Add section **'Emotionally Intelligent AI Enhancements'** to Technical Spec.  
 - Update schemas: users, feedback, generation_logs with EI fields.  
 - Update Zara’s system prompt: always explain reasoning in 1–2 sentences.  
+
+
+### 3.3 Teacher Insights (MVP)
+
+**Goal.** Give each teacher a clear, privacy-safe picture of how Draft helps them, without exposing student PII. Insights live in-app (Profile → Insights) and export on demand (CSV).
+
+**What teachers see (week view by default).**
+- **Drafts created** (count)
+- **Average time-to-first-draft** (ms) and a transparent **time-saved estimate**  
+  _Formula:_ `time_saved_minutes = drafts * 12 − (avg_gen_ms/1000/60 * drafts)` with a 12-minute baseline assumption explained inline
+- **Tone usage** distribution (warm / professional / direct / empathetic)
+- **Languages used** (top 3)
+- **Streaks & milestones** (days active; badges at 10/50/100 drafts)
+- **Download my data (CSV)** — date, drafts, avg_gen_ms, tone_counts
+
+**Out of scope (MVP).** Org/admin analytics, raw text analysis, or any student-identifying metrics.
+
+**Acceptance criteria.**
+- Insights page loads < 1s with last 7 days’ roll-ups
+- CSV export downloads in ≤ 2s and contains only aggregated, non-PII fields
+- Time-saved copy includes the baseline assumption text
+- Works offline-tolerant for display (cached last report); export requires network
+
+**Why now.** Supports core value props (time saved, confidence) and complements MVP KPIs.
+
+
+### 4.5 Data & Consent Principles (Teacher-First)
+
+**Consent layers.**
+- **Required to operate:** account, locale, plan tier, generation metadata (non-content)
+- **Optional to improve Zaza (explicit toggle):** anonymised telemetry (feature usage, latency)
+- **Never by default:** student full names, emails, grades/health/discipline, parent PII
+
+**Controls.**
+- **Data Use toggle** in onboarding and Settings (plain-language explainer)
+- **Right to export/delete:** Settings → Privacy → “Download my data” and “Delete my account”
+- **Retention defaults:** snippet content until teacher deletes; raw event logs 90 days; daily roll-ups retained
+
+**Transparency.**
+- Inline footnotes for time-saved assumptions
+- “What powers these insights?” tooltip listing only the aggregated fields used
+
+
+**Insights KPIs (MVP add-on).**
+- Insights page weekly reach: ≥40% of WAU
+- CSV export usage: ≥10% of active teachers in first 60 days
+- Verified time saved (self-report survey): median ≥30 min/week
+- Opt-in analytics rate (clear consent): ≥60% of active users
