@@ -16,3 +16,11 @@ No tags published yet.
 See all releases → https://github.com/Drgblack/zaza-draft/releases
 
 <!-- releases:end -->
+## Safety & Name Policies (Canonical)
+
+Authoritative docs live in `docs/knowledge/docs/` (mounted as a submodule):
+
+- Draft-Safety-Guardrails.md
+- Draft-NameBank.md
+- Draft-v2.0-Rules.md
+- TestCases.md
