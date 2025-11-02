@@ -1,4 +1,4 @@
-// app/api/draft/generate/retry.ts
+﻿// app/api/draft/generate/retry.ts
 const TIMEOUT = Symbol('TIMEOUT');
 
 export class TimeoutError extends Error {
@@ -165,7 +165,6 @@ async function promiseWithTimeout<T>(
   } finally {
     clearTimeout(timer);
   }
-}); // never settles; prevents late unhandled rejection
       }
       throw e;
     }
