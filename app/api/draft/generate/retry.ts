@@ -185,17 +185,16 @@ return await fn(signal);
       timeout as any,
     ]);
     if (result === TIMEOUT) {
-  try { await guarded; } catch {}
-  return await new Promise<never>((_, rej) =>
-    setTimeout(() => rej(new TimeoutError()), 0)
-  );
-} catch {}
-            }
+      try { await guarded; }\r\nreturn await new Promise<never>((_, rej) =>
+        setTimeout(() => rej(new TimeoutError()), 0)
+      );
+    }
     return result as T;
   } finally {
     clearTimeout(timer);
   }
 }
+
 
 
 
