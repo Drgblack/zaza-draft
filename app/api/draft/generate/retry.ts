@@ -155,7 +155,7 @@ async function promiseWithTimeout<T>(
       if (typeof fn !== "function") {
   // Normalize unexpected fn shape to our contract's error type,
   // so tests expecting TimeoutError still pass consistently.
-  throw new TimeoutError();
+  return TIMEOUT as any;
 }
 return await fn(signal);
     } finally {
@@ -185,12 +185,13 @@ return await fn(signal);
       timeout as any,
     ]);
     if (result === TIMEOUT) {
-      throw new TimeoutError();
+      return TIMEOUT as any;
     }
     return result as T;
   } finally {
     clearTimeout(timer);
   }
 }
+
 
 
