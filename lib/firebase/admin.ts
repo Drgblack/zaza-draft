@@ -1,7 +1,12 @@
-﻿import "server-only";
+﻿import { getApps, initializeApp, cert, ServiceAccount } from "firebase-admin/app";
+import { getFirestore } from "firebase-admin/firestore";
 
-// Minimal placeholder – keep your real admin init here:
-export const dbAdmin = {} as any;
+const projectId = process.env.FIREBASE_PROJECT_ID!;
+const clientEmail = process.env.FIREBASE_CLIENT_EMAIL!;
+const privateKey = process.env.FIREBASE_PRIVATE_KEY!.replace(/\\n/g, "\n");
 
-// Keep a single alias only (remove duplicates)
-export const authAdmin = dbAdmin;
+if (!getApps().length) {
+  initializeApp({ credential: cert({ projectId, clientEmail, privateKey } as ServiceAccount) });
+}
+
+export const adminDb = getFirestore();

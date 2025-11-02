@@ -1,0 +1,15 @@
+{
+  "firestore": {
+    "rules": "C:\\\\Users\\\\User\\\\Projects\\\\zaza-draft\\\\firestore.rules",
+    "indexes": "C:\\\\Users\\\\User\\\\Projects\\\\zaza-draft\\\\firestore.indexes.json"
+  },
+  "emulators": {
+    "firestore": {
+      "port": 8080
+    },
+    "ui": {
+      "enabled": true
+    },
+    "singleProjectMode": true
+  }
+}
