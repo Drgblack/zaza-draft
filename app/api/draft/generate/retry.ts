@@ -187,6 +187,8 @@ return await fn(signal);
     if (result === TIMEOUT) {
   // Ensure losing branch is fully settled/caught to avoid runner-level unhandled rejections
   try { await guarded; } catch { /* swallow */ }
+  // Defer the rejection so test harness attaches .catch/.rejects before it fires
+  await Promise.resolve();
   throw new TimeoutError();
 }
     return result as T;
@@ -194,6 +196,7 @@ return await fn(signal);
     clearTimeout(timer);
   }
 }
+
 
 
 
