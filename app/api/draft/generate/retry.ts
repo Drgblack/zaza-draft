@@ -184,12 +184,17 @@ return await fn(signal);
       guarded as any,
       timeout as any,
     ]);
-    if (result === TIMEOUT) { throw new TimeoutError(); }
+    if (result === TIMEOUT) {
+  // Ensure losing branch is fully settled/caught to avoid runner-level unhandled rejections
+  try { await guarded; } catch { /* swallow */ }
+  throw new TimeoutError();
+}
     return result as T;
   } finally {
     clearTimeout(timer);
   }
 }
+
 
 
 
