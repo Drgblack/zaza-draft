@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # Preview/Prod Smoke Checks
 
 This runbook shows how to run quick health and draft checks against Vercel preview and production, including protection bypass.
@@ -48,3 +49,7 @@ The script sends both the header `x-vercel-protection-bypass` and the cookie `ve
 - Model: gpt-4o-mini (optional; gated by OPENAI_API_KEY). Mock fallback is always safe and schema-validated.
 - Tones: warm | professional | direct | empathetic; Languages: en | de | es | fr
 - The API strictly validates and will return 400 for invalid inputs.
+=======
+
+
+>>>>>>> 4d45b08663ae7a0c76fa4fe1b48902e3b6b81222

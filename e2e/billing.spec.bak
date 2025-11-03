@@ -1,0 +1,59 @@
+import { test, expect, type Page } from '@playwright/test';
+
+// Helper to mock Stripe webhook
+async function triggerStripeWebhook(page: Page, eventType: string, customerId: string) {
+  // Use Playwright's APIRequest to POST directly to webhook route (bypasses client-side JS)
+  const event = {
+    id: `evt_${eventType}_${customerId}`,
+    type: eventType,
+    data: { object: { customer: customerId, status: eventType === 'customer.subscription.deleted' ? 'canceled' : 'active' } },
+  };
+  await page.request.post('/api/stripe/webhook', {
+    data: event,
+    headers: { 'Content-Type': 'application/json', 'stripe-signature': 'test' },
+  });
+}
+
+test.describe('Critical billing flows', () => {
+  test('Sign up, sign in, usage gate, upgrade, downgrade', async ({ page }) => {
+    // Sign up
+    await page.goto('/auth/sign-up');
+    await page.getByTestId('signup-email').fill('e2euser@example.com');
+    await page.getByTestId('signup-password').fill('TestPassword123!');
+    await page.getByTestId('signup-submit').click();
+    await expect(page.getByTestId('dashboard')).toBeVisible();
+
+    // Sign out and sign in
+    await page.getByTestId('signout-btn').click();
+    await page.goto('/auth/sign-in');
+    await page.getByTestId('signin-email').fill('e2euser@example.com');
+    await page.getByTestId('signin-password').fill('TestPassword123!');
+    await page.getByTestId('signin-submit').click();
+    await expect(page.getByTestId('dashboard')).toBeVisible();
+
+    // Generate drafts up to limit
+    for (let i = 0; i < 10; i++) {
+      await page.getByTestId('draft-notes').fill(`Draft ${i}`);
+      await page.getByTestId('draft-generate').click();
+      await expect(page.getByTestId('draft-result')).toBeVisible();
+      // accessibility: copy toolbar should be present
+      await expect(page.getByRole('toolbar', { name: 'Copy options' })).toBeVisible();
+    }
+
+    // Try to generate after limit
+    await page.getByTestId('draft-notes').fill('Draft over limit');
+    await page.getByTestId('draft-generate').click();
+    await expect(page.getByTestId('upgrade-cta')).toBeVisible();
+
+    // Upgrade via mocked Stripe webhook
+    const customerId = 'cus_e2euser';
+    await triggerStripeWebhook(page, 'customer.subscription.created', customerId);
+    await page.reload();
+    await expect(page.getByTestId('plan-status')).toHaveText(/Pro/);
+
+    // Downgrade via mocked cancel webhook
+    await triggerStripeWebhook(page, 'customer.subscription.deleted', customerId);
+    await page.reload();
+    await expect(page.getByTestId('plan-status')).toHaveText(/Free/);
+  });
+});

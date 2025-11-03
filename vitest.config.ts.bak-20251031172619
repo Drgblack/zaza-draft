@@ -1,0 +1,36 @@
+﻿import { defineConfig } from "vitest/config";
+import path from "node:path";
+const r = (p: string) => path.resolve(process.cwd(), p);
+
+export default defineConfig({`n  onConsoleLog(log){ if (log.includes("Retry attempt")) return false; },
+  test: {
+    environment: "node",
+    globals: true,
+
+    // ✅ Only look for tests in your project folders
+    include: [
+      "{app,src,lib,components,pages,__tests__,tests}/**/*.{test,spec}.{ts,tsx,js,jsx}"
+    ],
+
+    // ✅ Never collect from deps, builds, or e2e/playwright suites
+    exclude: [
+      "**/node_modules/**",
+      "**/dist/**",
+      "**/.next/**",
+      "**/build/**",
+      "**/coverage/**",
+      "**/e2e/**",
+      "**/playwright/**",
+      "**/*playwright*.ts",
+      // if you keep Playwright specs under tests/, exclude them too:
+      "tests/**/*.spec.ts"
+    ],
+
+    // (optional) speed up initial scan
+    watchExclude: ["**/node_modules/**", "**/dist/**", "**/.next/**"]
+  },
+  resolve: {
+    alias: { "@": r(".") }
+  }
+});
+

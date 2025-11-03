@@ -1,0 +1,162 @@
+﻿/* ==== AUTO-INSERTED MOCKS (single source of truth) ==== */
+import { describe, it, expect, vi, beforeEach } from "vitest";
+
+// Mock client db BEFORE importing the module under test
+const mockDB = { __mock: true };
+vi.mock("@/lib/firebase/client", () => ({ db: mockDB }));
+
+// In-memory Firestore + modular API shims (collection/doc chaining)
+const __MEM = new Map<string, any>();
+const pathOf = (segs: string[]) => segs.join("/");
+
+type Col = { __segs: string[] };
+
+const collection = (db: any, ...segs: string[]): Col => {
+  if (db !== mockDB) throw new Error("collection() with unexpected db");
+  return { __segs: segs };
+};
+
+const doc = (colOrDb: any, ...segs: string[]) => {
+  if (colOrDb && Array.isArray(colOrDb.__segs)) {
+    // doc(collection(db, 'x'), 'y') => 'x/y'
+    return { __path: pathOf([...colOrDb.__segs, ...segs]) };
+  }
+  if (colOrDb !== mockDB) throw new Error("doc() with unexpected db");
+  return { __path: pathOf(segs) };
+};
+
+const getDoc = async (ref: any) => {
+  const data = __MEM.get(ref.__path);
+  return { exists: () => data != null, data: () => data };
+};
+
+const setDoc = async (ref: any, data: any) => {
+  __MEM.set(ref.__path, { ...(__MEM.get(ref.__path) || {}), ...data });
+};
+
+const updateDoc = async (ref: any, patch: Record<string, any>) => {
+  const cur = __MEM.get(ref.__path) || {};
+  const next: any = { ...cur };
+  for (const [k, v] of Object.entries(patch)) {
+    if (v && typeof v === "object" && "__inc" in v) next[k] = (cur[k] ?? 0) + (v as any).__inc;
+    else next[k] = v;
+  }
+  __MEM.set(ref.__path, next);
+};
+
+const increment = (n: number) => ({ __inc: n });
+const serverTimestamp = () => new Date();
+
+vi.mock("firebase/firestore", () => ({
+  collection, doc, getDoc, setDoc, updateDoc, increment, serverTimestamp,
+}));
+
+// Late import of module under test so it sees our mocks
+let usage: any;
+beforeEach(async () => {
+  __MEM.clear();
+  vi.clearAllMocks();
+  usage = await import("../lib/firestore/usage");
+});
+/* ==== END AUTO-INSERTED MOCKS ==== */
+describe('usage tracking', () => {
+  const uid = 'test-user-123';
+  
+  beforeEach(() => {
+    mockDoc.data.mockReset();
+    mockDoc.exists.mockReset();
+    mockDoc.update.mockReset();
+  });
+
+  describe('getUserProfile', () => {
+    it('returns existing profile', async () => {
+      const mockProfile = {
+        uid,
+        plan: 'free',
+        usage: { snippetsThisMonth: 5 },
+      };
+
+      mockDoc.exists.mockReturnValue(true);
+      mockDoc.data.mockReturnValue(mockProfile);
+
+      const profile = await getUserProfile(uid);
+      expect(profile).toEqual(mockProfile);
+    });
+
+    it('creates default profile if none exists', async () => {
+  mockDoc.exists.mockReturnValue(false);
+  mockAuth.currentUser = { email: 'test@example.com' } as any;
+
+      const profile = await getUserProfile(uid);
+      expect(profile).toMatchObject({
+        uid,
+        plan: 'free',
+        usage: { snippetsThisMonth: 0 },
+      });
+      expect(mockDoc.update).toHaveBeenCalled();
+    });
+  });
+
+  describe('incrementSnippetUsage', () => {
+    it('increments usage when under limit', async () => {
+      mockDoc.exists.mockReturnValue(true);
+      mockDoc.data.mockReturnValue({
+        plan: 'free',
+        usage: { snippetsThisMonth: 5 },
+      });
+
+      const { newCount } = await usage.incrementSnippetUsage(uid);
+      expect(newCount).toBe(6);
+      expect(mockDoc.update).toHaveBeenCalled();
+    });
+
+    it('throws error when limit reached', async () => {
+      mockDoc.exists.mockReturnValue(true);
+      mockDoc.data.mockReturnValue({
+        plan: 'free',
+        usage: { snippetsThisMonth: 10 },
+      });
+
+      await expect(usage.incrementSnippetUsage(uid)).rejects.toThrow('Free plan limit reached');
+    });
+
+    it('allows pro users to exceed limit', async () => {
+      mockDoc.exists.mockReturnValue(true);
+      mockDoc.data.mockReturnValue({
+        plan: 'pro',
+        usage: { snippetsThisMonth: 15 },
+      });
+
+      const { newCount } = await usage.incrementSnippetUsage(uid);
+      expect(newCount).toBe(16);
+    });
+  });
+
+  describe('canGenerateSnippet', () => {
+    it('returns true for pro users', async () => {
+      mockDoc.exists.mockReturnValue(true);
+      mockDoc.data.mockReturnValue({
+        plan: 'pro',
+        usage: { snippetsThisMonth: 15 },
+      });
+
+      const can = await usage.canGenerateSnippet(uid);
+      expect(can).toBe(true);
+    });
+
+    it('returns false when free limit reached', async () => {
+      mockDoc.exists.mockReturnValue(true);
+      mockDoc.data.mockReturnValue({
+        plan: 'free',
+        usage: { snippetsThisMonth: 10 },
+      });
+
+      const can = await usage.canGenerateSnippet(uid);
+      expect(can).toBe(false);
+    });
+  });
+});
+
+
+
+

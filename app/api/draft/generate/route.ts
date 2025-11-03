@@ -7,12 +7,15 @@ import addFormats from "ajv-formats";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
+<<<<<<< HEAD
 import { headers } from 'next/headers';
 import { authAdmin } from '@/lib/firebase/admin';
 import { incrementSnippetUsage } from '@/lib/firestore/usage';
 import { rateLimit } from '@/lib/rateLimit';
 import { writeAudit } from '@/lib/log';
 
+=======
+>>>>>>> 4d45b08663ae7a0c76fa4fe1b48902e3b6b81222
 type Tone = "warm" | "professional" | "direct" | "empathetic";
 type Safeguard = "privacy" | "tone-check" | "de-escalation" | "bias-check" | "no-diagnosis";
 type Lang = "en" | "de" | "es" | "fr";
@@ -52,6 +55,7 @@ const validateOut = ajv.compile<DraftOutput>(loadSchema());
 
 export async function POST(req: Request) {
   try {
+<<<<<<< HEAD
     // Check authentication and usage limits
     const authHeader = headers().get('Authorization');
     if (!authHeader?.startsWith('Bearer ')) {
@@ -90,6 +94,8 @@ export async function POST(req: Request) {
       throw e; // Re-throw other errors
     }
 
+=======
+>>>>>>> 4d45b08663ae7a0c76fa4fe1b48902e3b6b81222
     const body = await req.json().catch(() => ({}));
     if (!validateReq(body)) {
       return new Response(JSON.stringify({ error: "Invalid request", details: validateReq.errors }), {
@@ -98,8 +104,11 @@ export async function POST(req: Request) {
     }
     const toneCanon = canonicalizeTone(body.tone);
     if (!toneCanon) {
+<<<<<<< HEAD
       // lightweight telemetry for drift
       try { console.warn("TELEMETRY: unmapped_tone_label", { received: body.tone }); } catch {}
+=======
+>>>>>>> 4d45b08663ae7a0c76fa4fe1b48902e3b6b81222
       return new Response(
         JSON.stringify({
           error: "Unsupported tone label",
@@ -121,6 +130,7 @@ export async function POST(req: Request) {
       );
     }
 
+<<<<<<< HEAD
     // Import helpers
     const { withRetry } = await import('./retry');
     const { withTimeout } = await import('./timeout');
@@ -216,6 +226,9 @@ export async function POST(req: Request) {
     }
 
     mockUsed = true;
+=======
+    // TODO: replace with model call using `body`
+>>>>>>> 4d45b08663ae7a0c76fa4fe1b48902e3b6b81222
     const mock: DraftOutput = {
       opening_line: "Thank you for your ongoing support.",
       main_comment:
@@ -227,6 +240,7 @@ export async function POST(req: Request) {
     };
 
     if (!validateOut(mock)) {
+<<<<<<< HEAD
       logApiEvent({
         ts: new Date().toISOString(),
         route: 'api/draft/generate',
@@ -238,11 +252,14 @@ export async function POST(req: Request) {
         mock_used: mockUsed
       });
       
+=======
+>>>>>>> 4d45b08663ae7a0c76fa4fe1b48902e3b6b81222
       return new Response(JSON.stringify({ error: "Output failed schema validation", details: validateOut.errors }), {
         status: 500, headers: { "content-type": "application/json" }
       });
     }
 
+<<<<<<< HEAD
     logApiEvent({
       ts: new Date().toISOString(),
       route: 'api/draft/generate',
@@ -272,6 +289,12 @@ export async function POST(req: Request) {
     
     return new Response(JSON.stringify({ error: "Bad request", details: err?.message || String(err) }), {
       status: 400, headers: { "content-type": "application/json; charset=utf-8" }
+=======
+    return new Response(JSON.stringify(mock), { status: 200, headers: { "content-type": "application/json" } });
+  } catch (err: any) {
+    return new Response(JSON.stringify({ error: "Bad request", details: err?.message || String(err) }), {
+      status: 400, headers: { "content-type": "application/json" }
+>>>>>>> 4d45b08663ae7a0c76fa4fe1b48902e3b6b81222
     });
   }
 }

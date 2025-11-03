@@ -1,4 +1,8 @@
+<<<<<<< HEAD
 ﻿# Zaza Draft - Technical Specification
+=======
+# Zaza Draft - Technical Specification
+>>>>>>> 4d45b08663ae7a0c76fa4fe1b48902e3b6b81222
 
 **Version:** 2.0  
 **Last Updated:** October 6, 2025  
@@ -80,6 +84,7 @@ Zaza Draft follows a modern, serverless web application architecture optimized f
 ### 1.3 Architecture Diagram
 
 ```
+<<<<<<< HEAD
 â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”
 â”‚                         CLIENT LAYER                         â”‚
 â”‚                                                              â”‚
@@ -116,6 +121,44 @@ Zaza Draft follows a modern, serverless web application architecture optimized f
 â”‚  â”‚ (Files/PDFs) â”‚  â”‚  (Mixpanel)  â”‚                        â”‚
 â”‚  â””â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”˜  â””â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”˜                        â”‚
 â””â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”˜
+=======
+┌─────────────────────────────────────────────────────────────┐
+│                         CLIENT LAYER                         │
+│                                                              │
+│  ┌────────────────────────────────────────────────────┐   │
+│  │         React SPA (Vercel/Firebase Hosting)        │   │
+│  │  - Component Library (MUI/Chakra)                  │   │
+│  │  - State Management (Context + React Query)        │   │
+│  │  - Routing (React Router)                          │   │
+│  └────────────────────────────────────────────────────┘   │
+└─────────────────────────────────────────────────────────────┘
+                            ↕ HTTPS
+┌─────────────────────────────────────────────────────────────┐
+│                     API/BACKEND LAYER                        │
+│                                                              │
+│  ┌──────────────────┐  ┌──────────────────┐               │
+│  │ Firebase Auth    │  │ Cloud Functions  │               │
+│  │ - OAuth          │  │ - Snippet Gen    │               │
+│  │ - JWT Tokens     │  │ - Export         │               │
+│  └──────────────────┘  │ - Webhooks       │               │
+│                        │ - Utilities      │               │
+│                        └──────────────────┘               │
+└─────────────────────────────────────────────────────────────┘
+                            ↕
+┌─────────────────────────────────────────────────────────────┐
+│                      DATA & AI LAYER                         │
+│                                                              │
+│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐     │
+│  │  Firestore   │  │  OpenAI API  │  │  Stripe API  │     │
+│  │  Database    │  │  (GPT-4)     │  │  (Payments)  │     │
+│  └──────────────┘  └──────────────┘  └──────────────┘     │
+│                                                              │
+│  ┌──────────────┐  ┌──────────────┐                        │
+│  │ Cloud Storage│  │  Analytics   │                        │
+│  │ (Files/PDFs) │  │  (Mixpanel)  │                        │
+│  └──────────────┘  └──────────────┘                        │
+└─────────────────────────────────────────────────────────────┘
+>>>>>>> 4d45b08663ae7a0c76fa4fe1b48902e3b6b81222
 ```
 
 ---
@@ -413,7 +456,11 @@ function hasAccessToDraft(user: ZazaUser): boolean {
 }
 ```
 
+<<<<<<< HEAD
 #### 3.1.2 Class Roster Sync (Draft â†” Teach)
+=======
+#### 3.1.2 Class Roster Sync (Draft ↔ Teach)
+>>>>>>> 4d45b08663ae7a0c76fa4fe1b48902e3b6b81222
 
 **Sync Strategy:**
 - Classes created in Draft automatically available in Teach
@@ -489,7 +536,11 @@ async function zaraProactiveSuggestion(context: ZaraContext): Promise<string> {
 
 #### 3.1.4 Snippet-to-Lesson Linking
 
+<<<<<<< HEAD
 **Use Case:** Teacher generates parent communication about a lesson unit â†’ Link to that lesson plan in Teach
+=======
+**Use Case:** Teacher generates parent communication about a lesson unit → Link to that lesson plan in Teach
+>>>>>>> 4d45b08663ae7a0c76fa4fe1b48902e3b6b81222
 
 **Implementation:**
 ```typescript
@@ -1321,25 +1372,43 @@ jobs:
 - Authentication: Free
 
 **Estimated Monthly Costs (1,000 active users):**
+<<<<<<< HEAD
 - 1,000 users Ã— 5 snippets/month = 5,000 generations
 - OpenAI: 5,000 Ã— $0.011 = $55/month
+=======
+- 1,000 users × 5 snippets/month = 5,000 generations
+- OpenAI: 5,000 × $0.011 = $55/month
+>>>>>>> 4d45b08663ae7a0c76fa4fe1b48902e3b6b81222
 - Firebase: $0 (within free tier)
 - **Total: ~$55/month**
 
 **Scaling (10,000 active users):**
+<<<<<<< HEAD
 - 10,000 Ã— 5 = 50,000 generations/month
 - OpenAI: 50,000 Ã— $0.011 = $550/month
+=======
+- 10,000 × 5 = 50,000 generations/month
+- OpenAI: 50,000 × $0.011 = $550/month
+>>>>>>> 4d45b08663ae7a0c76fa4fe1b48902e3b6b81222
 - Firebase: ~$50/month (estimated overage)
 - **Total: ~$600/month**
 
 **With Pro users (20% conversion, unlimited):**
 - Assume Pro users generate 20 snippets/month average
 - 10,000 total users, 2,000 Pro (paying $12/month)
+<<<<<<< HEAD
 - Free: 8,000 Ã— 5 = 40,000 generations
 - Pro: 2,000 Ã— 20 = 40,000 generations
 - Total: 80,000 generations/month
 - OpenAI: 80,000 Ã— $0.011 = $880/month
 - Revenue: 2,000 Ã— $12 = $24,000/month
+=======
+- Free: 8,000 × 5 = 40,000 generations
+- Pro: 2,000 × 20 = 40,000 generations
+- Total: 80,000 generations/month
+- OpenAI: 80,000 × $0.011 = $880/month
+- Revenue: 2,000 × $12 = $24,000/month
+>>>>>>> 4d45b08663ae7a0c76fa4fe1b48902e3b6b81222
 - **Gross margin: ~96%** (very healthy)
 
 ### 8.2 Cost Optimization Strategies
@@ -1485,11 +1554,16 @@ jobs:
 
 | Version | Date | Changes | Author |
 |---------|------|---------|--------|
+<<<<<<< HEAD
 | 2.0 | Oct 6, 2025 | **Major Update - Mandate & Cursor Rules Alignment**<br>â€¢ Added cross-app integration architecture (unified accounts, class sync, Zara continuity)<br>â€¢ Implemented multi-layer AI safety pipeline with fallback strategy<br>â€¢ Changed auth to Firebase email/password primary, Google OAuth optional<br>â€¢ Added new Firestore collections: `feedback`, `generation_logs`, `zaza_accounts`<br>â€¢ Added viral mechanics implementation (referral tracking, social sharing)<br>â€¢ Comprehensive compliance documentation added<br>â€¢ Updated pricing and cost analysis | Engineering Team |
+=======
+| 2.0 | Oct 6, 2025 | **Major Update - Mandate & Cursor Rules Alignment**<br>• Added cross-app integration architecture (unified accounts, class sync, Zara continuity)<br>• Implemented multi-layer AI safety pipeline with fallback strategy<br>• Changed auth to Firebase email/password primary, Google OAuth optional<br>• Added new Firestore collections: `feedback`, `generation_logs`, `zaza_accounts`<br>• Added viral mechanics implementation (referral tracking, social sharing)<br>• Comprehensive compliance documentation added<br>• Updated pricing and cost analysis | Engineering Team |
+>>>>>>> 4d45b08663ae7a0c76fa4fe1b48902e3b6b81222
 | 1.0 | Oct 6, 2025 | Initial technical spec | Engineering Team |
 
 ### 11.4 Alignment with Zaza Mandate & Cursor Rules
 
+<<<<<<< HEAD
 #### Cursor Rules Compliance âœ…
 
 **Authentication (per Cursor Rules):**
@@ -1550,6 +1624,68 @@ jobs:
 - âœ… <1% hallucination rate target
 - âœ… >90% quality rating target
 - âœ… Continuous monitoring and improvement
+=======
+#### Cursor Rules Compliance ✅
+
+**Authentication (per Cursor Rules):**
+- ✅ Firebase email/password as primary authentication method
+- ✅ Google Auth as optional convenience feature
+- ✅ Password requirements: 8+ chars, mixed case, number, special char
+- ✅ Email verification required
+
+**Database Structure (per Cursor Rules):**
+- ✅ Firestore collections: `users`, `snippets`, `classes`, `subscriptions`
+- ✅ Additional collections: `feedback`, `generation_logs`, `zaza_accounts`
+- ✅ All collections properly indexed and secured
+- ✅ Security rules enforce user-level data access
+
+**AI Safety (per Cursor Rules):**
+- ✅ Multi-layer safety pipeline with structured prompts
+- ✅ GPT-4 primary with GPT-3.5-turbo fallback
+- ✅ Hallucination prevention: fabrication detection, consistency checks
+- ✅ Comprehensive logging of all generations for monitoring
+- ✅ User feedback collection for quality improvement
+
+**Error Handling:**
+- ✅ Retry logic with exponential backoff
+- ✅ Graceful degradation (GPT-4 → GPT-3.5)
+- ✅ User-friendly error messages
+- ✅ All errors logged with context
+
+#### Zaza Mandate Compliance ✅
+
+**Viral Mechanics (Mandate requirement):**
+- ✅ Shareable snippet cards with Zaza branding
+- ✅ Social sharing buttons (Twitter, Facebook, WhatsApp)
+- ✅ Referral tracking system via Firestore
+- ✅ Time-saved celebrations with share prompts
+- ✅ "Made with Zaza" watermark on free tier exports
+
+**Cross-App Integration (Ecosystem requirement):**
+- ✅ Unified Zaza account system across Draft and Teach
+- ✅ Shared authentication and billing
+- ✅ Class roster sync between apps
+- ✅ Zara assistant integration with cross-app context
+- ✅ Snippet-to-lesson linking capability
+
+**Smart Defaults (Pricing mandate):**
+- ✅ Free tier: 5 generations/month (aligned)
+- ✅ Pro tier: $7.50/month or $59/year (aligned with mandate)
+- ✅ Clear upgrade prompts without being intrusive
+- ✅ Freemium model designed for conversion
+
+**Psychological Onboarding:**
+- ✅ Emotional anchoring ("What's your biggest challenge?")
+- ✅ Instant relief demo before profile setup
+- ✅ First snippet guided with celebration
+- ✅ Quick time-to-value (<3 minutes)
+
+**Quality & Safety:**
+- ✅ 5-layer safety pipeline
+- ✅ <1% hallucination rate target
+- ✅ >90% quality rating target
+- ✅ Continuous monitoring and improvement
+>>>>>>> 4d45b08663ae7a0c76fa4fe1b48902e3b6b81222
 
 ---
 
@@ -1563,9 +1699,15 @@ jobs:
 **Next Review Date:** November 15, 2025
 **Author:** Dr. Greg Blackburn
 
+<<<<<<< HEAD
 # Zaza â€“ Emotionally Intelligent AI Additions Pack
 
 This pack defines the extensions required to align Zaza Draft (and all Zaza apps) with the **Strategic Vision â€“ The Emotionally Intelligent AI Ecosystem**.  
+=======
+# Zaza – Emotionally Intelligent AI Additions Pack
+
+This pack defines the extensions required to align Zaza Draft (and all Zaza apps) with the **Strategic Vision – The Emotionally Intelligent AI Ecosystem**.  
+>>>>>>> 4d45b08663ae7a0c76fa4fe1b48902e3b6b81222
 It supplements both the Product Requirements Document (PRD) and Technical Specification (TS).
 
 ---
@@ -1576,7 +1718,11 @@ It supplements both the Product Requirements Document (PRD) and Technical Specif
 - Add reflective layer: AI explains why a suggestion was made.  
 
 ## 2. Teacher Agency & Feedback Loop
+<<<<<<< HEAD
 - Feedback system to include qualitative EI dimensions (â€˜supportiveâ€™, â€˜appropriate toneâ€™).  
+=======
+- Feedback system to include qualitative EI dimensions (‘supportive’, ‘appropriate tone’).  
+>>>>>>> 4d45b08663ae7a0c76fa4fe1b48902e3b6b81222
 - Store per-teacher EI feedback in profile for Zara adaptation.  
 
 ## 3. Cross-App EI Memory
@@ -1596,6 +1742,7 @@ It supplements both the Product Requirements Document (PRD) and Technical Specif
 ## Implementation Guidance
 - Add section **'Emotionally Intelligent AI Enhancements'** to Technical Spec.  
 - Update schemas: users, feedback, generation_logs with EI fields.  
+<<<<<<< HEAD
 - Update Zaraâ€™s system prompt: always explain reasoning in 1â€“2 sentences.  
 
 
@@ -1986,3 +2133,6 @@ service cloud.firestore {
 - **Idempotency:** recompute for the window; last write wins
 - **Monitoring:** log users processed; alert if zero on active days
 
+=======
+- Update Zara’s system prompt: always explain reasoning in 1–2 sentences.  
+>>>>>>> 4d45b08663ae7a0c76fa4fe1b48902e3b6b81222

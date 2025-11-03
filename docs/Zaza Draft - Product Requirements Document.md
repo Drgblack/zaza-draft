@@ -1,4 +1,8 @@
+<<<<<<< HEAD
 ﻿# Zaza Draft - Product Requirements Document
+=======
+# Zaza Draft - Product Requirements Document
+>>>>>>> 4d45b08663ae7a0c76fa4fe1b48902e3b6b81222
 
 **Version:** 2.0  
 **Last Updated:** October 6, 2025  
@@ -148,10 +152,17 @@ Transform the teaching experience by eliminating the burden of repetitive, emoti
 ### 3.1 Core User Flows
 
 **Flow 1: New User Onboarding (Psychological Anchoring)**
+<<<<<<< HEAD
 1. Landing page â†’ Sign up (Google SSO or email/password)
 2. **Emotional Hook Screen:** "What's your biggest communication challenge?"
    - Options: "Writing report cards," "Difficult parent conversations," "Finding the right words," "Time pressure," "Language barriers"
    - User selects â†’ Instant empathy + promise of relief
+=======
+1. Landing page → Sign up (Google SSO or email/password)
+2. **Emotional Hook Screen:** "What's your biggest communication challenge?"
+   - Options: "Writing report cards," "Difficult parent conversations," "Finding the right words," "Time pressure," "Language barriers"
+   - User selects → Instant empathy + promise of relief
+>>>>>>> 4d45b08663ae7a0c76fa4fe1b48902e3b6b81222
 3. **Instant Relief Demo:** Based on selection, show AI generating a relevant snippet in real-time
    - User watches their specific pain point being solved (15-20 seconds)
    - "See? We get it. Let's save you hours each week."
@@ -184,7 +195,11 @@ Transform the teaching experience by eliminating the burden of repetitive, emoti
 3. Search by keyword
 4. View snippet card with metadata
 5. Actions: Edit, Delete, Export, Share (post-MVP)
+<<<<<<< HEAD
 6. Bulk actions: Select multiple â†’ Export as PDF/CSV
+=======
+6. Bulk actions: Select multiple → Export as PDF/CSV
+>>>>>>> 4d45b08663ae7a0c76fa4fe1b48902e3b6b81222
 
 **Success Criteria:** >50% of users return to library, average 5+ saved snippets per active user
 
@@ -351,9 +366,15 @@ Transform the teaching experience by eliminating the burden of repetitive, emoti
 - Continuous model fine-tuning based on feedback
 
 **Fallback Strategy:**
+<<<<<<< HEAD
 - If GPT-4 fails or times out â†’ retry once
 - If second failure â†’ fall back to GPT-3.5-turbo (faster, cheaper)
 - If all AI fails â†’ show friendly error with option to try again or contact support
+=======
+- If GPT-4 fails or times out → retry once
+- If second failure → fall back to GPT-3.5-turbo (faster, cheaper)
+- If all AI fails → show friendly error with option to try again or contact support
+>>>>>>> 4d45b08663ae7a0c76fa4fe1b48902e3b6b81222
 - All failures logged with context for engineering review
 
 **Output Specifications:**
@@ -549,7 +570,11 @@ Transform the teaching experience by eliminating the burden of repetitive, emoti
 
 **Time-Saved Celebrations:**
 - After every 5th snippet: "You've saved approximately 45 minutes this week! Want to share your productivity win?"
+<<<<<<< HEAD
 - Pre-filled social post: "I just saved 45 minutes on teacher communications with @ZazaEdu's Draft app! ðŸ™Œ #TeacherProductivity #EdTech"
+=======
+- Pre-filled social post: "I just saved 45 minutes on teacher communications with @ZazaEdu's Draft app! 🙌 #TeacherProductivity #EdTech"
+>>>>>>> 4d45b08663ae7a0c76fa4fe1b48902e3b6b81222
 - Includes referral link
 
 **Milestone Sharing:**
@@ -657,11 +682,19 @@ Zaza Draft is one pillar of the integrated Zaza educator platform, designed to w
 
 ### 4.2 Integration Points
 
+<<<<<<< HEAD
 #### 4.2.1 Draft â†” Teach Integration
 
 **Snippet-to-Lesson Flow:**
 - Parent communication snippets from Draft can be linked to lesson plans in Teach
 - Example: Report card comment in Draft â†’ Auto-reference to related unit in Teach
+=======
+#### 4.2.1 Draft ↔ Teach Integration
+
+**Snippet-to-Lesson Flow:**
+- Parent communication snippets from Draft can be linked to lesson plans in Teach
+- Example: Report card comment in Draft → Auto-reference to related unit in Teach
+>>>>>>> 4d45b08663ae7a0c76fa4fe1b48902e3b6b81222
 - Teachers can see which lessons correspond to communications about student progress
 
 **Shared Context:**
@@ -1015,6 +1048,7 @@ Target: 120+ minutes (2+ hours) by Month 3
 
 ### 10.4 Alignment with Zaza Mandate
 
+<<<<<<< HEAD
 **Viral Mechanics:** âœ… Implemented shareable cards, referral program, milestone sharing in MVP
 **Smart Defaults:** âœ… Pricing aligned at $7.50/month, $59/year per mandate
 **Cross-App Integration:** âœ… Draft integrates with Teach, Zara, and KnowledgeCore
@@ -1027,6 +1061,20 @@ Target: 120+ minutes (2+ hours) by Month 3
 **Database:** âœ… Firestore collections: users, snippets, classes, subscriptions, feedback
 **AI Strategy:** âœ… GPT-4 with GPT-3.5 fallback, comprehensive logging
 **Safety:** âœ… Hallucination prevention, post-processing filters, user feedback loop
+=======
+**Viral Mechanics:** ✅ Implemented shareable cards, referral program, milestone sharing in MVP
+**Smart Defaults:** ✅ Pricing aligned at $7.50/month, $59/year per mandate
+**Cross-App Integration:** ✅ Draft integrates with Teach, Zara, and KnowledgeCore
+**Psychological Onboarding:** ✅ Emotional anchoring with instant relief demo
+**AI Safety:** ✅ Multi-layer pipeline with structured prompts and fallback logic
+
+### 10.5 Alignment with Cursor Rules
+
+**Authentication:** ✅ Firebase email/password primary, Google Auth optional
+**Database:** ✅ Firestore collections: users, snippets, classes, subscriptions, feedback
+**AI Strategy:** ✅ GPT-4 with GPT-3.5 fallback, comprehensive logging
+**Safety:** ✅ Hallucination prevention, post-processing filters, user feedback loop
+>>>>>>> 4d45b08663ae7a0c76fa4fe1b48902e3b6b81222
 
 ### 10.6 Glossary
 
@@ -1041,7 +1089,11 @@ Target: 120+ minutes (2+ hours) by Month 3
 
 | Version | Date | Changes | Author |
 |---------|------|---------|--------|
+<<<<<<< HEAD
 | 2.0 | Oct 6, 2025 | **Major Update - Mandate & Cursor Rules Compliance**<br>â€¢ Added viral mechanics (shareable cards, referral program, social sharing)<br>â€¢ Added cross-app ecosystem integration section (Draft â†” Teach, Zara, KnowledgeCore)<br>â€¢ Enhanced psychological onboarding with emotional anchoring<br>â€¢ Updated pricing to $7.50/mo, $59/yr per mandate<br>â€¢ Expanded AI safety pipeline to 5-layer system<br>â€¢ Changed auth priority: email/password primary, Google OAuth optional<br>â€¢ Added compliance sections for mandate & Cursor Rules | Product Team |
+=======
+| 2.0 | Oct 6, 2025 | **Major Update - Mandate & Cursor Rules Compliance**<br>• Added viral mechanics (shareable cards, referral program, social sharing)<br>• Added cross-app ecosystem integration section (Draft ↔ Teach, Zara, KnowledgeCore)<br>• Enhanced psychological onboarding with emotional anchoring<br>• Updated pricing to $7.50/mo, $59/yr per mandate<br>• Expanded AI safety pipeline to 5-layer system<br>• Changed auth priority: email/password primary, Google OAuth optional<br>• Added compliance sections for mandate & Cursor Rules | Product Team |
+>>>>>>> 4d45b08663ae7a0c76fa4fe1b48902e3b6b81222
 | 1.0 | Oct 6, 2025 | Initial PRD based on consolidated spec | Product Team |
 
 ---
@@ -1057,9 +1109,15 @@ Target: 120+ minutes (2+ hours) by Month 3
 **Next Review Date:** November 15, 2025
 **Authors:** Dr. Greg Blackburn
 
+<<<<<<< HEAD
 # Zaza â€“ Emotionally Intelligent AI Additions Pack
 
 This pack defines the extensions required to align Zaza Draft (and all Zaza apps) with the **Strategic Vision â€“ The Emotionally Intelligent AI Ecosystem**.  
+=======
+# Zaza – Emotionally Intelligent AI Additions Pack
+
+This pack defines the extensions required to align Zaza Draft (and all Zaza apps) with the **Strategic Vision – The Emotionally Intelligent AI Ecosystem**.  
+>>>>>>> 4d45b08663ae7a0c76fa4fe1b48902e3b6b81222
 It supplements both the Product Requirements Document (PRD) and Technical Specification (TS).
 
 ---
@@ -1070,7 +1128,11 @@ It supplements both the Product Requirements Document (PRD) and Technical Specif
 - Add reflective layer: AI explains why a suggestion was made.  
 
 ## 2. Teacher Agency & Feedback Loop
+<<<<<<< HEAD
 - Feedback system to include qualitative EI dimensions (â€˜supportiveâ€™, â€˜appropriate toneâ€™).  
+=======
+- Feedback system to include qualitative EI dimensions (‘supportive’, ‘appropriate tone’).  
+>>>>>>> 4d45b08663ae7a0c76fa4fe1b48902e3b6b81222
 - Store per-teacher EI feedback in profile for Zara adaptation.  
 
 ## 3. Cross-App EI Memory
@@ -1090,6 +1152,7 @@ It supplements both the Product Requirements Document (PRD) and Technical Specif
 ## Implementation Guidance
 - Add section **'Emotionally Intelligent AI Enhancements'** to Technical Spec.  
 - Update schemas: users, feedback, generation_logs with EI fields.  
+<<<<<<< HEAD
 - Update Zaraâ€™s system prompt: always explain reasoning in 1â€“2 sentences.  
 
 
@@ -1332,3 +1395,6 @@ The enhanced Insights Dashboard transforms Draft from a utility into a **reflect
 - Verified time saved (self-report survey): median â‰¥30 min/week
 - Opt-in analytics rate (clear consent): â‰¥60% of active users
 
+=======
+- Update Zara’s system prompt: always explain reasoning in 1–2 sentences.  
+>>>>>>> 4d45b08663ae7a0c76fa4fe1b48902e3b6b81222

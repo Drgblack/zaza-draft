@@ -1,0 +1,46 @@
+# Zaza Draft – .cursor_rules (Lightweight Version)
+# Hallucination-safe AI tool for generating teacher feedback, report comments, and parent communications.
+
+[project]
+name = "Zaza Draft"
+description = "An AI-powered feedback generator for teachers. Helps write professional, accurate, and respectful feedback fast. Built for stress relief, trust, and classroom alignment."
+
+[tech_stack]
+frontend = "FlutterFlow (exportable), targeting Web + Mobile"
+backend = "Firebase (Authentication + Firestore)"
+ai = "OpenAI GPT-4 (secured via server-side logic or cloud functions)"
+payments = "RevenueCat or Stripe (freemium gating logic)"
+deployment = "FlutterFlow cloud export (initial), future builds via GitHub/CI"
+
+[ui_guidelines]
+style = "Boutique. Joyful yet calm. Rounded corners (2xl), soft colours, large buttons, friendly typography. Use empty states with encouragement messages."
+states = "Design all screens for: no comments yet, limit reached, AI error, success, history view."
+mobile_first = true
+
+[auth]
+method = "Firebase Authentication (email only)"
+logic = "After signup, direct user to preference onboarding flow if available."
+
+[freemium]
+model = "5 free comment generations per month. Non-saving. Upgrade required to access history + unlimited use."
+tracking = "Track usage count in Firestore per user. Reset monthly using cloud function."
+
+[ai]
+provider = "OpenAI GPT-4"
+prompt_rules = "All prompts must be hallucination-safe, respectful, and curriculum-aligned. No invented facts, no student names unless provided."
+system_prompt = "You're a teacher assistant writing comments for student reports or parent messages. Keep tone supportive, concise, and specific."
+logging = "Log all prompts and completions with user ID and context in Firestore for transparency."
+
+[code_style]
+flutterflow = true
+export_intent = "If exported to Flutter code, maintain modular structure, component reuse, and Firebase integration points."
+
+[analytics]
+usage = "Track comment generations, upgrade clicks, and prompt edit frequency."
+storage = "Store in Firestore or export to BigQuery via Firebase extensions."
+
+[accessibility]
+a11y = "Readable font sizes, high contrast buttons, keyboard accessible."
+
+[versioning]
+prompt_versioning = "Track prompt template versions in Firestore or in settings module."
