@@ -1,12 +1,19 @@
-﻿"use client"
-import { useAuth } from '@/lib/auth/hooks';
-import { getUserProfile } from '@/lib/firestore/usage';
-import { useEffect, useState } from 'react';
-import toast from 'react-hot-toast';
+﻿"use client";
+
+import { useAuth } from "@/lib/auth/hooks";
+import { useEffect, useState } from "react";
+import toast from "react-hot-toast";
+
+type Profile = {
+  plan?: "free" | "pro";
+  usage?: { snippetsThisMonth?: number };
+  stripeSubscriptionStatus?: string;
+  stripeCustomerId?: string;
+};
 
 export default function BillingPage() {
   const { user } = useAuth();
-  const [profile, setProfile] = useState<any>(null);
+  const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(false);
   const [portalLoading, setPortalLoading] = useState(false);
 
@@ -15,10 +22,15 @@ export default function BillingPage() {
       if (!user) return;
       setLoading(true);
       try {
-        const p = await getUserProfile(user.uid);
-        setProfile(p);
-      } catch (e) {
-        toast.error('Could not load billing info');
+        const token = await user.getIdToken();
+        const res = await fetch("/api/me/profile", {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (!res.ok) throw new Error("profile fetch failed");
+        const data = (await res.json()) as Profile;
+        setProfile(data);
+      } catch {
+        toast.error("Could not load billing info");
       } finally {
         setLoading(false);
       }
@@ -27,56 +39,62 @@ export default function BillingPage() {
   }, [user]);
 
   async function handleManage() {
+    if (!user) return;
     setPortalLoading(true);
     try {
       const token = await user.getIdToken();
-      const res = await fetch('/api/stripe/portal', {
-        method: 'POST',
+      const res = await fetch("/api/stripe/portal", {
+        method: "POST",
         headers: { Authorization: `Bearer ${token}` },
       });
       const { url } = await res.json();
       window.location.href = url;
-    } catch (e) {
-      toast.error('Could not open Stripe portal');
+    } catch {
+      toast.error("Could not open Stripe portal");
     } finally {
       setPortalLoading(false);
     }
   }
 
   async function handleStartSubscription() {
+    if (!user) return;
     setPortalLoading(true);
     try {
       const token = await user.getIdToken();
-      const res = await fetch('/api/stripe/checkout', {
-        method: 'POST',
+      const res = await fetch("/api/stripe/checkout", {
+        method: "POST",
         headers: { Authorization: `Bearer ${token}` },
       });
       const { url } = await res.json();
       window.location.href = url;
-    } catch (e) {
-      toast.error('Could not start subscription');
+    } catch {
+      toast.error("Could not start subscription");
     } finally {
       setPortalLoading(false);
     }
   }
 
   if (!user) return <div className="p-8">Please sign in to view billing.</div>;
-  if (loading) return <div className="p-8">Loadingâ€¦</div>;
+  if (loading) return <div className="p-8">Loading…</div>;
 
   return (
     <main className="max-w-lg mx-auto p-8 space-y-6">
       <h1 className="text-2xl font-semibold mb-4">Billing & Subscription</h1>
       <div className="border rounded p-4 space-y-2">
         <div data-testid="plan-status">
-          <strong>Plan:</strong> {profile?.plan === 'pro' ? 'Pro' : 'Free'}
+          <strong>Plan:</strong> {profile?.plan === "pro" ? "Pro" : "Free"}
         </div>
         <div>
-          <strong>Usage this month:</strong> {profile?.usage?.snippetsThisMonth ?? 0} / {profile?.plan === 'pro' ? 'âˆž' : '10'}
+          <strong>Usage this month:</strong>{" "}
+          {profile?.usage?.snippetsThisMonth ?? 0} /{" "}
+          {profile?.plan === "pro" ? "∞" : "10"}
         </div>
         <div>
-          <strong>Status:</strong> {profile?.stripeSubscriptionStatus ?? 'N/A'}
+          <strong>Status:</strong>{" "}
+          {profile?.stripeSubscriptionStatus ?? "N/A"}
         </div>
       </div>
+
       {profile?.stripeCustomerId ? (
         <button
           onClick={handleManage}
@@ -84,7 +102,7 @@ export default function BillingPage() {
           className="px-4 py-2 bg-blue-600 text-white rounded"
           data-testid="manage-subscription"
         >
-          {portalLoading ? 'Openingâ€¦' : 'Manage Subscription'}
+          {portalLoading ? "Opening…" : "Manage Subscription"}
         </button>
       ) : (
         <button
@@ -93,10 +111,9 @@ export default function BillingPage() {
           className="px-4 py-2 bg-blue-600 text-white rounded"
           data-testid="start-subscription"
         >
-          {portalLoading ? 'Redirectingâ€¦' : 'Start Subscription'}
+          {portalLoading ? "Redirecting…" : "Start Subscription"}
         </button>
       )}
     </main>
   );
 }
-
