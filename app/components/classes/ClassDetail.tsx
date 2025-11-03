@@ -1,101 +1,55 @@
-'use client';
+"use client";
 
-import { useEffect, useState } from 'react';
-import { getClass, normalizeClass, ClassMeta } from '@/lib/firestore/classBrain';
-import { StudentsTable } from './StudentsTable';
-import toast from 'react-hot-toast';
+import { useEffect, useState } from "react";
+import { useAuth } from "@/lib/auth/hooks";
+import toast from "react-hot-toast";
 
-export function ClassDetail({ classId }: { classId: string }) {
-  const [cls, setCls] = useState<ClassMeta | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [tab, setTab] = useState<'overview' | 'students' | 'context'>('overview');
+type ClassRecord = {
+  id: string;
+  name?: string;
+  description?: string;
+  createdAt?: { seconds: number; nanoseconds: number } | null;
+};
+
+export default function ClassDetail({ id }: { id: string }) {
+  const { user } = useAuth();
+  const [item, setItem] = useState<ClassRecord | null>(null);
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
+    let alive = true;
     async function load() {
+      if (!user || !id) return;
       setLoading(true);
       try {
-        const c = await getClass(classId);
-        setCls(c ? normalizeClass(c) : null);
-      } catch (e) {
-        console.error(e);
-        toast.error('Failed to load class');
+        const token = await user.getIdToken();
+        const res = await fetch(`/api/classes/${id}`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (!res.ok) throw new Error("fetch failed");
+        const data = (await res.json()) as { class: ClassRecord };
+        if (alive) setItem(data.class ?? null);
+      } catch {
+        toast.error("Could not load class");
       } finally {
-        setLoading(false);
+        if (alive) setLoading(false);
       }
     }
     load();
-  }, [classId]);
+    return () => {
+      alive = false;
+    };
+  }, [user, id]);
 
-  // Loading skeleton
-  if (loading) {
-    return (
-      <div className="space-y-6">
-        <div className="animate-pulse space-y-2">
-          <div className="h-8 w-1/3 bg-gray-100 rounded" />
-          <div className="h-4 w-1/4 bg-gray-100 rounded" />
-        </div>
-        <div className="border-b">
-          <nav className="flex gap-4">
-            <div className="py-2 opacity-50">Overview</div>
-            <div className="py-2 opacity-50">Students</div>
-            <div className="py-2 opacity-50">Context</div>
-          </nav>
-        </div>
-      </div>
-    );
-  }
-
-  if (!cls) return <div>Class not found</div>;
+  if (!user) return <div className="p-6">Please sign in.</div>;
+  if (loading) return <div className="p-6">Loading…</div>;
+  if (!item) return <div className="p-6">Not found.</div>;
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold">{cls.name}</h1>
-          <div className="text-sm text-gray-600">
-            {cls.subject ?? 'No subject'} · {cls.grade ?? 'No grade'}
-          </div>
-        </div>
-      </div>
-
-      <div className="border-b">
-        <nav className="flex gap-4">
-          <button 
-            className={`py-2 ${tab === 'overview' ? 'border-b-2 border-black' : ''}`}
-            onClick={() => setTab('overview')}
-          >
-            Overview
-          </button>
-          <button
-            className={`py-2 ${tab === 'students' ? 'border-b-2 border-black' : ''}`}
-            onClick={() => setTab('students')}
-          >
-            Students
-          </button>
-          <button
-            className={`py-2 ${tab === 'context' ? 'border-b-2 border-black' : ''}`}
-            onClick={() => setTab('context')}
-          >
-            Context
-          </button>
-        </nav>
-      </div>
-
-      <div>
-        {tab === 'overview' && (
-          <div className="space-y-4">
-            <p className="text-sm text-gray-700">
-              Created: {cls.createdAt?.toLocaleString?.() ?? 'Unknown'}
-            </p>
-          </div>
-        )}
-        {tab === 'students' && (
-          <StudentsTable classId={classId} />
-        )}
-        {tab === 'context' && (
-          <div>Context editor coming soon.</div>
-        )}
-      </div>
+    <div className="p-6 space-y-2">
+      <h2 className="text-xl font-semibold">{item.name ?? "Untitled class"}</h2>
+      {item.description && <p className="text-muted-foreground">{item.description}</p>}
+      {/* render the rest */}
     </div>
   );
 }
