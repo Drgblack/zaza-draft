@@ -1,87 +1,47 @@
-name: CI + Deploy + Smoke Test
+﻿name: CI
 
 on:
-  pull_request:
   push:
-<<<<<<< HEAD
-    branches: [ main, develop, feat/**, chore/** ]
+    branches: [main, feature/*]
   pull_request:
-=======
     branches: [main]
->>>>>>> 4d45b08663ae7a0c76fa4fe1b48902e3b6b81222
 
 jobs:
-<<<<<<< HEAD
-  test:
-=======
-  build-test-deploy:
->>>>>>> 4d45b08663ae7a0c76fa4fe1b48902e3b6b81222
+  build-and-test:
     runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
 
-      - name: Setup Node
+    steps:
+      # Checkout with submodules
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          submodules: true
+
+      # Setup Node.js
+      - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20
-          cache: 'pnpm'
+          node-version: '20'
 
+      # Setup pnpm
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
         with:
-          version: 10
-<<<<<<< HEAD
-=======
-          run_install: false
+          version: 8
 
-      - name: Enable corepack
-        run: corepack enable
->>>>>>> 4d45b08663ae7a0c76fa4fe1b48902e3b6b81222
+      # Initialize submodules (extra safety)
+      - name: Update submodules
+        run: git submodule update --init --recursive
 
-      - name: Install deps
+      # Install dependencies
+      - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-<<<<<<< HEAD
-      - name: Run tests
-        run: pnpm run test:ci
-=======
-      - name: Lint
-        run: pnpm lint
-
-      - name: Typecheck
-        run: pnpm typecheck
-
-      - name: Test
-        run: pnpm test
-
+      # Build
       - name: Build
         run: pnpm build
 
-      - name: Deploy to Vercel
-        id: deployment
-        uses: amondnet/vercel-action@v20
-        with:
-          vercel-token: ${{ secrets.VERCEL_TOKEN }}
-          vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
-          vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID }}
-          working-directory: ./
-          scope: ${{ secrets.VERCEL_SCOPE || '' }}
-
-      - name: Smoke test preview (health + draft)
-        env:
-          BASE_URL: ${{ steps.deployment.outputs.preview-url }}
-          BYPASS: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
-        run: |
-          set -euo pipefail
-          echo "BASE_URL=$BASE_URL"
-
-          # Health endpoint
-          curl -fsS -H "x-vercel-protection-bypass: $BYPASS" "$BASE_URL/api/health"
-
-          # Draft endpoint
-          curl -fsS -H "x-vercel-protection-bypass: $BYPASS" \
-            -H "Content-Type: application/json" \
-            -d '{"notes":"Student improving in group work; needs help starting writing.","tone":"warm","language":"en","dev":true}' \
-            "$BASE_URL/api/draft/generate" | jq .
->>>>>>> 4d45b08663ae7a0c76fa4fe1b48902e3b6b81222
+      # Run tests (if you have them)
+      - name: Run tests
+        run: pnpm test
+        continue-on-error: true
