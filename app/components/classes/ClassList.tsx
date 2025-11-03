@@ -1,67 +1,59 @@
-'use client';
+"use client";
 
-import { useEffect, useState } from 'react';
-import { getClassesForOwner } from '@/lib/firestore/classBrain';
-import Link from 'next/link';
-import { CreateClassForm } from './CreateClassForm';
+import { useEffect, useState } from "react";
+import { useAuth } from "@/lib/auth/hooks";
+import toast from "react-hot-toast";
 
-export function ClassList({ ownerId }: { ownerId: string }) {
-  const [classes, setClasses] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
+type ClassRecord = {
+  id: string;
+  name?: string;
+  createdAt?: { seconds: number; nanoseconds: number } | null;
+};
 
-  async function load() {
-    setLoading(true);
-    try {
-      const list = await getClassesForOwner(ownerId);
-      setClasses(list as any[]);
-    } catch (e) {
-      console.error(e);
-      window.alert('Failed to load classes');
-    } finally {
-      setLoading(false);
-    }
-  }
+export default function ClassList() {
+  const { user } = useAuth();
+  const [items, setItems] = useState<ClassRecord[]>([]);
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    if (ownerId) load();
-  }, [ownerId]);
+    let alive = true;
+    async function load() {
+      if (!user) return;
+      setLoading(true);
+      try {
+        const token = await user.getIdToken();
+        const res = await fetch("/api/classes", {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (!res.ok) throw new Error("classes fetch failed");
+        const data = (await res.json()) as { classes: ClassRecord[] };
+        if (alive) setItems(data.classes ?? []);
+      } catch (e) {
+        toast.error("Could not load classes");
+      } finally {
+        if (alive) setLoading(false);
+      }
+    }
+    load();
+    return () => {
+      alive = false;
+    };
+  }, [user]);
+
+  if (!user) return <div className="p-6">Please sign in.</div>;
+  if (loading) return <div className="p-6">Loading…</div>;
+
+  if (!items.length) {
+    return <div className="p-6 text-muted-foreground">No classes yet.</div>;
+  }
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h2 className="text-xl font-semibold">Your classes</h2>
-        <p className="text-sm text-gray-600">Create and manage class rosters.</p>
-      </div>
-
-      <div className="space-y-4">
-        <div className="p-4 border rounded-md">
-          <CreateClassForm ownerId={ownerId} onCreated={(id) => {
-            // optimistic: reload list
-            load();
-            // navigate? show toast
-          }} />
-        </div>
-
-        {loading ? (
-          <div>Loading…</div>
-        ) : classes.length === 0 ? (
-          <div>No classes yet.</div>
-        ) : (
-          <ul className="space-y-2">
-            {classes.map((c) => (
-              <li key={c.id} className="p-3 border rounded-md flex items-center justify-between">
-                <div>
-                  <div className="font-medium">{c.name}</div>
-                  <div className="text-sm text-gray-600">{c.subject} · {c.grade}</div>
-                </div>
-                <div>
-                  <Link href={`/classes/${c.id}`} className="text-sm text-blue-600 hover:underline">Open</Link>
-                </div>
-              </li>
-            ))}
-          </ul>
-        )}
-      </div>
-    </div>
+    <ul className="p-6 space-y-2">
+      {items.map((c) => (
+        <li key={c.id} className="border rounded p-3">
+          <div className="font-medium">{c.name ?? "Untitled class"}</div>
+        </li>
+      ))}
+    </ul>
   );
 }
