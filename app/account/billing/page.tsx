@@ -1,5 +1,8 @@
 ﻿"use client";
 
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 import { useAuth } from "@/lib/auth/hooks";
 import { useEffect, useState } from "react";
 import toast from "react-hot-toast";
@@ -25,10 +28,10 @@ export default function BillingPage() {
         const token = await user.getIdToken();
         const res = await fetch("/api/me/profile", {
           headers: { Authorization: `Bearer ${token}` },
+          cache: "no-store",
         });
-        if (!res.ok) throw new Error("profile fetch failed");
-        const data = (await res.json()) as Profile;
-        setProfile(data);
+        const p = (await res.json()) as Profile;
+        setProfile(p);
       } catch {
         toast.error("Could not load billing info");
       } finally {
@@ -39,10 +42,9 @@ export default function BillingPage() {
   }, [user]);
 
   async function handleManage() {
-    if (!user) return;
     setPortalLoading(true);
     try {
-      const token = await user.getIdToken();
+      const token = await user!.getIdToken();
       const res = await fetch("/api/stripe/portal", {
         method: "POST",
         headers: { Authorization: `Bearer ${token}` },
@@ -57,10 +59,9 @@ export default function BillingPage() {
   }
 
   async function handleStartSubscription() {
-    if (!user) return;
     setPortalLoading(true);
     try {
-      const token = await user.getIdToken();
+      const token = await user!.getIdToken();
       const res = await fetch("/api/stripe/checkout", {
         method: "POST",
         headers: { Authorization: `Bearer ${token}` },
@@ -90,11 +91,9 @@ export default function BillingPage() {
           {profile?.plan === "pro" ? "∞" : "10"}
         </div>
         <div>
-          <strong>Status:</strong>{" "}
-          {profile?.stripeSubscriptionStatus ?? "N/A"}
+          <strong>Status:</strong> {profile?.stripeSubscriptionStatus ?? "N/A"}
         </div>
       </div>
-
       {profile?.stripeCustomerId ? (
         <button
           onClick={handleManage}

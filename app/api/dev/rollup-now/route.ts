@@ -1,4 +1,6 @@
-﻿import { NextResponse } from "next/server";
+﻿export const dynamic = "force-dynamic";
+export const runtime = "nodejs";
+import { NextResponse } from "next/server";
 import { adminDb } from "@/lib/firebase/admin";
 import { startOfDay, endOfDay } from "date-fns";
 
@@ -44,3 +46,4 @@ export async function GET() {
   await batch.commit();
   return NextResponse.json({ ok: true, usersProcessed: Object.keys(byUser).length });
 }
+

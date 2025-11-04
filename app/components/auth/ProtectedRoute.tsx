@@ -1,37 +1,36 @@
 "use client";
 
 import { ReactNode, useEffect } from "react";
-import { useRouter } from "next/navigation";
-import { useAuth } from "@/lib/auth";
-import { Spinner } from "@/app/components/ui/Spinner";
+import { useRouter, usePathname } from "next/navigation";
+import { useAuth } from "@/lib/auth/hooks"; // you already use this elsewhere
 
-type ProtectedRouteProps = {
-  children: ReactNode;
-  redirectTo?: string;
-};
+type Props = { children: ReactNode };
 
-export default function ProtectedRoute({
-  children,
-  redirectTo = "/auth/signin",
-}: ProtectedRouteProps) {
-  const { user, status } = useAuth();
+export default function ProtectedRoute({ children }: Props) {
+  const { user, loading } = useAuth?.() ?? { user: null, loading: false };
   const router = useRouter();
+  const pathname = usePathname();
 
-  useEffect(() => {
-    if (status === "unauthenticated") router.replace(redirectTo as unknown as any);
-  }, [status, user, router, redirectTo]);
-
-  if (status === "loading") {
+  // While auth state is resolving, avoid flicker/redirect loops
+  if (loading) {
     return (
-      <div className="flex items-center justify-center p-8">
-        <Spinner />
-      </div>
+      <main className="p-6">
+        <p>Loading…</p>
+      </main>
     );
   }
 
+  // Not signed in → send to sign-in with return URL
+  useEffect(() => {
+    if (!loading && !user) {
+      const ret = pathname ? `?returnTo=${encodeURIComponent(pathname)}` : "";
+      router.replace(`/auth/signin${ret}`);
+    }
+  }, [loading, user, router, pathname]);
+
   if (!user) {
-    // brief placeholder while redirect happens
-    return <div className="p-8" />;
+    // Render nothing (or a minimal placeholder) while redirecting
+    return null;
   }
 
   return <>{children}</>;

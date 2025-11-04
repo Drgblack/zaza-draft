@@ -1,65 +1,35 @@
-import { NextResponse } from 'next/server';
-import Stripe from 'stripe';
-import { authAdmin, dbAdmin } from '@/lib/firebase/admin';
-import { headers } from 'next/headers';
+export const dynamic = "force-dynamic";
+export const runtime = "nodejs";
 
-// Initialize Stripe
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-  apiVersion: '2023-10-16',
-});
+import { NextResponse } from "next/server";
+import { adminAuth } from "@/lib/firebase/admin";
+import { getStripe } from "@/lib/payments/stripe";
 
-const PRICE_ID = process.env.STRIPE_PRICE_ID!;
-
-export async function POST() {
+export async function POST(req: Request) {
   try {
-    // Get Authorization header
-    const authHeader = headers().get('Authorization');
-    if (!authHeader?.startsWith('Bearer ')) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+    const authHeader = req.headers.get("authorization") || "";
+    const idToken = authHeader.replace(/^Bearer\s+/i, "");
+    const uid = (await adminAuth().verifyIdToken(idToken)).uid;
 
-    // Verify the token
-    const token = authHeader.split('Bearer ')[1];
-    const decodedToken = await authAdmin.verifyIdToken(token);
-    const uid = decodedToken.uid;
+    const stripe = getStripe();
 
-    // Create Stripe session
     const session = await stripe.checkout.sessions.create({
-      payment_method_types: ['card'],
-      line_items: [
-        {
-          price: PRICE_ID,
-          quantity: 1,
-        },
-      ],
-      mode: 'subscription',
-      success_url: `${process.env.NEXT_PUBLIC_BASE_URL}/classes?upgraded=true`,
-      cancel_url: `${process.env.NEXT_PUBLIC_BASE_URL}/classes`,
-      client_reference_id: uid,
-      metadata: {
-        uid,
-      },
+      mode: "subscription",
+      // TODO: replace with your real price and customer logic
+      line_items: [{ price: process.env.STRIPE_PRICE_ID!, quantity: 1 }],
+      success_url: `${process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"}/account/billing?status=success`,
+      cancel_url: `${process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"}/account/billing?status=cancelled`,
+      // customer: customerId,
     });
 
     return NextResponse.json({ url: session.url });
-  } catch (err) {
-    console.error('Stripe session creation failed:', err);
-    return NextResponse.json(
-      { error: 'Payment session creation failed' },
-      { status: 500 }
-    );
+  } catch (err: any) {
+    if (String(err?.message || "").includes("STRIPE_SECRET_KEY is missing")) {
+      return NextResponse.json(
+        { error: "Stripe not configured" },
+        { status: 503 }
+      );
+    }
+    return NextResponse.json({ error: "Stripe checkout error" }, { status: 500 });
   }
-}
-
-// Webhook to handle successful subscriptions
-export async function handleSubscription(session: Stripe.Checkout.Session) {
-  const uid = session.client_reference_id;
-  if (!uid) return;
-
-  await dbAdmin.doc(`users/${uid}`).update({
-    plan: 'pro',
-    stripeCustomerId: session.customer,
-    stripeSubscriptionId: session.subscription,
-    updatedAt: new Date(),
-  });
 }

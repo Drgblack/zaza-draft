@@ -1,16 +1,18 @@
-import ProtectedRoute from '@/app/components/auth/ProtectedRoute';
-import { useAuth } from '@/lib/auth';
-import { ClassList } from '@/app/components/classes/ClassList';
+﻿"use client";
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+import ProtectedRoute from "@/app/components/auth/ProtectedRoute";
+import ClassList from "@/app/components/classes/ClassList";
 
 export default function ClassesPage() {
-  const { user } = useAuth();
-  const uid = user?.uid ?? '';
-
   return (
     <ProtectedRoute>
       <main className="p-6">
-        <ClassList ownerId={uid} />
+        <ClassList />
       </main>
     </ProtectedRoute>
   );
 }
+

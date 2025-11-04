@@ -1,3 +1,8 @@
+﻿"use client";
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
 import { SignInForm } from '@/app/components/auth';
 
 export default function SignInPage() {
