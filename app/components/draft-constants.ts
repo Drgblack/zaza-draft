@@ -1,4 +1,4 @@
-export const TONE_DESCRIPTIONS = {
+﻿export const TONE_DESCRIPTIONS = {
   warm: "Encouraging and positive, builds confidence and motivation",
   professional: "Clear and balanced, maintains appropriate boundaries",
   direct: "Straightforward and specific, focused on key points",
@@ -20,3 +20,5 @@ export const ERROR_MESSAGES = {
   validation: "The generated draft didn't meet our quality standards. Please try again.",
   network: "Network connection issue. Please check your connection and try again."
 } as const;
+
+

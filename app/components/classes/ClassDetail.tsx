@@ -1,5 +1,4 @@
-"use client";
-
+﻿"use client";
 import { useEffect, useState } from "react";
 import { useAuth } from "@/lib/auth/hooks";
 import toast from "react-hot-toast";
@@ -42,7 +41,7 @@ export default function ClassDetail({ id }: { id: string }) {
   }, [user, id]);
 
   if (!user) return <div className="p-6">Please sign in.</div>;
-  if (loading) return <div className="p-6">Loading…</div>;
+  if (loading) return <div className="p-6">Loadingâ€¦</div>;
   if (!item) return <div className="p-6">Not found.</div>;
 
   return (
@@ -53,3 +52,7 @@ export default function ClassDetail({ id }: { id: string }) {
     </div>
   );
 }
+
+
+
+

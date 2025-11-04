@@ -1,4 +1,5 @@
-"use client"
+﻿"use client";
+export const revalidate = 0;
 
 import { useState } from "react"
 import { Users, FileText, Lightbulb, TrendingUp, MessageSquare, Star, ThumbsUp, Mail, Search } from "lucide-react"
@@ -385,7 +386,7 @@ export default function CommunityPage() {
                       <p>
                         With Zaza Draft, I can generate professional, empathetic comments in seconds. The tool helps me
                         maintain my authentic voice while ensuring every parent receives thoughtful, well-written
-                        feedback. It's not about replacing my judgment—it's about giving me back my evenings and
+                        feedback. It's not about replacing my judgmentâ€”it's about giving me back my evenings and
                         weekends.
                       </p>
                       <p>
@@ -465,7 +466,7 @@ export default function CommunityPage() {
                       </div>
                       <div className="text-sm font-medium text-purple-600 dark:text-purple-400">{story.metric}</div>
                       <button className="text-sm text-purple-600 dark:text-purple-400 hover:underline mt-2">
-                        Read more →
+                        Read more â†’
                       </button>
                     </div>
                   ))}
@@ -652,3 +653,9 @@ export default function CommunityPage() {
     </div>
   )
 }
+
+
+
+
+
+

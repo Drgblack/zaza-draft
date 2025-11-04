@@ -1,4 +1,7 @@
-﻿export const dynamic = "force-dynamic";
+﻿export const revalidate = 0;
+
+export const dynamic = "force-dynamic";
+
 export const runtime = "nodejs";
 import { NextResponse } from "next/server";
 import { adminDb } from "@/lib/firebase/admin";
@@ -46,4 +49,6 @@ export async function GET() {
   await batch.commit();
   return NextResponse.json({ ok: true, usersProcessed: Object.keys(byUser).length });
 }
+
+
 

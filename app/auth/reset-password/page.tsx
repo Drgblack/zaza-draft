@@ -1,8 +1,9 @@
 ﻿"use client";
-export const dynamic = "force-dynamic";
 export const revalidate = 0;
+
 export const dynamic = "force-dynamic";
-export const revalidate = 0;
+;;
+
 import { ResetPasswordForm } from '@/app/components/auth/ResetPasswordForm';
 
 export default function ResetPasswordPage() {
@@ -18,4 +19,12 @@ export default function ResetPasswordPage() {
     </main>
   );
 }
+
+
+
+
+
+
+
+
 

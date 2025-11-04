@@ -1,4 +1,8 @@
-﻿import { NextResponse } from "next/server";
+﻿export const revalidate = 0;
+
+export const dynamic = "force-dynamic";
+
+import { NextResponse } from "next/server";
 import { adminDb } from "@/lib/firebase/admin";
 import { subDays, startOfDay, endOfDay } from "date-fns";
 
@@ -56,3 +60,5 @@ export async function GET() {
     return NextResponse.json({ error: "rollup failed" }, { status: 500 });
   }
 }
+
+

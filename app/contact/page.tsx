@@ -1,4 +1,5 @@
-"use client"
+﻿"use client";
+export const revalidate = 0;
 
 import type React from "react"
 
@@ -35,7 +36,7 @@ export default function ContactPage() {
 
       <div className="bg-gradient-to-r from-purple-600 via-purple-500 to-pink-500 text-white py-8">
         <div className="max-w-6xl mx-auto px-6">
-          <h1 className="text-3xl sm:text-4xl font-bold mb-2">We'd love to hear from you 💬</h1>
+          <h1 className="text-3xl sm:text-4xl font-bold mb-2">We'd love to hear from you ðŸ’¬</h1>
           <p className="text-lg text-purple-50">Get in touch with the Zaza Draft team</p>
         </div>
       </div>
@@ -196,9 +197,9 @@ export default function ContactPage() {
               <div className="border-t border-purple-200 dark:border-purple-800/30 pt-6">
                 <h3 className="text-lg font-semibold text-foreground mb-4">Company Information</h3>
                 <div className="space-y-1 text-base text-muted-foreground">
-                  <p className="font-medium text-foreground">Zaza Technologies UG (haftungsbeschränkt)</p>
-                  <p className="text-sm">Gumbertstraße 150</p>
-                  <p className="text-sm">40229 Düsseldorf, Germany</p>
+                  <p className="font-medium text-foreground">Zaza Technologies UG (haftungsbeschrÃ¤nkt)</p>
+                  <p className="text-sm">GumbertstraÃŸe 150</p>
+                  <p className="text-sm">40229 DÃ¼sseldorf, Germany</p>
                 </div>
               </div>
 
@@ -249,3 +250,9 @@ export default function ContactPage() {
     </div>
   )
 }
+
+
+
+
+
+

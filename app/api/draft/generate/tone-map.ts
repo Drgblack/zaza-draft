@@ -1,4 +1,6 @@
-﻿export type CanonicalTone = "warm" | "professional" | "direct" | "empathetic";
+﻿export const revalidate = 0;
+
+export type CanonicalTone = "warm" | "professional" | "direct" | "empathetic";
 
 const toneMap: Record<string, CanonicalTone> = {
   // Friendly UI labels → canonical
@@ -21,3 +23,5 @@ export function canonicalizeTone(input: any): CanonicalTone | undefined {
   const key = input.trim().toLowerCase();
   return toneMap[key] ?? (["warm","professional","direct","empathetic"].includes(key) ? (key as CanonicalTone) : undefined);
 }
+
+

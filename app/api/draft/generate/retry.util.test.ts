@@ -1,4 +1,6 @@
-﻿import { describe, it, expect, vi } from "vitest";
+﻿export const revalidate = 0;
+
+import { describe, it, expect, vi } from "vitest";
 import { TimeoutError } from "./retry"; // adjust if TimeoutError is exported elsewhere
 // Re-import helper from the same file to keep single source of truth
 import { } from "./retry"; // placeholder to ensure path is valid in bundlers
@@ -16,3 +18,5 @@ describe("rejectNextTick", () => {
     return assertion;
   });
 });
+
+

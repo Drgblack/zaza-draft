@@ -1,4 +1,6 @@
 ﻿"use client";
+export const revalidate = 0;
+
 import type { ReactNode } from "react";
 import { AuthContext, AuthContextValue } from "@/lib/auth/context";
 
@@ -11,3 +13,6 @@ export default function AuthProvider({ children }: { children: ReactNode }) {
   };
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
+
+
+

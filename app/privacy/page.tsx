@@ -1,4 +1,5 @@
-"use client"
+﻿"use client";
+export const revalidate = 0;
 
 import { Button } from "@/components/ui/button"
 import { ArrowLeft, Lock, BarChart, Brain, Shield, Key, Cookie, Users, Globe, FileText, Mail } from "lucide-react"
@@ -218,11 +219,11 @@ export default function PrivacyPage() {
                 <li>
                   <span className="font-semibold text-foreground">Address:</span>
                   <br />
-                  <span className="ml-16">Zaza Technologies UG (haftungsbeschränkt)</span>
+                  <span className="ml-16">Zaza Technologies UG (haftungsbeschrÃ¤nkt)</span>
                   <br />
-                  <span className="ml-16">Gumbertstraße 150</span>
+                  <span className="ml-16">GumbertstraÃŸe 150</span>
                   <br />
-                  <span className="ml-16">40229 Düsseldorf, Germany</span>
+                  <span className="ml-16">40229 DÃ¼sseldorf, Germany</span>
                 </li>
               </ul>
             </div>
@@ -234,3 +235,9 @@ export default function PrivacyPage() {
     </div>
   )
 }
+
+
+
+
+
+

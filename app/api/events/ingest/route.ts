@@ -1,4 +1,8 @@
-﻿import { NextRequest, NextResponse } from "next/server";
+﻿export const revalidate = 0;
+
+export const dynamic = "force-dynamic";
+
+import { NextRequest, NextResponse } from "next/server";
 import { EventSchema } from "@/lib/analytics/events";
 import { adminDb } from "@/lib/firebase/admin";
 import { limitPerMinute, requireUidFromRequest } from "@/lib/analytics/auth-limit";
@@ -27,3 +31,5 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Server error" }, { status: 500 });
   }
 }
+
+

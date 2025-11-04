@@ -1,3 +1,5 @@
+﻿export const revalidate = 0;
+
 export type LogEvent = {
   ts: string;
   route: string;
@@ -30,3 +32,4 @@ export function logApiEvent(event: LogEvent): void {
     properties: event
   });
 }
+

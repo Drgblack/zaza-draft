@@ -1,8 +1,9 @@
 ﻿"use client";
-export const dynamic = "force-dynamic";
 export const revalidate = 0;
+
 export const dynamic = "force-dynamic";
-export const revalidate = 0;
+;;
+
 import { SignUpForm } from '@/app/components/auth';
 
 export default function SignUpPage() {
@@ -18,3 +19,11 @@ export default function SignUpPage() {
     </main>
   );
 }
+
+
+
+
+
+
+
+

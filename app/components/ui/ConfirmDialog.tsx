@@ -1,5 +1,4 @@
-'use client';
-
+﻿"use client";
 import { useEffect, useRef } from 'react';
 
 export function ConfirmDialog({ open, title = 'Confirm', description, onConfirm, onCancel }: {
@@ -42,3 +41,7 @@ export function ConfirmDialog({ open, title = 'Confirm', description, onConfirm,
     </div>
   );
 }
+
+
+
+

@@ -1,5 +1,4 @@
-"use client";
-
+﻿"use client";
 import { ReactNode, useEffect } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { useAuth } from "@/lib/auth/hooks"; // you already use this elsewhere
@@ -15,12 +14,12 @@ export default function ProtectedRoute({ children }: Props) {
   if (loading) {
     return (
       <main className="p-6">
-        <p>Loading…</p>
+        <p>Loadingâ€¦</p>
       </main>
     );
   }
 
-  // Not signed in → send to sign-in with return URL
+  // Not signed in â†’ send to sign-in with return URL
   useEffect(() => {
     if (!loading && !user) {
       const ret = pathname ? `?returnTo=${encodeURIComponent(pathname)}` : "";
@@ -35,3 +34,7 @@ export default function ProtectedRoute({ children }: Props) {
 
   return <>{children}</>;
 }
+
+
+
+

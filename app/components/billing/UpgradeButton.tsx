@@ -1,5 +1,4 @@
-'use client';
-
+﻿"use client";
 import { useState } from 'react';
 import { useAuth } from '@/lib/auth/hooks';
 import { loadStripe } from '@stripe/stripe-js';
@@ -60,3 +59,6 @@ export function UpgradeButton({ snippetsUsed, snippetsLimit, className = '' }: U
     </div>
   );
 }
+
+
+

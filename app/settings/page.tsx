@@ -1,4 +1,5 @@
-"use client"
+﻿"use client";
+export const revalidate = 0;
 
 import { useState, useEffect } from "react"
 import {
@@ -436,7 +437,7 @@ export default function SettingsPage() {
                             t.settingsPage.shieldFeature5,
                           ].map((feature, index) => (
                             <div key={index} className="flex items-center gap-2 text-sm">
-                              <span className="text-lg">✨</span>
+                              <span className="text-lg">âœ¨</span>
                               <span>{feature}</span>
                             </div>
                           ))}
@@ -465,14 +466,14 @@ export default function SettingsPage() {
                           <Heart className="w-5 h-5 text-green-600 dark:text-green-400 flex-shrink-0 mt-0.5" />
                           <div className="flex-1">
                             <p className="text-sm font-medium text-green-900 dark:text-green-100">
-                              Nice! You're taking steps to protect your personal time. Your wellbeing matters! 💚
+                              Nice! You're taking steps to protect your personal time. Your wellbeing matters! ðŸ’š
                             </p>
                           </div>
                           <button
                             onClick={() => setShowZaraEncouragement(false)}
                             className="text-green-600 dark:text-green-400 hover:text-green-700 dark:hover:text-green-300"
                           >
-                            ×
+                            Ã—
                           </button>
                         </div>
                       </div>
@@ -943,7 +944,7 @@ export default function SettingsPage() {
                             </p>
                           </div>
                           <kbd className="px-3 py-1.5 bg-gray-100 dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded text-sm font-mono">
-                            ⌘K
+                            âŒ˜K
                           </kbd>
                         </div>
 
@@ -953,7 +954,7 @@ export default function SettingsPage() {
                             <p className="text-sm text-gray-600 dark:text-gray-400">Get help from your AI assistant</p>
                           </div>
                           <kbd className="px-3 py-1.5 bg-gray-100 dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded text-sm font-mono">
-                            ⌘K
+                            âŒ˜K
                           </kbd>
                         </div>
 
@@ -963,7 +964,7 @@ export default function SettingsPage() {
                             <p className="text-sm text-gray-600 dark:text-gray-400">View all available shortcuts</p>
                           </div>
                           <kbd className="px-3 py-1.5 bg-gray-100 dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded text-sm font-mono">
-                            ⌘/
+                            âŒ˜/
                           </kbd>
                         </div>
 
@@ -991,7 +992,7 @@ export default function SettingsPage() {
                             </p>
                           </div>
                           <kbd className="px-3 py-1.5 bg-gray-100 dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded text-sm font-mono">
-                            ⌘↵
+                            âŒ˜â†µ
                           </kbd>
                         </div>
 
@@ -1001,7 +1002,7 @@ export default function SettingsPage() {
                             <p className="text-sm text-gray-600 dark:text-gray-400">Make selected text bold</p>
                           </div>
                           <kbd className="px-3 py-1.5 bg-gray-100 dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded text-sm font-mono">
-                            ⌘B
+                            âŒ˜B
                           </kbd>
                         </div>
 
@@ -1011,7 +1012,7 @@ export default function SettingsPage() {
                             <p className="text-sm text-gray-600 dark:text-gray-400">Make selected text italic</p>
                           </div>
                           <kbd className="px-3 py-1.5 bg-gray-100 dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded text-sm font-mono">
-                            ⌘I
+                            âŒ˜I
                           </kbd>
                         </div>
 
@@ -1021,7 +1022,7 @@ export default function SettingsPage() {
                             <p className="text-sm text-gray-600 dark:text-gray-400">Underline selected text</p>
                           </div>
                           <kbd className="px-3 py-1.5 bg-gray-100 dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded text-sm font-mono">
-                            ⌘U
+                            âŒ˜U
                           </kbd>
                         </div>
 
@@ -1031,7 +1032,7 @@ export default function SettingsPage() {
                             <p className="text-sm text-gray-600 dark:text-gray-400">Undo last change</p>
                           </div>
                           <kbd className="px-3 py-1.5 bg-gray-100 dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded text-sm font-mono">
-                            ⌘Z
+                            âŒ˜Z
                           </kbd>
                         </div>
 
@@ -1041,7 +1042,7 @@ export default function SettingsPage() {
                             <p className="text-sm text-gray-600 dark:text-gray-400">Redo last undone change</p>
                           </div>
                           <kbd className="px-3 py-1.5 bg-gray-100 dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded text-sm font-mono">
-                            ⌘⇧Z
+                            âŒ˜â‡§Z
                           </kbd>
                         </div>
 
@@ -1067,7 +1068,7 @@ export default function SettingsPage() {
                             <p className="text-sm text-gray-600 dark:text-gray-400">Jump to templates page</p>
                           </div>
                           <kbd className="px-3 py-1.5 bg-gray-100 dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded text-sm font-mono">
-                            ⌘T
+                            âŒ˜T
                           </kbd>
                         </div>
 
@@ -1079,7 +1080,7 @@ export default function SettingsPage() {
                             </p>
                           </div>
                           <kbd className="px-3 py-1.5 bg-gray-100 dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded text-sm font-mono">
-                            ⌘S
+                            âŒ˜S
                           </kbd>
                         </div>
                       </div>
@@ -1105,7 +1106,7 @@ export default function SettingsPage() {
                             <p className="text-sm text-gray-600 dark:text-gray-400">Add a line break without sending</p>
                           </div>
                           <kbd className="px-3 py-1.5 bg-gray-100 dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded text-sm font-mono">
-                            ⇧↵
+                            â‡§â†µ
                           </kbd>
                         </div>
                       </div>
@@ -1118,10 +1119,10 @@ export default function SettingsPage() {
                         <div>
                           <h4 className="font-semibold text-purple-900 dark:text-purple-100 mb-2">Pro Tips</h4>
                           <ul className="space-y-2 text-sm text-purple-800 dark:text-purple-200">
-                            <li>• Most shortcuts work with Ctrl on Windows/Linux instead of ⌘</li>
-                            <li>• Press ⌘/ anytime to see this shortcuts reference</li>
-                            <li>• Keyboard shortcuts work even when modals are open</li>
-                            <li>• Tab through tone options to quickly find the right one</li>
+                            <li>â€¢ Most shortcuts work with Ctrl on Windows/Linux instead of âŒ˜</li>
+                            <li>â€¢ Press âŒ˜/ anytime to see this shortcuts reference</li>
+                            <li>â€¢ Keyboard shortcuts work even when modals are open</li>
+                            <li>â€¢ Tab through tone options to quickly find the right one</li>
                           </ul>
                         </div>
                       </div>
@@ -1152,3 +1153,9 @@ export default function SettingsPage() {
     </div>
   )
 }
+
+
+
+
+
+

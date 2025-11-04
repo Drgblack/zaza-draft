@@ -1,4 +1,6 @@
 ﻿"use client";
+export const revalidate = 0;
+
 import { useEffect, useState } from "react";
 import { auth } from "@/lib/firebase/client";
 import { onAuthStateChanged } from "firebase/auth";
@@ -119,3 +121,9 @@ export default function InsightsPage() {
     </div>
   );
 }
+
+
+
+
+
+

@@ -1,4 +1,6 @@
-﻿const rejectNextTick = <T = never>(err: unknown) =>
+﻿export const revalidate = 0;
+
+const rejectNextTick = <T = never>(err: unknown) =>
   new Promise<T>((_, rej) => setTimeout(() => rej(err), 0));
 // Defer rejection one macrotask so tests can attach .rejects before it fires
 // app/api/draft/generate/retry.ts
@@ -195,6 +197,8 @@ return await fn(signal);
     clearTimeout(timer);
   }
 }
+
+
 
 
 

@@ -1,3 +1,7 @@
+﻿export const revalidate = 0;
+
+export const dynamic = "force-dynamic";
+
 // app/api/classes/[id]/route.ts
 import { NextRequest } from "next/server";
 import { adminDb, adminAuth } from "@/lib/firebase/admin";
@@ -37,3 +41,5 @@ export async function GET(
     return Response.json({ error: "Failed to fetch class" }, { status: 500 });
   }
 }
+
+

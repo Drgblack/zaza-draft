@@ -1,7 +1,10 @@
+﻿export const revalidate = 0;
+
 import type { Metadata } from "next"
 import Link from "next/link"
 import { ChevronRight, HelpCircle } from "lucide-react"
 import { Footer } from "@/components/footer"
+
 
 export const metadata: Metadata = {
   title: "FAQ - Zaza Draft | Frequently Asked Questions",
@@ -103,7 +106,7 @@ export default function FAQPage() {
         {
           question: "How much does Zaza Draft cost?",
           answer:
-            "Zaza Draft offers a free tier with 10 drafts per month, perfect for trying the service. Premium plans start at £9/month for unlimited drafts, priority support, and advanced features. We also offer school-wide licenses with volume discounts.",
+            "Zaza Draft offers a free tier with 10 drafts per month, perfect for trying the service. Premium plans start at Â£9/month for unlimited drafts, priority support, and advanced features. We also offer school-wide licenses with volume discounts.",
         },
         {
           question: "Is there a free trial?",
@@ -344,3 +347,7 @@ export default function FAQPage() {
     </>
   )
 }
+
+
+
+

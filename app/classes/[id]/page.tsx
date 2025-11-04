@@ -1,5 +1,8 @@
+﻿export const revalidate = 0;
+
 import ProtectedRoute from "@/app/components/auth/ProtectedRoute";
 import ClassDetail from "@/app/components/classes/ClassDetail";
+
 
 export default function ClassDetailPage({ params }: { params: { id: string } }) {
   return (
@@ -10,3 +13,7 @@ export default function ClassDetailPage({ params }: { params: { id: string } }) 
     </ProtectedRoute>
   );
 }
+
+
+
+

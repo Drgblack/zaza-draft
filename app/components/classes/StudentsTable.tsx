@@ -1,5 +1,4 @@
-'use client';
-
+﻿"use client";
 import { useEffect, useState } from 'react';
 import { addStudent, getStudentsForClass, deleteStudent, updateStudent, Student } from '@/lib/firestore/classBrain';
 import { useAuth } from '@/lib/auth/hooks';
@@ -166,3 +165,7 @@ export function StudentsTable({ classId }: { classId: string }) {
     </div>
   );
 }
+
+
+
+

@@ -1,4 +1,6 @@
-﻿import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+﻿export const revalidate = 0;
+
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { withRetry, TimeoutError } from "./retry";
 
 // Keep the env stable per test to avoid cross-talk with test:debug
@@ -88,3 +90,5 @@ describe("withRetry", () => {
     return assertion;
   });
 });
+
+

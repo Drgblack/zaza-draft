@@ -1,5 +1,4 @@
-'use client';
-
+﻿"use client";
 import { useEffect, useState } from 'react';
 import { Student } from '@/lib/firestore/classBrain';
 import { z } from 'zod';
@@ -100,3 +99,6 @@ export function EditStudentModal({ student, onSave, onCancel }: EditStudentModal
     </div>
   );
 }
+
+
+

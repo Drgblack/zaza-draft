@@ -1,5 +1,6 @@
-"use client";
+﻿"use client";
 
+export const revalidate = 0;
 import { useState } from "react";
 
 const FRIENDLY_TONES: { label: string; value: string }[] = [
@@ -12,8 +13,8 @@ const FRIENDLY_TONES: { label: string; value: string }[] = [
 const LANGS = [
   { label: "English", value: "en" },
   { label: "Deutsch", value: "de" },
-  { label: "Español", value: "es" },
-  { label: "Français", value: "fr" },
+  { label: "EspaÃ±ol", value: "es" },
+  { label: "FranÃ§ais", value: "fr" },
 ];
 
 // Client-side mapper mirrors server tone-map
@@ -66,7 +67,7 @@ export default function Page() {
 
   return (
     <main style={{ maxWidth: 720, margin: "2rem auto", padding: "0 1rem" }}>
-      <h1>Zaza Draft – Dev</h1>
+      <h1>Zaza Draft â€“ Dev</h1>
       <p>
         API: <code>/api/draft/generate</code>
       </p>
@@ -107,7 +108,7 @@ export default function Page() {
         </label>
 
         <button type="submit" disabled={loading}>
-          {loading ? "Generating…" : "Generate"}
+          {loading ? "Generatingâ€¦" : "Generate"}
         </button>
       </form>
 
@@ -122,4 +123,6 @@ export default function Page() {
     </main>
   );
 }
+
+
 

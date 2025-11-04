@@ -1,5 +1,4 @@
-'use client';
-
+﻿"use client";
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -43,8 +42,12 @@ export function ResetPasswordForm() {
       {error && <div className="rounded-md bg-red-50 p-3 text-red-700">{error}</div>}
 
       <button type="submit" disabled={isLoading} className="w-full rounded-md bg-black p-2 text-white">
-        {isLoading ? 'Sending…' : 'Send reset email'}
+        {isLoading ? 'Sendingâ€¦' : 'Send reset email'}
       </button>
     </form>
   );
 }
+
+
+
+

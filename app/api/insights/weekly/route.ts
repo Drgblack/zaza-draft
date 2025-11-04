@@ -1,4 +1,8 @@
-﻿import { NextRequest, NextResponse } from "next/server";
+﻿export const revalidate = 0;
+
+export const dynamic = "force-dynamic";
+
+import { NextRequest, NextResponse } from "next/server";
 import { adminDb } from "@/lib/firebase/admin";
 import { subDays } from "date-fns";
 import { requireUidFromRequest } from "@/lib/analytics/auth-limit";
@@ -19,3 +23,5 @@ export async function GET(req: NextRequest) {
 
   return NextResponse.json({ items });
 }
+
+

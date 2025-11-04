@@ -1,3 +1,5 @@
+﻿export const revalidate = 0;
+
 export type TimeoutOptions = {
   signal?: AbortSignal;
   timeoutMs?: number;
@@ -48,3 +50,4 @@ export async function withTimeout<T>(
     clearTimeout(timeout);
   }
 }
+

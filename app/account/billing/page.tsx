@@ -1,7 +1,8 @@
 ﻿"use client";
+export const revalidate = 0;
 
 export const dynamic = "force-dynamic";
-export const revalidate = 0;
+;;
 
 import { useAuth } from "@/lib/auth/hooks";
 import { useEffect, useState } from "react";
@@ -76,7 +77,7 @@ export default function BillingPage() {
   }
 
   if (!user) return <div className="p-8">Please sign in to view billing.</div>;
-  if (loading) return <div className="p-8">Loading…</div>;
+  if (loading) return <div className="p-8">Loadingâ€¦</div>;
 
   return (
     <main className="max-w-lg mx-auto p-8 space-y-6">
@@ -88,7 +89,7 @@ export default function BillingPage() {
         <div>
           <strong>Usage this month:</strong>{" "}
           {profile?.usage?.snippetsThisMonth ?? 0} /{" "}
-          {profile?.plan === "pro" ? "∞" : "10"}
+          {profile?.plan === "pro" ? "âˆž" : "10"}
         </div>
         <div>
           <strong>Status:</strong> {profile?.stripeSubscriptionStatus ?? "N/A"}
@@ -101,7 +102,7 @@ export default function BillingPage() {
           className="px-4 py-2 bg-blue-600 text-white rounded"
           data-testid="manage-subscription"
         >
-          {portalLoading ? "Opening…" : "Manage Subscription"}
+          {portalLoading ? "Openingâ€¦" : "Manage Subscription"}
         </button>
       ) : (
         <button
@@ -110,9 +111,17 @@ export default function BillingPage() {
           className="px-4 py-2 bg-blue-600 text-white rounded"
           data-testid="start-subscription"
         >
-          {portalLoading ? "Redirecting…" : "Start Subscription"}
+          {portalLoading ? "Redirectingâ€¦" : "Start Subscription"}
         </button>
       )}
     </main>
   );
 }
+
+
+
+
+
+
+
+

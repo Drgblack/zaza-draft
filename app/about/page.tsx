@@ -1,4 +1,5 @@
-"use client"
+﻿"use client";
+export const revalidate = 0;
 
 import { Button } from "@/components/ui/button"
 import { ArrowLeft, Heart, Zap, Sprout, Users } from "lucide-react"
@@ -171,3 +172,9 @@ export default function AboutPage() {
     </div>
   )
 }
+
+
+
+
+
+

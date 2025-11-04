@@ -1,4 +1,4 @@
-export default function TeamLoading() {
+﻿export default function TeamLoading() {
   return (
     <div className="min-h-screen bg-white dark:bg-gray-950 p-8">
       <div className="max-w-7xl mx-auto">
@@ -10,3 +10,6 @@ export default function TeamLoading() {
     </div>
   )
 }
+
+
+

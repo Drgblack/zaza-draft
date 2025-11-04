@@ -1,3 +1,5 @@
+﻿export const revalidate = 0;
+
 // app/layout.tsx
 import type React from "react"
 import type { Metadata } from "next"
@@ -10,14 +12,14 @@ import { OnboardingModal } from "@/components/onboarding-modal"
 import { ErrorBoundary } from "@/components/error-boundary"
 import { FavoritesProvider } from "@/contexts/favorites-context"
 import { ZaraChat } from "@/components/zara-chat"
-import AuthProvider from "./providers/AuthProvider" // ⬅️ add this
+import AuthProvider from "./providers/AuthProvider" // â¬…ï¸ add this
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-inter" })
 
-export const metadata: Metadata = { /* …unchanged… */ }
+export const metadata: Metadata = { /* â€¦unchangedâ€¦ */ }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
-  const schemaData = { /* …unchanged… */ }
+  const schemaData = { /* â€¦unchangedâ€¦ */ }
 
   return (
     <html lang="en" suppressHydrationWarning>
@@ -26,7 +28,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       </head>
       <body className={inter.className}>
         <ErrorBoundary>
-          <AuthProvider> {/* ⬅️ wrap everything that uses useAuth */}
+          <AuthProvider> {/* â¬…ï¸ wrap everything that uses useAuth */}
             <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
               <LanguageProvider>
                 <FavoritesProvider>
@@ -44,3 +46,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     </html>
   )
 }
+
+
+

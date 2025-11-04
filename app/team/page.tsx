@@ -1,4 +1,5 @@
-"use client"
+﻿"use client";
+export const revalidate = 0;
 
 import { useState } from "react"
 import { ChevronLeft, Users } from "lucide-react"
@@ -51,3 +52,9 @@ export default function TeamPage() {
     </div>
   )
 }
+
+
+
+
+
+

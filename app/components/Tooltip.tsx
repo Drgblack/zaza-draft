@@ -1,4 +1,4 @@
-type TooltipProps = {
+﻿type TooltipProps = {
   content: string;
   children: React.ReactNode;
 };
@@ -15,3 +15,5 @@ export function Tooltip({ content, children }: TooltipProps) {
     </div>
   );
 }
+
+

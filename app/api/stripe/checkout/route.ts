@@ -1,4 +1,7 @@
+﻿export const revalidate = 0;
+
 export const dynamic = "force-dynamic";
+
 export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
@@ -33,3 +36,5 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Stripe checkout error" }, { status: 500 });
   }
 }
+
+

@@ -1,5 +1,4 @@
-'use client';
-
+﻿"use client";
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
@@ -32,7 +31,7 @@ export function AddStudentForm({ onAdd }: { onAdd: (name: string, email?: string
         <input {...register('name')} placeholder="Student name" className="flex-1 p-2 border rounded" />
         <input {...register('email')} placeholder="Email (optional)" className="w-64 p-2 border rounded" />
         <button type="submit" disabled={submitting} className="px-4 py-2 bg-blue-600 text-white rounded">
-          {submitting ? 'Adding…' : 'Add'}
+          {submitting ? 'Addingâ€¦' : 'Add'}
         </button>
       </div>
       {formState.errors.name && <div className="text-sm text-red-600">{formState.errors.name.message}</div>}
@@ -40,3 +39,7 @@ export function AddStudentForm({ onAdd }: { onAdd: (name: string, email?: string
     </form>
   );
 }
+
+
+
+

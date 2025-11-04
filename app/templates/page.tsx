@@ -1,4 +1,5 @@
-"use client"
+﻿"use client";
+export const revalidate = 0;
 
 import { useState, useEffect } from "react"
 import { Star, Sparkles, BookOpen, MessageSquare, AlertCircle, FileText } from "lucide-react"
@@ -243,3 +244,9 @@ export default function TemplatesPage() {
     </div>
   )
 }
+
+
+
+
+
+

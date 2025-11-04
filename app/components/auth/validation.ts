@@ -1,4 +1,4 @@
-import { z } from 'zod';
+﻿import { z } from 'zod';
 
 export const authSchema = {
   email: z
@@ -31,3 +31,5 @@ export const signUpSchema = z.object({
 
 export type SignInFormData = z.infer<typeof signInSchema>;
 export type SignUpFormData = z.infer<typeof signUpSchema>;
+
+

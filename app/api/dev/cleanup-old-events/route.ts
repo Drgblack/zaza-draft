@@ -1,4 +1,8 @@
-﻿import { NextResponse } from "next/server";
+﻿export const revalidate = 0;
+
+export const dynamic = "force-dynamic";
+
+import { NextResponse } from "next/server";
 import { adminDb } from "@/lib/firebase/admin";
 
 export async function POST() {
@@ -10,3 +14,5 @@ export async function POST() {
   await batch.commit();
   return NextResponse.json({ ok: true, deleted: q.size });
 }
+
+

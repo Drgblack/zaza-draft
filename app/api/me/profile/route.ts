@@ -1,4 +1,7 @@
-﻿export const dynamic = "force-dynamic";
+﻿export const revalidate = 0;
+
+export const dynamic = "force-dynamic";
+
 export const runtime = "nodejs";
 import { NextRequest } from "next/server";
 import { adminDb, adminAuth } from "@/lib/firebase/admin";
@@ -31,4 +34,6 @@ export async function GET(req: NextRequest) {
     return Response.json({ error: "Failed to fetch profile" }, { status: 500 });
   }
 }
+
+
 

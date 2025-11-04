@@ -1,4 +1,5 @@
-"use client"
+﻿"use client";
+export const revalidate = 0;
 
 import { useState, useEffect } from "react"
 import {
@@ -175,7 +176,7 @@ export default function AnalyticsPage() {
                     <div className="w-12 h-12 bg-blue-100 dark:bg-blue-900/30 rounded-lg flex items-center justify-center">
                       <Target className="w-6 h-6 text-blue-600 dark:text-blue-400" />
                     </div>
-                    <span className="text-xl">🎯</span>
+                    <span className="text-xl">ðŸŽ¯</span>
                   </div>
                   <div className="text-3xl font-bold text-gray-900 dark:text-white mb-1">18</div>
                   <div className="text-sm text-gray-600 dark:text-gray-400 mb-2">Drafts created</div>
@@ -193,7 +194,7 @@ export default function AnalyticsPage() {
                     </div>
                   </div>
                   <div className="text-3xl font-bold text-gray-900 dark:text-white mb-1 flex items-center gap-2">
-                    5 weeks <span className="text-2xl">🔥</span>
+                    5 weeks <span className="text-2xl">ðŸ”¥</span>
                   </div>
                   <div className="text-sm text-gray-600 dark:text-gray-400 mb-2">Current streak</div>
                   <div className="text-xs text-gray-500 dark:text-gray-500">Keep it going!</div>
@@ -205,7 +206,7 @@ export default function AnalyticsPage() {
                     <div className="w-12 h-12 bg-green-100 dark:bg-green-900/30 rounded-lg flex items-center justify-center">
                       <Star className="w-6 h-6 text-green-600 dark:text-green-400" />
                     </div>
-                    <span className="text-xl">✨</span>
+                    <span className="text-xl">âœ¨</span>
                   </div>
                   <div className="text-3xl font-bold text-gray-900 dark:text-white mb-1">92</div>
                   <div className="text-sm text-gray-600 dark:text-gray-400 mb-2">Edit depth score</div>
@@ -245,7 +246,7 @@ export default function AnalyticsPage() {
                 </div>
                 <div className="mt-4 bg-green-50 dark:bg-green-900/20 border-l-4 border-green-500 rounded-r-lg p-3">
                   <p className="text-sm text-green-900 dark:text-green-100">
-                    Tuesday afternoons are your peak productivity time—consider blocking that time!
+                    Tuesday afternoons are your peak productivity timeâ€”consider blocking that time!
                   </p>
                 </div>
               </Card>
@@ -323,7 +324,7 @@ export default function AnalyticsPage() {
                   {/* Unlocked Achievement 1 */}
                   <div className="border border-purple-200 dark:border-purple-800 rounded-lg p-4 bg-purple-50 dark:bg-purple-900/20">
                     <div className="flex items-start justify-between mb-2">
-                      <span className="text-2xl">⏰</span>
+                      <span className="text-2xl">â°</span>
                       <CheckCircle2 className="w-5 h-5 text-green-600 dark:text-green-400" />
                     </div>
                     <h4 className="font-semibold text-gray-900 dark:text-white mb-1">Time Reclaimed - Bronze</h4>
@@ -337,7 +338,7 @@ export default function AnalyticsPage() {
                   {/* Unlocked Achievement 2 */}
                   <div className="border border-orange-200 dark:border-orange-800 rounded-lg p-4 bg-orange-50 dark:bg-orange-900/20">
                     <div className="flex items-start justify-between mb-2">
-                      <span className="text-2xl">🔥</span>
+                      <span className="text-2xl">ðŸ”¥</span>
                       <CheckCircle2 className="w-5 h-5 text-green-600 dark:text-green-400" />
                     </div>
                     <h4 className="font-semibold text-gray-900 dark:text-white mb-1">5-Week Streak</h4>
@@ -351,7 +352,7 @@ export default function AnalyticsPage() {
                   {/* Unlocked Achievement 3 */}
                   <div className="border border-blue-200 dark:border-blue-800 rounded-lg p-4 bg-blue-50 dark:bg-blue-900/20">
                     <div className="flex items-start justify-between mb-2">
-                      <span className="text-2xl">✨</span>
+                      <span className="text-2xl">âœ¨</span>
                       <CheckCircle2 className="w-5 h-5 text-green-600 dark:text-green-400" />
                     </div>
                     <h4 className="font-semibold text-gray-900 dark:text-white mb-1">Tone Master</h4>
@@ -365,7 +366,7 @@ export default function AnalyticsPage() {
                   {/* Unlocked Achievement 4 */}
                   <div className="border border-green-200 dark:border-green-800 rounded-lg p-4 bg-green-50 dark:bg-green-900/20">
                     <div className="flex items-start justify-between mb-2">
-                      <span className="text-2xl">🎯</span>
+                      <span className="text-2xl">ðŸŽ¯</span>
                       <CheckCircle2 className="w-5 h-5 text-green-600 dark:text-green-400" />
                     </div>
                     <h4 className="font-semibold text-gray-900 dark:text-white mb-1">One-Shot Wonder</h4>
@@ -379,7 +380,7 @@ export default function AnalyticsPage() {
                   {/* Locked Achievement 5 */}
                   <div className="border border-gray-200 dark:border-gray-700 rounded-lg p-4 bg-gray-50 dark:bg-gray-900/20 opacity-60">
                     <div className="flex items-start justify-between mb-2">
-                      <span className="text-2xl grayscale">🌍</span>
+                      <span className="text-2xl grayscale">ðŸŒ</span>
                       <LockIcon className="w-5 h-5 text-gray-400" />
                     </div>
                     <h4 className="font-semibold text-gray-600 dark:text-gray-400 mb-1">Multilingual Champion</h4>
@@ -390,7 +391,7 @@ export default function AnalyticsPage() {
                   {/* Locked Achievement 6 */}
                   <div className="border border-gray-200 dark:border-gray-700 rounded-lg p-4 bg-gray-50 dark:bg-gray-900/20 opacity-60">
                     <div className="flex items-start justify-between mb-2">
-                      <span className="text-2xl grayscale">💚</span>
+                      <span className="text-2xl grayscale">ðŸ’š</span>
                       <LockIcon className="w-5 h-5 text-gray-400" />
                     </div>
                     <h4 className="font-semibold text-gray-600 dark:text-gray-400 mb-1">Weekend Warrior Retired</h4>
@@ -409,7 +410,7 @@ export default function AnalyticsPage() {
                       You drafted 3 times after 10pm this week. Consider these time-saving strategies:
                     </p>
                     <a href="#" className="text-sm text-yellow-700 dark:text-yellow-300 hover:underline font-medium">
-                      Learn about boundaries →
+                      Learn about boundaries â†’
                     </a>
                   </div>
                 </div>
@@ -418,7 +419,7 @@ export default function AnalyticsPage() {
               <Card className="p-6">
                 <div className="flex items-center justify-between mb-4">
                   <h3 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2">
-                    Your Wellbeing Matters <span className="text-xl">💚</span>
+                    Your Wellbeing Matters <span className="text-xl">ðŸ’š</span>
                   </h3>
                   <div className="flex items-center gap-2">
                     <span className="text-sm text-gray-600 dark:text-gray-400">Show wellbeing insights</span>
@@ -434,14 +435,14 @@ export default function AnalyticsPage() {
                       <div className="flex items-center gap-2 mb-2">
                         <span className="text-2xl font-bold text-gray-900 dark:text-white">18%</span>
                         <span className="px-2 py-1 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 text-xs rounded-full">
-                          🌙 Healthy boundary
+                          ðŸŒ™ Healthy boundary
                         </span>
                       </div>
                       <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">
                         You drafted 3 times after 10pm this week. Consider these time-saving strategies:
                       </p>
                       <a href="#" className="text-sm text-purple-600 dark:text-purple-400 hover:underline font-medium">
-                        Learn about boundaries →
+                        Learn about boundaries â†’
                       </a>
                     </div>
 
@@ -501,7 +502,7 @@ export default function AnalyticsPage() {
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   {/* Suggestion 1 */}
                   <div className="border border-gray-200 dark:border-gray-700 rounded-lg p-4 hover:shadow-md transition-shadow">
-                    <div className="text-3xl mb-3">💡</div>
+                    <div className="text-3xl mb-3">ðŸ’¡</div>
                     <h4 className="font-semibold text-gray-900 dark:text-white mb-2">Try 'Empathetic' tone first</h4>
                     <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
                       You regenerate often on parent emails. Using the 'Empathetic' tone first could save you time.
@@ -513,7 +514,7 @@ export default function AnalyticsPage() {
 
                   {/* Suggestion 2 */}
                   <div className="border border-gray-200 dark:border-gray-700 rounded-lg p-4 hover:shadow-md transition-shadow">
-                    <div className="text-3xl mb-3">📅</div>
+                    <div className="text-3xl mb-3">ðŸ“…</div>
                     <h4 className="font-semibold text-gray-900 dark:text-white mb-2">Protect your Wednesday flow</h4>
                     <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
                       Your Wednesday drafts have 50% fewer edits. Consider scheduling heavy writing then.
@@ -526,7 +527,7 @@ export default function AnalyticsPage() {
                   {/* Suggestion 3 */}
                   <div className="border border-purple-200 dark:border-purple-700 rounded-lg p-4 hover:shadow-md transition-shadow bg-purple-50 dark:bg-purple-900/20">
                     <div className="flex items-center gap-2 mb-3">
-                      <span className="text-3xl">⭐</span>
+                      <span className="text-3xl">â­</span>
                       <span className="px-2 py-0.5 bg-purple-600 text-white text-xs rounded-full font-medium">NEW</span>
                     </div>
                     <h4 className="font-semibold text-gray-900 dark:text-white mb-2">Unlock Class Brain</h4>
@@ -563,7 +564,7 @@ export default function AnalyticsPage() {
                   href="/privacy"
                   className="text-sm text-purple-600 dark:text-purple-400 hover:underline font-medium mt-3 inline-block"
                 >
-                  Learn about data privacy →
+                  Learn about data privacy â†’
                 </a>
               </Card>
 
@@ -583,3 +584,9 @@ export default function AnalyticsPage() {
     </div>
   )
 }
+
+
+
+
+
+

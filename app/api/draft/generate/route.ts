@@ -1,4 +1,8 @@
-﻿// app/api/draft/generate/route.ts
+﻿export const revalidate = 0;
+
+export const dynamic = "force-dynamic";
+
+// app/api/draft/generate/route.ts
 import { NextRequest } from "next/server";
 
 export const runtime = "nodejs"; // ensure server runtime for Next 14
@@ -58,3 +62,5 @@ export async function POST(req: NextRequest) {
     );
   }
 }
+
+

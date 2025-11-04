@@ -1,5 +1,4 @@
-'use client';
-
+﻿"use client";
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -48,8 +47,12 @@ export function CreateClassForm({ ownerId, onCreated }: { ownerId: string; onCre
       </div>
       {error && <div className="text-sm text-red-600">{error}</div>}
       <button type="submit" disabled={loading} className="rounded-md bg-black text-white px-3 py-2">
-        {loading ? 'Creating…' : 'Create class'}
+        {loading ? 'Creatingâ€¦' : 'Create class'}
       </button>
     </form>
   );
 }
+
+
+
+
