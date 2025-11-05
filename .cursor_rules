@@ -44,3 +44,35 @@ a11y = "Readable font sizes, high contrast buttons, keyboard accessible."
 
 [versioning]
 prompt_versioning = "Track prompt template versions in Firestore or in settings module."
+
+# AI Generation Rules
+rules_location = "docs/rules/"
+rules_docs = [
+    "00-master-prompt-rules.md",
+    "01-pronouns-gender.md", 
+    "02-language-safety.md",
+    "03-pedagogical-guidelines.md",
+    "04-cultural-sensitivity.md",
+    "05-age-appropriateness.md",
+    "06-feedback-tone.md",
+    "07-academic-integrity.md",
+    "08-hallucination-prevention.md"
+]
+
+name_database = "docs/knowledge/data/first-names-multi-locale.csv"
+name_count = 33822
+languages = 9
+
+[ai_generation]
+CRITICAL = "Before generating ANY teacher feedback, read ALL rules in docs/rules/ directory. These are MANDATORY."
+hallucination_prevention = "NEVER invent facts about students. See docs/rules/08-hallucination-prevention.md"
+banned_words = "Check ALL 9 languages. See docs/rules/02-language-safety.md"
+pronouns = "Use name database (33,822 names). See docs/rules/01-pronouns-gender.md"
+quality_gates = "11 mandatory checks. See docs/rules/00-master-prompt-rules.md"
+
+# ===================================
+# AI GENERATION RULES (MANDATORY)
+# ===================================
+rules_location = "docs/rules/"
+name_database = "docs/knowledge/data/first-names-multi-locale.csv"
+CRITICAL = "Read ALL rules in docs/rules/ before ANY AI generation"
