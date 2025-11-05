@@ -103,7 +103,29 @@ export async function POST(req: Request) {
 
       case 'checkout.session.completed': {
         const session = event.data.object as Stripe.Checkout.Session;
-        // Initial checkout already handled in checkout route
+        // Link customer ID if this is the first checkout and customer exists
+        if (session.customer && session.metadata?.firebaseUid) {
+          const uid = session.metadata.firebaseUid;
+          const customerId = session.customer as string;
+          
+          // Update user document with customer ID if not already set
+          const userRef = dbAdmin.collection('users').doc(uid);
+          const userDoc = await userRef.get();
+          
+          if (userDoc.exists() && !userDoc.data()?.stripeCustomerId) {
+            await userRef.update({
+              stripeCustomerId: customerId,
+              updatedAt: Date.now(),
+            });
+            console.log(`Linked Stripe customer ${customerId} to user ${uid}`);
+          }
+          
+          // If subscription was created, handle it
+          if (session.subscription) {
+            const subscription = await stripe.subscriptions.retrieve(session.subscription as string);
+            await handleSubscriptionChange(subscription);
+          }
+        }
         console.log('Checkout completed:', session.id);
         break;
       }

@@ -5,23 +5,31 @@ export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
-import { adminAuth } from "@/lib/firebase/admin"; // note: this should be the *function* version
-import { getStripe } from "@/lib/payments/stripe";
+import { adminAuth, adminDb } from "@/lib/firebase/admin";
+import { getStripe, ensureStripeCustomerForUid } from "@/lib/payments/stripe";
 
 export async function POST(req: Request) {
   try {
     const authHeader = req.headers.get("authorization") || "";
     const idToken = authHeader.replace(/^Bearer\s+/i, "");
-    const uid = (await adminAuth().verifyIdToken(idToken)).uid;
+    const decoded = await adminAuth().verifyIdToken(idToken);
+    const uid = decoded.uid;
 
-    const stripe = getStripe(); // lazy init here
+    // Get user data for email/name
+    const userDoc = await adminDb().collection("users").doc(uid).get();
+    const userData = userDoc.data();
 
-    // Look up or create Stripe customer for uid (your logic)
-    // const customerId = await ensureStripeCustomerForUid(uid);
+    // Ensure Stripe customer exists
+    const customerId = await ensureStripeCustomerForUid(
+      uid,
+      decoded.email || userData?.email,
+      userData?.displayName || decoded.name
+    );
 
-    // Example: create a billing portal session
+    const stripe = getStripe();
+
     const session = await stripe.billingPortal.sessions.create({
-      customer: /* customerId */ "replace-me",
+      customer: customerId,
       return_url: `${process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"}/account/billing`,
     });
 
@@ -34,6 +42,7 @@ export async function POST(req: Request) {
         { status: 503 }
       );
     }
+    console.error("Stripe portal error:", err);
     return NextResponse.json(
       { error: "Stripe portal error" },
       { status: 500 }

@@ -5,24 +5,38 @@ export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
-import { adminAuth } from "@/lib/firebase/admin";
-import { getStripe } from "@/lib/payments/stripe";
+import { adminAuth, adminDb } from "@/lib/firebase/admin";
+import { getStripe, ensureStripeCustomerForUid } from "@/lib/payments/stripe";
 
 export async function POST(req: Request) {
   try {
     const authHeader = req.headers.get("authorization") || "";
     const idToken = authHeader.replace(/^Bearer\s+/i, "");
-    const uid = (await adminAuth().verifyIdToken(idToken)).uid;
+    const decoded = await adminAuth().verifyIdToken(idToken);
+    const uid = decoded.uid;
+
+    // Get user data for email/name
+    const userDoc = await adminDb().collection("users").doc(uid).get();
+    const userData = userDoc.data();
+
+    // Ensure Stripe customer exists
+    const customerId = await ensureStripeCustomerForUid(
+      uid,
+      decoded.email || userData?.email,
+      userData?.displayName || decoded.name
+    );
 
     const stripe = getStripe();
 
     const session = await stripe.checkout.sessions.create({
       mode: "subscription",
-      // TODO: replace with your real price and customer logic
+      customer: customerId,
       line_items: [{ price: process.env.STRIPE_PRICE_ID!, quantity: 1 }],
       success_url: `${process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"}/account/billing?status=success`,
       cancel_url: `${process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"}/account/billing?status=cancelled`,
-      // customer: customerId,
+      metadata: {
+        firebaseUid: uid,
+      },
     });
 
     return NextResponse.json({ url: session.url });
@@ -33,6 +47,7 @@ export async function POST(req: Request) {
         { status: 503 }
       );
     }
+    console.error("Stripe checkout error:", err);
     return NextResponse.json({ error: "Stripe checkout error" }, { status: 500 });
   }
 }
