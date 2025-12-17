@@ -17,6 +17,7 @@ import {
 } from "lucide-react"
 import { useOnboarding } from "@/contexts/onboarding-context"
 import { useLanguage } from "@/contexts/language-context"
+import { useAuth } from "@/lib/auth/hooks"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -25,6 +26,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 export function OnboardingModal() {
   const router = useRouter()
   const { data, updateData, completeStep, skipOnboarding, shouldShowOnboarding } = useOnboarding()
+  const { user } = useAuth()
   const { t } = useLanguage()
   const [currentStep, setCurrentStep] = useState(0)
   const [isGenerating, setIsGenerating] = useState(false)
@@ -54,7 +56,8 @@ export function OnboardingModal() {
   const handleComplete = () => {
     updateData({ hasCompletedOnboarding: true })
     skipOnboarding()
-    router.push("/")
+    const destination = user ? "/drafts" : "/auth/signup"
+    router.push(destination)
   }
 
   const handleGenerateDraft = async () => {
