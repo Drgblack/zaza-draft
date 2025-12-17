@@ -152,12 +152,27 @@ export function OnboardingModal() {
               </div>
 
               <div className="flex flex-col gap-3 pt-4">
-                <Button onClick={handleNext} size="lg" className="w-full">
-                  Get Started
-                </Button>
-                <button onClick={handleSkip} className="text-sm text-gray-600 dark:text-gray-400 hover:underline">
-                  I'll explore on my own
-                </button>
+              <Button
+  onClick={() => {
+    if (!user) return router.push("/auth/signup")
+    handleNext()
+  }}
+  size="lg"
+  className="w-full"
+>
+  Get Started
+</Button>
+
+<button
+  onClick={() => {
+    if (!user) return router.push("/auth/signup")
+    router.push("/drafts")
+  }}
+  className="text-sm text-gray-600 dark:text-gray-400 hover:underline"
+>
+  I'll explore on my own
+</button>
+
               </div>
             </div>
           )}
