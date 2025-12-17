@@ -1,8 +1,5 @@
-﻿{
-    "crons":  [
-                  {
-                      "path":  "/api/cron/rollup",
-                      "schedule":  "0 2 * * *"
-                  }
-              ]
+{
+  "crons": [
+    { "path": "/api/cron/rollup", "schedule": "0 2 * * *" }
+  ]
 }
