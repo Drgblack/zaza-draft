@@ -1,11 +1,13 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  typescript: {
-    ignoreBuildErrors: true,
+  webpack: (config) => {
+    config.module.parser = config.module.parser || {};
+    config.module.parser.javascript = {
+      ...(config.module.parser.javascript || {}),
+      amd: false,
+    };
+    return config;
   },
-  images: {
-    unoptimized: true,
-  },
-}
+};
 
-export default nextConfig
+export default nextConfig;
