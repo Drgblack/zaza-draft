@@ -1,0 +1,232 @@
+"use client"
+
+import { Clock, Flame, Heart, ChevronRight, TrendingUp, Sparkles } from "lucide-react"
+import { useRouter } from "next/navigation"
+import { useState, useEffect } from "react"
+
+interface InsightsData {
+  timeSaved: { current: number; previous: number } | null
+  streak: { current: number; previous: number } | null
+  balance: { score: number; previous: number } | null
+  hasEnoughData: boolean
+}
+
+function formatTimeSavedText(current: number, previous: number): { text: string; showTrend: boolean } {
+  const delta = ((current - previous) / previous) * 100
+
+  if (delta >= 10) {
+    return {
+      text: `+${Math.round(delta)}% time saved`,
+      showTrend: true,
+    }
+  } else if (delta >= -5 && delta < 10) {
+    return {
+      text: `${current.toFixed(1)}h saved this week`,
+      showTrend: false,
+    }
+  } else {
+    return {
+      text: `${current.toFixed(1)}h saved`,
+      showTrend: false,
+    }
+  }
+}
+
+function formatStreakText(streak: number): string {
+  if (streak >= 8) {
+    return `${streak} weeks strong!`
+  } else if (streak >= 4) {
+    return `${streak}-week streak 🔥`
+  } else if (streak >= 1) {
+    return `${streak}-week streak`
+  } else {
+    return "Start your streak!"
+  }
+}
+
+function formatBalanceText(balance: number): string {
+  if (balance >= 85) {
+    return `${balance}% boundaries kept`
+  } else if (balance >= 70) {
+    return `${balance}% balance`
+  } else if (balance >= 50) {
+    return `${balance}% boundaries`
+  } else {
+    return `${balance}% building habits`
+  }
+}
+
+export function MiniInsightsBar() {
+  const router = useRouter()
+  const [data, setData] = useState<InsightsData | null>(null)
+  const [isLoading, setIsLoading] = useState(true)
+  const [hasError, setHasError] = useState(false)
+  const [prefersReducedMotion, setPrefersReducedMotion] = useState(false)
+  const [showWellbeingInsights, setShowWellbeingInsights] = useState(true)
+
+  useEffect(() => {
+    const mediaQuery = window.matchMedia("(prefers-reduced-motion: reduce)")
+    setPrefersReducedMotion(mediaQuery.matches)
+
+    const handler = (e: MediaQueryListEvent) => setPrefersReducedMotion(e.matches)
+    mediaQuery.addEventListener("change", handler)
+    return () => mediaQuery.removeEventListener("change", handler)
+  }, [])
+
+  useEffect(() => {
+    const showInsights = localStorage.getItem("show_wellbeing_insights")
+    if (showInsights === "false") {
+      setShowWellbeingInsights(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        // Simulate API call
+        await new Promise((resolve) => setTimeout(resolve, 300))
+
+        // Mock data - in production, this would come from API
+        const mockData = {
+          timeSaved: { current: 4.2, previous: 3.6 },
+          streak: { current: 5, previous: 4 },
+          balance: { score: 85, previous: 82 },
+          hasEnoughData: true, // Set to false for new users with <3 drafts
+        }
+
+        setData(mockData)
+      } catch (error) {
+        console.error("[v0] Failed to load insights:", error)
+        setHasError(true)
+      } finally {
+        setIsLoading(false)
+      }
+    }
+
+    fetchData()
+  }, [])
+
+  if (hasError || !showWellbeingInsights) {
+    return null
+  }
+
+  if (isLoading) {
+    return (
+      <div className="glass shadow-soft rounded-xl py-3 px-4 mt-4 mb-6 border border-primary/10">
+        <div className="flex items-center gap-3">
+          <div className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+          <span className="text-sm text-primary">Loading your progress...</span>
+        </div>
+      </div>
+    )
+  }
+
+  if (!data?.hasEnoughData) {
+    return (
+      <div className="glass shadow-[0_8px_28px_rgba(0,0,0,0.12)] rounded-xl py-3 px-4 mt-4 mb-6 border border-white/50 dark:border-white/40 transition-all duration-200 hover:shadow-[0_12px_36px_rgba(147,51,234,0.25)] hover:-translate-y-0.5 bg-white/90 dark:bg-white/15 backdrop-blur-[32px]">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+          <div className="flex items-center gap-2 text-sm text-primary dark:text-purple-200">
+            <Sparkles className="w-4 h-4 flex-shrink-0" />
+            <span>Create your first draft to unlock progress tracking</span>
+          </div>
+          <button
+            onClick={() => router.push("/insights")}
+            className="flex items-center gap-1 text-xs text-primary dark:text-primary hover:text-primary dark:hover:text-primary transition-colors duration-200 focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 rounded whitespace-nowrap flex-shrink-0"
+            aria-label="Learn more about insights"
+          >
+            <span>Learn more</span>
+            <ChevronRight className="w-3 h-3" />
+          </button>
+        </div>
+      </div>
+    )
+  }
+
+  const timeText = formatTimeSavedText(data.timeSaved!.current, data.timeSaved!.previous)
+  const streakText = formatStreakText(data.streak!.current)
+  const balanceText = formatBalanceText(data.balance!.score)
+
+  const animationClass = prefersReducedMotion ? "" : "animate-fade-in"
+
+  return (
+    <div
+      className={`glass shadow-[0_8px_28px_rgba(0,0,0,0.12)] rounded-xl py-3 px-4 mt-4 mb-6 border border-white/50 dark:border-white/40 transition-all duration-200 hover:shadow-[0_12px_36px_rgba(147,51,234,0.25)] hover:-translate-y-0.5 bg-white/90 dark:bg-white/15 backdrop-blur-[32px] ${animationClass}`}
+      role="region"
+      aria-label="Your weekly progress summary"
+    >
+      <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
+        <div className="flex flex-wrap items-center gap-x-6 gap-y-2 flex-1 min-w-0">
+          <button
+            onClick={() => router.push("/insights#time-saved")}
+            className="flex items-center gap-2 text-sm text-purple-800 dark:text-purple-200 hover:text-purple-900 dark:hover:text-purple-100 transition-colors duration-200 group whitespace-nowrap focus-visible:ring-2 focus-visible:ring-purple-600 focus-visible:ring-offset-2 rounded font-bold"
+            aria-label="View time saved insights"
+            title="View time saved details in Insights dashboard"
+          >
+            <Clock
+              className="w-4 h-4 flex-shrink-0 text-purple-800 dark:text-purple-200"
+              aria-hidden="true"
+              strokeWidth={2.5}
+            />
+            <span className="font-bold">
+              {timeText.showTrend && (
+                <TrendingUp
+                  className="inline w-3 h-3 mr-1 text-emerald-700 dark:text-emerald-300"
+                  aria-hidden="true"
+                  strokeWidth={2.5}
+                />
+              )}
+              {timeText.text}
+            </span>
+            <span className="text-purple-600 dark:text-purple-300">📋</span>
+          </button>
+
+          <button
+            onClick={() => router.push("/insights#streak")}
+            className="flex items-center gap-2 text-sm text-orange-800 dark:text-orange-200 hover:text-orange-900 dark:hover:text-orange-100 transition-colors duration-200 group whitespace-nowrap focus-visible:ring-2 focus-visible:ring-orange-600 focus-visible:ring-offset-2 rounded font-bold"
+            aria-label="View streak insights"
+            title="View your streak history in Insights dashboard"
+          >
+            <Flame
+              className="w-4 h-4 flex-shrink-0 text-orange-800 dark:text-orange-200"
+              aria-hidden="true"
+              strokeWidth={2.5}
+            />
+            <span className="font-bold">{streakText}</span>
+          </button>
+
+          <button
+            onClick={() => router.push("/insights#wellbeing")}
+            className="flex items-center gap-2 text-sm text-emerald-800 dark:text-emerald-200 hover:text-emerald-900 dark:hover:text-emerald-100 transition-colors duration-200 group whitespace-nowrap focus-visible:ring-2 focus-visible:ring-emerald-600 focus-visible:ring-offset-2 rounded font-bold"
+            aria-label="View work-life balance insights"
+            title="View wellbeing metrics in Insights dashboard"
+          >
+            <Heart
+              className="w-4 h-4 flex-shrink-0 text-emerald-800 dark:text-emerald-200"
+              aria-hidden="true"
+              strokeWidth={2.5}
+            />
+            <span className="font-bold">{balanceText}</span>
+          </button>
+        </div>
+
+        <button
+          onClick={() => router.push("/insights")}
+          className="flex items-center gap-1 text-xs text-purple-800 dark:text-purple-200 hover:text-purple-900 dark:hover:text-purple-100 transition-colors duration-200 group whitespace-nowrap flex-shrink-0 self-start lg:self-auto focus-visible:ring-2 focus-visible:ring-purple-600 focus-visible:ring-offset-2 rounded font-bold"
+          aria-label="View full insights dashboard"
+        >
+          <span>View insights</span>
+          <ChevronRight
+            className="w-3 h-3 group-hover:translate-x-0.5 transition-transform"
+            aria-hidden="true"
+            strokeWidth={2.5}
+          />
+        </button>
+      </div>
+
+      <div className="sr-only">
+        You saved {data.timeSaved!.current.toFixed(1)} hours this week. You're on a {data.streak!.current}-week streak.
+        Your healthy boundaries score is {data.balance!.score} percent.
+      </div>
+    </div>
+  )
+}

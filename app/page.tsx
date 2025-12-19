@@ -1,5 +1,5 @@
-﻿import DraftClient from "./components/DraftClient";
+import { MainEditor } from "@/components/main-editor"
 
-export default function Page() {
-  return <DraftClient />;
+export default function Home() {
+  return <MainEditor />
 }
