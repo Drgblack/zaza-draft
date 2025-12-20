@@ -1,6 +1,6 @@
-"use client"
+﻿"use client"
 
-import { useEffect, useState, type React } from "react"
+import { useEffect, useState } from "react"
 import { TrendingUp, TrendingDown, Info } from "lucide-react"
 import { Card } from "@/components/ui/card"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
@@ -127,3 +127,6 @@ export function StatCard({
     </Card>
   )
 }
+
+
+

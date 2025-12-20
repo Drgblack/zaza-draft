@@ -27,13 +27,12 @@ export function MainEditor() {
 
   const [greeting, setGreeting] = useState("Good morning")
   const [userName, setUserName] = useState("")
-  const [draftExplanation, setDraftExplanation] = useState<any>(null)
-
   const [generatedDraft, setGeneratedDraft] = useState<string | null>(null)
   const [draftMetadata, setDraftMetadata] = useState<any>(null)
   const [isEditing, setIsEditing] = useState(false)
 
   const [showWellbeingInsights, setShowWellbeingInsights] = useState(true)
+  const isDocumentDark = typeof document !== "undefined" && document.documentElement.classList.contains("dark")
 
   useEffect(() => {
     const handleSettingsChange = (e: CustomEvent) => {
@@ -103,30 +102,6 @@ ${userName || "Teacher"}`
       // Increment drafts used
       setDraftsUsed((prev) => prev + 1)
 
-      // Mock draft explanation data
-      const mockExplanation = {
-        tone: selectedTone,
-        pedagogicalReasoning:
-          "this approach helps maintain a professional yet caring relationship with the family while addressing the concern constructively.",
-        keyPhrases: [
-          {
-            phrase: "I've noticed [student] is working hard on...",
-            reasoning:
-              "This phrase acknowledges effort before addressing challenges, following growth mindset principles.",
-          },
-          {
-            phrase: "Let's work together to...",
-            reasoning: "Partnership language builds trust and shows you're on the same team as the family.",
-          },
-        ],
-        suggestions: [
-          "Add specific examples from your interactions with the student",
-          "Include a concrete next step or action item",
-          "Mention something positive the student has done recently",
-        ],
-      }
-
-      setDraftExplanation(mockExplanation)
     }, 1500)
   }
 
@@ -187,7 +162,7 @@ Examples:
             }
             className="w-full h-96 text-lg text-gray-900 dark:text-white bg-transparent border-0 focus:outline-none focus:ring-0 resize-none placeholder:text-gray-600 dark:placeholder:text-white/60 leading-relaxed font-medium"
             style={{
-              color: document.documentElement.classList.contains("dark") ? "#ffffff" : undefined,
+              color: isDocumentDark ? "#ffffff" : undefined,
             }}
             aria-label={
               locale === "de-DE" ? "Beschreiben Sie die Situation" : "Describe the situation you need help with"
@@ -200,7 +175,7 @@ Examples:
         <div className="flex flex-wrap gap-3 mb-6">
           {TONE_OPTIONS.map((tone) => {
             const isSelected = selectedTone === tone.id
-            const isDark = document.documentElement.classList.contains("dark")
+            const isDark = isDocumentDark
 
             return (
               <button
@@ -252,7 +227,7 @@ Examples:
         <FooterSlim />
       </div>
 
-      <ZaraAssistant draftExplanation={draftExplanation} onExplanationClose={() => setDraftExplanation(null)} />
+      <ZaraAssistant />
     </div>
   )
 }

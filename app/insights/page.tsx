@@ -416,7 +416,15 @@ export default function InsightsPage() {
           </div>
         </div>
 
-        <DataControlsExplainer shareData={shareData} onShareDataChange={setShareData} />
+        <DataControlsExplainer
+  shareData={shareData}
+  onShareDataChange={setShareData}
+  onPrivacySettingsClick={() => {
+    // TODO: wire to real settings modal later
+    window.location.href = "/privacy"
+  }}
+/>
+
       </main>
 
       <FooterSlim />

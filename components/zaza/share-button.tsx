@@ -7,7 +7,7 @@ import { cn } from "@/lib/utils"
 import type { LucideIcon } from "lucide-react"
 
 const BRANDS = {
-  generic: { hover: "#8B5CF6" },
+  generic: { base: "#8B5CF6" },
   whatsapp: { base: "#25D366" },
   email: { base: "#6366F1" },
   facebook: { base: "#1877F2" },
@@ -22,7 +22,7 @@ interface ShareButtonProps {
 }
 
 export function ShareButton({ brand = "generic", Icon, label, onClick, className }: ShareButtonProps) {
-  const color = BRANDS[brand]?.base ?? BRANDS.generic.hover
+  const color = BRANDS[brand]?.base ?? BRANDS.generic.base
 
   return (
     <Button

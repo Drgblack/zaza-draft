@@ -1,4 +1,4 @@
-"use client"
+﻿"use client"
 
 import { useState, useEffect } from "react"
 import { Sparkles, Send, ArrowLeft, ChevronRight, Lightbulb, Copy, Quote, X } from "lucide-react"
@@ -7,18 +7,6 @@ import { useLocale } from "@/hooks/use-locale"
 interface Message {
   role: "user" | "assistant"
   content: string
-}
-
-type ZaraView = "menu" | "tipDetail" | "explainingDraft"
-
-interface DraftExplanation {
-  tone: string
-  pedagogicalReasoning: string
-  keyPhrases: Array<{
-    phrase: string
-    reasoning: string
-  }>
-  suggestions: string[]
 }
 
 const getTips = (t: (key: string) => string) => [
@@ -172,12 +160,7 @@ const TIP_DETAILS: Record<string, { sections: Array<{ type: string; title: strin
   },
 }
 
-interface ZaraAssistantProps {
-  draftExplanation?: DraftExplanation | null
-  onExplanationClose?: () => void
-}
-
-export function ZaraAssistant({ draftExplanation, onExplanationClose }: ZaraAssistantProps = {}) {
+export function ZaraAssistant() {
   const { t, locale } = useLocale()
   const [isOpen, setIsOpen] = useState(false)
   const [currentView, setCurrentView] = useState<"menu" | "tipDetail">("menu")
@@ -224,7 +207,7 @@ export function ZaraAssistant({ draftExplanation, onExplanationClose }: ZaraAssi
           role: "assistant",
           content:
             locale === "de-DE"
-              ? "Ich bin hier, um zu helfen! Während ich noch lerne, probiere die schnellen Tipps oben oder beschreibe deine Situation im Haupteditor für KI-generierte Entwürfe."
+              ? "Ich bin hier, um zu helfen! WÃ¤hrend ich noch lerne, probiere die schnellen Tipps oben oder beschreibe deine Situation im Haupteditor fÃ¼r KI-generierte EntwÃ¼rfe."
               : "I'm here to help! While I'm still learning, try the quick tips above or describe your situation in the main editor for AI-generated drafts.",
         },
       ])
@@ -239,9 +222,6 @@ export function ZaraAssistant({ draftExplanation, onExplanationClose }: ZaraAssi
   const handleBackToMenu = () => {
     setCurrentView("menu")
     setSelectedTipId(null)
-    if (currentView === "explainingDraft" && onExplanationClose) {
-      onExplanationClose()
-    }
   }
 
   const handleCopyPhrase = (phrase: string) => {
@@ -364,7 +344,7 @@ export function ZaraAssistant({ draftExplanation, onExplanationClose }: ZaraAssi
                     {section.type === "framework" && (
                       <>
                         <h4 className="font-medium text-gray-900 dark:text-white mb-2 flex items-center gap-2">
-                          <span className="text-purple-600 dark:text-purple-400">📋</span>
+                          <span className="text-purple-600 dark:text-purple-400">ðŸ“‹</span>
                           {section.title}
                         </h4>
                         <div className="glass shadow-soft border border-white/60 dark:border-white/20 rounded-lg p-4 space-y-3 bg-white/90 dark:bg-white/10 backdrop-blur-[32px]">
@@ -383,7 +363,7 @@ export function ZaraAssistant({ draftExplanation, onExplanationClose }: ZaraAssi
                     {section.type === "phrases" && (
                       <>
                         <h4 className="font-medium text-gray-900 dark:text-white mb-2 flex items-center gap-2">
-                          <span className="text-purple-600 dark:text-purple-400">💬</span>
+                          <span className="text-purple-600 dark:text-purple-400">ðŸ’¬</span>
                           {section.title}
                         </h4>
                         <div className="glass shadow-soft rounded-lg p-4 space-y-2 bg-white/90 dark:bg-white/10 backdrop-blur-[32px] border border-white/60 dark:border-white/20">
@@ -396,7 +376,7 @@ export function ZaraAssistant({ draftExplanation, onExplanationClose }: ZaraAssi
                                 title="Copy phrase"
                                 aria-label={`Copy phrase: ${phrase}`}
                               >
-                                {copiedPhrase === phrase ? <span className="text-xs">✓</span> : <Copy size={14} />}
+                                {copiedPhrase === phrase ? <span className="text-xs">âœ“</span> : <Copy size={14} />}
                               </button>
                             </div>
                           ))}
@@ -407,13 +387,13 @@ export function ZaraAssistant({ draftExplanation, onExplanationClose }: ZaraAssi
                     {section.type === "avoid" && (
                       <>
                         <h4 className="font-medium text-gray-900 dark:text-white mb-2 flex items-center gap-2">
-                          <span className="text-red-500 dark:text-red-400">⚠️</span>
+                          <span className="text-red-500 dark:text-red-400">âš ï¸</span>
                           {section.title}
                         </h4>
                         <div className="glass shadow-soft rounded-lg p-4 space-y-2 bg-white/90 dark:bg-white/10 backdrop-blur-[32px] border border-white/60 dark:border-white/20">
                           {section.items.map((item, idx) => (
                             <p key={idx} className="text-sm text-red-900 dark:text-red-200">
-                              ❌ {item}
+                              âŒ {item}
                             </p>
                           ))}
                         </div>
@@ -423,7 +403,7 @@ export function ZaraAssistant({ draftExplanation, onExplanationClose }: ZaraAssi
                     {section.type === "example" && (
                       <>
                         <h4 className="font-medium text-gray-900 dark:text-white mb-2 flex items-center gap-2">
-                          <span className="text-purple-600 dark:text-purple-400">💡</span>
+                          <span className="text-purple-600 dark:text-purple-400">ðŸ’¡</span>
                           {section.title}
                         </h4>
                         <div className="glass shadow-soft rounded-lg p-4 border-l-4 border-purple-600 bg-white/90 dark:bg-white/10 backdrop-blur-[32px]">
@@ -435,7 +415,7 @@ export function ZaraAssistant({ draftExplanation, onExplanationClose }: ZaraAssi
                     {section.type === "template" && (
                       <>
                         <h4 className="font-medium text-gray-900 dark:text-white mb-2 flex items-center gap-2">
-                          <span className="text-purple-600 dark:text-purple-400">📧</span>
+                          <span className="text-purple-600 dark:text-purple-400">ðŸ“§</span>
                           {section.title}
                         </h4>
                         <div className="glass shadow-soft rounded-lg p-4 space-y-2 bg-white/90 dark:bg-white/10 backdrop-blur-[32px] border border-white/60 dark:border-white/20">
@@ -450,98 +430,6 @@ export function ZaraAssistant({ draftExplanation, onExplanationClose }: ZaraAssi
                   </div>
                 ))}
               </div>
-
-              <button
-                onClick={handleBackToMenu}
-                className="w-full mt-6 mb-4 bg-purple-100 dark:bg-gray-700/80 text-purple-700 dark:text-white font-medium py-3 px-4 rounded-lg hover:bg-purple-200 dark:hover:bg-gray-600/80 transition flex items-center justify-center gap-2 focus-visible:ring-2 focus-visible:ring-purple-600 backdrop-blur-[24px]"
-              >
-                <ArrowLeft size={18} />
-                Back to Menu
-              </button>
-            </div>
-          )}
-
-          {/* Explaining Draft View */}
-          {currentView === "explainingDraft" && draftExplanation && (
-            <div className="flex-1 overflow-y-auto p-4 md:p-6">
-              {/* Header */}
-              <div className="glass shadow-soft-lg rounded-lg p-4 mb-4 border border-primary/30 backdrop-blur-[24px]">
-                <div className="flex items-center gap-3 mb-2">
-                  <div className="w-10 h-10 bg-purple-600 rounded-full flex items-center justify-center flex-shrink-0">
-                    <Lightbulb className="text-white" size={20} />
-                  </div>
-                  <h3 className="font-semibold text-purple-900 dark:text-white text-lg">Why I wrote it this way</h3>
-                </div>
-                <p className="text-sm text-purple-800 dark:text-white/90">
-                  Let me explain the pedagogical reasoning behind this draft.
-                </p>
-              </div>
-
-              {/* Tone Choice */}
-              <div className="mb-4">
-                <div className="flex items-center gap-2 mb-2">
-                  <div className="w-6 h-6 bg-purple-600 rounded-full flex items-center justify-center flex-shrink-0">
-                    <span className="text-white text-xs font-bold">1</span>
-                  </div>
-                  <h4 className="font-medium text-gray-900 dark:text-white">Tone Selection</h4>
-                </div>
-                <div className="ml-8 glass shadow-soft border border-white/60 dark:border-white/10 rounded-lg p-4 border-l-4 border-purple-600">
-                  <p className="text-sm text-gray-700 dark:text-white/90">
-                    I used a{" "}
-                    <span className="font-semibold text-purple-700 dark:text-white">{draftExplanation.tone}</span> tone
-                    because {draftExplanation.pedagogicalReasoning}
-                  </p>
-                </div>
-              </div>
-
-              {/* Key Phrases */}
-              {draftExplanation.keyPhrases.length > 0 && (
-                <div className="mb-4">
-                  <div className="flex items-center gap-2 mb-2">
-                    <div className="w-6 h-6 bg-purple-600 rounded-full flex items-center justify-center flex-shrink-0">
-                      <span className="text-white text-xs font-bold">2</span>
-                    </div>
-                    <h4 className="font-medium text-gray-900 dark:text-white">Key Phrases</h4>
-                  </div>
-                  <div className="ml-8 space-y-3">
-                    {draftExplanation.keyPhrases.map((item, idx) => (
-                      <div
-                        key={idx}
-                        className="glass shadow-soft border border-white/60 dark:border-white/10 rounded-lg p-4 border-l-4 border-purple-400"
-                      >
-                        <div className="flex items-start gap-2 mb-2">
-                          <Quote className="text-purple-600 dark:text-purple-400 mt-0.5 flex-shrink-0" size={16} />
-                          <p className="text-sm font-medium text-purple-900 dark:text-white italic">"{item.phrase}"</p>
-                        </div>
-                        <p className="text-xs text-gray-600 dark:text-white/80 ml-6">💡 {item.reasoning}</p>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* Personalization Tips */}
-              {draftExplanation.suggestions.length > 0 && (
-                <div className="mb-4">
-                  <div className="glass shadow-soft border border-amber-200 dark:border-amber-800 rounded-lg p-4">
-                    <div className="flex items-start gap-3">
-                      <div className="w-8 h-8 bg-amber-100 dark:bg-amber-900/40 rounded-full flex items-center justify-center flex-shrink-0">
-                        <Sparkles className="text-amber-600 dark:text-amber-400" size={16} />
-                      </div>
-                      <div>
-                        <h4 className="font-medium text-amber-900 dark:text-white mb-1 text-sm">
-                          Consider personalizing
-                        </h4>
-                        <ul className="text-xs text-amber-800 dark:text-white/80 space-y-1 mt-2">
-                          {draftExplanation.suggestions.map((suggestion, idx) => (
-                            <li key={idx}>• {suggestion}</li>
-                          ))}
-                        </ul>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              )}
 
               <button
                 onClick={handleBackToMenu}
@@ -604,3 +492,5 @@ export function ZaraAssistant({ draftExplanation, onExplanationClose }: ZaraAssi
     </>
   )
 }
+
+

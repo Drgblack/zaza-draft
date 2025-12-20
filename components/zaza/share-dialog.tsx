@@ -107,7 +107,7 @@ export function ShareDialog({ open, onOpenChange, title, docId }: ShareDialogPro
             <div className="space-y-2">
               <p className="text-sm font-medium">{t("quickShare")}</p>
               <div className="grid grid-cols-4 gap-2">
-                {navigator.share && (
+                {typeof navigator !== "undefined" && "share" in navigator && (
                   <TooltipProvider>
                     <Tooltip>
                       <TooltipTrigger asChild>

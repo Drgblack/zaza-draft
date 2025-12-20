@@ -42,7 +42,7 @@ export default function FooterSlim() {
               </a>
             </div>
             <div className="basis-[42ch] min-w-[42ch] max-w-[42ch] hidden sm:block">
-              <RotatingTagline className="text-xs text-white/95 truncate" title="Zaza Draft footer tagline" />
+            <RotatingTagline className="text-xs text-white/95 truncate" />
             </div>
             <div className="flex items-center gap-3" data-testid="footer-socials">
               <a
