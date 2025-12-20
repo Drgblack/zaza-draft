@@ -1,6 +1,6 @@
 "use client"
 
-import { Copy, Check, Save, FileText, Download, Edit3, RefreshCw, AlertCircle, ChevronDown } from "lucide-react"
+import { Copy, Check, Save, FileText, Download, Edit3, RefreshCw, AlertCircle, ChevronDown, Repeat } from "lucide-react"
 import { useState } from "react"
 import { SaveDraftModal } from "./save-draft-modal"
 
@@ -14,6 +14,7 @@ interface DraftOutputProps {
   onSave: (tags: string[]) => void
   onEdit: () => void
   onRegenerate: () => void
+  onRewrite: () => void
   draftsUsed: number
   draftsLimit: number
 }
@@ -25,6 +26,7 @@ export function DraftOutput({
   onSave,
   onEdit,
   onRegenerate,
+  onRewrite,
   draftsUsed,
   draftsLimit,
 }: DraftOutputProps) {
@@ -187,6 +189,15 @@ export function DraftOutput({
             <RefreshCw size={18} />
             Regenerate
           </button>
+
+          {/* Rewrite Button */}
+          <button
+            onClick={onRewrite}
+            className="flex items-center gap-2 px-4 py-2 bg-gradient-to-br from-purple-600 to-indigo-600 text-white rounded-lg font-medium transition focus-visible:ring-2 focus-visible:ring-purple-600 focus-visible:ring-offset-2"
+          >
+            <Repeat size={18} />
+            Rewrite in tone
+          </button>
         </div>
 
         {/* Action Buttons - Mobile (Stacked) */}
@@ -243,6 +254,14 @@ export function DraftOutput({
               Regenerate
             </button>
           </div>
+
+          <button
+            onClick={onRewrite}
+            className="flex items-center justify-center gap-2 px-4 py-3 bg-gradient-to-br from-purple-600 to-indigo-600 text-white rounded-lg font-medium transition hover:brightness-110"
+          >
+            <Repeat size={18} />
+            Rewrite in tone
+          </button>
         </div>
 
         {/* Usage Reminder (Freemium) */}

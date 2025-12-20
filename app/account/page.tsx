@@ -5,6 +5,7 @@ import type React from "react"
 import { useState } from "react"
 import { useLocale } from "@/hooks/use-locale"
 import { useTeacherPrefs } from "@/hooks/use-teacher-prefs"
+import { useAuth } from "@/hooks/use-auth"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -16,18 +17,18 @@ import Link from "next/link"
 export default function AccountPage() {
   const { t } = useLocale()
   const { prefs } = useTeacherPrefs()
+  const { user, signOut } = useAuth()
   const [name, setName] = useState(prefs.firstName)
-  const [email] = useState("sarah@school.edu") // Mock email, read-only
   const [profilePhoto, setProfilePhoto] = useState<string | null>(null)
+  const email = user?.email ?? "—"
 
   const handleSave = () => {
     console.log("[v0] Saving profile:", { name })
     // Mock save action
   }
 
-  const handleLogout = () => {
-    console.log("[v0] Logout clicked")
-    // Mock logout action
+  const handleLogout = async () => {
+    await signOut()
   }
 
   const handlePhotoUpload = (event: React.ChangeEvent<HTMLInputElement>) => {

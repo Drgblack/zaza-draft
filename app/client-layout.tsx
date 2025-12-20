@@ -7,6 +7,7 @@ import { I18nProvider } from "@/components/providers/i18n-provider"
 import { LanguageProvider } from "@/hooks/use-locale"
 import { PersonalizationProvider } from "@/hooks/use-personalization"
 import { Header } from "@/components/header"
+import { AuthProvider } from "@/hooks/use-auth"
 
 export default function ClientLayout({
   children,
@@ -27,22 +28,24 @@ export default function ClientLayout({
 
   return (
     <>
-      <LanguageProvider>
-        <PersonalizationProvider>
-          <I18nProvider>
-            <Header
-              title="Zaza Draft"
-              saveStatus="saved"
-              onTitleChange={() => {}}
-              isDarkMode={isDarkMode}
-              onToggleDarkMode={handleToggleDarkMode}
-              editable={false}
-            />
-            {children}
-            <Toaster />
-          </I18nProvider>
-        </PersonalizationProvider>
-      </LanguageProvider>
+      <AuthProvider>
+        <LanguageProvider>
+          <PersonalizationProvider>
+            <I18nProvider>
+              <Header
+                title="Zaza Draft"
+                saveStatus="saved"
+                onTitleChange={() => {}}
+                isDarkMode={isDarkMode}
+                onToggleDarkMode={handleToggleDarkMode}
+                editable={false}
+              />
+              {children}
+              <Toaster />
+            </I18nProvider>
+          </PersonalizationProvider>
+        </LanguageProvider>
+      </AuthProvider>
     </>
   )
 }

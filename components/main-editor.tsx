@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useEffect, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { useTeacherPrefs } from "@/hooks/use-teacher-prefs"
 import { useLocale } from "@/hooks/use-locale"
@@ -9,27 +9,50 @@ import { ZaraAssistant } from "@/components/zara-assistant"
 import { DraftOutput } from "@/components/draft-output"
 import { MiniInsightsBar } from "@/components/MiniInsightsBar"
 import { ContextualWellbeingTip } from "@/components/ContextualWellbeingTip"
+import { useAuth } from "@/hooks/use-auth"
 
 const TONE_OPTIONS = [
   { id: "warm", key: "tone.warm" },
   { id: "professional", key: "tone.professional" },
   { id: "direct", key: "tone.direct" },
   { id: "empathetic", key: "tone.empathetic" },
-]
+] as const
+
+type ToneKey = (typeof TONE_OPTIONS)[number]["id"]
+type LanguageChoice = "en" | "de"
+const LOADING_MESSAGES = [
+  "Analyzing your request...",
+  "Understanding context...",
+  "Selecting the best tone...",
+  "Crafting your message...",
+] as const
 
 export function MainEditor() {
   const [content, setContent] = useState("")
-  const [selectedTone, setSelectedTone] = useState("warm")
-  const [draftsUsed, setDraftsUsed] = useState(8)
-  const [draftsLimit] = useState(10)
+  const [selectedTone, setSelectedTone] = useState<ToneKey>("warm")
+  const [usage, setUsage] = useState({
+    currentMonthUsage: 8,
+    limit: 10,
+    remaining: 2,
+  })
+  const draftsUsed = usage.currentMonthUsage
+  const draftsLimit = usage.limit
   const { prefs } = useTeacherPrefs()
   const { t, locale } = useLocale()
+  const { getIdToken, signOut } = useAuth()
 
   const [greeting, setGreeting] = useState("Good morning")
   const [userName, setUserName] = useState("")
   const [generatedDraft, setGeneratedDraft] = useState<string | null>(null)
   const [draftMetadata, setDraftMetadata] = useState<any>(null)
   const [isEditing, setIsEditing] = useState(false)
+  const [subject, setSubject] = useState("")
+  const [gradeLevel, setGradeLevel] = useState("")
+  const [languageChoice, setLanguageChoice] = useState<LanguageChoice>("en")
+  const [isGenerating, setIsGenerating] = useState(false)
+  const [generationError, setGenerationError] = useState<string | null>(null)
+  const [sensitivePreview, setSensitivePreview] = useState<string | null>(null)
+  const [loadingMessageIndex, setLoadingMessageIndex] = useState(0)
 
   const [showWellbeingInsights, setShowWellbeingInsights] = useState(true)
   const isDocumentDark = typeof document !== "undefined" && document.documentElement.classList.contains("dark")
@@ -67,42 +90,100 @@ export function MainEditor() {
     }
   }, [prefs.firstName, locale])
 
-  const handleGenerate = () => {
-    console.log("[v0] Generating draft with tone:", selectedTone)
-    console.log("[v0] Content:", content)
+  useEffect(() => {
+    if (!isGenerating) {
+      setLoadingMessageIndex(0)
+      return
+    }
 
-    const startTime = Date.now()
+    const interval = setInterval(() => {
+      setLoadingMessageIndex((prev) => (prev + 1) % LOADING_MESSAGES.length)
+    }, 1500)
 
-    // TODO: Replace with actual API call
-    // Simulate draft generation
-    setTimeout(() => {
-      const mockDraft = `Dear Parent/Guardian,
+    return () => clearInterval(interval)
+  }, [isGenerating])
 
-I wanted to reach out to share some observations about your child's recent progress in class. I've noticed they've been working particularly hard on their reading comprehension skills, and it's wonderful to see their dedication.
+  const handleGenerate = async (options: { rewrite?: boolean; previousDraft?: string } = {}) => {
+    if (!content.trim() || isGenerating) {
+      return
+    }
 
-While they're making great strides, I think there are a few areas where we could work together to support their continued growth. Specifically, I'd love to discuss strategies we can use both at school and at home to help them build confidence in their writing.
+    setIsGenerating(true)
+    setGenerationError(null)
+    setSensitivePreview(null)
+    setGeneratedDraft(null)
+    setDraftMetadata(null)
 
-I believe that with consistent support and encouragement, your child will continue to thrive. Would you be available for a brief conversation next week to discuss this further?
+    const payload: Record<string, unknown> = {
+      situation: content.trim(),
+      tone: selectedTone,
+      language: languageChoice,
+    }
 
-Thank you for your partnership in your child's education.
+    const context: Record<string, string> = {}
 
-Warm regards,
-${userName || "Teacher"}`
+    if (subject.trim()) {
+      context.subject = subject.trim()
+    }
 
-      const generationTime = Date.now() - startTime
-      const wordCount = mockDraft.split(/\s+/).length
+    if (gradeLevel.trim()) {
+      context.gradeLevel = gradeLevel.trim()
+    }
 
-      setGeneratedDraft(mockDraft)
-      setDraftMetadata({
-        generationTime,
-        wordCount,
-        tone: selectedTone,
+    if (Object.keys(context).length > 0) {
+      payload.context = context
+    }
+
+    if (options.rewrite) {
+      payload.rewrite = true
+    }
+
+    if (options.previousDraft) {
+      payload.previousDraft = options.previousDraft
+    }
+
+    try {
+      const token = await getIdToken()
+      if (!token) {
+        setGenerationError("Please sign in again to continue.")
+        return
+      }
+
+      const response = await fetch("/api/draft/generate", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(payload),
       })
 
-      // Increment drafts used
-      setDraftsUsed((prev) => prev + 1)
+      const data = await response.json()
 
-    }, 1500)
+      if (response.status === 401) {
+        setGenerationError("Session expired, please sign in again.")
+        await signOut()
+        return
+      }
+
+      if (!response.ok || !data?.success) {
+        setGenerationError(data?.error?.message || "We couldn't generate a draft right now.")
+        if (data?.data?.redactedPreview) {
+          setSensitivePreview(data.data.redactedPreview)
+        }
+
+        return
+      }
+
+      setGeneratedDraft(data.data.generatedDraft)
+      setDraftMetadata(data.data.metadata)
+      setUsage(data.data.usage)
+    } catch (error) {
+      console.error("[v1] Draft generation failed", error)
+      setGenerationError("Something went wrong; please try again in a moment.")
+    } finally {
+      setIsGenerating(false)
+    }
   }
 
   const handleSaveDraft = (tags: string[]) => {
@@ -118,10 +199,15 @@ ${userName || "Teacher"}`
   }
 
   const handleRegenerateDraft = () => {
-    console.log("[v0] Regenerating draft")
-    setGeneratedDraft(null)
-    setDraftMetadata(null)
     handleGenerate()
+  }
+
+  const handleRewriteDraft = () => {
+    if (!generatedDraft) {
+      return
+    }
+
+    handleGenerate({ rewrite: true, previousDraft: generatedDraft })
   }
 
   return (
@@ -168,6 +254,11 @@ Examples:
               locale === "de-DE" ? "Beschreiben Sie die Situation" : "Describe the situation you need help with"
             }
           />
+          <p className="mt-3 text-xs text-white/80">
+            {locale === "de-DE"
+              ? "Geben Sie keine vollständigen Namen, E-Mails, Telefonnummern oder Adressen ein."
+              : "Do not include student full names, email addresses, phone numbers, or street addresses."}
+          </p>
         </div>
 
         {showWellbeingInsights && <ContextualWellbeingTip />}
@@ -194,28 +285,72 @@ Examples:
           })}
         </div>
 
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-6">
+          <select
+            value={languageChoice}
+            onChange={(event) => setLanguageChoice(event.target.value as LanguageChoice)}
+            className="bg-white/90 dark:bg-white/10 rounded-xl border border-white/40 dark:border-white/30 px-4 py-3 text-gray-900 dark:text-white font-medium shadow-sm focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-2"
+          >
+            <option value="en">English</option>
+            <option value="de">Deutsch</option>
+          </select>
+          <input
+            value={subject}
+            onChange={(event) => setSubject(event.target.value)}
+            placeholder="Subject (optional)"
+            className="bg-white/90 dark:bg-white/10 rounded-xl border border-white/40 dark:border-white/30 px-4 py-3 text-gray-900 dark:text-white font-medium shadow-sm focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-2"
+          />
+          <input
+            value={gradeLevel}
+            onChange={(event) => setGradeLevel(event.target.value)}
+            placeholder="Grade level (optional)"
+            className="bg-white/90 dark:bg-white/10 rounded-xl border border-white/40 dark:border-white/30 px-4 py-3 text-gray-900 dark:text-white font-medium shadow-sm focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-2"
+          />
+        </div>
+
         <Button
-          onClick={handleGenerate}
-          disabled={!content.trim()}
+          onClick={() => handleGenerate()}
+          disabled={!content.trim() || isGenerating}
           className="w-full bg-gradient-to-br from-[#7c3aed] via-[#6d28d9] to-[#5b21b6] hover:shadow-[0_20px_56px_rgba(124,58,237,0.5),inset_0_2px_4px_rgba(255,255,255,0.3)] text-white dark:text-white text-lg font-bold py-6 rounded-xl transition-all duration-200 shadow-[0_12px_32px_rgba(124,58,237,0.4),inset_0_1px_3px_rgba(255,255,255,0.25),inset_0_-1px_2px_rgba(0,0,0,0.1)] disabled:opacity-50 disabled:cursor-not-allowed focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 hover:-translate-y-1 hover:scale-[1.02] active:translate-y-0 active:scale-100 border border-white/20"
           aria-label={t("button.generate")}
         >
-          {t("button.generate")}
+          {isGenerating ? (locale === "de-DE" ? "Generiere Entwurf…" : "Generating snippet…") : t("button.generate")}
         </Button>
 
         <div className="text-center mt-4 text-sm text-white/90 drop-shadow-[0_1px_4px_rgba(0,0,0,0.25)] font-medium">
           {t("insights.draftsUsed", { used: draftsUsed, limit: draftsLimit })}
         </div>
 
+        {isGenerating && (
+          <div className="mt-4 rounded-2xl bg-white/10 border border-white/20 p-4 text-sm text-white/90 shadow-inner">
+            <p className="font-semibold text-white">
+              {locale === "de-DE" ? "Generiere deinen Entwurf…" : "Generating your snippet…"}
+            </p>
+            <p>{LOADING_MESSAGES[loadingMessageIndex]}</p>
+          </div>
+        )}
+
+        {generationError && (
+          <div className="mt-4 rounded-2xl bg-red-500/10 border border-red-500/40 p-4 text-sm text-red-900">
+            <p className="font-semibold">{generationError}</p>
+            {sensitivePreview && (
+              <p className="mt-2 text-xs text-red-800">
+                {locale === "de-DE" ? "Bearbeitete Vorschau:" : "Redacted preview:"} {sensitivePreview}
+              </p>
+            )}
+          </div>
+        )}
+
         {generatedDraft && draftMetadata && (
           <div className="mt-8">
             <DraftOutput
               draftText={generatedDraft}
-              tone={draftMetadata.tone}
+              tone={draftMetadata.toneUsed ?? selectedTone}
               metadata={draftMetadata}
               onSave={handleSaveDraft}
               onEdit={handleEditDraft}
               onRegenerate={handleRegenerateDraft}
+              onRewrite={handleRewriteDraft}
               draftsUsed={draftsUsed}
               draftsLimit={draftsLimit}
             />
