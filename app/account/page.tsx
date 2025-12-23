@@ -20,7 +20,7 @@ export default function AccountPage() {
   const { prefs, updatePrefs } = useTeacherPrefs()
   const { user, signOut, getIdToken } = useAuth()
   const [name, setName] = useState(prefs.firstName)
-  const [profilePhoto, setProfilePhoto] = useState<string | null>(null)
+  const [profilePhoto, setProfilePhoto] = useState<string | null>(prefs.profilePhoto)
   const email = user?.email ?? "-"
   const [accountInfo, setAccountInfo] = useState<null | {
     plan: "free" | "pro"
@@ -70,23 +70,20 @@ export default function AccountPage() {
   const handlePhotoUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0]
     if (file) {
-      // Validate file type
       if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) {
         alert(t("account.profile.invalidFileType"))
         return
       }
-      // Validate file size (max 5MB)
       if (file.size > 5 * 1024 * 1024) {
         alert(t("account.profile.fileTooLarge"))
         return
       }
-      // Create local preview URL
       const reader = new FileReader()
       reader.onloadend = () => {
-        setProfilePhoto(reader.result as string)
-        // TODO: Integrate with real storage backend (Vercel Blob, Supabase Storage, etc.)
-        // Example: await uploadToStorage(file)
-        console.log("[v0] Profile photo uploaded (UI-only, needs backend integration)")
+        const dataUrl = reader.result as string
+        setProfilePhoto(dataUrl)
+        updatePrefs({ profilePhoto: dataUrl })
+        console.log("[v0] Profile photo uploaded (UI-only, stored locally)")
       }
       reader.readAsDataURL(file)
     }
@@ -94,14 +91,14 @@ export default function AccountPage() {
 
   const handlePhotoRemove = () => {
     setProfilePhoto(null)
-    // TODO: Integrate with real storage backend to delete photo
-    // Example: await deleteFromStorage(photoId)
+    updatePrefs({ profilePhoto: null })
     console.log("[v0] Profile photo removed (UI-only, needs backend integration)")
   }
 
   useEffect(() => {
     setName(prefs.firstName)
-  }, [prefs.firstName])
+    setProfilePhoto(prefs.profilePhoto)
+  }, [prefs.firstName, prefs.profilePhoto])
 
   const hasNameChanged = name.trim() !== "" && name.trim() !== prefs.firstName
 

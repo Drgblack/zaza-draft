@@ -4,6 +4,7 @@ import { useState, useEffect } from "react"
 
 export interface TeacherPrefs {
   firstName: string
+  profilePhoto: string | null
   preferredTone: "Friendly" | "Professional" | "Formal"
   preferredLanguage: "en" | "de"
   lastDocType: "lesson-plan" | "email" | "report"
@@ -13,6 +14,7 @@ export interface TeacherPrefs {
 
 const DEFAULT_PREFS: TeacherPrefs = {
   firstName: "Sarah",
+  profilePhoto: null,
   preferredTone: "Professional",
   preferredLanguage: "en",
   lastDocType: "lesson-plan",

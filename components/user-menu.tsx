@@ -20,16 +20,10 @@ export function UserMenu() {
   const router = useRouter()
   const { prefs } = useTeacherPrefs()
   const [open, setOpen] = useState(false)
-  const [profilePhoto, setProfilePhoto] = useState<string | null>(null)
+  const profilePhoto = prefs.profilePhoto
 
   const userInitials = prefs.firstName.charAt(0)
   const userEmail = "sarah@school.edu" // Mock email
-
-  useEffect(() => {
-    // TODO: In real implementation, sync profile photo from global state or storage
-    // For now, this is UI-only and won't persist across sessions or sync between components
-    // Example: fetchProfilePhoto().then(setProfilePhoto)
-  }, [])
 
   const handleLogout = () => {
     // Mock logout action

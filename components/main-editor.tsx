@@ -395,6 +395,13 @@ Examples:
             <>{t("insights.unlimitedDrafts")}</>
           )}
         </div>
+        <div className="text-center mt-3">
+          <Link href="/account">
+            <Button variant="outline" className="text-white border-white/60 hover:border-white">
+              {t("account.billing.upgrade")}
+            </Button>
+          </Link>
+        </div>
 
         {isGenerating && (
           <div className="mt-4 rounded-2xl bg-white/10 border border-white/20 p-4 text-sm text-white/90 shadow-inner">
