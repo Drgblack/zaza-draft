@@ -105,6 +105,35 @@ export default function InsightsPage() {
     return "🔥"
   }
 
+  const handleDownloadReport = () => {
+    const reportLines = [
+      `Zaza Draft insights (${new Date().toLocaleDateString(locale)})`,
+      "",
+      `Time saved: ${mockMetrics.timeSaved.hours}h (${mockMetrics.timeSaved.trend}% ↑)`,
+      `Drafts created: ${mockMetrics.draftsCreated.total} (${mockMetrics.draftsCreated.usedWithoutEdits} used without edits)`,
+      `Current streak: ${mockMetrics.currentStreak.days} days`,
+      `Quality score: ${mockMetrics.qualityScore.score} (${mockMetrics.qualityScore.trend}% ↑)`,
+      "",
+      "Tone distribution:",
+      ...mockToneData.map((item) => `${item.tone}: ${item.percentage}%`),
+      "",
+      `Confidence trend: ${mockConfidenceData.map((row) => `${row.week} ${row.editRate}%`).join(" | ")}`,
+      "",
+      `Wellbeing insights sharing: ${shareData ? "enabled" : "disabled"}`,
+      `Date range: Last ${dateRange} days`,
+    ]
+
+    const blob = new Blob([reportLines.join("\n")], { type: "text/plain" })
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement("a")
+    link.href = url
+    link.download = `zaza-insights-${new Date().toISOString().slice(0, 10)}.txt`
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    URL.revokeObjectURL(url)
+  }
+
   return (
     <div className="min-h-screen flex flex-col">
       <div className="absolute inset-0 bg-gradient-to-br from-pink-500 via-purple-600 to-orange-500 -z-10" />
@@ -129,14 +158,15 @@ export default function InsightsPage() {
                 <Shield className="h-3 w-3" />
                 <span>{t("insights.dataControl")}</span>
               </div>
-              <Button
-                variant="outline"
-                size="sm"
-                className="gap-2 bg-white/10 backdrop-blur-md border-white/20 text-white hover:bg-white/20"
-              >
-                <Download className="h-4 w-4" />
-                {t("insights.downloadReport")}
-              </Button>
+               <Button
+                 variant="outline"
+                 size="sm"
+                 className="gap-2 bg-white/10 backdrop-blur-md border-white/20 text-white hover:bg-white/20"
+                 onClick={handleDownloadReport}
+               >
+                 <Download className="h-4 w-4" />
+                 {t("insights.downloadReport")}
+               </Button>
             </div>
           </div>
 
