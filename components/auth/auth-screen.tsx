@@ -17,6 +17,7 @@ export function AuthScreen() {
   const [mode, setMode] = useState<"signin" | "signup">("signin")
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
+  const [showPassword, setShowPassword] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
 
@@ -98,16 +99,25 @@ export function AuthScreen() {
 
           <div className="space-y-2">
             <Label htmlFor="password">{t("auth.passwordLabel")}</Label>
-            <Input
-              id="password"
-              type="password"
-              required
-              minLength={8}
-              value={password}
-              onChange={(event) => setPassword(event.target.value)}
-              placeholder="••••••••"
-              className="bg-white/80 text-gray-900"
-            />
+            <div className="relative">
+              <Input
+                id="password"
+                type={showPassword ? "text" : "password"}
+                required
+                minLength={8}
+                value={password}
+                onChange={(event) => setPassword(event.target.value)}
+                placeholder="Password"
+                className="bg-white/80 text-gray-900 pr-12"
+              />
+              <button
+                type="button"
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-semibold text-gray-600 hover:text-gray-900 transition-colors"
+                onClick={() => setShowPassword((prev) => !prev)}
+              >
+                {showPassword ? t("auth.hidePassword") : t("auth.showPassword")}
+              </button>
+            </div>
             <p className="text-xs text-white/70">{t("auth.passwordHelper")}</p>
           </div>
 
@@ -117,8 +127,8 @@ export function AuthScreen() {
             {isSubmitting
               ? t("auth.processing")
               : mode === "signin"
-                ? t("auth.signIn")
-                : t("auth.createAccount")}
+                ? t("auth.cta.signin")
+                : t("auth.cta.signup")}
           </Button>
 
           <p className="text-center text-xs text-white/70">
@@ -126,17 +136,22 @@ export function AuthScreen() {
               ? t("auth.noAccount")
               : t("auth.alreadyHaveAccount")}
             <button type="button" onClick={toggleMode} className="ml-1 underline">
-              {mode === "signin" ? t("auth.createAccount") : t("auth.signIn")}
+              {mode === "signin" ? t("auth.cta.signup") : t("auth.cta.signin")}
             </button>
           </p>
         </form>
 
-        <div className="space-y-2">
-          <p className="text-center text-sm text-white/80">{t("auth.orContinue")}</p>
-          <Button variant="outline" className="w-full text-white border-white/60 hover:border-white" onClick={handleGoogleSignIn} disabled={isSubmitting}>
-            {t("auth.continueWithGoogle")}
-          </Button>
-        </div>
+          <div className="space-y-2">
+            <p className="text-center text-sm text-white/80">{t("auth.orContinue")}</p>
+            <Button
+              variant="outline"
+              className="w-full bg-white/90 text-gray-900 border-white/60 hover:bg-white hover:text-gray-900"
+              onClick={handleGoogleSignIn}
+              disabled={isSubmitting}
+            >
+              {t("auth.continueWithGoogle")}
+            </Button>
+          </div>
 
         {status === "loading" && (
           <p className="text-center text-xs text-white/60">{t("auth.loading")}</p>
