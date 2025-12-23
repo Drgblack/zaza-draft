@@ -397,7 +397,9 @@ Examples:
         </div>
         <div className="text-center mt-3">
           <Link href="/account">
-            <Button variant="outline" className="text-white border-white/60 hover:border-white">
+            <Button
+              className="bg-gradient-to-r from-[#a855f7] to-[#7c3aed] text-white border-transparent shadow-[0_8px_20px_rgba(124,58,237,0.35)] hover:shadow-[0_10px_28px_rgba(124,58,237,0.5)] hover:from-[#9333ea] hover:to-[#6b21a8]"
+            >
               {t("account.billing.upgrade")}
             </Button>
           </Link>
