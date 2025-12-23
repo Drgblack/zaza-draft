@@ -17,7 +17,7 @@ import { logClientEvent } from "@/lib/analytics"
 
 export default function AccountPage() {
   const { t } = useLocale()
-  const { prefs } = useTeacherPrefs()
+  const { prefs, updatePrefs } = useTeacherPrefs()
   const { user, signOut, getIdToken } = useAuth()
   const [name, setName] = useState(prefs.firstName)
   const [profilePhoto, setProfilePhoto] = useState<string | null>(null)
@@ -35,10 +35,32 @@ export default function AccountPage() {
   }>(null)
   const [billingError, setBillingError] = useState<string | null>(null)
   const [billingAction, setBillingAction] = useState<null | "upgrade" | "manage">(null)
+  const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "success" | "error">("idle")
+  const [saveFeedback, setSaveFeedback] = useState<string | null>(null)
 
   const handleSave = () => {
-    console.log("[v0] Saving profile:", { name })
-    // Mock save action
+    const trimmedName = name.trim()
+    if (!trimmedName) {
+      setSaveStatus("error")
+      setSaveFeedback(t("account.profile.saveError"))
+      return
+    }
+
+    setSaveStatus("saving")
+    try {
+      updatePrefs({ firstName: trimmedName })
+      setSaveStatus("success")
+      setSaveFeedback(t("account.profile.saveSuccess"))
+    } catch (error) {
+      console.error("[v0] Failed to save profile", error)
+      setSaveStatus("error")
+      setSaveFeedback(t("account.profile.saveError"))
+    } finally {
+      window.setTimeout(() => {
+        setSaveStatus("idle")
+        setSaveFeedback(null)
+      }, 2500)
+    }
   }
 
   const handleLogout = async () => {
@@ -76,6 +98,12 @@ export default function AccountPage() {
     // Example: await deleteFromStorage(photoId)
     console.log("[v0] Profile photo removed (UI-only, needs backend integration)")
   }
+
+  useEffect(() => {
+    setName(prefs.firstName)
+  }, [prefs.firstName])
+
+  const hasNameChanged = name.trim() !== "" && name.trim() !== prefs.firstName
 
   const handleUpgrade = async () => {
     setBillingError(null)
@@ -276,9 +304,22 @@ export default function AccountPage() {
                 />
                 <p className="text-sm text-gray-600 dark:text-gray-400">{t("account.profile.emailReadonly")}</p>
               </div>
-              <Button onClick={handleSave} className="bg-purple-600 hover:bg-purple-700 text-white">
-                {t("account.profile.saveChanges")}
-              </Button>
+                <Button
+                  onClick={handleSave}
+                  className="bg-purple-600 hover:bg-purple-700 text-white"
+                  disabled={!hasNameChanged || saveStatus === "saving"}
+                >
+                  {t("account.profile.saveChanges")}
+                </Button>
+                {saveFeedback && (
+                  <p
+                    className={`text-sm ${
+                      saveStatus === "success" ? "text-emerald-700" : "text-red-600"
+                    }`}
+                  >
+                    {saveFeedback}
+                  </p>
+                )}
           </CardContent>
         </Card>
 
