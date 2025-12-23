@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server"
-import { authorizeFirebaseRequest } from "@/lib/firebase/server"
+import { authorizeFirebaseRequest, FirebaseAuthorizationError } from "@/lib/firebase/server"
 import { buildUsageResponse, fetchUsageRecord, PlanType } from "@/lib/usage"
 
 export async function GET(request: Request) {
@@ -7,6 +7,8 @@ export async function GET(request: Request) {
   try {
     authContext = await authorizeFirebaseRequest(request)
   } catch (error) {
+    const status =
+      error instanceof FirebaseAuthorizationError ? error.statusCode : 401
     return NextResponse.json(
       {
         success: false,
@@ -15,7 +17,7 @@ export async function GET(request: Request) {
           message: (error as Error).message || "Unauthorized",
         },
       },
-      { status: 401 },
+      { status },
     )
   }
 

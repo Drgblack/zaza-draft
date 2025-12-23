@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server"
-import { authorizeFirebaseRequest } from "@/lib/firebase/server"
+import { authorizeFirebaseRequest, FirebaseAuthorizationError } from "@/lib/firebase/server"
 import { logServerEvent } from "@/lib/analytics"
 import { createStripeClient, getStripeAppUrl, getStripePriceId } from "@/lib/stripe"
 
@@ -27,6 +27,8 @@ export async function POST(request: Request) {
   try {
     authContext = await authorizeFirebaseRequest(request)
   } catch (error) {
+    const status =
+      error instanceof FirebaseAuthorizationError ? error.statusCode : 401
     return NextResponse.json(
       {
         success: false,
@@ -35,7 +37,7 @@ export async function POST(request: Request) {
           message: (error as Error).message || "Unauthorized",
         },
       },
-      { status: 401 },
+      { status },
     )
   }
 
