@@ -14,16 +14,18 @@ import {
 import { useLocale } from "@/hooks/use-locale"
 import { useRouter } from "next/navigation"
 import { useTeacherPrefs } from "@/hooks/use-teacher-prefs"
+import { useAuth } from "@/hooks/use-auth"
 
 export function UserMenu() {
   const { t } = useLocale()
   const router = useRouter()
   const { prefs } = useTeacherPrefs()
+  const { user } = useAuth()
   const [open, setOpen] = useState(false)
   const profilePhoto = prefs.profilePhoto
 
   const userInitials = prefs.firstName.charAt(0)
-  const userEmail = "sarah@school.edu" // Mock email
+  const userEmail = user?.email ?? "user@example.com"
 
   const handleLogout = () => {
     // Mock logout action
