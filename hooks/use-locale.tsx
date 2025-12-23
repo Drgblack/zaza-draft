@@ -376,7 +376,7 @@ const localeMessages: Record<Locale, LocaleMessages> = {
     "account.profile.nameLabel": "Name",
     "account.profile.emailLabel": "Email",
     "account.profile.emailReadonly": "Email cannot be changed",
-    "account.profile.saveChanges": "Änderungen speichern",
+    "account.profile.saveChanges": "Save changes",
     "account.profile.saveSuccess": "Profile saved.",
     "account.profile.saveError": "Unable to save profile. Please try again.",
     "account.session.title": "Session",
