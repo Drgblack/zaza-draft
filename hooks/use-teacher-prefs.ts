@@ -27,14 +27,34 @@ export function useTeacherPrefs() {
   const [toneChangeCount, setToneChangeCount] = useState<Record<string, number>>({})
 
   useEffect(() => {
-    // Load from localStorage
-    const stored = localStorage.getItem("teacherPrefs")
-    if (stored) {
-      try {
-        setPrefs(JSON.parse(stored))
-      } catch (e) {
-        console.error("Failed to parse teacher prefs", e)
+    const loadStoredPrefs = () => {
+      const stored = localStorage.getItem("teacherPrefs")
+      if (stored) {
+        try {
+          setPrefs(JSON.parse(stored))
+        } catch (e) {
+          console.error("Failed to parse teacher prefs", e)
+        }
       }
+    }
+
+    loadStoredPrefs()
+
+    const handleStorageUpdate = () => {
+      const latest = localStorage.getItem("teacherPrefs")
+      if (latest) {
+        try {
+          setPrefs(JSON.parse(latest))
+        } catch (e) {
+          console.error("Failed to parse updated teacher prefs", e)
+        }
+      }
+    }
+
+    window.addEventListener("teacherPrefsUpdated", handleStorageUpdate)
+
+    return () => {
+      window.removeEventListener("teacherPrefsUpdated", handleStorageUpdate)
     }
   }, [])
 
@@ -42,6 +62,7 @@ export function useTeacherPrefs() {
     const newPrefs = { ...prefs, ...updates }
     setPrefs(newPrefs)
     localStorage.setItem("teacherPrefs", JSON.stringify(newPrefs))
+    window.dispatchEvent(new CustomEvent("teacherPrefsUpdated"))
   }
 
   const setPreferredTone = (tone: TeacherPrefs["preferredTone"]) => {

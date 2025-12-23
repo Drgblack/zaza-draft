@@ -15,6 +15,7 @@ import FooterSlim from "@/components/FooterSlim"
 import Link from "next/link"
 import { ArrowLeft } from "lucide-react"
 import { useLocale } from "@/hooks/use-locale"
+import { useTeacherPrefs } from "@/hooks/use-teacher-prefs"
 
 // Mock data
 const mockMetrics = {
@@ -98,6 +99,7 @@ export default function InsightsPage() {
   const [showWellbeing, setShowWellbeing] = useState(false)
   const [shareData, setShareData] = useState(true)
   const { locale, t } = useLocale()
+  const { prefs } = useTeacherPrefs()
 
   const getFireIntensity = (days: number) => {
     if (days >= 15) return "🔥🔥🔥"
@@ -150,7 +152,9 @@ export default function InsightsPage() {
                 <ArrowLeft className="h-4 w-4" />
                 {t("insights.backToEditor")}
               </Link>
-              <h1 className="text-3xl font-bold text-white drop-shadow-lg">{t("insights.title", { name: "Sarah" })}</h1>
+              <h1 className="text-3xl font-bold text-white drop-shadow-lg">
+                {t("insights.title", { name: prefs.firstName })}
+              </h1>
               <p className="text-white/90 mt-1">{t("insights.subtitle")}</p>
             </div>
             <div className="flex items-center gap-3">
