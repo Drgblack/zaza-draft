@@ -2,7 +2,7 @@
 
 import type React from "react"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { useLocale } from "@/hooks/use-locale"
 import { useTeacherPrefs } from "@/hooks/use-teacher-prefs"
 import { useAuth } from "@/hooks/use-auth"
@@ -13,14 +13,28 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { ArrowLeft, LogOut, Upload, Trash2 } from "lucide-react"
 import Link from "next/link"
+import { logClientEvent } from "@/lib/analytics"
 
 export default function AccountPage() {
   const { t } = useLocale()
   const { prefs } = useTeacherPrefs()
-  const { user, signOut } = useAuth()
+  const { user, signOut, getIdToken } = useAuth()
   const [name, setName] = useState(prefs.firstName)
   const [profilePhoto, setProfilePhoto] = useState<string | null>(null)
-  const email = user?.email ?? "—"
+  const email = user?.email ?? "-"
+  const [accountInfo, setAccountInfo] = useState<null | {
+    plan: "free" | "pro"
+    subscriptionStatus: string
+    usage: {
+      plan: "free" | "pro"
+      currentMonthUsage: number
+      limit: number | null
+      remaining: number | null
+    }
+    stripeCustomerId: string | null
+  }>(null)
+  const [billingError, setBillingError] = useState<string | null>(null)
+  const [billingAction, setBillingAction] = useState<null | "upgrade" | "manage">(null)
 
   const handleSave = () => {
     console.log("[v0] Saving profile:", { name })
@@ -63,6 +77,115 @@ export default function AccountPage() {
     console.log("[v0] Profile photo removed (UI-only, needs backend integration)")
   }
 
+  const handleUpgrade = async () => {
+    setBillingError(null)
+    setBillingAction("upgrade")
+    logClientEvent("upgrade_clicked")
+    try {
+      const token = await getIdToken()
+      if (!token) {
+        setBillingError("Please sign in again.")
+        setBillingAction(null)
+        return
+      }
+
+      const response = await fetch("/api/billing/checkout", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      })
+
+      const payload = await response.json()
+      if (response.ok && payload?.url) {
+        logClientEvent("checkout_redirected")
+        window.location.href = payload.url
+        return
+      }
+
+      setBillingError(payload?.error?.message || "Unable to start checkout.")
+    } catch (error) {
+      setBillingError("Unable to start checkout. Please try again.")
+    } finally {
+      setBillingAction(null)
+    }
+  }
+
+  const handleManage = async () => {
+    setBillingError(null)
+    setBillingAction("manage")
+    logClientEvent("manage_subscription_clicked")
+    try {
+      const token = await getIdToken()
+      if (!token) {
+        setBillingError("Please sign in again.")
+        setBillingAction(null)
+        return
+      }
+
+      const response = await fetch("/api/billing/portal", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      })
+
+      const payload = await response.json()
+      if (response.ok && payload?.url) {
+        window.location.href = payload.url
+        return
+      }
+
+      setBillingError(payload?.error?.message || "Unable to open the billing portal.")
+    } catch (error) {
+      setBillingError("Unable to open the billing portal. Please try again.")
+    } finally {
+      setBillingAction(null)
+    }
+  }
+
+  useEffect(() => {
+    let isMounted = true
+
+    const fetchAccountInfo = async () => {
+      setBillingError(null)
+      try {
+        const token = await getIdToken()
+        if (!token) {
+          await signOut()
+          return
+        }
+
+        const response = await fetch("/api/account/status", {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        })
+        if (response.status === 401) {
+          await signOut()
+          return
+        }
+
+        const payload = await response.json()
+        if (payload?.success && isMounted) {
+          setAccountInfo(payload.data)
+        } else if (isMounted) {
+          setBillingError(payload?.error?.message || "Unable to load billing status.")
+        }
+      } catch (error) {
+        if (isMounted) {
+          setBillingError("Unable to load billing information.")
+        }
+      }
+    }
+
+    fetchAccountInfo()
+
+    return () => {
+      isMounted = false
+    }
+  }, [getIdToken, signOut])
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-pink-400 via-purple-500 to-orange-400 dark:from-purple-900 dark:via-purple-800 dark:to-pink-900">
       <div className="container mx-auto px-4 py-8 max-w-4xl">
@@ -76,8 +199,8 @@ export default function AccountPage() {
         <h1 className="text-4xl font-bold text-white mb-8">{t("account.title")}</h1>
 
         <div className="space-y-6">
-          {/* Profile Section */}
-          <Card className="bg-white/80 dark:bg-white/10 backdrop-blur-xl border border-white/40 dark:border-white/20">
+        {/* Profile Section */}
+        <Card className="bg-white/80 dark:bg-white/10 backdrop-blur-xl border border-white/40 dark:border-white/20">
             <CardHeader>
               <CardTitle className="text-gray-900 dark:text-white">{t("account.profile.title")}</CardTitle>
               <CardDescription className="dark:text-gray-300">{t("account.profile.description")}</CardDescription>
@@ -156,8 +279,52 @@ export default function AccountPage() {
               <Button onClick={handleSave} className="bg-purple-600 hover:bg-purple-700 text-white">
                 {t("account.profile.saveChanges")}
               </Button>
-            </CardContent>
-          </Card>
+          </CardContent>
+        </Card>
+
+        {/* Billing Section */}
+        <Card className="bg-white/80 dark:bg-white/10 backdrop-blur-xl border border-white/40 dark:border-white/20">
+          <CardHeader>
+            <CardTitle className="text-gray-900 dark:text-white">{t("account.billing.title")}</CardTitle>
+            <CardDescription className="dark:text-gray-300">{t("account.billing.description")}</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="flex justify-between">
+              <p className="text-sm text-gray-600 dark:text-gray-300">{t("account.billing.planLabel")}</p>
+              <p className="font-semibold text-gray-900 dark:text-white">
+                {accountInfo?.plan === "pro" ? t("account.billing.planPro") : t("account.billing.planFree")}
+              </p>
+            </div>
+            <div className="flex justify-between">
+              <p className="text-sm text-gray-600 dark:text-gray-300">{t("account.billing.status")}</p>
+              <p className="font-semibold text-gray-900 dark:text-white">{accountInfo?.subscriptionStatus ?? "—"}</p>
+            </div>
+            <div className="flex justify-between">
+              <p className="text-sm text-gray-600 dark:text-gray-300">{t("account.billing.usage")}</p>
+              <p className="font-semibold text-gray-900 dark:text-white">
+                {accountInfo?.usage.plan === "free"
+                  ? `${accountInfo.usage.currentMonthUsage}/${accountInfo.usage.limit ?? 0}`
+                  : t("account.billing.unlimitedDrafts")}
+              </p>
+            </div>
+            <div className="flex flex-wrap gap-3">
+              <Button onClick={handleUpgrade} disabled={billingAction === "upgrade"}>
+                {t("account.billing.upgrade")}
+              </Button>
+              <Button variant="outline" onClick={handleManage} disabled={billingAction === "manage"}>
+                {t("account.billing.manage")}
+              </Button>
+            </div>
+            {accountInfo?.usage.plan === "free" && accountInfo.usage.remaining !== null && accountInfo.usage.remaining === 0 && (
+              <p className="text-sm text-amber-900">
+                {t("account.billing.paywallMessage")}
+              </p>
+            )}
+            {billingError && (
+              <p className="text-sm text-red-600 dark:text-red-300">{billingError}</p>
+            )}
+          </CardContent>
+        </Card>
 
           {/* Session Section */}
           <Card className="bg-white/80 dark:bg-white/10 backdrop-blur-xl border border-white/40 dark:border-white/20">

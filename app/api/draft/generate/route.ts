@@ -1,14 +1,8 @@
 import { NextResponse } from "next/server"
-import type { Firestore } from "firebase-admin/firestore"
+import { authorizeFirebaseRequest } from "@/lib/firebase/server"
 import { detectSensitiveContent } from "@/lib/safety"
-import { getFirebaseAdmin } from "@/lib/firebase/admin"
-
-/*
- * Phase 2 TODO:
- * - Persist generated drafts and metadata in Firestore (`users/{uid}/snippets`).
- * - Add billing gates/subscription status via Stripe before allowing premium features.
- * - Surface analytics/insights for usage streaks and history endpoints.
- */
+import { logServerEvent } from "@/lib/analytics"
+import { buildUsageResponse, fetchUsageRecord, incrementUsage, PlanType, MonthlyUsageRecord } from "@/lib/usage"
 
 const ALLOWED_TONES = ["warm", "professional", "direct", "empathetic"] as const
 const ALLOWED_LANGUAGES = ["en", "de"] as const
@@ -18,7 +12,6 @@ const TONE_DESCRIPTIONS: Record<(typeof ALLOWED_TONES)[number], string> = {
   direct: "Direct & Clear",
   empathetic: "Empathetic & Supportive",
 }
-const FREE_TIER_LIMIT = 10
 
 type LanguageKey = (typeof ALLOWED_LANGUAGES)[number]
 type ToneKey = (typeof ALLOWED_TONES)[number]
@@ -33,90 +26,6 @@ interface GenerateDraftRequest {
   }
   rewrite?: boolean
   previousDraft?: string
-}
-
-interface MonthlyUsageRecord {
-  month: string
-  generationCount: number
-  lastReset: string
-}
-
-interface UsageResponse {
-  currentMonthUsage: number
-  limit: number
-  remaining: number
-}
-
-function getCurrentMonthKey() {
-  const now = new Date()
-  const month = `${now.getUTCMonth() + 1}`.padStart(2, "0")
-  return `${now.getUTCFullYear()}-${month}`
-}
-
-function buildUsageResponse(record: MonthlyUsageRecord): UsageResponse {
-  return {
-    currentMonthUsage: record.generationCount,
-    limit: FREE_TIER_LIMIT,
-    remaining: Math.max(FREE_TIER_LIMIT - record.generationCount, 0),
-  }
-}
-
-async function fetchUsageRecord(uid: string, db: Firestore) {
-  const docRef = db.collection("users").doc(uid)
-  const snapshot = await docRef.get()
-  const stored: MonthlyUsageRecord | undefined = snapshot.data()?.monthlyUsage
-
-  const defaultRecord: MonthlyUsageRecord = {
-    month: getCurrentMonthKey(),
-    generationCount: 0,
-    lastReset: new Date().toISOString(),
-  }
-
-  if (!stored || stored.month !== defaultRecord.month) {
-    return defaultRecord
-  }
-
-  return {
-    month: stored.month,
-    generationCount: stored.generationCount ?? 0,
-    lastReset: stored.lastReset ?? defaultRecord.lastReset,
-  }
-}
-
-async function incrementUsage(uid: string, db: Firestore) {
-  const userRef = db.collection("users").doc(uid)
-
-  return db.runTransaction<MonthlyUsageRecord>(async (tx) => {
-    const snapshot = await tx.get(userRef)
-    const stored: MonthlyUsageRecord | undefined = snapshot.data()?.monthlyUsage
-    const currentMonth = getCurrentMonthKey()
-
-    let usage: MonthlyUsageRecord = {
-      month: currentMonth,
-      generationCount: 0,
-      lastReset: new Date().toISOString(),
-    }
-
-    if (stored && stored.month === currentMonth) {
-      usage = {
-        month: stored.month,
-        generationCount: stored.generationCount ?? 0,
-        lastReset: stored.lastReset ?? usage.lastReset,
-      }
-    }
-
-    if (usage.generationCount >= FREE_TIER_LIMIT) {
-      throw new Error("USAGE_LIMIT_EXCEEDED")
-    }
-
-    const updated: MonthlyUsageRecord = {
-      ...usage,
-      generationCount: usage.generationCount + 1,
-    }
-
-    tx.set(userRef, { monthlyUsage: updated }, { merge: true })
-    return updated
-  })
 }
 
 function buildContextLine(context?: GenerateDraftRequest["context"]) {
@@ -214,22 +123,21 @@ function countWords(text: string) {
   return text.split(/\s+/).filter(Boolean).length
 }
 
+function buildUsageLimitError(usage: ReturnType<typeof buildUsageResponse>) {
+  return {
+    success: false,
+    data: {
+      usage,
+    },
+    error: {
+      code: "USAGE_LIMIT_EXCEEDED",
+      message: "You have reached your monthly draft limit. Upgrade to unlock Draft Pro for unlimited generations.",
+    },
+  }
+}
+
 export async function POST(request: Request) {
   const requestedAt = new Date()
-  const { auth: adminAuth, firestore: adminDb } = getFirebaseAdmin()
-
-  if (!adminAuth || !adminDb) {
-    return NextResponse.json(
-      {
-        success: false,
-        error: {
-          code: "SERVER_UNAVAILABLE",
-          message: "Missing Firebase configuration for authentication.",
-        },
-      },
-      { status: 500 },
-    )
-  }
 
   let payload: GenerateDraftRequest
   try {
@@ -304,53 +212,46 @@ export async function POST(request: Request) {
     )
   }
 
-  const authHeader = request.headers.get("authorization") || request.headers.get("Authorization")
-
-  if (!authHeader?.startsWith("Bearer ")) {
-    return NextResponse.json(
-      {
-        success: false,
-        error: {
-          code: "UNAUTHORIZED",
-          message: "Missing authorization token.",
-        },
-      },
-      { status: 401 },
-    )
-  }
-
-  const idToken = authHeader.split(" ")[1]
-  let decodedToken
+  let authContext
   try {
-    decodedToken = await adminAuth.verifyIdToken(idToken)
+    authContext = await authorizeFirebaseRequest(request)
   } catch (error) {
     return NextResponse.json(
       {
         success: false,
         error: {
           code: "UNAUTHORIZED",
-          message: "Invalid or expired session. Please sign in again.",
+          message: (error as Error).message || "Unauthorized",
         },
       },
       { status: 401 },
     )
   }
 
-  const uid = decodedToken.uid
-  const usageSnapshot = await fetchUsageRecord(uid, adminDb)
-
-  if (usageSnapshot.generationCount >= FREE_TIER_LIMIT) {
+  const { uid, firestore } = authContext
+  if (!firestore) {
     return NextResponse.json(
       {
         success: false,
-        data: {
-          usage: buildUsageResponse(usageSnapshot),
-        },
         error: {
-          code: "USAGE_LIMIT_EXCEEDED",
-          message: "You have reached your monthly draft limit. Upgrade to unlock more generations.",
+          code: "FIRESTORE_UNAVAILABLE",
+          message: "Unable to access Firestore.",
         },
       },
+      { status: 500 },
+    )
+  }
+  const userRef = firestore.collection("users").doc(uid)
+  const userSnapshot = await userRef.get()
+  const userData = userSnapshot.data() ?? {}
+  const subscriptionStatus = (userData.subscriptionStatus as string) ?? "none"
+  const plan: PlanType = ["active", "trialing"].includes(subscriptionStatus) ? "pro" : "free"
+
+  const usageSnapshot = await fetchUsageRecord(uid, firestore)
+  if (plan === "free" && usageSnapshot.generationCount >= 10) {
+    logServerEvent("draft_generation_denied_limit", { uid, plan })
+    return NextResponse.json(
+      buildUsageLimitError(buildUsageResponse(usageSnapshot, plan)),
       { status: 429 },
     )
   }
@@ -361,7 +262,6 @@ export async function POST(request: Request) {
   }
 
   const detection = detectSensitiveContent(situation)
-
   if (detection.matches.length > 0) {
     return NextResponse.json(
       {
@@ -391,23 +291,15 @@ export async function POST(request: Request) {
 
   let updatedUsage: MonthlyUsageRecord
   try {
-    updatedUsage = await incrementUsage(uid, adminDb)
+    updatedUsage = await incrementUsage(uid, firestore, plan === "pro")
   } catch (error) {
     if (error instanceof Error && error.message === "USAGE_LIMIT_EXCEEDED") {
       return NextResponse.json(
-        {
-          success: false,
-          data: {
-            usage: buildUsageResponse(usageSnapshot),
-          },
-          error: {
-            code: "USAGE_LIMIT_EXCEEDED",
-            message: "You have reached your monthly draft limit. Upgrade to unlock more generations.",
-          },
-        },
+        buildUsageLimitError(buildUsageResponse(usageSnapshot, plan)),
         { status: 429 },
       )
     }
+    console.error("[draft] Usage increment failed", error)
     throw error
   }
 
@@ -426,12 +318,20 @@ export async function POST(request: Request) {
     contextUsed: sanitizedContext,
   }
 
+  logServerEvent("draft_generation", {
+    uid,
+    plan,
+    tone,
+    language,
+    wordCount: metadata.wordCount,
+  })
+
   return NextResponse.json({
     success: true,
     data: {
       generatedDraft,
       metadata,
-      usage: buildUsageResponse(updatedUsage),
+      usage: buildUsageResponse(updatedUsage, plan),
     },
   })
 }

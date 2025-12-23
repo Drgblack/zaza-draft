@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { useAuth } from "@/hooks/use-auth"
 import { useLocale } from "@/hooks/use-locale"
+import { logClientEvent } from "@/lib/analytics"
 
 const SUPPORT_EMAIL = "greg@zazatechnologies.com"
 
@@ -27,9 +28,28 @@ export function AuthScreen() {
     try {
       if (mode === "signin") {
         await signInWithEmail(email, password)
+        logClientEvent("auth_login_success", { provider: "email" })
       } else {
         await registerWithEmail(email, password)
+        logClientEvent("auth_login_success", { provider: "email" })
       }
+    } catch (err) {
+      if (err instanceof Error) {
+        setError(err.message)
+      } else {
+        setError("Something went wrong.")
+      }
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
+  const handleGoogleSignIn = async () => {
+    setIsSubmitting(true)
+    setError(null)
+    try {
+      await signInWithGoogle()
+      logClientEvent("auth_login_success", { provider: "google" })
     } catch (err) {
       if (err instanceof Error) {
         setError(err.message)
@@ -113,7 +133,7 @@ export function AuthScreen() {
 
         <div className="space-y-2">
           <p className="text-center text-sm text-white/80">{t("auth.orContinue")}</p>
-          <Button variant="outline" className="w-full text-white border-white/60 hover:border-white" onClick={() => signInWithGoogle()}>
+          <Button variant="outline" className="w-full text-white border-white/60 hover:border-white" onClick={handleGoogleSignIn} disabled={isSubmitting}>
             {t("auth.continueWithGoogle")}
           </Button>
         </div>

@@ -17,6 +17,7 @@ interface DraftOutputProps {
   onRewrite: () => void
   draftsUsed: number
   draftsLimit: number
+  showUsageLimit?: boolean
 }
 
 export function DraftOutput({
@@ -29,6 +30,7 @@ export function DraftOutput({
   onRewrite,
   draftsUsed,
   draftsLimit,
+  showUsageLimit = false,
 }: DraftOutputProps) {
   const [copied, setCopied] = useState(false)
   const [showSaveModal, setShowSaveModal] = useState(false)
@@ -265,15 +267,17 @@ export function DraftOutput({
         </div>
 
         {/* Usage Reminder (Freemium) */}
-        <div className="mt-4 flex items-start gap-2 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg p-3">
-          <AlertCircle className="text-amber-600 dark:text-amber-400 flex-shrink-0 mt-0.5" size={18} />
-          <div>
-            <p className="text-sm font-medium text-amber-900 dark:text-amber-100">
-              {draftsUsed} of {draftsLimit} drafts used this month
-            </p>
-            <p className="text-xs text-amber-700 dark:text-amber-200 mt-1">Upgrade to Pro for unlimited drafts</p>
+        {showUsageLimit && (
+          <div className="mt-4 flex items-start gap-2 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg p-3">
+            <AlertCircle className="text-amber-600 dark:text-amber-400 flex-shrink-0 mt-0.5" size={18} />
+            <div>
+              <p className="text-sm font-medium text-amber-900 dark:text-amber-100">
+                {draftsUsed} of {draftsLimit} drafts used this month
+              </p>
+              <p className="text-xs text-amber-700 dark:text-amber-200 mt-1">Upgrade to Pro for unlimited drafts</p>
+            </div>
           </div>
-        </div>
+        )}
       </div>
 
       {/* Save Modal */}

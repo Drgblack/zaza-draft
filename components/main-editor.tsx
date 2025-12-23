@@ -10,6 +10,9 @@ import { DraftOutput } from "@/components/draft-output"
 import { MiniInsightsBar } from "@/components/MiniInsightsBar"
 import { ContextualWellbeingTip } from "@/components/ContextualWellbeingTip"
 import { useAuth } from "@/hooks/use-auth"
+import { logClientEvent } from "@/lib/analytics"
+import type { PlanType } from "@/lib/usage"
+import Link from "next/link"
 
 const TONE_OPTIONS = [
   { id: "warm", key: "tone.warm" },
@@ -30,13 +33,19 @@ const LOADING_MESSAGES = [
 export function MainEditor() {
   const [content, setContent] = useState("")
   const [selectedTone, setSelectedTone] = useState<ToneKey>("warm")
-  const [usage, setUsage] = useState({
+  const [usage, setUsage] = useState<{
+    plan: PlanType
+    currentMonthUsage: number
+    limit: number | null
+    remaining: number | null
+  }>({
+    plan: "free",
     currentMonthUsage: 8,
     limit: 10,
     remaining: 2,
   })
   const draftsUsed = usage.currentMonthUsage
-  const draftsLimit = usage.limit
+  const draftsLimit = usage.limit ?? 0
   const { prefs } = useTeacherPrefs()
   const { t, locale } = useLocale()
   const { getIdToken, signOut } = useAuth()
@@ -56,6 +65,43 @@ export function MainEditor() {
 
   const [showWellbeingInsights, setShowWellbeingInsights] = useState(true)
   const isDocumentDark = typeof document !== "undefined" && document.documentElement.classList.contains("dark")
+
+  useEffect(() => {
+    let isMounted = true
+
+    const loadAccountUsage = async () => {
+      try {
+        const token = await getIdToken()
+        if (!token) {
+          return
+        }
+
+        const response = await fetch("/api/account/status", {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        })
+
+        if (response.status === 401) {
+          await signOut()
+          return
+        }
+
+        const payload = await response.json()
+        if (payload?.success && payload?.data?.usage && isMounted) {
+          setUsage(payload.data.usage)
+        }
+      } catch (error) {
+        console.error("[v0] Failed to load account usage", error)
+      }
+    }
+
+    loadAccountUsage()
+
+    return () => {
+      isMounted = false
+    }
+  }, [getIdToken, signOut])
 
   useEffect(() => {
     const handleSettingsChange = (e: CustomEvent) => {
@@ -142,6 +188,11 @@ export function MainEditor() {
       payload.previousDraft = options.previousDraft
     }
 
+    logClientEvent("draft_generate_requested", {
+      tone: selectedTone,
+      language: languageChoice,
+    })
+
     try {
       const token = await getIdToken()
       if (!token) {
@@ -171,9 +222,18 @@ export function MainEditor() {
         if (data?.data?.redactedPreview) {
           setSensitivePreview(data.data.redactedPreview)
         }
+        logClientEvent("draft_generate_failed", {
+          code: data?.error?.code ?? "UNKNOWN_ERROR",
+        })
 
         return
       }
+
+      logClientEvent("draft_generate_succeeded", {
+        tone: selectedTone,
+        language: languageChoice,
+        wordCount: data.data.metadata.wordCount,
+      })
 
       setGeneratedDraft(data.data.generatedDraft)
       setDraftMetadata(data.data.metadata)
@@ -224,6 +284,17 @@ export function MainEditor() {
               : "Let's keep it crisp and professional."}
           </p>
         </div>
+
+        {usage.plan === "free" && usage.remaining === 0 && (
+          <div className="mt-4 rounded-2xl bg-amber-50/80 border border-amber-200 p-4 text-sm text-amber-900 dark:bg-amber-900/30 dark:border-amber-800 dark:text-amber-100 space-y-3">
+            <p>{t("account.billing.paywallMessage")}</p>
+            <Link href="/account">
+              <Button variant="outline" className="text-amber-900 dark:text-amber-200">
+                {t("account.billing.upgradeButton")}
+              </Button>
+            </Link>
+          </div>
+        )}
 
         {showWellbeingInsights && <MiniInsightsBar />}
 
@@ -318,7 +389,11 @@ Examples:
         </Button>
 
         <div className="text-center mt-4 text-sm text-white/90 drop-shadow-[0_1px_4px_rgba(0,0,0,0.25)] font-medium">
-          {t("insights.draftsUsed", { used: draftsUsed, limit: draftsLimit })}
+          {usage.plan === "free" ? (
+            <>{t("insights.draftsUsed", { used: draftsUsed, limit: draftsLimit })}</>
+          ) : (
+            <>{t("insights.unlimitedDrafts")}</>
+          )}
         </div>
 
         {isGenerating && (
@@ -353,6 +428,7 @@ Examples:
               onRewrite={handleRewriteDraft}
               draftsUsed={draftsUsed}
               draftsLimit={draftsLimit}
+              showUsageLimit={usage.plan === "free"}
             />
           </div>
         )}
