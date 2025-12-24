@@ -184,6 +184,21 @@ curl -X POST http://localhost:3000/api/draft/generate \
 8. Hitting `/api/health` returns `status: "ok"`, Firestore readiness info, and the configured model names without exposing secrets.
 9. Confirm `firestore.indexes.json` is deployed or manually create the `collectionGroup: snippets` index ordered by `createdAt desc` in Firebase Console → Firestore → Indexes so pagination never fails.
 
+## Phase 3H Final pre-launch checks
+
+1. Run a full local QA pass: email sign-up/login, Google login, free-generation/regeneration/rewrite, history load/delete, account diagnostics, `/api/health`, `/api/diagnostics`, and the Stripe upgrade path if configured.
+2. Verify backend error codes map to friendly text + actions in the UI; `SENSITIVE_CONTENT` should show redaction guidance, `RATE_LIMITED` should offer a retry window, and `USAGE_LIMIT_EXCEEDED` points to upgrading.
+3. Ensure Firestore rules (`firestore.rules`) and the `collectionGroup: snippets` index (defined in `firestore.indexes.json`) are deployed to every environment.
+4. Confirm every required env var (Firebase credentials, OpenAI API/key/model, Stripe keys) is set in Preview/Prod; missing vars should result in a graceful JSON error from `/api/health`/`/api/diagnostics`.
+5. After deploy, run `pwsh scripts/vercel-smoke.ps1` to call `/api/health`; it will report the status or print next steps if the endpoint is degraded.
+
+### Post-deploy checklist
+
+- `pnpm -s build`
+- `node scripts/e2e-smoke.mjs` (set `TEST_ID_TOKEN` to call `/api/draft/generate`)
+- `pwsh scripts/vercel-smoke.ps1`
+- Confirm `/api/health`/`/api/diagnostics` show status `ok`.
+- Spot-check diagnostics panel and history UI for accurate usage/model info.
 ### E2E smoke script
 
 - Run `node scripts/e2e-smoke.mjs` from the repo root (set `API_BASE_URL` if you are testing against a non-default host).

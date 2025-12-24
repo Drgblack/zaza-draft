@@ -1,9 +1,20 @@
 import type { DraftLanguage, DraftTone } from "@/lib/types"
 
-const OPENAI_API_KEY = process.env.OPENAI_API_KEY
-const ENV_MODEL_PRIMARY = process.env.OPENAI_MODEL_PRIMARY || process.env.OPENAI_MODEL
-const ENV_MODEL_FALLBACK = process.env.OPENAI_MODEL_FALLBACK
-const FORCE_FAIL_PRIMARY = process.env.OPENAI_FORCE_FAIL_PRIMARY === "1"
+function getOpenAiApiKey() {
+  return process.env.OPENAI_API_KEY
+}
+
+function getEnvModelPrimary() {
+  return process.env.OPENAI_MODEL_PRIMARY || process.env.OPENAI_MODEL || null
+}
+
+function getEnvModelFallback() {
+  return process.env.OPENAI_MODEL_FALLBACK ?? null
+}
+
+function forceFailPrimary() {
+  return process.env.OPENAI_FORCE_FAIL_PRIMARY === "1"
+}
 
 interface ProviderInput {
   situation: string
@@ -59,22 +70,23 @@ function delay(ms: number) {
 }
 
 function resolveModels() {
-  if (!ENV_MODEL_PRIMARY) {
+  const primary = getEnvModelPrimary()
+  if (!primary) {
     throw new ProviderError(
       "Missing OpenAI model configuration (OPENAI_MODEL_PRIMARY or OPENAI_MODEL)",
     )
   }
 
   return {
-    primary: ENV_MODEL_PRIMARY,
-    fallback: ENV_MODEL_FALLBACK,
+    primary,
+    fallback: getEnvModelFallback(),
   }
 }
 
 export function getConfiguredModelNames() {
   return {
-    primary: ENV_MODEL_PRIMARY,
-    fallback: ENV_MODEL_FALLBACK,
+    primary: getEnvModelPrimary(),
+    fallback: getEnvModelFallback(),
   }
 }
 
@@ -152,7 +164,8 @@ function isTransientOpenAIError(error: unknown) {
 }
 
 async function callOpenAIModel(model: string, payload: FetchPayload): Promise<GenerationResult> {
-  if (!OPENAI_API_KEY) {
+  const openAiKey = getOpenAiApiKey()
+  if (!openAiKey) {
     throw new ProviderError("Missing AI provider key (OPENAI_API_KEY)")
   }
 
@@ -168,7 +181,7 @@ async function callOpenAIModel(model: string, payload: FetchPayload): Promise<Ge
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${OPENAI_API_KEY}`,
+      Authorization: `Bearer ${openAiKey}`,
       },
       body: JSON.stringify(requestPayload),
     })
@@ -217,7 +230,7 @@ async function callWithFallback(payload: FetchPayload): Promise<GenerationResult
   let simulatedFailure = false
 
   const attemptPrimary = async () => {
-    if (FORCE_FAIL_PRIMARY && !simulatedFailure) {
+    if (forceFailPrimary() && !simulatedFailure) {
       simulatedFailure = true
       throw new ProviderError("Simulated primary failure", 503)
     }
