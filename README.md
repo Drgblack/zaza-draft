@@ -183,3 +183,8 @@ curl -X POST http://localhost:3000/api/draft/generate \
 7. Set `OPENAI_FORCE_FAIL_PRIMARY=1` locally; the subsequent `/api/draft/generate` response should report the fallback `modelUsed`.
 8. Hitting `/api/health` returns `status: "ok"`, Firestore readiness info, and the configured model names without exposing secrets.
 9. Confirm `firestore.indexes.json` is deployed or manually create the `collectionGroup: snippets` index ordered by `createdAt desc` in Firebase Console → Firestore → Indexes so pagination never fails.
+
+### E2E smoke script
+
+- Run `node scripts/e2e-smoke.mjs` from the repo root (set `API_BASE_URL` if you are testing against a non-default host).
+- Provide `TEST_ID_TOKEN` when available to exercise `/api/draft/generate`; the script skips the authenticated call if that env var is absent.

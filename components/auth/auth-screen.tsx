@@ -10,6 +10,13 @@ import { useLocale } from "@/hooks/use-locale"
 import { logClientEvent } from "@/lib/analytics"
 
 const SUPPORT_EMAIL = "greg@zazatechnologies.com"
+const GOOGLE_ERROR_MAP: Record<string, string> = {
+  "auth/popup-closed-by-user": "You closed the Google window. Please try again.",
+  "auth/cancelled-popup-request": "Only one Google window can be open at a time. Please refresh and try again.",
+  "auth/popup-blocked": "Your browser blocked the popup. Allow popups for this site and retry.",
+  "auth/unauthorized-domain":
+    "This domain isn't authorized for Google sign-in. Contact the admin for help.",
+}
 
 export function AuthScreen() {
   const { status, signInWithEmail, registerWithEmail, signInWithGoogle } = useAuth()
@@ -52,7 +59,11 @@ export function AuthScreen() {
       await signInWithGoogle()
       logClientEvent("auth_login_success", { provider: "google" })
     } catch (err) {
-      if (err instanceof Error) {
+      const firebaseCode = (err as { code?: string })?.code
+      const friendly = firebaseCode ? GOOGLE_ERROR_MAP[firebaseCode] : null
+      if (friendly) {
+        setError(friendly)
+      } else if (err instanceof Error && err.message) {
         setError(err.message)
       } else {
         setError("Something went wrong.")

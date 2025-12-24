@@ -30,6 +30,32 @@ const LOADING_MESSAGES = [
   "Crafting your message...",
 ] as const
 
+const GENERATION_ERROR_MAP: Record<
+  string,
+  { message: string; action: string | null }
+> = {
+  USAGE_LIMIT_EXCEEDED: {
+    message: "You've reached your free tier limit. Upgrade to Draft Pro for unlimited drafts.",
+    action: "Visit Account > Billing to upgrade.",
+  },
+  RATE_LIMITED: {
+    message: "Too many requests in a short time. Please wait a moment and try again.",
+    action: "Retry after a short break.",
+  },
+  INVALID_REQUEST: {
+    message: "We can't generate that draft safely. Try rewording your request without sensitive details.",
+    action: "Edit the prompt before generating again.",
+  },
+  SENSITIVE_CONTENT: {
+    message: "Your prompt contained sensitive info. Remove names, emails, phones, or addresses and retry.",
+    action: "Remove private identifiers and regenerate.",
+  },
+  AI_GENERATION_FAILED: {
+    message: "The AI service is unavailable right now. Please retry in a minute.",
+    action: "Try generating again shortly.",
+  },
+}
+
 const HISTORY_PAGE_SIZE = 5
 interface SnippetHistoryItem {
   id: string
@@ -75,6 +101,7 @@ export function MainEditor() {
   const [isGenerating, setIsGenerating] = useState(false)
   const [generationError, setGenerationError] = useState<string | null>(null)
   const [sensitivePreview, setSensitivePreview] = useState<string | null>(null)
+  const [generationAction, setGenerationAction] = useState<string | null>(null)
   const [loadingMessageIndex, setLoadingMessageIndex] = useState(0)
 
   const [showWellbeingInsights, setShowWellbeingInsights] = useState(true)
@@ -83,6 +110,9 @@ export function MainEditor() {
   const [historyLoading, setHistoryLoading] = useState(false)
   const [historyCursor, setHistoryCursor] = useState<string | null>(null)
   const [historyError, setHistoryError] = useState<string | null>(null)
+  const [onboardingVisible, setOnboardingVisible] = useState(false)
+  const [onboardingLoading, setOnboardingLoading] = useState(true)
+  const [onboardingError, setOnboardingError] = useState<string | null>(null)
 
   useEffect(() => {
     let isMounted = true
@@ -120,6 +150,70 @@ export function MainEditor() {
       isMounted = false
     }
   }, [getIdToken, signOut])
+
+  useEffect(() => {
+    let isMounted = true
+
+    const loadOnboarding = async () => {
+      setOnboardingLoading(true)
+      try {
+        const token = await getIdToken()
+        if (!token) {
+          return
+        }
+        const response = await fetch("/api/onboarding", {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        })
+        if (!isMounted) {
+          return
+        }
+        if (!response.ok) {
+          throw new Error("Failed to fetch onboarding status.")
+        }
+
+        const payload = await response.json()
+        if (payload?.success) {
+          setOnboardingVisible(!payload.data.dismissed)
+          setOnboardingError(null)
+        } else {
+          setOnboardingError("Unable to load onboarding tips.")
+        }
+      } catch (error) {
+        console.error("[v0] Failed to load onboarding", error)
+        if (isMounted) {
+          setOnboardingError("Unable to load onboarding.")
+        }
+      } finally {
+        if (isMounted) {
+          setOnboardingLoading(false)
+        }
+      }
+    }
+
+    loadOnboarding()
+
+    return () => {
+      isMounted = false
+    }
+  }, [getIdToken])
+
+  const dismissOnboarding = async () => {
+    try {
+      const response = await fetch("/api/onboarding", {
+        method: "POST",
+      })
+      if (!response.ok) {
+        throw new Error("Unable to save preference.")
+      }
+      setOnboardingVisible(false)
+      setOnboardingError(null)
+    } catch (error) {
+      console.error("[v0] Failed to dismiss onboarding", error)
+      setOnboardingError("We couldn't save your onboarding preference.")
+    }
+  }
 
   useEffect(() => {
     const handleSettingsChange = (e: CustomEvent) => {
@@ -177,6 +271,7 @@ export function MainEditor() {
 
     setIsGenerating(true)
     setGenerationError(null)
+    setGenerationAction(null)
     setSensitivePreview(null)
     setGeneratedDraft(null)
     setDraftMetadata(null)
@@ -239,12 +334,17 @@ export function MainEditor() {
       }
 
       if (!response.ok || !data?.success) {
-        setGenerationError(data?.error?.message || "We couldn't generate a draft right now.")
+        const code: string | null = data?.error?.code ?? null
+        const mapped = code ? GENERATION_ERROR_MAP[code] : null
+        setGenerationError(
+          mapped?.message || data?.error?.message || "We couldn't generate a draft right now.",
+        )
+        setGenerationAction(mapped?.action ?? null)
         if (data?.data?.redactedPreview) {
           setSensitivePreview(data.data.redactedPreview)
         }
         logClientEvent("draft_generate_failed", {
-          code: data?.error?.code ?? "UNKNOWN_ERROR",
+          code: code ?? "UNKNOWN_ERROR",
         })
 
         return
@@ -259,9 +359,11 @@ export function MainEditor() {
       setGeneratedDraft(data.data.generatedDraft)
       setDraftMetadata(data.data.metadata)
       setUsage(data.data.usage)
+      setGenerationAction(null)
     } catch (error) {
       console.error("[v1] Draft generation failed", error)
       setGenerationError("Something went wrong; please try again in a moment.")
+      setGenerationAction("Retry the generation in a few minutes.")
     } finally {
       setIsGenerating(false)
     }
@@ -483,11 +585,55 @@ Examples:
             </Button>
           </Link>
         </div>
+        {onboardingVisible && !onboardingLoading && (
+          <div className="mt-6 rounded-2xl border border-white/20 bg-white/10 p-4 shadow-inner text-sm text-white">
+            <div className="flex flex-col gap-2">
+              <p className="font-semibold">Welcome to Zaza Draft</p>
+              <p>
+                Do not include student full names, emails, phone numbers, or addresses. Learn more in{" "}
+                <Link href="/privacy" className="underline">
+                  Privacy
+                </Link>{" "}
+                or{" "}
+                <Link href="/account/privacy" className="underline">
+                  Privacy & Safety
+                </Link>
+                .
+              </p>
+              <button
+                onClick={dismissOnboarding}
+                className="self-start rounded-full bg-white/20 px-3 py-1 text-xs font-semibold uppercase tracking-[0.1em] hover:bg-white/30 transition"
+              >
+                Got it
+              </button>
+            </div>
+            {onboardingError && <p className="text-xs text-rose-200 mt-2">{onboardingError}</p>}
+          </div>
+        )}
 
         <details className="mt-10 rounded-2xl bg-white/10 p-4 backdrop-blur border border-white/20 text-white">
           <summary className="text-lg font-semibold cursor-pointer">Recent drafts</summary>
           <p className="text-sm text-white/70 mt-2">Load a previous draft or remove it from history.</p>
-          {historyLoading && <p className="text-sm text-white/70 mt-2">Loading recent drafts…</p>}
+          <p className="text-xs text-white/50 mt-1">
+            What we store: snippet text, tone, language, and timestamps. No student identifiers are saved.{" "}
+            <Link href="/account/data" className="underline">
+              View your data
+            </Link>
+          </p>
+          {historyLoading && (
+            <div className="mt-4 space-y-3">
+              {[1, 2, 3].map((item) => (
+                <div
+                  key={item}
+                  className="rounded-xl bg-white/10 border border-white/10 p-4 flex flex-col gap-2 animate-pulse"
+                >
+                  <div className="h-3 w-1/2 bg-white/30 rounded-full"></div>
+                  <div className="h-3 w-1/3 bg-white/30 rounded-full"></div>
+                  <div className="h-3 w-3/4 bg-white/10 rounded-full"></div>
+                </div>
+              ))}
+            </div>
+          )}
           {historyError && <p className="text-sm text-rose-200 mt-2">{historyError}</p>}
           {!historyLoading && !history.length && (
             <p className="text-sm text-white/60 mt-2">No drafts saved yet.</p>
@@ -545,6 +691,11 @@ Examples:
               {locale === "de-DE" ? "Generiere deinen Entwurf…" : "Generating your snippet…"}
             </p>
             <p>{LOADING_MESSAGES[loadingMessageIndex]}</p>
+            <div className="mt-3 grid gap-2">
+              <div className="h-3 w-5/6 bg-white/20 rounded-full animate-pulse"></div>
+              <div className="h-3 w-4/6 bg-white/20 rounded-full animate-pulse"></div>
+              <div className="h-3 w-2/3 bg-white/20 rounded-full animate-pulse"></div>
+            </div>
           </div>
         )}
 
@@ -554,6 +705,11 @@ Examples:
             {sensitivePreview && (
               <p className="mt-2 text-xs text-red-800">
                 {locale === "de-DE" ? "Bearbeitete Vorschau:" : "Redacted preview:"} {sensitivePreview}
+              </p>
+            )}
+            {generationAction && (
+              <p className="mt-2 text-xs text-red-700">
+                {generationAction}
               </p>
             )}
           </div>
