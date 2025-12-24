@@ -5,6 +5,8 @@ import { logServerEvent } from "@/lib/analytics"
 import { buildUsageResponse, incrementUsage, MonthlyUsageRecord } from "@/lib/usage"
 import { getUserEntitlements } from "@/lib/entitlements"
 import { generateDraft } from "@/lib/ai/provider"
+import { enforceDraftRateLimit, RateLimitError } from "@/lib/rate-limit"
+import { createHash } from "crypto"
 
 const ALLOWED_TONES = ["warm", "professional", "direct", "empathetic"] as const
 const ALLOWED_LANGUAGES = ["en", "de"] as const
@@ -171,6 +173,19 @@ export async function POST(request: Request) {
   }
 
   const { uid, firestore } = authContext
+  const userHash = createHash("sha256").update(uid).digest("hex").slice(0, 12)
+  const logDraftOutcome = (
+    outcomeCode: string,
+    extras: { latencyMs?: number; modelUsed?: string; tokensUsed?: number; errorCode?: string } = {},
+  ) => {
+    console.info("[draft] generate outcome", {
+      userHash,
+      tone,
+      language,
+      outcome: outcomeCode,
+      ...extras,
+    })
+  }
   if (!firestore) {
     return NextResponse.json(
       {
@@ -188,7 +203,31 @@ export async function POST(request: Request) {
 
   if (plan === "free" && usage.remaining !== null && usage.remaining <= 0) {
     logServerEvent("draft_generation_denied_limit", { uid, plan })
+    logDraftOutcome("RATE_LIMITED", { errorCode: "USAGE_LIMIT_EXCEEDED" })
     return NextResponse.json(buildUsageLimitError(usage), { status: 429 })
+  }
+
+  try {
+    await enforceDraftRateLimit(uid, firestore)
+  } catch (error) {
+    if (error instanceof RateLimitError) {
+      logServerEvent("draft_generation_rate_limited", { uid, plan })
+      logDraftOutcome("RATE_LIMITED", { errorCode: "RATE_LIMITED" })
+      const waitSeconds = Math.ceil(error.retryAfterMs / 1000)
+      return NextResponse.json(
+        {
+          success: false,
+          error: {
+            code: "RATE_LIMITED",
+            message: `You can generate a new draft in ${waitSeconds} seconds.`,
+          },
+        },
+        { status: 429 },
+      )
+    }
+
+    console.error("[draft] Rate limit transaction failed", error)
+    throw error
   }
 
   const sanitizedContext = {
@@ -198,7 +237,9 @@ export async function POST(request: Request) {
 
   const detection = detectSensitiveContent(situation)
   const sanitizedSituation = detection.sanitized
+  const safetyFlags = new Set<string>()
   if (detection.matches.length > 0) {
+    detection.matches.forEach((match) => safetyFlags.add(`input-${match.type}`))
     return NextResponse.json(
       {
         success: false,
@@ -238,6 +279,7 @@ export async function POST(request: Request) {
       language,
       error: error instanceof Error ? error.message : "unknown",
     })
+    logDraftOutcome("AI_GENERATION_FAILED", { errorCode: "AI_GENERATION_FAILED" })
     return NextResponse.json(
       {
         success: false,
@@ -252,7 +294,9 @@ export async function POST(request: Request) {
   const generationTime = providerMeta.latencyMs ?? Date.now() - generationStart
 
   const outputDetection = detectSensitiveContent(generatedDraft)
+  outputDetection.matches.forEach((match) => safetyFlags.add(`output-${match.type}`))
   if (outputDetection.matches.length > 0 && detection.matches.length === 0) {
+    logDraftOutcome("INVALID_REQUEST", { errorCode: "INVALID_REQUEST" })
     return NextResponse.json(
       {
         success: false,
@@ -279,6 +323,8 @@ export async function POST(request: Request) {
     throw error
   }
 
+  const safetyFlagList = safetyFlags.size ? Array.from(safetyFlags) : ["no-sensitive-content"]
+
   const metadata = {
     userId: uid,
     toneUsed: tone,
@@ -287,10 +333,7 @@ export async function POST(request: Request) {
     tokensUsed: providerMeta.tokensUsed ?? null,
     generationTime,
     wordCount: countWords(generatedDraft),
-    safetyFlags:
-      outputDetection.matches.length > 0
-        ? outputDetection.matches.map((match) => `detected-${match.type}`)
-        : ["no-sensitive-content"],
+    safetyFlags: safetyFlagList,
     generatedAt: new Date().toISOString(),
     requestedAt: requestedAt.toISOString(),
     contextUsed: sanitizedContext,
@@ -332,6 +375,11 @@ export async function POST(request: Request) {
     console.error("[draft] Failed to persist snippet", error)
     logServerEvent("snippet_save_failed", { uid, error: (error as Error).message })
   }
+  logDraftOutcome("SUCCESS", {
+    latencyMs: generationTime,
+    modelUsed: metadata.modelUsed,
+    tokensUsed: providerMeta.tokensUsed,
+  })
 
   return NextResponse.json({
     success: true,

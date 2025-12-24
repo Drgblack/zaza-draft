@@ -117,3 +117,12 @@ curl -X POST http://localhost:3000/api/draft/generate \
 2. Sign in via the app or emulator to obtain a Firebase ID token and use it in the `Authorization: Bearer <id-token>` header.
 3. Run the `curl` example under Phase 3C to exercise `/api/draft/generate` and confirm the structured success payload, including `snippetId`.
 4. Fetch history with `GET /api/snippets?limit=5` and delete an entry via `DELETE /api/snippets/{snippetId}`; both endpoints reuse the same auth guard and rely on Firestore `createdAt` ordering.
+
+## Phase 3D Safety, rate limiting & Firestore rules
+
+- **Server-side rate limiting:** Each uid may call `/api/draft/generate` at most 10 times per 10 minutes. The backend tracks counters in `users/{uid}/rateLimits/draftGenerate` (`windowStart`, `count`) and returns `RATE_LIMITED` (429) with a friendly retry note when the window is exceeded.
+- **Safety logging:** `/api/draft/generate` emits structured server logs (`[draft] generate outcome`) capturing a hashed uid, tone, language, latency, model/tokens, and the outcome code (`SUCCESS`, `RATE_LIMITED`, `AI_GENERATION_FAILED`, etc.), without logging any raw teacher input or AI output.
+- **Firestore schema/security notes:**
+  - `users/{uid}/snippets/{snippetId}` is ordered by `createdAt` (used for pagination) and must be readable/writable only by `request.auth.uid == uid`.
+  - `users/{uid}/monthlyUsage` and the new `rateLimits/draftGenerate` doc are maintained exclusively by trusted server code, never directly by the client.
+  - Indexes: Firestore already indexes `createdAt` within the `snippets` subcollection, ensuring the `GET /api/snippets` pagination (order by `createdAt desc`) works without extra composite indexes.
