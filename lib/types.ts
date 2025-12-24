@@ -27,6 +27,9 @@ export interface SuggestionFeedback {
 
 export type DocumentType = "lesson-plan" | "email" | "report"
 
+export type DraftTone = "warm" | "professional" | "direct" | "empathetic"
+export type DraftLanguage = "en" | "de"
+
 export interface Document {
   id: string
   title: string

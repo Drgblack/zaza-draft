@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server"
 import { authorizeFirebaseRequest, FirebaseAuthorizationError } from "@/lib/firebase/server"
-import { buildUsageResponse, fetchUsageRecord, PlanType } from "@/lib/usage"
+import { getUserEntitlements } from "@/lib/entitlements"
 
 export async function GET(request: Request) {
   let authContext
@@ -34,24 +34,23 @@ export async function GET(request: Request) {
       { status: 500 },
     )
   }
+
   const userRef = firestore.collection("users").doc(uid)
   const snapshot = await userRef.get()
   const data = snapshot.data() ?? {}
   const subscriptionStatus = (data.subscriptionStatus as string) ?? "none"
-  const plan: PlanType = ["active", "trialing"].includes(subscriptionStatus) ? "pro" : "free"
-
-  const usageRecord = await fetchUsageRecord(uid, firestore)
+  const entitlements = await getUserEntitlements(uid, firestore)
 
   return NextResponse.json({
     success: true,
     data: {
-      plan,
+      plan: entitlements.plan,
       subscriptionStatus,
       priceId: data.priceId ?? null,
       currentPeriodEnd: data.currentPeriodEnd ?? null,
       cancelAtPeriodEnd: data.cancelAtPeriodEnd ?? false,
       stripeCustomerId: data.stripeCustomerId ?? null,
-      usage: buildUsageResponse(usageRecord, plan),
+      usage: entitlements.usage,
     },
   })
 }

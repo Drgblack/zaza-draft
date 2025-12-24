@@ -2,7 +2,9 @@ import { NextResponse } from "next/server"
 import { authorizeFirebaseRequest, FirebaseAuthorizationError } from "@/lib/firebase/server"
 import { detectSensitiveContent } from "@/lib/safety"
 import { logServerEvent } from "@/lib/analytics"
-import { buildUsageResponse, fetchUsageRecord, incrementUsage, PlanType, MonthlyUsageRecord } from "@/lib/usage"
+import { buildUsageResponse, incrementUsage, MonthlyUsageRecord } from "@/lib/usage"
+import { getUserEntitlements } from "@/lib/entitlements"
+import { generateDraft } from "@/lib/ai/provider"
 
 const ALLOWED_TONES = ["warm", "professional", "direct", "empathetic"] as const
 const ALLOWED_LANGUAGES = ["en", "de"] as const
@@ -55,68 +57,6 @@ function sanitizeLanguageChoice(input: string): LanguageKey | null {
     return "en"
   }
   return null
-}
-
-function buildPlaceholderDraft(params: {
-  situation: string
-  tone: ToneKey
-  language: LanguageKey
-  context?: GenerateDraftRequest["context"]
-  rewrite?: boolean
-}) {
-  if (params.language === "de") {
-    return buildGermanDraft(params)
-  }
-
-  return buildEnglishDraft(params)
-}
-
-function buildEnglishDraft(params: {
-  situation: string
-  tone: ToneKey
-  context?: GenerateDraftRequest["context"]
-  rewrite?: boolean
-}) {
-  const { situation, tone, context, rewrite } = params
-  const toneDescription = TONE_DESCRIPTIONS[tone] ?? tone
-  const contextLine = buildContextLine(context)
-  const rewriteLine = rewrite
-    ? `This version tightens the previous note while staying true to the ${toneDescription.toLowerCase()} tone you requested.`
-    : ""
-
-  const body = [
-    `Dear Parent/Guardian,`,
-    `I want to share a thoughtful update about the situation you described: ${situation}. ${contextLine}`,
-    `Your student continues to show steady effort, and I am highlighting only what you provided so no assumptions are made.`,
-    `This draft reflects a ${toneDescription.toLowerCase()} approach and focuses only on observable details. ${rewriteLine}`.trim(),
-    `Please let me know if you would like to discuss next steps together.`,
-  ]
-
-  return body.filter(Boolean).join("\n\n")
-}
-
-function buildGermanDraft(params: {
-  situation: string
-  tone: ToneKey
-  context?: GenerateDraftRequest["context"]
-  rewrite?: boolean
-}) {
-  const { situation, tone, context, rewrite } = params
-  const toneDescription = TONE_DESCRIPTIONS[tone] ?? tone
-  const contextLine = buildContextLine(context)
-  const rewriteLine = rewrite
-    ? `Dieser Text bleibt im gewünschten ${toneDescription.toLowerCase()} Stil und baut auf der vorherigen Version auf.`
-    : ""
-
-  const body = [
-    `Liebe Eltern und Erziehungsberechtigte,`,
-    `Ich möchte ein kurzes Update zur beschriebenen Situation teilen: ${situation}. ${contextLine}`,
-    `Ihre Schülerin oder Ihr Schüler zeigt weiter durchgängig Einsatz, und ich beziehe mich ausschließlich auf die von Ihnen bereitgestellten Informationen.`,
-    `Der Text bleibt professionell und sachlich mit einem ${toneDescription.toLowerCase()} Ton. ${rewriteLine}`.trim(),
-    `Bitte geben Sie Bescheid, wenn wir gemeinsam über mögliche nächste Schritte sprechen sollen.`,
-  ]
-
-  return body.filter(Boolean).join("\n\n")
 }
 
 function countWords(text: string) {
@@ -243,19 +183,12 @@ export async function POST(request: Request) {
       { status: 500 },
     )
   }
-  const userRef = firestore.collection("users").doc(uid)
-  const userSnapshot = await userRef.get()
-  const userData = userSnapshot.data() ?? {}
-  const subscriptionStatus = (userData.subscriptionStatus as string) ?? "none"
-  const plan: PlanType = ["active", "trialing"].includes(subscriptionStatus) ? "pro" : "free"
+  const entitlements = await getUserEntitlements(uid, firestore)
+  const { plan, usage } = entitlements
 
-  const usageSnapshot = await fetchUsageRecord(uid, firestore)
-  if (plan === "free" && usageSnapshot.generationCount >= 10) {
+  if (plan === "free" && usage.remaining !== null && usage.remaining <= 0) {
     logServerEvent("draft_generation_denied_limit", { uid, plan })
-    return NextResponse.json(
-      buildUsageLimitError(buildUsageResponse(usageSnapshot, plan)),
-      { status: 429 },
-    )
+    return NextResponse.json(buildUsageLimitError(usage), { status: 429 })
   }
 
   const sanitizedContext = {
@@ -264,6 +197,7 @@ export async function POST(request: Request) {
   }
 
   const detection = detectSensitiveContent(situation)
+  const sanitizedSituation = detection.sanitized
   if (detection.matches.length > 0) {
     return NextResponse.json(
       {
@@ -282,24 +216,64 @@ export async function POST(request: Request) {
   }
 
   const generationStart = Date.now()
-  const generatedDraft = buildPlaceholderDraft({
-    situation,
-    tone,
-    language,
-    context: sanitizedContext,
-    rewrite: Boolean(payload.rewrite),
-  })
-  const generationTime = Date.now() - generationStart
+  let generatedDraft: string
+  let providerMeta: { modelUsed: string; latencyMs: number; tokensUsed?: number }
+  try {
+    const result = await generateDraft({
+      situation: sanitizedSituation,
+      tone,
+      language: language as LanguageKey,
+      context: sanitizedContext,
+      rewrite: Boolean(payload.rewrite),
+      previousDraft: payload.previousDraft,
+    })
+    generatedDraft = result.text
+    providerMeta = result.providerMeta
+  } catch (error) {
+    console.error("[draft] AI generation failed", error)
+    logServerEvent("draft_generation_failed", {
+      uid,
+      plan,
+      tone,
+      language,
+      error: error instanceof Error ? error.message : "unknown",
+    })
+    return NextResponse.json(
+      {
+        success: false,
+        error: {
+          code: "AI_GENERATION_FAILED",
+          message: error instanceof Error ? error.message : "Unable to generate draft.",
+        },
+      },
+      { status: 502 },
+    )
+  }
+  const generationTime = providerMeta.latencyMs ?? Date.now() - generationStart
+
+  const outputDetection = detectSensitiveContent(generatedDraft)
+  if (outputDetection.matches.length > 0 && detection.matches.length === 0) {
+    return NextResponse.json(
+      {
+        success: false,
+        data: {
+          redactedPreview: outputDetection.sanitized,
+        },
+        error: {
+          code: "INVALID_REQUEST",
+          message: "Generated content included sensitive information that cannot be returned.",
+        },
+      },
+      { status: 422 },
+    )
+  }
 
   let updatedUsage: MonthlyUsageRecord
   try {
     updatedUsage = await incrementUsage(uid, firestore, plan === "pro")
   } catch (error) {
     if (error instanceof Error && error.message === "USAGE_LIMIT_EXCEEDED") {
-      return NextResponse.json(
-        buildUsageLimitError(buildUsageResponse(usageSnapshot, plan)),
-        { status: 429 },
-      )
+      return NextResponse.json(buildUsageLimitError(usage), { status: 429 })
     }
     console.error("[draft] Usage increment failed", error)
     throw error
@@ -309,12 +283,14 @@ export async function POST(request: Request) {
     userId: uid,
     toneUsed: tone,
     language,
-    modelUsed: "zaza-placeholder",
+    modelUsed: providerMeta.modelUsed,
+    tokensUsed: providerMeta.tokensUsed ?? null,
     generationTime,
     wordCount: countWords(generatedDraft),
-    safetyFlags: detection.matches.length
-      ? detection.matches.map((match) => `detected-${match.type}`)
-      : ["no-sensitive-content"],
+    safetyFlags:
+      outputDetection.matches.length > 0
+        ? outputDetection.matches.map((match) => `detected-${match.type}`)
+        : ["no-sensitive-content"],
     generatedAt: new Date().toISOString(),
     requestedAt: requestedAt.toISOString(),
     contextUsed: sanitizedContext,
@@ -328,12 +304,42 @@ export async function POST(request: Request) {
     wordCount: metadata.wordCount,
   })
 
+  let snippetId: string | null = null
+  const snippetCollection = firestore.collection("users").doc(uid).collection("snippets")
+  const snippetDoc = snippetCollection.doc()
+  snippetId = snippetDoc.id
+  const usageAfterGeneration = buildUsageResponse(updatedUsage, plan)
+
+  const snippetPayload = {
+    promptText: detection.matches.length === 0 ? sanitizedSituation : undefined,
+    generatedText: generatedDraft,
+    tone,
+    language,
+    contextUsed: sanitizedContext,
+    wordCount: metadata.wordCount,
+    modelUsed: metadata.modelUsed,
+    safetyFlags: metadata.safetyFlags,
+    generationTime: metadata.generationTime,
+    usage: usageAfterGeneration,
+    createdAt: new Date().toISOString(),
+    requestId: snippetDoc.id,
+  }
+
+  try {
+    await snippetDoc.set(snippetPayload)
+    logServerEvent("snippet_saved", { uid, snippetId })
+  } catch (error) {
+    console.error("[draft] Failed to persist snippet", error)
+    logServerEvent("snippet_save_failed", { uid, error: (error as Error).message })
+  }
+
   return NextResponse.json({
     success: true,
     data: {
       generatedDraft,
       metadata,
-      usage: buildUsageResponse(updatedUsage, plan),
+      usage: usageAfterGeneration,
+      snippetId,
     },
   })
 }

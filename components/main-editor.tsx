@@ -30,6 +30,20 @@ const LOADING_MESSAGES = [
   "Crafting your message...",
 ] as const
 
+const HISTORY_PAGE_SIZE = 5
+interface SnippetHistoryItem {
+  id: string
+  createdAt: string
+  tone: string
+  language: string
+  wordCount: number
+  contextUsed?: {
+    subject?: string
+    gradeLevel?: string
+  }
+  generatedText: string
+}
+
 export function MainEditor() {
   const [content, setContent] = useState("")
   const [selectedTone, setSelectedTone] = useState<ToneKey>("warm")
@@ -65,6 +79,10 @@ export function MainEditor() {
 
   const [showWellbeingInsights, setShowWellbeingInsights] = useState(true)
   const isDocumentDark = typeof document !== "undefined" && document.documentElement.classList.contains("dark")
+  const [history, setHistory] = useState<SnippetHistoryItem[]>([])
+  const [historyLoading, setHistoryLoading] = useState(false)
+  const [historyCursor, setHistoryCursor] = useState<string | null>(null)
+  const [historyError, setHistoryError] = useState<string | null>(null)
 
   useEffect(() => {
     let isMounted = true
@@ -246,6 +264,64 @@ export function MainEditor() {
     }
   }
 
+  const refreshHistory = async (cursor?: string, append = false) => {
+    setHistoryLoading(true)
+    setHistoryError(null)
+    try {
+      const queryParam = cursor ? `&cursor=${encodeURIComponent(cursor)}` : ""
+      const response = await fetch(`/api/snippets?limit=${HISTORY_PAGE_SIZE}${queryParam}`)
+      const payload = await response.json()
+      if (!response.ok) {
+        throw new Error(payload?.error?.message || "Unable to load history.")
+      }
+      const nextCursor = payload?.data?.nextCursor ?? null
+      setHistoryCursor(nextCursor)
+      setHistory((prev) => (append ? [...prev, ...(payload.data.snippets ?? [])] : payload.data.snippets ?? []))
+    } catch (error) {
+      console.error("[v1] Failed to load snippet history", error)
+      setHistoryError("Unable to load history right now.")
+    } finally {
+      setHistoryLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    refreshHistory()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  useEffect(() => {
+    if (draftMetadata?.generatedAt) {
+      refreshHistory()
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [draftMetadata?.generatedAt])
+
+  const loadSnippet = (snippet: SnippetHistoryItem) => {
+    setContent(snippet.generatedText)
+    setSelectedTone(snippet.tone as ToneKey)
+    setLanguageChoice(snippet.language as LanguageChoice)
+    setSubject(snippet.contextUsed?.subject ?? "")
+    setGradeLevel(snippet.contextUsed?.gradeLevel ?? "")
+  }
+
+  const deleteSnippet = async (snippetId: string) => {
+    try {
+      const response = await fetch(`/api/snippets/${snippetId}`, {
+        method: "DELETE",
+      })
+      const payload = await response.json()
+      if (response.ok && payload.success) {
+        setHistory((prev) => prev.filter((item) => item.id !== snippetId))
+      } else {
+        throw new Error(payload?.error?.message || "Unable to delete draft.")
+      }
+    } catch (error) {
+      console.error("[v1] Failed to delete snippet", error)
+      alert("Unable to delete draft right now.")
+    }
+  }
+
   const handleSaveDraft = (tags: string[]) => {
     console.log("[v0] Saving draft with tags:", tags)
     // TODO: Implement actual save to library functionality
@@ -404,6 +480,61 @@ Examples:
             </Button>
           </Link>
         </div>
+
+        <details className="mt-10 rounded-2xl bg-white/10 p-4 backdrop-blur border border-white/20 text-white">
+          <summary className="text-lg font-semibold cursor-pointer">Recent drafts</summary>
+          <p className="text-sm text-white/70 mt-2">Load a previous draft or remove it from history.</p>
+          {historyLoading && <p className="text-sm text-white/70 mt-2">Loading recent drafts…</p>}
+          {historyError && <p className="text-sm text-rose-200 mt-2">{historyError}</p>}
+          {!historyLoading && !history.length && (
+            <p className="text-sm text-white/60 mt-2">No drafts saved yet.</p>
+          )}
+          <ul className="mt-4 space-y-3">
+            {history.map((item) => (
+              <li
+                key={item.id}
+                className="rounded-xl bg-white/20 p-3 border border-white/20 flex flex-col gap-1"
+              >
+                <div className="flex items-center justify-between text-sm text-white/80">
+                  <span>
+                    {new Intl.DateTimeFormat(locale, {
+                      dateStyle: "medium",
+                      timeStyle: "short",
+                    }).format(new Date(item.createdAt))}
+                  </span>
+                  <span className="uppercase tracking-wide text-xs">{item.tone}</span>
+                </div>
+                <p className="text-sm text-white/90">Language: {item.language.toUpperCase()}</p>
+                <p className="text-sm text-white/90">Words: {item.wordCount}</p>
+                {(item.contextUsed?.subject || item.contextUsed?.gradeLevel) && (
+                  <p className="text-sm text-white/80">
+                    {item.contextUsed?.subject ? `Subject: ${item.contextUsed.subject}` : ""}
+                    {item.contextUsed?.gradeLevel ? ` | Grade: ${item.contextUsed.gradeLevel}` : ""}
+                  </p>
+                )}
+                <div className="flex gap-2 mt-2">
+                  <Button size="sm" variant="outline" onClick={() => loadSnippet(item)}>
+                    Load
+                  </Button>
+                  <Button size="sm" variant="ghost" className="text-rose-200" onClick={() => deleteSnippet(item.id)}>
+                    Delete
+                  </Button>
+                </div>
+              </li>
+            ))}
+          </ul>
+          {historyCursor && (
+            <Button
+              size="sm"
+              variant="outline"
+              className="mt-4 text-white border-white/60"
+              onClick={() => refreshHistory(historyCursor, true)}
+              disabled={historyLoading}
+            >
+              Load more
+            </Button>
+          )}
+        </details>
 
         {isGenerating && (
           <div className="mt-4 rounded-2xl bg-white/10 border border-white/20 p-4 text-sm text-white/90 shadow-inner">
