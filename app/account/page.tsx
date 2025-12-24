@@ -19,7 +19,8 @@ export default function AccountPage() {
   const { t } = useLocale()
   const { prefs, updatePrefs } = useTeacherPrefs()
   const { user, signOut, getIdToken } = useAuth()
-  const [name, setName] = useState(prefs.firstName)
+  const displayName = user?.displayName ?? prefs.firstName
+  const [name, setName] = useState(displayName)
   const [profilePhoto, setProfilePhoto] = useState<string | null>(prefs.profilePhoto)
   const email = user?.email ?? "-"
   const [accountInfo, setAccountInfo] = useState<null | {
@@ -96,9 +97,12 @@ export default function AccountPage() {
   }
 
   useEffect(() => {
-    setName(prefs.firstName)
+    setName(displayName)
+  }, [displayName])
+
+  useEffect(() => {
     setProfilePhoto(prefs.profilePhoto)
-  }, [prefs.firstName, prefs.profilePhoto])
+  }, [prefs.profilePhoto])
 
   const hasNameChanged = name.trim() !== "" && name.trim() !== prefs.firstName
 
@@ -235,9 +239,11 @@ export default function AccountPage() {
                 <Label className="text-gray-900 dark:text-white">{t("account.profile.photoLabel")}</Label>
                 <div className="flex items-center gap-4">
                   <Avatar className="h-20 w-20 border-2 border-purple-300 dark:border-purple-600">
-                    {profilePhoto && <AvatarImage src={profilePhoto || "/placeholder.svg"} alt={name} />}
+                    {(user?.photoURL || profilePhoto) && (
+                      <AvatarImage src={user?.photoURL ?? profilePhoto ?? "/placeholder.svg"} alt={displayName} />
+                    )}
                     <AvatarFallback className="bg-purple-600 text-white text-2xl">
-                      {prefs.firstName.charAt(0)}
+                      {displayName.charAt(0)}
                     </AvatarFallback>
                   </Avatar>
                   <div className="flex flex-col gap-2">

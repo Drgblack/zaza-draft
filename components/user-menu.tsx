@@ -24,7 +24,9 @@ export function UserMenu() {
   const [open, setOpen] = useState(false)
   const profilePhoto = prefs.profilePhoto
 
-  const userInitials = prefs.firstName.charAt(0)
+  const displayName = user?.displayName ?? prefs.firstName
+  const displayPhoto = user?.photoURL ?? profilePhoto
+  const userInitials = displayName.charAt(0)
   const userEmail = user?.email ?? "user@example.com"
 
   const handleLogout = () => {
@@ -41,7 +43,7 @@ export function UserMenu() {
           aria-label={t("account.menu.userMenu")}
         >
           <Avatar className="h-8 w-8 cursor-pointer hover:ring-2 hover:ring-purple-400 transition-all">
-            {profilePhoto && <AvatarImage src={profilePhoto || "/placeholder.svg"} alt={prefs.firstName} />}
+            {displayPhoto && <AvatarImage src={displayPhoto} alt={displayName} />}
             <AvatarFallback className="bg-primary text-primary-foreground text-sm">{userInitials}</AvatarFallback>
           </Avatar>
         </button>
@@ -52,7 +54,7 @@ export function UserMenu() {
       >
         <DropdownMenuLabel className="font-normal">
           <div className="flex flex-col space-y-1">
-            <p className="text-sm font-semibold text-gray-900 dark:text-white">{prefs.firstName}</p>
+            <p className="text-sm font-semibold text-gray-900 dark:text-white">{displayName}</p>
             <p className="text-xs text-gray-600 dark:text-gray-400">{userEmail}</p>
           </div>
         </DropdownMenuLabel>

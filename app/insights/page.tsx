@@ -16,6 +16,7 @@ import Link from "next/link"
 import { ArrowLeft } from "lucide-react"
 import { useLocale } from "@/hooks/use-locale"
 import { useTeacherPrefs } from "@/hooks/use-teacher-prefs"
+import { useAuth } from "@/hooks/use-auth"
 
 // Mock data
 const mockMetrics = {
@@ -100,6 +101,7 @@ export default function InsightsPage() {
   const [shareData, setShareData] = useState(true)
   const { locale, t } = useLocale()
   const { prefs } = useTeacherPrefs()
+  const { user } = useAuth()
 
   const getFireIntensity = (days: number) => {
     if (days >= 15) return "🔥🔥🔥"
@@ -153,7 +155,7 @@ export default function InsightsPage() {
                 {t("insights.backToEditor")}
               </Link>
               <h1 className="text-3xl font-bold text-white drop-shadow-lg">
-                {t("insights.title", { name: prefs.firstName })}
+                {t("insights.title", { name: user?.displayName ?? prefs.firstName })}
               </h1>
               <p className="text-white/90 mt-1">{t("insights.subtitle")}</p>
             </div>

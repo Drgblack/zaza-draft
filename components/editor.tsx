@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button"
 import { Separator } from "@/components/ui/separator"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { useTeacherPrefs } from "@/hooks/use-teacher-prefs"
+import { useAuth } from "@/hooks/use-auth"
 import { LanguageSwitcher } from "./language-switcher"
 import { GreetingBar } from "./zaza/greeting-bar"
 import { ToneSelector } from "./zaza/tone-selector"
@@ -26,6 +27,7 @@ export function Editor({ content, onChange, rightPanelVisible, onToggleRightPane
   const [tone, setTone] = useState<"Professional" | "Friendly" | "Formal">("Professional")
   const editorRef = useRef<HTMLDivElement>(null)
   const { prefs } = useTeacherPrefs()
+  const { user } = useAuth()
   const { t } = useLocale()
 
   const isFreeUser = true
@@ -56,7 +58,7 @@ export function Editor({ content, onChange, rightPanelVisible, onToggleRightPane
   return (
     <div className="flex-1 flex flex-col overflow-hidden zd-editor">
       <GreetingBar
-        name={prefs.firstName}
+        name={user?.displayName ?? prefs.firstName}
         subtitle={getSubline()}
         onToggleAIPanel={onToggleRightPanel}
         aiPanelVisible={rightPanelVisible}

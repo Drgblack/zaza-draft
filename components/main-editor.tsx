@@ -62,7 +62,7 @@ export function MainEditor() {
   const draftsLimit = usage.limit ?? 0
   const { prefs } = useTeacherPrefs()
   const { t, locale } = useLocale()
-  const { getIdToken, signOut } = useAuth()
+  const { user, getIdToken, signOut } = useAuth()
 
   const [greeting, setGreeting] = useState("Good morning")
   const [userName, setUserName] = useState("")
@@ -140,10 +140,13 @@ export function MainEditor() {
   }, [])
 
   useEffect(() => {
-    if (prefs.firstName) {
-      setUserName(prefs.firstName)
+    const resolvedName = user?.displayName ?? prefs.firstName
+    if (resolvedName) {
+      setUserName(resolvedName)
     }
+  }, [user?.displayName, prefs.firstName])
 
+  useEffect(() => {
     const hour = new Date().getHours()
     if (hour < 12) {
       setGreeting(locale === "de-DE" ? "Guten Morgen" : "Good morning")
@@ -152,7 +155,7 @@ export function MainEditor() {
     } else {
       setGreeting(locale === "de-DE" ? "Guten Abend" : "Good evening")
     }
-  }, [prefs.firstName, locale])
+  }, [locale])
 
   useEffect(() => {
     if (!isGenerating) {
