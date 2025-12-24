@@ -1,16 +1,18 @@
 import type { DraftLanguage, DraftTone } from "@/lib/types"
 
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY
-const OPENAI_MODEL = process.env.OPENAI_MODEL || "gpt-4o-mini"
+const ENV_MODEL_PRIMARY = process.env.OPENAI_MODEL_PRIMARY || process.env.OPENAI_MODEL
+const ENV_MODEL_FALLBACK = process.env.OPENAI_MODEL_FALLBACK
+const FORCE_FAIL_PRIMARY = process.env.OPENAI_FORCE_FAIL_PRIMARY === "1"
 
 interface ProviderInput {
   situation: string
   tone: DraftTone
   language: DraftLanguage
-    context?: {
-      subject?: string
-      gradeLevel?: string
-    }
+  context?: {
+    subject?: string
+    gradeLevel?: string
+  }
   rewrite?: boolean
   previousDraft?: string
 }
@@ -27,11 +29,13 @@ export interface ProviderResult {
 }
 
 class ProviderError extends Error {
-  constructor(message: string) {
+  constructor(message: string, public status?: number, public openAIErrorCode?: string) {
     super(message)
     this.name = "ProviderError"
   }
 }
+
+const transientStatusCodes = new Set([429, 500, 502, 503, 504])
 
 function buildSystemPrompt(tone: DraftTone, language: DraftLanguage, rewrite?: boolean) {
   const systemLines = [
@@ -42,31 +46,51 @@ function buildSystemPrompt(tone: DraftTone, language: DraftLanguage, rewrite?: b
   ]
 
   if (rewrite) {
-    systemLines.push("You are rewriting content already supplied; keep meaning intact while adapting tone/language per the request.")
+    systemLines.push(
+      "You are rewriting content already supplied; keep meaning intact while adapting tone/language per the request.",
+    )
   }
 
   return systemLines.join(" ")
 }
 
-export async function generateDraft(input: ProviderInput): Promise<ProviderResult> {
-  if (!OPENAI_API_KEY) {
-    throw new ProviderError("Missing AI provider key (OPENAI_API_KEY)")
+function delay(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms))
+}
+
+function resolveModels() {
+  if (!ENV_MODEL_PRIMARY) {
+    throw new ProviderError(
+      "Missing OpenAI model configuration (OPENAI_MODEL_PRIMARY or OPENAI_MODEL)",
+    )
   }
 
+  return {
+    primary: ENV_MODEL_PRIMARY,
+    fallback: ENV_MODEL_FALLBACK,
+  }
+}
+
+interface FetchPayload {
+  messages: Array<{ role: "system" | "user"; content: string }>
+  temperature: number
+  max_tokens: number
+}
+
+function buildBasePayload(input: ProviderInput): FetchPayload {
   const system = buildSystemPrompt(input.tone, input.language, input.rewrite)
   const contextLines = [
     `Tone: ${input.tone}`,
     `Language: ${input.language}`,
-    `Context subject: ${input.context?.subject ?? "—"}`,
-    `Context gradeLevel: ${input.context?.gradeLevel ?? "—"}`,
+    `Context subject: ${input.context?.subject ?? "-"}`,
+    `Context gradeLevel: ${input.context?.gradeLevel ?? "-"}`,
   ]
   const userParts = [
     `Situation:\n${input.situation}`,
     input.rewrite && input.previousDraft ? `Rewrite previous draft:\n${input.previousDraft}` : undefined,
   ].filter(Boolean)
 
-  const payload = {
-    model: OPENAI_MODEL,
+  return {
     messages: [
       { role: "system", content: system },
       { role: "user", content: `${contextLines.join("\n")} \n\n${userParts.join("\n\n")}` },
@@ -74,40 +98,167 @@ export async function generateDraft(input: ProviderInput): Promise<ProviderResul
     temperature: 0.4,
     max_tokens: 500,
   }
+}
+
+interface GenerationResult {
+  text: string
+  latencyMs: number
+  tokensUsed?: number
+  modelUsed: string
+}
+
+function isTransientOpenAIError(error: unknown) {
+  if (error instanceof ProviderError) {
+    if (typeof error.status === "number") {
+      return transientStatusCodes.has(error.status)
+    }
+
+    const message = error.message.toLowerCase()
+    if (
+      message.includes("timeout") ||
+      message.includes("network") ||
+      message.includes("connection reset") ||
+      message.includes("rate limit")
+    ) {
+      return true
+    }
+
+    if (error.openAIErrorCode === "rate_limit_exceeded") {
+      return true
+    }
+
+    return false
+  }
+
+  if (error instanceof Error) {
+    const message = error.message.toLowerCase()
+    if (
+      message.includes("timeout") ||
+      message.includes("network") ||
+      message.includes("connection reset")
+    ) {
+      return true
+    }
+  }
+
+  return false
+}
+
+async function callOpenAIModel(model: string, payload: FetchPayload): Promise<GenerationResult> {
+  if (!OPENAI_API_KEY) {
+    throw new ProviderError("Missing AI provider key (OPENAI_API_KEY)")
+  }
+
+  const requestPayload = {
+    ...payload,
+    model,
+  }
 
   const start = Date.now()
-  const response = await fetch("https://api.openai.com/v1/chat/completions", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${OPENAI_API_KEY}`,
-    },
-    body: JSON.stringify(payload),
-  })
+  let response: Response
+  try {
+    response = await fetch("https://api.openai.com/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${OPENAI_API_KEY}`,
+      },
+      body: JSON.stringify(requestPayload),
+    })
+  } catch (error) {
+    throw new ProviderError(
+      `AI_GENERATION_FAILED: ${error instanceof Error ? error.message : "Network error"}`,
+    )
+  }
+
+  const responseText = await response.text()
+  let json: any
+  try {
+    json = JSON.parse(responseText)
+  } catch {
+    json = null
+  }
 
   const latencyMs = Date.now() - start
 
   if (!response.ok) {
-    const errorBody = await response.text()
+    const code = json?.error?.code
     throw new ProviderError(
-      `AI_GENERATION_FAILED: ${response.status} ${response.statusText} - ${errorBody}`,
+      `AI_GENERATION_FAILED: ${response.status} ${response.statusText}`,
+      response.status,
+      code,
     )
   }
 
-  const json = await response.json()
-  const result = json.choices?.[0]?.message?.content?.trim()
-
-  if (!result || result.length === 0) {
+  const result = json?.choices?.[0]?.message?.content?.trim()
+  if (!result) {
     throw new ProviderError("AI_GENERATION_FAILED: No content returned")
   }
 
-  const tokensUsed = json.usage?.total_tokens
+  const tokensUsed = json?.usage?.total_tokens
   return {
     text: result,
+    latencyMs,
+    tokensUsed,
+    modelUsed: json?.model ?? model,
+  }
+}
+
+async function callWithFallback(payload: FetchPayload): Promise<GenerationResult> {
+  const { primary, fallback } = resolveModels()
+  let lastError: Error | undefined
+  let simulatedFailure = false
+
+  const attemptPrimary = async () => {
+    if (FORCE_FAIL_PRIMARY && !simulatedFailure) {
+      simulatedFailure = true
+      throw new ProviderError("Simulated primary failure", 503)
+    }
+    return callOpenAIModel(primary, payload)
+  }
+
+  try {
+    return await attemptPrimary()
+  } catch (error) {
+    console.warn("[provider] primary model failed", {
+      status: error instanceof ProviderError ? error.status : undefined,
+      code: error instanceof ProviderError ? error.openAIErrorCode : undefined,
+    })
+    lastError = error instanceof Error ? error : new Error("Unknown error")
+
+    if (!isTransientOpenAIError(error)) {
+      throw error
+    }
+
+    await delay(250)
+
+    try {
+      return await attemptPrimary()
+    } catch (secondError) {
+      lastError = secondError instanceof Error ? secondError : new Error("Unknown error")
+      if (!isTransientOpenAIError(secondError)) {
+        throw secondError
+      }
+    }
+  }
+
+  if (!fallback) {
+    throw lastError ?? new ProviderError("AI_GENERATION_FAILED: Unable to generate draft")
+  }
+
+  console.info("[provider] falling back to secondary model", { fallbackModel: fallback })
+  return callOpenAIModel(fallback, payload)
+}
+
+export async function generateDraft(input: ProviderInput): Promise<ProviderResult> {
+  const basePayload = buildBasePayload(input)
+  const result = await callWithFallback(basePayload)
+  return {
+    text: result.text,
     providerMeta: {
-      modelUsed: json.model ?? OPENAI_MODEL,
-      tokensUsed,
-      latencyMs,
+      modelUsed: result.modelUsed,
+      tokensUsed: result.tokensUsed,
+      latencyMs: result.latencyMs,
     },
   }
 }
