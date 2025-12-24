@@ -143,15 +143,23 @@ export function AuthScreen() {
 
           <div className="space-y-2">
             <p className="text-center text-sm text-white/80">{t("auth.orContinue")}</p>
-            <Button
-              variant="outline"
-              className="w-full bg-white/90 text-gray-900 border-white/60 hover:bg-white hover:text-gray-900"
-              onClick={handleGoogleSignIn}
-              disabled={isSubmitting}
-            >
-              {t("auth.continueWithGoogle")}
-            </Button>
-          </div>
+              <Button
+                variant="outline"
+                className="w-full bg-white/90 text-gray-900 border-white/60 hover:bg-white hover:text-gray-900 flex items-center justify-center gap-2"
+                onClick={handleGoogleSignIn}
+                disabled={isSubmitting}
+              >
+                <span className="h-5 w-5" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" role="presentation" className="h-full w-full">
+                    <path d="M23.5 12.27c0-.8-.07-1.57-.2-2.32H12.2v4.38h6.37c-.28 1.52-1.06 2.8-2.26 3.68v3.05h3.65c2.13-1.97 3.34-4.87 3.34-8.79z" fill="#4285F4" />
+                    <path d="M12.2 24c2.97 0 5.47-.98 7.28-2.67l-3.65-3.05c-1.02.69-2.33 1.11-3.63 1.11-2.78 0-5.14-1.88-5.98-4.42H2.4v3.36C4.21 21.76 8.85 24 12.2 24z" fill="#34A853" />
+                    <path d="M6.22 14.97c-.23-.69-.36-1.43-.36-2.19 0-.77.13-1.5.36-2.19V7.23H2.4C1.11 8.95.4 10.92.4 12.78c0 1.86.71 3.83 2 5.54l3.82-3.35z" fill="#FBBC05" />
+                    <path d="M12.2 4.78c1.62 0 3.09.56 4.24 1.66l3.16-3.15C17.63 1.44 15.13.4 12.2.4 8.85.4 4.21 2.64 2.4 5.94l3.82 3.35c.84-2.54 3.2-4.51 5.98-4.51z" fill="#EA4335" />
+                  </svg>
+                </span>
+                <span className="text-center">{t("auth.continueWithGoogle")}</span>
+              </Button>
+            </div>
 
         {status === "loading" && (
           <p className="text-center text-xs text-white/60">{t("auth.loading")}</p>

@@ -1,28 +1,17 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    function isAuthenticated() {
-      return request.auth != null;
-    }
-
-    function ownsDocument(uid) {
-      return request.auth != null && request.auth.uid == uid;
-    }
-
     match /users/{uid} {
-      allow read: if ownsDocument(uid);
+      allow read: if request.auth != null && request.auth.uid == uid;
       allow write: if false;
 
       match /snippets/{snippetId} {
-        allow read: if ownsDocument(uid);
-        allow write: if false;
+        allow read: if request.auth != null && request.auth.uid == uid;
+        allow delete: if request.auth != null && request.auth.uid == uid;
+        allow create, update: if false;
       }
 
       match /rateLimits/{rateDoc} {
-        allow read, write: if false;
-      }
-
-      match /usage/{usageDoc} {
         allow read, write: if false;
       }
     }

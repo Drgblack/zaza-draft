@@ -133,3 +133,41 @@ curl -X POST http://localhost:3000/api/draft/generate \
 - **Firestore security rules:** See `firestore.rules` for the enforced policy: owners can only read their `users/{uid}` document and `snippets` subcollection; writes are disallowed for clients so only admin-server code (the routes in `app/api/`) updates poker data such as usage counters, rate limit documents, or billing metadata. Stripe-sensitive collections (`stripeCustomers/*`) are also blocked for client access. Deploy these rules with `firebase deploy --only firestore:rules`.
 - **Firestore indexes:** Supporting `/api/snippets` cursor pagination requires the `snippets` subcollection to be queried by `createdAt` descending. The required index is declared in `firestore.indexes.json`. Deploy it via `firebase deploy --only firestore:indexes`.
 - **Production health check:** `GET /api/health` verifies that required runtime env vars (`OPENAI_API_KEY`, `OPENAI_MODEL_PRIMARY`, Firebase keys) exist before proceeding. It never prints secrets—only `missing` names and a simple `status` string—so Vercel logs can catch degraded configs early.
+
+### Security model
+
+- **Client-visible paths:** `users/{uid}` itself is readable only by the owner; writes are disabled so the server controls every field. The `snippets` subcollection is readable and deletable by its owner only; creation/update is restricted to server routes. The client cannot write to `rateLimits`, `monthlyUsage`, entitlement fields (`stripeCustomerId`, `accountType`, `subscriptionStatus`, etc.), or billing-linked docs.
+- **Server-only paths:** All writes to `users/{uid}` metadata, `rateLimits/*`, `monthlyUsage`, and `snippets` documents happen inside trusted `/api/*` routes. Any billing integrations (`stripeCustomers/*`, `subscriptions/*`) are blocked for reads/writes from the client entirely (saved in Firestore rules).
+- **Reasoning:** This ensures least privilege: teachers can only view their data and not escalate their entitlements or tamper with billing, while the backend keeps one source of truth for usage, rate limits, and payments.
+
+### Required Firestore indexes
+
+- `collectionGroup: snippets` – order by `createdAt` descending (used by `/api/snippets` with `limit` + `cursor`). No additional filters are applied, but the index must exist so queries don’t fail in production. The layout is captured in `firestore.indexes.json`.
+
+## Phase 3E Production readiness
+
+- **Required env vars (production + preview + dev):**
+  - `STRIPE_SECRET_KEY`, `STRIPE_PRICE_DRAFT_PRO`, `STRIPE_WEBHOOK_SECRET`
+  - `NEXT_PUBLIC_APP_URL` (used by billing redirects)
+  - `FIREBASE_SERVICE_ACCOUNT_KEY` (admin SDK for `/api/*`)
+  - `NEXT_PUBLIC_FIREBASE_*` keys for the client (API key, auth domain, project ID, app ID, messaging sender, measurement ID optional)
+  - `OPENAI_API_KEY`, `OPENAI_MODEL_PRIMARY`, `OPENAI_MODEL_FALLBACK`
+
+- **Firebase Auth checklist:**
+  1. Enable Email/Password and Google providers in Authentication → Sign-in method.
+  2. Add `localhost`, `localhost:3000`, and every deployed domain (e.g., `zaza-draft-xyz.vercel.app`) under Authentication → Settings → Authorized domains.
+  3. Support email configured (already shown on the login screen).
+
+- **Smoke tests (run after deploy or config changes):**
+  1. Email/password sign-in works and appears on the editor page with the teacher name.
+  2. Google sign-in opens the chooser (no popup error) and returns the Google display name/photo everywhere.
+  3. Free-tier generation increments `usage.currentMonthUsage`; after 10 drafts, `/api/draft/generate` returns `USAGE_LIMIT_EXCEEDED`.
+  4. Upgrading via Stripe (checkout + webhook) flips `/api/account/status` to `plan: "pro"` with unlimited drafts.
+  5. `/api/snippets` returns the latest history; deleting an entry removes it.
+  6. Rate limit works: more than 10 requests in 10 minutes returns `RATE_LIMITED` with a retry estimate.
+  7. Set `OPENAI_FORCE_FAIL_PRIMARY=1` locally and confirm `metadata.modelUsed` in the response highlights the fallback model.
+
+- **Security checks:**
+  - Attempt (via emulator or dev tools) cross-user reads/writes to `users/{otherUid}` or `snippets` → expect Firestore rules to reject.
+  - Ensure client requests cannot modify `stripeCustomerId`, `accountType`, `subscriptionStatus`, `monthlyUsage`, `rateLimits`, or other protected fields (rules deny).
+  - Logs/analytics do not include raw prompts or outputs (only hashed IDs + metadata).
