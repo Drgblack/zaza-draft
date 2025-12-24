@@ -7,6 +7,7 @@ import { getUserEntitlements } from "@/lib/entitlements"
 import { generateDraft } from "@/lib/ai/provider"
 import { enforceDraftRateLimit, RateLimitError } from "@/lib/rate-limit"
 import { createHash } from "crypto"
+import { FieldValue } from "firebase-admin/firestore"
 
 const ALLOWED_TONES = ["warm", "professional", "direct", "empathetic"] as const
 const ALLOWED_LANGUAGES = ["en", "de"] as const
@@ -201,6 +202,19 @@ export async function POST(request: Request) {
   const entitlements = await getUserEntitlements(uid, firestore)
   const { plan, usage } = entitlements
 
+  const diagnosticsRef = firestore
+    .collection("users")
+    .doc(uid)
+    .collection("diagnostics")
+    .doc("status")
+  const recordDiagnostic = async (fields: Record<string, unknown>) => {
+    try {
+      await diagnosticsRef.set({ ...fields, updatedAt: FieldValue.serverTimestamp() }, { merge: true })
+    } catch (error) {
+      console.error("[draft] Failed to update diagnostics doc", error)
+    }
+  }
+
   if (plan === "free" && usage.remaining !== null && usage.remaining <= 0) {
     logServerEvent("draft_generation_denied_limit", { uid, plan })
     logDraftOutcome("RATE_LIMITED", { errorCode: "USAGE_LIMIT_EXCEEDED" })
@@ -213,6 +227,7 @@ export async function POST(request: Request) {
     if (error instanceof RateLimitError) {
       logServerEvent("draft_generation_rate_limited", { uid, plan })
       logDraftOutcome("RATE_LIMITED", { errorCode: "RATE_LIMITED" })
+      void recordDiagnostic({ lastErrorCode: "RATE_LIMITED" })
       const waitSeconds = Math.ceil(error.retryAfterMs / 1000)
       return NextResponse.json(
         {
@@ -240,6 +255,7 @@ export async function POST(request: Request) {
   const safetyFlags = new Set<string>()
   if (detection.matches.length > 0) {
     detection.matches.forEach((match) => safetyFlags.add(`input-${match.type}`))
+    void recordDiagnostic({ lastErrorCode: "SENSITIVE_CONTENT" })
     return NextResponse.json(
       {
         success: false,
@@ -280,6 +296,7 @@ export async function POST(request: Request) {
       error: error instanceof Error ? error.message : "unknown",
     })
     logDraftOutcome("AI_GENERATION_FAILED", { errorCode: "AI_GENERATION_FAILED" })
+    void recordDiagnostic({ lastErrorCode: "AI_GENERATION_FAILED" })
     return NextResponse.json(
       {
         success: false,
@@ -297,6 +314,7 @@ export async function POST(request: Request) {
   outputDetection.matches.forEach((match) => safetyFlags.add(`output-${match.type}`))
   if (outputDetection.matches.length > 0 && detection.matches.length === 0) {
     logDraftOutcome("INVALID_REQUEST", { errorCode: "INVALID_REQUEST" })
+    void recordDiagnostic({ lastErrorCode: "INVALID_REQUEST" })
     return NextResponse.json(
       {
         success: false,
@@ -375,6 +393,12 @@ export async function POST(request: Request) {
     console.error("[draft] Failed to persist snippet", error)
     logServerEvent("snippet_save_failed", { uid, error: (error as Error).message })
   }
+  void recordDiagnostic({
+    lastModelUsed: metadata.modelUsed,
+    lastErrorCode: null,
+    lastUsage: usageAfterGeneration,
+    lastRunAt: FieldValue.serverTimestamp(),
+  })
   logDraftOutcome("SUCCESS", {
     latencyMs: generationTime,
     modelUsed: metadata.modelUsed,

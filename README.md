@@ -171,3 +171,15 @@ curl -X POST http://localhost:3000/api/draft/generate \
   - Attempt (via emulator or dev tools) cross-user reads/writes to `users/{otherUid}` or `snippets` → expect Firestore rules to reject.
   - Ensure client requests cannot modify `stripeCustomerId`, `accountType`, `subscriptionStatus`, `monthlyUsage`, `rateLimits`, or other protected fields (rules deny).
   - Logs/analytics do not include raw prompts or outputs (only hashed IDs + metadata).
+
+## Phase 3F Production smoke tests
+
+1. Email/password login followed by accessing the editor and profile displays your name/photo.
+2. Google login completes without unauthorized-domain errors and surfaces the Google display name/photo everywhere.
+3. Generate/regenerate/rewrite flows return drafts and update `/api/snippets` history; deleting a snippet removes it instantly.
+4. `/api/account/status` mirrors your plan/usage (free 10/month vs pro unlimited) and the Diagnostics card in `/account` shows the primary/fallback models, the plan/usage snapshot, last model used, and any recent error code.
+5. Rate limiting kicks in after 10 requests per 10 minutes with a `RATE_LIMITED` error plus retry advice.
+6. Stripe upgrade workflow switches `/api/account/status` to `plan: "pro"` and drops limits.
+7. Set `OPENAI_FORCE_FAIL_PRIMARY=1` locally; the subsequent `/api/draft/generate` response should report the fallback `modelUsed`.
+8. Hitting `/api/health` returns `status: "ok"`, Firestore readiness info, and the configured model names without exposing secrets.
+9. Confirm `firestore.indexes.json` is deployed or manually create the `collectionGroup: snippets` index ordered by `createdAt desc` in Firebase Console → Firestore → Indexes so pagination never fails.

@@ -71,6 +71,13 @@ function resolveModels() {
   }
 }
 
+export function getConfiguredModelNames() {
+  return {
+    primary: ENV_MODEL_PRIMARY,
+    fallback: ENV_MODEL_FALLBACK,
+  }
+}
+
 interface FetchPayload {
   messages: Array<{ role: "system" | "user"; content: string }>
   temperature: number

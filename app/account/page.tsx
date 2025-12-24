@@ -38,6 +38,23 @@ export default function AccountPage() {
   const [billingAction, setBillingAction] = useState<null | "upgrade" | "manage">(null)
   const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "success" | "error">("idle")
   const [saveFeedback, setSaveFeedback] = useState<string | null>(null)
+  const [diagnostics, setDiagnostics] = useState<null | {
+    models: { primary: string | null; fallback: string | null }
+    plan: string
+    usage: {
+      plan: string
+      currentMonthUsage: number
+      limit: number | null
+      remaining: number | null
+    }
+    diagnostics?: {
+      lastModelUsed?: string
+      lastErrorCode?: string | null
+      lastUsage?: Record<string, unknown>
+      lastRunAt?: { seconds?: number; nanoseconds?: number }
+    } | null
+  }>(null)
+  const [diagnosticsError, setDiagnosticsError] = useState<string | null>(null)
 
   const handleSave = () => {
     const trimmedName = name.trim()
@@ -103,6 +120,40 @@ export default function AccountPage() {
   useEffect(() => {
     setProfilePhoto(prefs.profilePhoto)
   }, [prefs.profilePhoto])
+
+  useEffect(() => {
+    let isMounted = true
+    const loadDiagnostics = async () => {
+      try {
+        const token = await getIdToken()
+        if (!token) {
+          return
+        }
+        const response = await fetch("/api/diagnostics", {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        })
+        const payload = await response.json()
+        if (response.ok && payload?.success && payload?.data && isMounted) {
+          setDiagnostics(payload.data)
+          setDiagnosticsError(null)
+        } else if (isMounted) {
+          setDiagnosticsError(payload?.error?.message || "Diagnostics unavailable.")
+        }
+      } catch (error) {
+        if (isMounted) {
+          setDiagnosticsError("Unable to load diagnostics.")
+        }
+      }
+    }
+
+    loadDiagnostics()
+
+    return () => {
+      isMounted = false
+    }
+  }, [getIdToken])
 
   const hasNameChanged = name.trim() !== "" && name.trim() !== prefs.firstName
 
@@ -385,6 +436,65 @@ export default function AccountPage() {
                 <LogOut className="mr-2 h-4 w-4" />
                 {t("account.session.logout")}
               </Button>
+            </CardContent>
+          </Card>
+
+          <Card className="bg-white/80 dark:bg-white/10 backdrop-blur-xl border border-white/40 dark:border-white/20">
+            <CardHeader>
+              <CardTitle className="text-gray-900 dark:text-white">Diagnostics</CardTitle>
+              <CardDescription className="dark:text-gray-300">
+                Live production diagnostics (no secrets shown)
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {diagnosticsError && (
+                <p className="text-sm text-red-600 dark:text-red-300">{diagnosticsError}</p>
+              )}
+              {!diagnosticsError && !diagnostics && (
+                <p className="text-sm text-gray-600 dark:text-gray-300">Loading diagnostics…</p>
+              )}
+              {diagnostics && (
+                <div className="grid grid-cols-2 gap-4 text-sm text-gray-700 dark:text-gray-200">
+                  <div>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">Primary model</p>
+                    <p className="font-semibold">{diagnostics.models.primary ?? "not configured"}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">Fallback model</p>
+                    <p className="font-semibold">{diagnostics.models.fallback ?? "none"}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">Plan</p>
+                    <p className="font-semibold capitalize">{diagnostics.plan}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">Usage (current/limit)</p>
+                    <p className="font-semibold">
+                      {diagnostics.usage.currentMonthUsage}/
+                      {diagnostics.usage.limit ?? diagnostics.usage.currentMonthUsage}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">Last model used</p>
+                    <p className="font-semibold">{diagnostics.diagnostics?.lastModelUsed ?? "n/a"}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">Last error code</p>
+                    <p className="font-semibold">{diagnostics.diagnostics?.lastErrorCode ?? "none"}</p>
+                  </div>
+                  <div className="col-span-2">
+                    <p className="text-xs text-gray-500 dark:text-gray-400">Last run</p>
+                    <p className="font-semibold">
+                      {diagnostics.diagnostics?.lastRunAt
+                        ? new Date(
+                            (diagnostics.diagnostics.lastRunAt.seconds ?? 0) * 1000 +
+                              ((diagnostics.diagnostics.lastRunAt.nanoseconds ?? 0) / 1_000_000),
+                          ).toLocaleString()
+                        : "—"}
+                    </p>
+                  </div>
+                </div>
+              )}
             </CardContent>
           </Card>
         </div>
