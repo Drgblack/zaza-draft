@@ -1,5 +1,6 @@
-import { NAME_GENDER } from "../../src/generated/name-gender"
 import type { PronounPreference } from "@/lib/types"
+
+import { NAME_GENDER } from "@/generated/name-gender"
 
 export type PronounResolutionReason = "manual" | "dataset" | "fallback"
 

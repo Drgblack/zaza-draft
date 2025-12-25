@@ -101,6 +101,14 @@ ${entriesText}
 export const NAME_GENDER_MIN_COUNT = ${minCount}
 export const NAME_GENDER_CONFIDENCE_RATIO = ${confidenceRatio}
 
+export function inferGenderFromName(rawName: string | null | undefined): "m" | "f" | "u" {
+  const normalized = (rawName || "")
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z]/g, "")
+  return NAME_GENDER[normalized] ?? "u"
+}
+
 `
 
 fs.writeFileSync(outputPath, fileContents, "utf8")

@@ -29680,3 +29680,11 @@ export const NAME_GENDER: Record<string, "m" | "f" | "u"> = {
 export const NAME_GENDER_MIN_COUNT = 200
 export const NAME_GENDER_CONFIDENCE_RATIO = 0.95
 
+export function inferGenderFromName(rawName: string | null | undefined): "m" | "f" | "u" {
+  const normalized = (rawName || "")
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z]/g, "")
+  return NAME_GENDER[normalized] ?? "u"
+}
+
