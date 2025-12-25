@@ -30,3 +30,6 @@ next-env.d.ts
 data/names/yob*.txt
 data/names/ssa*
 data/names/*.zip
+# Local name datasets (do not commit)
+data/names/yob*.txt
+data/names/*.zip
