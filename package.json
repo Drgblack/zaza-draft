@@ -5,6 +5,8 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build --webpack",
+    "build:names": "node scripts/build-name-gender.js",
+    "test:pronouns": "tsx scripts/test-pronouns.ts",
     "start": "next start",
     "lint": "next lint"
   },
@@ -81,7 +83,10 @@
     "postcss": "^8.5",
     "tailwindcss": "^4.1.9",
     "tw-animate-css": "1.3.3",
-    "typescript": "^5"
+    "typescript": "^5",
+    "ts-node": "^10.9.2",
+    "tsconfig-paths": "^4.0.0",
+    "tsx": "^3.14.0"
   },
   "packageManager": "pnpm@10.0.0"
 }

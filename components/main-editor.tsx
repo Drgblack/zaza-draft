@@ -78,6 +78,12 @@ interface SnippetHistoryItem {
   }
   generatedText: string
   pronounPreference?: PronounPreference
+  studentName?: string | null
+  pronounResolution?: {
+    resolvedPreference?: PronounPreference
+    reason?: string | null
+    source?: string | null
+  }
 }
 
 export function MainEditor() {
@@ -107,6 +113,7 @@ export function MainEditor() {
   const [isEditing, setIsEditing] = useState(false)
   const [subject, setSubject] = useState("")
   const [gradeLevel, setGradeLevel] = useState("")
+  const [studentName, setStudentName] = useState("")
   const [languageChoice, setLanguageChoice] = useState<LanguageChoice>("en")
   const [pronounPreference, setPronounPreference] = useState<PronounPreference>("auto")
   const [isGenerating, setIsGenerating] = useState(false)
@@ -307,6 +314,11 @@ export function MainEditor() {
       payload.context = context
     }
 
+    const trimmedStudentName = studentName.trim()
+    if (trimmedStudentName) {
+      payload.studentName = trimmedStudentName
+    }
+
     payload.pronounPreference = pronounPreference
 
     if (options.rewrite) {
@@ -321,6 +333,7 @@ export function MainEditor() {
       tone: selectedTone,
       language: languageChoice,
       pronounPreference,
+      studentNameProvided: Boolean(trimmedStudentName),
     })
 
     try {
@@ -369,6 +382,7 @@ export function MainEditor() {
         language: languageChoice,
         wordCount: data.data.metadata.wordCount,
         pronounPreference,
+        resolvedPronounPreference: data.data.metadata.pronounResolution?.resolvedPreference ?? pronounPreference,
       })
 
       setGeneratedDraft(data.data.generatedDraft)
@@ -423,6 +437,7 @@ export function MainEditor() {
     setLanguageChoice(snippet.language as LanguageChoice)
     setSubject(snippet.contextUsed?.subject ?? "")
     setGradeLevel(snippet.contextUsed?.gradeLevel ?? "")
+    setStudentName(snippet.studentName ?? "")
     setPronounPreference(snippet.pronounPreference ?? "auto")
   }
 
@@ -553,7 +568,7 @@ Examples:
           })}
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-3 mb-6">
+        <div className="grid grid-cols-1 md:grid-cols-5 gap-3 mb-6">
           <select
             value={languageChoice}
             onChange={(event) => setLanguageChoice(event.target.value as LanguageChoice)}
@@ -573,6 +588,12 @@ Examples:
               </option>
             ))}
           </select>
+          <input
+            value={studentName}
+            onChange={(event) => setStudentName(event.target.value)}
+            placeholder="Student name (optional)"
+            className="bg-white/90 dark:bg-white/10 rounded-xl border border-white/40 dark:border-white/30 px-4 py-3 text-gray-900 dark:text-white font-medium shadow-sm focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-2"
+          />
           <input
             value={subject}
             onChange={(event) => setSubject(event.target.value)}
@@ -682,12 +703,20 @@ Examples:
                 </div>
                 <p className="text-sm text-white/90">Language: {item.language.toUpperCase()}</p>
                 <p className="text-sm text-white/90">Words: {item.wordCount}</p>
+                {item.studentName && (
+                  <p className="text-sm text-white/80">Student: {item.studentName}</p>
+                )}
                 {(item.contextUsed?.subject || item.contextUsed?.gradeLevel) && (
                   <p className="text-sm text-white/80">
                     {item.contextUsed?.subject ? `Subject: ${item.contextUsed.subject}` : ""}
                     {item.contextUsed?.gradeLevel ? ` | Grade: ${item.contextUsed.gradeLevel}` : ""}
-                  </p>
-                )}
+                </p>
+              )}
+              {item.pronounResolution?.resolvedPreference && (
+                <p className="text-xs text-white/60 uppercase tracking-wide">
+                  Pronouns: {item.pronounResolution.resolvedPreference}
+                </p>
+              )}
                 <div className="flex gap-2 mt-2">
                   <Button size="sm" variant="outline" onClick={() => loadSnippet(item)}>
                     Load

@@ -6,6 +6,7 @@ import { buildUsageResponse, incrementUsage, MonthlyUsageRecord } from "@/lib/us
 import { getUserEntitlements } from "@/lib/entitlements"
 import type { DraftLanguage, PronounPreference } from "@/lib/types"
 import { generateDraft, ProviderResult } from "@/lib/ai/provider"
+import { enforcePronouns, inferPronounResolution } from "@/lib/text/pronouns"
 import { enforceDraftRateLimit, RateLimitError } from "@/lib/rate-limit"
 import { createHash } from "crypto"
 import { FieldValue } from "firebase-admin/firestore"
@@ -41,6 +42,7 @@ interface GenerateDraftRequest {
   rewrite?: boolean
   previousDraft?: string
   pronounPreference?: PronounPreference
+  studentName?: string
 }
 
 function buildContextLine(context?: GenerateDraftRequest["context"]) {
@@ -92,6 +94,7 @@ function buildUsageLimitError(usage: ReturnType<typeof buildUsageResponse>) {
 async function reRunWithRewrite(
   payload: GenerateDraftRequest,
   previousDraft: string,
+  resolvedPronounPreference: PronounPreference,
 ): Promise<ProviderResult | null> {
   try {
     return await generateDraft({
@@ -101,7 +104,7 @@ async function reRunWithRewrite(
       context: payload.context,
       rewrite: true,
       previousDraft,
-      pronounPreference: payload.pronounPreference ?? "auto",
+      pronounPreference: resolvedPronounPreference,
     })
   } catch (error) {
     return null
@@ -185,6 +188,9 @@ export async function POST(request: Request) {
   }
 
   const pronounPreference = parsePronounPreference(payload?.pronounPreference)
+  const studentNameInput = typeof payload?.studentName === "string" ? payload.studentName.trim() : ""
+  const pronounResolution = inferPronounResolution(pronounPreference, studentNameInput || undefined)
+  const resolvedPronounPreference = pronounResolution.resolvedPreference
 
   let authContext
   try {
@@ -335,9 +341,9 @@ export async function POST(request: Request) {
       context: sanitizedContext,
       rewrite: Boolean(payload.rewrite),
       previousDraft: payload.previousDraft,
-      pronounPreference,
+      pronounPreference: resolvedPronounPreference,
     })
-    generatedDraft = result.text
+    generatedDraft = enforcePronouns(result.text, resolvedPronounPreference)
     providerMeta = result.providerMeta
   } catch (error) {
     console.error("[draft] AI generation failed", error)
@@ -385,9 +391,9 @@ export async function POST(request: Request) {
   let blockedDetection = detectBlockedLanguage(generatedDraft)
   if (blockedDetection.matches.length > 0 && !rewriteAttempted) {
     rewriteAttempted = true
-    const rewriteResult = await reRunWithRewrite(payload, generatedDraft)
+    const rewriteResult = await reRunWithRewrite(payload, generatedDraft, resolvedPronounPreference)
     if (rewriteResult) {
-      generatedDraft = rewriteResult.text
+      generatedDraft = enforcePronouns(rewriteResult.text, resolvedPronounPreference)
       providerMeta = rewriteResult.providerMeta
       blockedDetection = detectBlockedLanguage(generatedDraft)
     }
@@ -431,6 +437,12 @@ export async function POST(request: Request) {
     language,
     modelUsed: providerMeta.modelUsed,
     pronounPreference,
+    pronounResolution: {
+      resolvedPreference: resolvedPronounPreference,
+      reason: pronounResolution.reason,
+      source: pronounResolution.source ?? null,
+    },
+    studentName: studentNameInput || null,
     tokensUsed: providerMeta.tokensUsed ?? null,
     generationTime,
     wordCount: countWords(generatedDraft),
@@ -447,6 +459,8 @@ export async function POST(request: Request) {
     language,
     wordCount: metadata.wordCount,
     pronounPreference,
+    resolvedPronounPreference,
+    pronounResolutionReason: pronounResolution.reason,
   })
 
   let snippetId: string | null = null
@@ -461,12 +475,14 @@ export async function POST(request: Request) {
     tone,
     language,
     pronounPreference,
+    pronounResolution: metadata.pronounResolution,
     contextUsed: sanitizedContext,
     wordCount: metadata.wordCount,
     modelUsed: metadata.modelUsed,
     safetyFlags: metadata.safetyFlags,
     generationTime: metadata.generationTime,
     usage: usageAfterGeneration,
+    studentName: studentNameInput || undefined,
     createdAt: new Date().toISOString(),
     requestId: snippetDoc.id,
   }
@@ -481,6 +497,9 @@ export async function POST(request: Request) {
   void recordDiagnostic({
     lastModelUsed: metadata.modelUsed,
     lastPronounPreference: pronounPreference,
+    lastResolvedPronounPreference: resolvedPronounPreference,
+    lastPronounResolutionReason: pronounResolution.reason,
+    lastPronounResolutionSource: pronounResolution.source ?? null,
     lastErrorCode: null,
     lastUsage: usageAfterGeneration,
     lastRunAt: FieldValue.serverTimestamp(),
