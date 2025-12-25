@@ -26,3 +26,7 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 .vercel
+# Local name datasets (do not commit)
+data/names/yob*.txt
+data/names/ssa*
+data/names/*.zip
