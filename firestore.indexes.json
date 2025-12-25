@@ -1,15 +1,4 @@
 {
-  "indexes": [
-    {
-      "collectionGroup": "snippets",
-      "queryScope": "COLLECTION",
-      "fields": [
-        {
-          "fieldPath": "createdAt",
-          "order": "DESCENDING"
-        }
-      ]
-    }
-  ],
+  "indexes": [],
   "fieldOverrides": []
 }

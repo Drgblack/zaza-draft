@@ -13,12 +13,15 @@ interface TimeHeatmapProps {
 }
 
 export function TimeHeatmap({ data, title, insight, warning }: TimeHeatmapProps) {
-  const { t } = useLocale()
+  const { t, locale } = useLocale()
 
-  const dayKeys = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"]
-  const translatedDays = dayKeys.map((key) => t(`insights.heatmap.${key}`))
-
-  console.log("[v0] Heatmap day translations:", translatedDays)
+  const weekFormatter = new Intl.DateTimeFormat(locale, { weekday: "short" })
+  const baseDate = new Date(Date.UTC(2025, 0, 6)) // Monday
+  const translatedDays = Array.from({ length: 7 }, (_, index) => {
+    const date = new Date(baseDate)
+    date.setUTCDate(baseDate.getUTCDate() + index)
+    return weekFormatter.format(date)
+  })
 
   // Keep English day names for data lookup (matching the data structure)
   const dataLookupDays = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
