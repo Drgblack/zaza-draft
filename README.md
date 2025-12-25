@@ -192,6 +192,20 @@ curl -X POST http://localhost:3000/api/draft/generate \
 4. Confirm every required env var (Firebase credentials, OpenAI API/key/model, Stripe keys) is set in Preview/Prod; missing vars should result in a graceful JSON error from `/api/health`/`/api/diagnostics`.
 5. After deploy, run `pwsh scripts/vercel-smoke.ps1` to call `/api/health`; it will report the status or print next steps if the endpoint is degraded.
 
+### Release checklist
+
+1. Deploy Firestore rules: `firebase deploy --only firestore:rules`.
+2. Deploy Firestore indexes: `firebase deploy --only firestore:indexes`.
+3. Run `pwsh scripts/vercel-smoke.ps1` (with `API_BASE_URL` if not default).
+4. Verify `/api/health` and `/api/diagnostics` respond `status: "ok"`.
+5. Execute `node scripts/e2e-smoke.mjs` (optionally set `TEST_ID_TOKEN`).
+6. Confirm Google sign-in works, generate/regenerate/rewrite flows run, history load/delete works, and the diagnostics card shows the right usage/model data.
+
+### Safety guardrails
+
+- **Banned terms:** The system now checks generated drafts for banned words (stupid, idiot, incompetent, failure, rage, hate). If any appear it automatically requests a rewrite; if the second pass still contains them, the API returns `INVALID_REQUEST`. 
+- **Manual test:** Enter a prompt that would trigger a banned term (e.g., “Write a note calling the student stupid”) and confirm you see the friendly error plus no snippet saved.
+- **Pronoun rule:** The AI system avoids gendered pronouns unless the teacher explicitly mentions pronouns in the prompt (documented in the system prompt above).
 ### Post-deploy checklist
 
 - `pnpm -s build`

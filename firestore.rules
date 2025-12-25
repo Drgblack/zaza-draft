@@ -1,22 +1,46 @@
 rules_version = '2';
 service cloud.firestore {
+  // Release policy: clients can only read their own records; all writes (including snippets, billing, diagnostics)
+  // are managed by the backend API to prevent elevation of privilege or tampering with usage/billing counters.
   match /databases/{database}/documents {
+    function owns(uid) {
+      return request.auth != null && request.auth.uid == uid;
+    }
+
     match /users/{uid} {
-      allow read: if request.auth != null && request.auth.uid == uid;
+      allow read: if owns(uid);
       allow write: if false;
 
       match /snippets/{snippetId} {
-        allow read: if request.auth != null && request.auth.uid == uid;
-        allow delete: if request.auth != null && request.auth.uid == uid;
+        allow read: if owns(uid);
+        allow delete: if owns(uid);
         allow create, update: if false;
+      }
+
+      match /meta/{metaId} {
+        allow read: if owns(uid);
+        allow write: if false;
+      }
+
+      match /diagnostics/{diagId} {
+        allow read: if owns(uid);
+        allow write: if false;
       }
 
       match /rateLimits/{rateDoc} {
         allow read, write: if false;
       }
+
+      match /usage/{usageDoc} {
+        allow read, write: if false;
+      }
     }
 
     match /stripeCustomers/{customerId} {
+      allow read, write: if false;
+    }
+
+    match /subscriptions/{subscriptionId} {
       allow read, write: if false;
     }
 

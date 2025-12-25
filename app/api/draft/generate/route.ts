@@ -4,7 +4,8 @@ import { detectSensitiveContent } from "@/lib/safety"
 import { logServerEvent } from "@/lib/analytics"
 import { buildUsageResponse, incrementUsage, MonthlyUsageRecord } from "@/lib/usage"
 import { getUserEntitlements } from "@/lib/entitlements"
-import { generateDraft } from "@/lib/ai/provider"
+import type { DraftLanguage } from "@/lib/types"
+import { generateDraft, ProviderResult } from "@/lib/ai/provider"
 import { enforceDraftRateLimit, RateLimitError } from "@/lib/rate-limit"
 import { createHash } from "crypto"
 import { FieldValue } from "firebase-admin/firestore"
@@ -76,6 +77,36 @@ function buildUsageLimitError(usage: ReturnType<typeof buildUsageResponse>) {
       code: "USAGE_LIMIT_EXCEEDED",
       message: "You have reached your monthly draft limit. Upgrade to unlock Draft Pro for unlimited generations.",
     },
+  }
+}
+
+const BANNED_TERMS = ["stupid", "idiot", "incompetent", "failure", "rage", "hate"]
+
+function detectBannedTerms(text: string) {
+  const pattern = new RegExp(`\\b(${BANNED_TERMS.join("|")})\\b`, "gi")
+  const matches: string[] = []
+  let match
+  while ((match = pattern.exec(text))) {
+    matches.push(match[0])
+  }
+  return matches
+}
+
+async function reRunWithRewrite(
+  payload: GenerateDraftRequest,
+  previousDraft: string,
+): Promise<ProviderResult | null> {
+  try {
+    return await generateDraft({
+      situation: payload.situation,
+      tone: payload.tone,
+      language: payload.language as DraftLanguage,
+      context: payload.context,
+      rewrite: true,
+      previousDraft,
+    })
+  } catch (error) {
+    return null
   }
 }
 
@@ -275,6 +306,7 @@ export async function POST(request: Request) {
   const generationStart = Date.now()
   let generatedDraft: string
   let providerMeta: { modelUsed: string; latencyMs: number; tokensUsed?: number }
+  let rewriteAttempted = false
   try {
     const result = await generateDraft({
       situation: sanitizedSituation,
@@ -324,6 +356,33 @@ export async function POST(request: Request) {
         error: {
           code: "INVALID_REQUEST",
           message: "Generated content included sensitive information that cannot be returned.",
+        },
+      },
+      { status: 422 },
+    )
+  }
+
+  let bannedMatches = detectBannedTerms(generatedDraft)
+  if (bannedMatches.length > 0 && !rewriteAttempted) {
+    rewriteAttempted = true
+    const rewriteResult = await reRunWithRewrite(payload, generatedDraft)
+    if (rewriteResult) {
+      generatedDraft = rewriteResult.text
+      providerMeta = rewriteResult.providerMeta
+      bannedMatches = detectBannedTerms(generatedDraft)
+      logDraftOutcome("SUCCESS", { modelUsed: providerMeta.modelUsed, tokensUsed: providerMeta.tokensUsed })
+    }
+  }
+
+  if (bannedMatches.length > 0) {
+    logDraftOutcome("INVALID_REQUEST", { errorCode: "BANNED_TERM_DETECTED" })
+    void recordDiagnostic({ lastErrorCode: "BANNED_TERM_DETECTED" })
+    return NextResponse.json(
+      {
+        success: false,
+        error: {
+          code: "INVALID_REQUEST",
+          message: "The generated content contained prohibited language. Please try again with different wording.",
         },
       },
       { status: 422 },
