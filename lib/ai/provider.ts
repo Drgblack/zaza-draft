@@ -1,4 +1,4 @@
-import type { DraftLanguage, DraftTone } from "@/lib/types"
+import type { DraftLanguage, DraftTone, PronounPreference } from "@/lib/types"
 
 function getOpenAiApiKey() {
   return process.env.OPENAI_API_KEY
@@ -26,6 +26,7 @@ interface ProviderInput {
   }
   rewrite?: boolean
   previousDraft?: string
+  pronounPreference: PronounPreference
 }
 
 export interface ProviderMeta {
@@ -48,16 +49,26 @@ class ProviderError extends Error {
 
 const transientStatusCodes = new Set([429, 500, 502, 503, 504])
 
-function buildSystemPrompt(tone: DraftTone, language: DraftLanguage, rewrite?: boolean) {
+const PRONOUN_INSTRUCTIONS: Record<PronounPreference, string> = {
+  auto: "Use pronouns only when the teacher explicitly states them; otherwise default to neutral wording (the student, the learner, this person).",
+  she: "Use she/her pronouns consistently throughout the draft.",
+  he: "Use he/him pronouns consistently throughout the draft.",
+  they: "Use they/them pronouns consistently throughout the draft.",
+  avoid: "Avoid gendered pronouns entirely and rely on neutral constructions such as 'the student' or 'this learner'.",
+}
+
+function buildSystemPrompt(input: ProviderInput) {
   const systemLines = [
     "You are Zara Draft, an assistant for K-12 teachers who writes professional, concise communications for parents and colleagues.",
     "Always stay factual: do not invent facts that were not provided in the prompt. When details are missing, keep the response neutral and ask for clarification.",
     "Maintain the requested tone and output the final text in the requested language. Keep replies ≤250 words, focused on teacher style.",
     "Avoid gendered pronouns unless the teacher explicitly specifies them in the prompt; default to inclusive wording.",
     "Never include student PII (full names, emails, phone numbers, addresses). If the prompt is disallowed, explain politely that you cannot help.",
+    "Do not include blocked language such as insults, diagnostic labels, or emotionally charged terms; redirect toward behaviour, effort, and growth.",
+    PRONOUN_INSTRUCTIONS[input.pronounPreference],
   ]
 
-  if (rewrite) {
+  if (input.rewrite) {
     systemLines.push(
       "You are rewriting content already supplied; keep meaning intact while adapting tone/language per the request.",
     )
@@ -98,7 +109,7 @@ interface FetchPayload {
 }
 
 function buildBasePayload(input: ProviderInput): FetchPayload {
-  const system = buildSystemPrompt(input.tone, input.language, input.rewrite)
+  const system = buildSystemPrompt(input)
   const contextLines = [
     `Tone: ${input.tone}`,
     `Language: ${input.language}`,

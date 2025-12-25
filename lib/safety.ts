@@ -55,3 +55,46 @@ export function detectSensitiveContent(input: string) {
     sanitized,
   }
 }
+
+const BLOCKED_TERMS = [
+  "stupid",
+  "lazy",
+  "dumb",
+  "naughty",
+  "bad",
+  "hopeless",
+  "slow",
+  "weak",
+  "disrespectful",
+  "careless",
+  "idiot",
+  "incompetent",
+  "failure",
+  "rage",
+  "hate",
+  "ADHD",
+  "autistic",
+  "depressed",
+  "anxious",
+] as const
+
+const blockedPattern = ensureGlobal(new RegExp(`\\b(${BLOCKED_TERMS.join("|")})\\b`, "gi"))
+
+export interface BlockedLanguageDetection {
+  matches: string[]
+  sanitized: string
+}
+
+export function detectBlockedLanguage(input: string): BlockedLanguageDetection {
+  const matches: string[] = []
+  blockedPattern.lastIndex = 0
+  const sanitized = input.replace(blockedPattern, (match) => {
+    matches.push(match.toLowerCase())
+    return `[REDACTED TERM]`
+  })
+
+  return {
+    matches,
+    sanitized,
+  }
+}

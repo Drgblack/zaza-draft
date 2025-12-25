@@ -12,6 +12,7 @@ import { ContextualWellbeingTip } from "@/components/ContextualWellbeingTip"
 import { useAuth } from "@/hooks/use-auth"
 import { logClientEvent } from "@/lib/analytics"
 import type { PlanType } from "@/lib/usage"
+import type { PronounPreference } from "@/lib/types"
 import Link from "next/link"
 
 const TONE_OPTIONS = [
@@ -20,6 +21,14 @@ const TONE_OPTIONS = [
   { id: "direct", key: "tone.direct" },
   { id: "empathetic", key: "tone.empathetic" },
 ] as const
+
+const PRONOUN_OPTIONS: { id: PronounPreference; label: string }[] = [
+  { id: "auto", label: "Auto" },
+  { id: "she", label: "She/her" },
+  { id: "he", label: "He/him" },
+  { id: "they", label: "They/them" },
+  { id: "avoid", label: "Avoid pronouns" },
+]
 
 type ToneKey = (typeof TONE_OPTIONS)[number]["id"]
 type LanguageChoice = "en" | "de"
@@ -68,6 +77,7 @@ interface SnippetHistoryItem {
     gradeLevel?: string
   }
   generatedText: string
+  pronounPreference?: PronounPreference
 }
 
 export function MainEditor() {
@@ -98,6 +108,7 @@ export function MainEditor() {
   const [subject, setSubject] = useState("")
   const [gradeLevel, setGradeLevel] = useState("")
   const [languageChoice, setLanguageChoice] = useState<LanguageChoice>("en")
+  const [pronounPreference, setPronounPreference] = useState<PronounPreference>("auto")
   const [isGenerating, setIsGenerating] = useState(false)
   const [generationError, setGenerationError] = useState<string | null>(null)
   const [sensitivePreview, setSensitivePreview] = useState<string | null>(null)
@@ -296,6 +307,8 @@ export function MainEditor() {
       payload.context = context
     }
 
+    payload.pronounPreference = pronounPreference
+
     if (options.rewrite) {
       payload.rewrite = true
     }
@@ -307,6 +320,7 @@ export function MainEditor() {
     logClientEvent("draft_generate_requested", {
       tone: selectedTone,
       language: languageChoice,
+      pronounPreference,
     })
 
     try {
@@ -354,6 +368,7 @@ export function MainEditor() {
         tone: selectedTone,
         language: languageChoice,
         wordCount: data.data.metadata.wordCount,
+        pronounPreference,
       })
 
       setGeneratedDraft(data.data.generatedDraft)
@@ -408,6 +423,7 @@ export function MainEditor() {
     setLanguageChoice(snippet.language as LanguageChoice)
     setSubject(snippet.contextUsed?.subject ?? "")
     setGradeLevel(snippet.contextUsed?.gradeLevel ?? "")
+    setPronounPreference(snippet.pronounPreference ?? "auto")
   }
 
   const deleteSnippet = async (snippetId: string) => {
@@ -537,7 +553,7 @@ Examples:
           })}
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-6">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-3 mb-6">
           <select
             value={languageChoice}
             onChange={(event) => setLanguageChoice(event.target.value as LanguageChoice)}
@@ -545,6 +561,17 @@ Examples:
           >
             <option value="en">English</option>
             <option value="de">Deutsch</option>
+          </select>
+          <select
+            value={pronounPreference}
+            onChange={(event) => setPronounPreference(event.target.value as PronounPreference)}
+            className="bg-white/90 dark:bg-white/10 rounded-xl border border-white/40 dark:border-white/30 px-4 py-3 text-gray-900 dark:text-white font-medium shadow-sm focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-2"
+          >
+            {PRONOUN_OPTIONS.map((option) => (
+              <option key={option.id} value={option.id}>
+                {option.label}
+              </option>
+            ))}
           </select>
           <input
             value={subject}

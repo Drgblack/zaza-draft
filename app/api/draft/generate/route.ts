@@ -1,10 +1,10 @@
 import { NextResponse } from "next/server"
 import { authorizeFirebaseRequest, FirebaseAuthorizationError } from "@/lib/firebase/server"
-import { detectSensitiveContent } from "@/lib/safety"
+import { detectSensitiveContent, detectBlockedLanguage } from "@/lib/safety"
 import { logServerEvent } from "@/lib/analytics"
 import { buildUsageResponse, incrementUsage, MonthlyUsageRecord } from "@/lib/usage"
 import { getUserEntitlements } from "@/lib/entitlements"
-import type { DraftLanguage } from "@/lib/types"
+import type { DraftLanguage, PronounPreference } from "@/lib/types"
 import { generateDraft, ProviderResult } from "@/lib/ai/provider"
 import { enforceDraftRateLimit, RateLimitError } from "@/lib/rate-limit"
 import { createHash } from "crypto"
@@ -21,6 +21,14 @@ const TONE_DESCRIPTIONS: Record<(typeof ALLOWED_TONES)[number], string> = {
 
 type LanguageKey = (typeof ALLOWED_LANGUAGES)[number]
 type ToneKey = (typeof ALLOWED_TONES)[number]
+const PRONOUN_PREFERENCE_VALUES: PronounPreference[] = ["auto", "she", "he", "they", "avoid"]
+
+function parsePronounPreference(value: unknown): PronounPreference {
+  if (typeof value === "string" && PRONOUN_PREFERENCE_VALUES.includes(value as PronounPreference)) {
+    return value as PronounPreference
+  }
+  return "auto"
+}
 
 interface GenerateDraftRequest {
   situation: string
@@ -32,6 +40,7 @@ interface GenerateDraftRequest {
   }
   rewrite?: boolean
   previousDraft?: string
+  pronounPreference?: PronounPreference
 }
 
 function buildContextLine(context?: GenerateDraftRequest["context"]) {
@@ -80,18 +89,6 @@ function buildUsageLimitError(usage: ReturnType<typeof buildUsageResponse>) {
   }
 }
 
-const BANNED_TERMS = ["stupid", "idiot", "incompetent", "failure", "rage", "hate"]
-
-function detectBannedTerms(text: string) {
-  const pattern = new RegExp(`\\b(${BANNED_TERMS.join("|")})\\b`, "gi")
-  const matches: string[] = []
-  let match
-  while ((match = pattern.exec(text))) {
-    matches.push(match[0])
-  }
-  return matches
-}
-
 async function reRunWithRewrite(
   payload: GenerateDraftRequest,
   previousDraft: string,
@@ -104,6 +101,7 @@ async function reRunWithRewrite(
       context: payload.context,
       rewrite: true,
       previousDraft,
+      pronounPreference: payload.pronounPreference ?? "auto",
     })
   } catch (error) {
     return null
@@ -185,6 +183,8 @@ export async function POST(request: Request) {
       { status: 400 },
     )
   }
+
+  const pronounPreference = parsePronounPreference(payload?.pronounPreference)
 
   let authContext
   try {
@@ -303,6 +303,26 @@ export async function POST(request: Request) {
     )
   }
 
+  const blockedInput = detectBlockedLanguage(sanitizedSituation)
+  if (blockedInput.matches.length > 0) {
+    safetyFlags.add("input-blocked-language")
+    void recordDiagnostic({ lastErrorCode: "BLOCKED_LANGUAGE" })
+    return NextResponse.json(
+      {
+        success: false,
+        data: {
+          redactedPreview: blockedInput.sanitized,
+        },
+        error: {
+          code: "INVALID_REQUEST",
+          message:
+            "Please rephrase the prompt without insults or diagnostic labels; focus on behaviour, effort, and growth.",
+        },
+      },
+      { status: 422 },
+    )
+  }
+
   const generationStart = Date.now()
   let generatedDraft: string
   let providerMeta: { modelUsed: string; latencyMs: number; tokensUsed?: number }
@@ -315,6 +335,7 @@ export async function POST(request: Request) {
       context: sanitizedContext,
       rewrite: Boolean(payload.rewrite),
       previousDraft: payload.previousDraft,
+      pronounPreference,
     })
     generatedDraft = result.text
     providerMeta = result.providerMeta
@@ -361,25 +382,27 @@ export async function POST(request: Request) {
       { status: 422 },
     )
   }
-
-  let bannedMatches = detectBannedTerms(generatedDraft)
-  if (bannedMatches.length > 0 && !rewriteAttempted) {
+  let blockedDetection = detectBlockedLanguage(generatedDraft)
+  if (blockedDetection.matches.length > 0 && !rewriteAttempted) {
     rewriteAttempted = true
     const rewriteResult = await reRunWithRewrite(payload, generatedDraft)
     if (rewriteResult) {
       generatedDraft = rewriteResult.text
       providerMeta = rewriteResult.providerMeta
-      bannedMatches = detectBannedTerms(generatedDraft)
-      logDraftOutcome("SUCCESS", { modelUsed: providerMeta.modelUsed, tokensUsed: providerMeta.tokensUsed })
+      blockedDetection = detectBlockedLanguage(generatedDraft)
     }
   }
 
-  if (bannedMatches.length > 0) {
+  if (blockedDetection.matches.length > 0) {
+    safetyFlags.add("output-blocked-language")
     logDraftOutcome("INVALID_REQUEST", { errorCode: "BANNED_TERM_DETECTED" })
     void recordDiagnostic({ lastErrorCode: "BANNED_TERM_DETECTED" })
     return NextResponse.json(
       {
         success: false,
+        data: {
+          redactedPreview: blockedDetection.sanitized,
+        },
         error: {
           code: "INVALID_REQUEST",
           message: "The generated content contained prohibited language. Please try again with different wording.",
@@ -407,6 +430,7 @@ export async function POST(request: Request) {
     toneUsed: tone,
     language,
     modelUsed: providerMeta.modelUsed,
+    pronounPreference,
     tokensUsed: providerMeta.tokensUsed ?? null,
     generationTime,
     wordCount: countWords(generatedDraft),
@@ -422,6 +446,7 @@ export async function POST(request: Request) {
     tone,
     language,
     wordCount: metadata.wordCount,
+    pronounPreference,
   })
 
   let snippetId: string | null = null
@@ -435,6 +460,7 @@ export async function POST(request: Request) {
     generatedText: generatedDraft,
     tone,
     language,
+    pronounPreference,
     contextUsed: sanitizedContext,
     wordCount: metadata.wordCount,
     modelUsed: metadata.modelUsed,
@@ -454,6 +480,7 @@ export async function POST(request: Request) {
   }
   void recordDiagnostic({
     lastModelUsed: metadata.modelUsed,
+    lastPronounPreference: pronounPreference,
     lastErrorCode: null,
     lastUsage: usageAfterGeneration,
     lastRunAt: FieldValue.serverTimestamp(),

@@ -58,6 +58,7 @@ export async function GET(request: Request) {
         language: data.language,
         wordCount: data.wordCount,
         contextUsed: data.contextUsed,
+        pronounPreference: data.pronounPreference ?? "auto",
         createdAt: data.createdAt,
       }
     })
