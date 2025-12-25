@@ -1,4 +1,4 @@
-export type SensitivePatternType = "email" | "phone" | "address"
+﻿export type SensitivePatternType = "email" | "phone" | "address"
 
 export interface SensitiveMatch {
   type: SensitivePatternType
@@ -56,12 +56,18 @@ export function detectSensitiveContent(input: string) {
   }
 }
 
-const BLOCKED_TERMS = [
+/**
+ * Blocked language rules (canonical)
+ * - Do NOT include "bad" as a standalone term (false positives).
+ * - Use phrase blocks for "bad kid/child/student".
+ * - Includes a small set of sensitive labels that must not appear in output
+ *   unless the teacher explicitly provided them (handled elsewhere in prompt logic).
+ */
+const BLOCKED_SINGLE_TERMS = [
   "stupid",
   "lazy",
   "dumb",
   "naughty",
-  "bad",
   "hopeless",
   "slow",
   "weak",
@@ -72,13 +78,29 @@ const BLOCKED_TERMS = [
   "failure",
   "rage",
   "hate",
-  "ADHD",
+  "adhd",
   "autistic",
   "depressed",
   "anxious",
+  "useless",
 ] as const
 
-const blockedPattern = ensureGlobal(new RegExp(`\\b(${BLOCKED_TERMS.join("|")})\\b`, "gi"))
+const BLOCKED_PHRASES = ["bad kid", "bad child", "bad student"] as const
+
+function escapeRegexLiteral(input: string) {
+  return input.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
+}
+
+const blockedSinglePattern = ensureGlobal(
+  new RegExp(`\\b(${BLOCKED_SINGLE_TERMS.map(escapeRegexLiteral).join("|")})\\b`, "gi")
+)
+
+const blockedPhrasePattern = ensureGlobal(
+  new RegExp(
+    `\\b(${BLOCKED_PHRASES.map((p) => escapeRegexLiteral(p).replace(/\\s+/g, "\\\\s+")).join("|")})\\b`,
+    "gi"
+  )
+)
 
 export interface BlockedLanguageDetection {
   matches: string[]
@@ -87,14 +109,18 @@ export interface BlockedLanguageDetection {
 
 export function detectBlockedLanguage(input: string): BlockedLanguageDetection {
   const matches: string[] = []
-  blockedPattern.lastIndex = 0
-  const sanitized = input.replace(blockedPattern, (match) => {
-    matches.push(match.toLowerCase())
-    return `[REDACTED TERM]`
-  })
+  blockedSinglePattern.lastIndex = 0
+  blockedPhrasePattern.lastIndex = 0
 
-  return {
-    matches,
-    sanitized,
-  }
+  const sanitized = input
+    .replace(blockedPhrasePattern, (match) => {
+      matches.push(match.toLowerCase())
+      return `[REDACTED TERM]`
+    })
+    .replace(blockedSinglePattern, (match) => {
+      matches.push(match.toLowerCase())
+      return `[REDACTED TERM]`
+    })
+
+  return { matches, sanitized }
 }
