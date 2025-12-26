@@ -7,6 +7,7 @@
     "build": "next build --webpack",
     "build:names": "node scripts/build-name-gender.js",
     "test:pronouns": "tsx scripts/test-pronouns.ts",
+    "test:safety": "tsx scripts/test-safety.ts",
     "start": "next start",
     "lint": "next lint"
   },

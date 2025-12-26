@@ -63,7 +63,16 @@ const GENERATION_ERROR_MAP: Record<
     message: "The AI service is unavailable right now. Please retry in a minute.",
     action: "Try generating again shortly.",
   },
+  BLOCKED_LANGUAGE: {
+    message: "Please remove harmful or threatening language so the note remains professional.",
+    action: "Try a calmer description and generate again.",
+  },
 }
+
+const getReframeNoticeText = (locale: string) =>
+  locale.startsWith("de")
+    ? "Ich habe die Formulierung abgemildert, damit sie professionell und elterngeeignet bleibt."
+    : "I softened the wording to keep it professional and parent-appropriate."
 
 const HISTORY_PAGE_SIZE = 5
 interface SnippetHistoryItem {
@@ -116,6 +125,7 @@ export function MainEditor() {
   const [studentName, setStudentName] = useState("")
   const [languageChoice, setLanguageChoice] = useState<LanguageChoice>("en")
   const [pronounPreference, setPronounPreference] = useState<PronounPreference>("auto")
+  const [inputReframeTier, setInputReframeTier] = useState<"tier1" | "tier2" | null>(null)
   const [isGenerating, setIsGenerating] = useState(false)
   const [generationError, setGenerationError] = useState<string | null>(null)
   const [sensitivePreview, setSensitivePreview] = useState<string | null>(null)
@@ -293,6 +303,7 @@ export function MainEditor() {
     setSensitivePreview(null)
     setGeneratedDraft(null)
     setDraftMetadata(null)
+    setInputReframeTier(null)
 
     const payload: Record<string, unknown> = {
       situation: content.trim(),
@@ -353,6 +364,7 @@ export function MainEditor() {
       })
 
       const data = await response.json()
+      const responseMeta = data?.data?.meta ?? null
 
       if (response.status === 401) {
         setGenerationError("Session expired, please sign in again.")
@@ -383,7 +395,15 @@ export function MainEditor() {
         wordCount: data.data.metadata.wordCount,
         pronounPreference,
         resolvedPronounPreference: data.data.metadata.pronounResolution?.resolvedPreference ?? pronounPreference,
+        inputReframed: Boolean(responseMeta?.inputReframed),
+        inputReframedTier: responseMeta?.inputReframedTier ?? null,
       })
+
+      if (responseMeta?.inputReframed) {
+        setInputReframeTier(responseMeta.inputReframedTier ?? null)
+      } else {
+        setInputReframeTier(null)
+      }
 
       setGeneratedDraft(data.data.generatedDraft)
       setDraftMetadata(data.data.metadata)
@@ -785,6 +805,11 @@ Examples:
               draftsLimit={draftsLimit}
               showUsageLimit={usage.plan === "free"}
             />
+          </div>
+        )}
+        {generatedDraft && draftMetadata && inputReframeTier && (
+          <div className="mt-4 rounded-2xl bg-blue-50/80 dark:bg-slate-900/60 border border-blue-200 dark:border-blue-500/40 p-4 text-sm text-blue-900 dark:text-blue-200 shadow-inner">
+            <p>{getReframeNoticeText(locale)}</p>
           </div>
         )}
       </main>

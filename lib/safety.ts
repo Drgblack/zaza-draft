@@ -28,6 +28,10 @@ function ensureGlobal(pattern: RegExp): RegExp {
   return new RegExp(pattern.source, flags)
 }
 
+function escapeRegexLiteral(input: string): string {
+  return input.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
+}
+
 /**
  * Detects email, phone, and street address patterns and provides a sanitized copy.
  */
@@ -63,7 +67,9 @@ export function detectSensitiveContent(input: string) {
  * - Includes a small set of sensitive labels that must not appear in output
  *   unless the teacher explicitly provided them (handled elsewhere in prompt logic).
  */
-const BLOCKED_SINGLE_TERMS = [
+export type BlockedLanguageTier = "tier1" | "tier2" | "tier3"
+
+const TIER1_TERMS = [
   "stupid",
   "lazy",
   "dumb",
@@ -76,51 +82,155 @@ const BLOCKED_SINGLE_TERMS = [
   "idiot",
   "incompetent",
   "failure",
-  "rage",
-  "hate",
-  "adhd",
-  "autistic",
-  "depressed",
-  "anxious",
   "useless",
+  "rage",
 ] as const
 
-const BLOCKED_PHRASES = ["bad kid", "bad child", "bad student"] as const
+const TIER1_PHRASES = ["bad kid", "bad child", "bad student"] as const
 
-function escapeRegexLiteral(input: string) {
-  return input.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
+const TIER2_TERMS = [
+  "adhd",
+  "autistic",
+  "autism",
+  "depressed",
+  "anxious",
+] as const
+
+const TIER3_TERMS = [
+  "hate",
+  "killing",
+  "kill",
+  "murder",
+  "terror",
+  "slur",
+] as const
+
+function builtPatternFromTerms(terms: readonly string[]) {
+  const escaped = terms.map((term) =>
+    term
+      .trim()
+      .split(/\s+/)
+      .map((part) => escapeRegexLiteral(part))
+      .join("\\s+")
+  )
+  return ensureGlobal(new RegExp(`\\b(${escaped.join("|")})\\b`, "gi"))
 }
 
-const blockedSinglePattern = ensureGlobal(
-  new RegExp(`\\b(${BLOCKED_SINGLE_TERMS.map(escapeRegexLiteral).join("|")})\\b`, "gi")
-)
-
-const blockedPhrasePattern = ensureGlobal(
-  new RegExp(
-    `\\b(${BLOCKED_PHRASES.map((p) => escapeRegexLiteral(p).replace(/\\s+/g, "\\\\s+")).join("|")})\\b`,
-    "gi"
-  )
-)
+const tier1Pattern = builtPatternFromTerms([...TIER1_TERMS, ...TIER1_PHRASES])
+const tier2Pattern = builtPatternFromTerms(TIER2_TERMS)
+const tier3Pattern = builtPatternFromTerms(TIER3_TERMS)
+const ALL_TIERED_PATTERNS = [tier3Pattern, tier2Pattern, tier1Pattern]
 
 export interface BlockedLanguageDetection {
+  detected: boolean
+  tier: BlockedLanguageTier | null
   matches: string[]
-  sanitized: string
+  redactedPreview: string
 }
 
 export function detectBlockedLanguage(input: string): BlockedLanguageDetection {
   const matches: string[] = []
-  blockedSinglePattern.lastIndex = 0
-  blockedPhrasePattern.lastIndex = 0
+  let highestTier: BlockedLanguageTier | null = null
 
-  const sanitized = input
-    .replace(blockedPhrasePattern, (match) => {
-      matches.push(match.toLowerCase())
-      return `[REDACTED TERM]`
-    })
-    .replace(blockedSinglePattern, (match) => {
-      matches.push(match.toLowerCase())
-      return `[REDACTED TERM]`
-    })
+  const tierPatterns: Array<{ tier: BlockedLanguageTier; pattern: RegExp }> = [
+    { tier: "tier3", pattern: tier3Pattern },
+    { tier: "tier2", pattern: tier2Pattern },
+    { tier: "tier1", pattern: tier1Pattern },
+  ]
 
-  return { matches, sanitized }
+  tierPatterns.forEach(({ tier, pattern }) => {
+    pattern.lastIndex = 0
+    let match: RegExpExecArray | null
+    while ((match = pattern.exec(input))) {
+      matches.push(match[0])
+      if (!highestTier) {
+        highestTier = tier
+      }
+    }
+  })
+
+  const sanitized = ALL_TIERED_PATTERNS.reduce((acc, pattern) => {
+    pattern.lastIndex = 0
+    return acc.replace(pattern, () => `[REDACTED TERM]`)
+  }, input)
+
+  return {
+    detected: matches.length > 0,
+    tier: highestTier,
+    matches,
+    redactedPreview: sanitized,
+  }
+}
+
+export interface ReframeResult {
+  text: string
+  applied: boolean
+}
+
+interface ReframeRule {
+  pattern: string
+  replacement: string
+}
+
+const TIER1_REFRAME_RULES: ReframeRule[] = [
+  { pattern: "\\bstupid\\b", replacement: "finding the topic challenging right now" },
+  { pattern: "\\bdumb\\b", replacement: "finding the topic challenging right now" },
+  { pattern: "\\blazy\\b", replacement: "not yet consistently completing tasks and may need encouragement" },
+  { pattern: "\\bnaughty\\b", replacement: "finding it difficult to follow classroom expectations" },
+  { pattern: "\\bhopeless\\b", replacement: "needing steady encouragement to stay motivated" },
+  { pattern: "\\bslow\\b", replacement: "still building fluency in the concept" },
+  { pattern: "\\bweak\\b", replacement: "working on strengthening that skill" },
+  { pattern: "\\bdisrespectful\\b", replacement: "finding it challenging to meet behaviour expectations" },
+  { pattern: "\\bcareless\\b", replacement: "benefiting from reminders about attention to detail" },
+  { pattern: "\\bidiot\\b", replacement: "struggling with confidence in this area" },
+  { pattern: "\\bincompetent\\b", replacement: "still developing mastery of the skill" },
+  { pattern: "\\bfailure\\b", replacement: "working through setbacks constructively" },
+  { pattern: "\\buseless\\b", replacement: "needs encouragement to see their strengths" },
+  { pattern: "\\brage\\b", replacement: "experiencing strong emotions and needs support to regulate" },
+  { pattern: "\\bbad\\s+kid\\b|\\bbad\\s+child\\b|\\bbad\\s+student\\b", replacement: "needs support to meet expectations" },
+]
+
+const TIER2_REFRAME_RULES: ReframeRule[] = [
+  {
+    pattern: "\\badhd\\b",
+    replacement: "may benefit from structured routines, chunked instructions, and movement breaks",
+  },
+  {
+    pattern: "\\bautistic\\b|\\bautism\\b",
+    replacement: "may benefit from clear expectations, predictable routines, and sensory-aware supports",
+  },
+  {
+    pattern: "\\bdepressed\\b",
+    replacement: "may respond well to additional emotional support and positive momentum",
+  },
+  {
+    pattern: "\\banxious\\b",
+    replacement: "may benefit from calm, predictable routines and check-ins",
+  },
+]
+
+function applyReframeRules(text: string, rules: ReframeRule[]) {
+  let applied = false
+  const nextText = rules.reduce((acc, { pattern, replacement }) => {
+    const regex = ensureGlobal(new RegExp(pattern, "gi"))
+    let matchFound = false
+    const replaced = acc.replace(regex, () => {
+      matchFound = true
+      return replacement
+    })
+    if (matchFound) {
+      applied = true
+    }
+    return replaced
+  }, text)
+  return { text: nextText, applied }
+}
+
+export function reframeBlockedLanguage(text: string, tier: BlockedLanguageTier | null): ReframeResult {
+  if (!tier) {
+    return { text, applied: false }
+  }
+
+  const rules = tier === "tier1" ? TIER1_REFRAME_RULES : tier === "tier2" ? TIER2_REFRAME_RULES : []
+  return applyReframeRules(text, rules)
 }

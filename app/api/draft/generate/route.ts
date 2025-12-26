@@ -1,6 +1,11 @@
 import { NextResponse } from "next/server"
 import { authorizeFirebaseRequest, FirebaseAuthorizationError } from "@/lib/firebase/server"
-import { detectSensitiveContent, detectBlockedLanguage } from "@/lib/safety"
+import {
+  detectSensitiveContent,
+  detectBlockedLanguage,
+  reframeBlockedLanguage,
+  BlockedLanguageTier,
+} from "@/lib/safety"
 import { logServerEvent } from "@/lib/analytics"
 import { buildUsageResponse, incrementUsage, MonthlyUsageRecord } from "@/lib/usage"
 import { getUserEntitlements } from "@/lib/entitlements"
@@ -288,7 +293,7 @@ export async function POST(request: Request) {
   }
 
   const detection = detectSensitiveContent(situation)
-  const sanitizedSituation = detection.sanitized
+  let sanitizedSituation = detection.sanitized
   const safetyFlags = new Set<string>()
   if (detection.matches.length > 0) {
     detection.matches.forEach((match) => safetyFlags.add(`input-${match.type}`))
@@ -309,24 +314,53 @@ export async function POST(request: Request) {
     )
   }
 
-  const blockedInput = detectBlockedLanguage(sanitizedSituation)
-  if (blockedInput.matches.length > 0) {
-    safetyFlags.add("input-blocked-language")
-    void recordDiagnostic({ lastErrorCode: "BLOCKED_LANGUAGE" })
+  let currentSituation = sanitizedSituation
+  let inputReframed = false
+  let inputReframedTier: BlockedLanguageTier | null = null
+
+  const sendBlockedLanguageError = (tier: BlockedLanguageTier) => {
+    logServerEvent("draft_generation_blocked_language", { uid, plan, tier })
+    logDraftOutcome("INVALID_REQUEST", { errorCode: "BLOCKED_LANGUAGE" })
+    void recordDiagnostic({
+      lastErrorCode: "BLOCKED_LANGUAGE",
+      lastBlockedLanguageTier: tier,
+    })
     return NextResponse.json(
       {
         success: false,
-        data: {
-          redactedPreview: blockedInput.sanitized,
-        },
         error: {
-          code: "INVALID_REQUEST",
-          message:
-            "Please rephrase the prompt without insults or diagnostic labels; focus on behaviour, effort, and growth.",
+          code: "BLOCKED_LANGUAGE",
+          message: "Please remove hateful or threatening language so the note stays parent-friendly.",
         },
       },
       { status: 422 },
     )
+  }
+
+  const blockedInput = detectBlockedLanguage(currentSituation)
+  if (blockedInput.detected) {
+    safetyFlags.add("input-blocked-language")
+    if (blockedInput.tier === "tier3") {
+      return sendBlockedLanguageError("tier3")
+    }
+    if (!blockedInput.tier) {
+      return sendBlockedLanguageError("tier3")
+    }
+
+    const reframeResult = reframeBlockedLanguage(currentSituation, blockedInput.tier)
+    if (!reframeResult.applied) {
+      return sendBlockedLanguageError("tier3")
+    }
+
+    currentSituation = reframeResult.text
+    inputReframed = true
+    inputReframedTier = blockedInput.tier
+    safetyFlags.add(`input-reframed-${inputReframedTier}`)
+
+    const recheck = detectBlockedLanguage(currentSituation)
+    if (recheck.detected) {
+      return sendBlockedLanguageError("tier3")
+    }
   }
 
   const generationStart = Date.now()
@@ -335,7 +369,7 @@ export async function POST(request: Request) {
   let rewriteAttempted = false
   try {
     const result = await generateDraft({
-      situation: sanitizedSituation,
+      situation: currentSituation,
       tone,
       language: language as LanguageKey,
       context: sanitizedContext,
@@ -389,33 +423,29 @@ export async function POST(request: Request) {
     )
   }
   let blockedDetection = detectBlockedLanguage(generatedDraft)
-  if (blockedDetection.matches.length > 0 && !rewriteAttempted) {
-    rewriteAttempted = true
-    const rewriteResult = await reRunWithRewrite(payload, generatedDraft, resolvedPronounPreference)
-    if (rewriteResult) {
-      generatedDraft = enforcePronouns(rewriteResult.text, resolvedPronounPreference)
-      providerMeta = rewriteResult.providerMeta
-      blockedDetection = detectBlockedLanguage(generatedDraft)
+  const handleBlockedOutput = () => {
+    safetyFlags.add("output-blocked-language")
+    return sendBlockedLanguageError("tier3")
+  }
+
+  if (blockedDetection.detected) {
+    if (blockedDetection.tier === "tier3") {
+      return handleBlockedOutput()
+    }
+
+    if (!rewriteAttempted) {
+      rewriteAttempted = true
+      const rewriteResult = await reRunWithRewrite(payload, generatedDraft, resolvedPronounPreference)
+      if (rewriteResult) {
+        generatedDraft = enforcePronouns(rewriteResult.text, resolvedPronounPreference)
+        providerMeta = rewriteResult.providerMeta
+        blockedDetection = detectBlockedLanguage(generatedDraft)
+      }
     }
   }
 
-  if (blockedDetection.matches.length > 0) {
-    safetyFlags.add("output-blocked-language")
-    logDraftOutcome("INVALID_REQUEST", { errorCode: "BANNED_TERM_DETECTED" })
-    void recordDiagnostic({ lastErrorCode: "BANNED_TERM_DETECTED" })
-    return NextResponse.json(
-      {
-        success: false,
-        data: {
-          redactedPreview: blockedDetection.sanitized,
-        },
-        error: {
-          code: "INVALID_REQUEST",
-          message: "The generated content contained prohibited language. Please try again with different wording.",
-        },
-      },
-      { status: 422 },
-    )
+  if (blockedDetection.detected) {
+    return handleBlockedOutput()
   }
 
   let updatedUsage: MonthlyUsageRecord
@@ -452,6 +482,11 @@ export async function POST(request: Request) {
     contextUsed: sanitizedContext,
   }
 
+  const responseMeta = {
+    inputReframed,
+    inputReframedTier,
+  }
+
   logServerEvent("draft_generation", {
     uid,
     plan,
@@ -461,6 +496,8 @@ export async function POST(request: Request) {
     pronounPreference,
     resolvedPronounPreference,
     pronounResolutionReason: pronounResolution.reason,
+    inputReframed,
+    inputReframedTier,
   })
 
   let snippetId: string | null = null
@@ -470,7 +507,7 @@ export async function POST(request: Request) {
   const usageAfterGeneration = buildUsageResponse(updatedUsage, plan)
 
   const snippetPayload = {
-    promptText: detection.matches.length === 0 ? sanitizedSituation : undefined,
+    promptText: detection.matches.length === 0 ? currentSituation : undefined,
     generatedText: generatedDraft,
     tone,
     language,
@@ -479,6 +516,8 @@ export async function POST(request: Request) {
     contextUsed: sanitizedContext,
     wordCount: metadata.wordCount,
     modelUsed: metadata.modelUsed,
+    inputReframed,
+    inputReframedTier,
     safetyFlags: metadata.safetyFlags,
     generationTime: metadata.generationTime,
     usage: usageAfterGeneration,
@@ -500,6 +539,8 @@ export async function POST(request: Request) {
     lastResolvedPronounPreference: resolvedPronounPreference,
     lastPronounResolutionReason: pronounResolution.reason,
     lastPronounResolutionSource: pronounResolution.source ?? null,
+    lastInputReframed: inputReframed,
+    lastInputReframedTier: inputReframedTier,
     lastErrorCode: null,
     lastUsage: usageAfterGeneration,
     lastRunAt: FieldValue.serverTimestamp(),
@@ -515,6 +556,7 @@ export async function POST(request: Request) {
     data: {
       generatedDraft,
       metadata,
+      meta: responseMeta,
       usage: usageAfterGeneration,
       snippetId,
     },
