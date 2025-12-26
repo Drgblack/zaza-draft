@@ -15,16 +15,20 @@ interface TimeHeatmapProps {
 export function TimeHeatmap({ data, title, insight, warning }: TimeHeatmapProps) {
   const { t, locale } = useLocale()
 
-  const weekFormatter = new Intl.DateTimeFormat(locale, { weekday: "short" })
-  const baseDate = new Date(Date.UTC(2025, 0, 6)) // Monday
-  const translatedDays = Array.from({ length: 7 }, (_, index) => {
-    const date = new Date(baseDate)
-    date.setUTCDate(baseDate.getUTCDate() + index)
-    return weekFormatter.format(date)
-  })
+  // Localised weekday labels for the Y-axis (Mon..Sun / Mo..So etc.)
+  // Keep English day keys for lookup in the data structure.
+  const dataLookupDays = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"] as const
 
-  // Keep English day names for data lookup (matching the data structure)
-  const dataLookupDays = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+  // Use a fixed Monday and step forward 0..6 days to get stable weekday labels.
+  // 2024-01-01 is a Monday.
+  const weekdayFormatter = new Intl.DateTimeFormat(locale, { weekday: "short" })
+  const baseMonday = new Date(Date.UTC(2024, 0, 1))
+
+  const translatedDays = dataLookupDays.map((_, index) => {
+    const d = new Date(baseMonday)
+    d.setUTCDate(baseMonday.getUTCDate() + index)
+    return weekdayFormatter.format(d)
+  })
 
   const hours = Array.from({ length: 24 }, (_, i) => i)
 
@@ -44,6 +48,7 @@ export function TimeHeatmap({ data, title, insight, warning }: TimeHeatmapProps)
     <Card className="p-6 bg-white/85 dark:bg-white/10 backdrop-blur-2xl border-white/30 shadow-2xl shadow-purple-500/10">
       <div className="flex items-start justify-between mb-4">
         <h3 className="text-lg font-semibold text-gray-900 dark:text-white">{title}</h3>
+
         <TooltipProvider>
           <Tooltip>
             <TooltipTrigger asChild>
@@ -69,27 +74,26 @@ export function TimeHeatmap({ data, title, insight, warning }: TimeHeatmapProps)
                   </div>
                 ))}
               </div>
+
               <div className="flex-1">
                 {dataLookupDays.map((day, dayIndex) => (
                   <div key={day} className="flex gap-1 mb-1">
-                    {hours.map((hour) => {
-                      return (
-                        <TooltipProvider key={hour}>
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <div
-                                className={`w-3 h-4 rounded-sm ${getColor(getIntensity(day, hour))} transition-colors hover:ring-2 hover:ring-purple-500`}
-                              />
-                            </TooltipTrigger>
-                            <TooltipContent className="bg-white/95 dark:bg-gray-800/95 backdrop-blur-xl">
-                              <p className="text-xs text-gray-900 dark:text-white">
-                                {translatedDays[dayIndex]} {hour}:00 - {(hour + 1) % 24}:00
-                              </p>
-                            </TooltipContent>
-                          </Tooltip>
-                        </TooltipProvider>
-                      )
-                    })}
+                    {hours.map((hour) => (
+                      <TooltipProvider key={hour}>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <div
+                              className={`w-3 h-4 rounded-sm ${getColor(getIntensity(day, hour))} transition-colors hover:ring-2 hover:ring-purple-500`}
+                            />
+                          </TooltipTrigger>
+                          <TooltipContent className="bg-white/95 dark:bg-gray-800/95 backdrop-blur-xl">
+                            <p className="text-xs text-gray-900 dark:text-white">
+                              {translatedDays[dayIndex]} {hour}:00 - {(hour + 1) % 24}:00
+                            </p>
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
+                    ))}
                   </div>
                 ))}
               </div>
