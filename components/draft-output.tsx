@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from "react"
 import { SaveDraftModal } from "./save-draft-modal"
 import type { DraftMode } from "@/lib/types"
 import { MODE_DISPLAY_NAMES, DEFAULT_DRAFT_MODE } from "@/lib/draft-mode"
+import { useLocale } from "@/hooks/use-locale"
 
 interface DraftOutputProps {
   draftText: string
@@ -39,6 +40,7 @@ export function DraftOutput({
   const [showSaveModal, setShowSaveModal] = useState(false)
   const [showMoreMenu, setShowMoreMenu] = useState(false)
   const [actionMessage, setActionMessage] = useState<string | null>(null)
+  const { locale } = useLocale()
   const modeLabel = MODE_DISPLAY_NAMES[metadata.modeUsed ?? DEFAULT_DRAFT_MODE]
   // Copy to clipboard with rich text support
   const handleCopy = async () => {
@@ -51,23 +53,68 @@ export function DraftOutput({
     }
   }
 
-  // Export as PDF (client-side generation for now)
-  const handleExportPDF = async () => {
-    // For now, create a simple download
-    // TODO: Implement proper PDF generation with backend API
-    const blob = new Blob([draftText], { type: "text/plain" })
+  const extractFilenameFromDisposition = (contentDisposition: string | null) => {
+    if (!contentDisposition) return null
+    const filenameStarMatch = contentDisposition.match(/filename\*=UTF-8''([^;]+)/i)
+    if (filenameStarMatch) {
+      return decodeURIComponent(filenameStarMatch[1])
+    }
+    const filenameMatch = contentDisposition.match(/filename="([^"]+)"/i)
+    if (filenameMatch) {
+      return filenameMatch[1]
+    }
+    return null
+  }
+
+  const createDownloadLink = (blob: Blob, filename: string) => {
     const url = window.URL.createObjectURL(blob)
-    const a = document.createElement("a")
-    a.href = url
-    a.download = `zaza-draft-${Date.now()}.txt`
-    a.click()
+    const link = document.createElement("a")
+    link.href = url
+    link.download = filename
+    document.body.appendChild(link)
+    link.click()
+    link.remove()
     window.URL.revokeObjectURL(url)
+  }
+
+  const handleExportPDF = async () => {
+    setActionMessage("Preparing PDF…")
+    try {
+      const mode = metadata.modeUsed ?? DEFAULT_DRAFT_MODE
+      const language = locale.startsWith("de") ? "de" : "en"
+      const response = await fetch("/api/export/pdf", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          draftText,
+          mode,
+          tone,
+          language,
+        }),
+      })
+
+      if (!response.ok) {
+        const payload = await response.json().catch(() => null)
+        setActionMessage(payload?.message ?? "Unable to prepare the PDF right now.")
+        return
+      }
+
+      const blob = await response.blob()
+      const filename =
+        extractFilenameFromDisposition(response.headers.get("content-disposition")) ??
+        `zaza-draft-${new Date().toISOString().replace(/[:.]/g, "-")}.pdf`
+      createDownloadLink(blob, filename)
+      setActionMessage("PDF download started.")
+    } catch (error) {
+      console.error("[draft output] PDF export failed", error)
+      setActionMessage("Unable to prepare the PDF. Please try again.")
+    }
   }
 
   // Export as DOCX (client-side generation for now)
   const handleExportDOCX = async () => {
-    // For now, create a simple download
-    // TODO: Implement proper DOCX generation with backend API
     const blob = new Blob([draftText], { type: "text/plain" })
     const url = window.URL.createObjectURL(blob)
     const a = document.createElement("a")
@@ -77,13 +124,20 @@ export function DraftOutput({
     window.URL.revokeObjectURL(url)
   }
 
-  const runMenuAction = (action: () => void, successMessage: string) => {
+  const runMenuAction = async (action: () => Promise<void> | void, successMessage?: string) => {
     if (!hasDraft) {
       setActionMessage("Generate a draft before using that menu.")
       return
     }
-    action()
-    setActionMessage(successMessage)
+    try {
+      await action()
+      if (successMessage) {
+        setActionMessage(successMessage)
+      }
+    } catch (error) {
+      console.error("[draft output] menu action failed", error)
+      setActionMessage("Something went wrong. Please try again.")
+    }
     closeMoreMenu()
   }
 
@@ -204,9 +258,11 @@ export function DraftOutput({
             </button>
             {showMoreMenu && (
               <div className="absolute right-0 mt-2 w-48 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg z-10">
-                <button
-                  type="button"
-                  onClick={() => runMenuAction(() => setShowSaveModal(true), "Save modal opened.")}
+          <button
+            type="button"
+            onClick={() => {
+              void runMenuAction(() => setShowSaveModal(true), "Save modal opened.")
+            }}
                   disabled={!hasDraft}
                   className="w-full text-left px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center gap-3 text-gray-700 dark:text-gray-200 rounded-t-lg transition disabled:opacity-40 disabled:cursor-not-allowed"
                 >
@@ -215,7 +271,9 @@ export function DraftOutput({
                 </button>
                 <button
                   type="button"
-                  onClick={() => runMenuAction(handleExportPDF, "PDF download ready.")}
+                onClick={() => {
+                  void runMenuAction(handleExportPDF)
+                }}
                   disabled={!hasDraft}
                   className="w-full text-left px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center gap-3 text-gray-700 dark:text-gray-200 transition disabled:opacity-40 disabled:cursor-not-allowed"
                 >
@@ -224,7 +282,9 @@ export function DraftOutput({
                 </button>
                 <button
                   type="button"
-                  onClick={() => runMenuAction(handleExportDOCX, "DOCX download ready.")}
+                onClick={() => {
+                  void runMenuAction(handleExportDOCX, "DOCX download ready.")
+                }}
                   disabled={!hasDraft}
                   className="w-full text-left px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center gap-3 text-gray-700 dark:text-gray-200 transition disabled:opacity-40 disabled:cursor-not-allowed"
                 >
@@ -233,7 +293,9 @@ export function DraftOutput({
                 </button>
                 <button
                   type="button"
-                  onClick={() => runMenuAction(onRegenerate, "Regenerating draft...")}
+                onClick={() => {
+                  void runMenuAction(onRegenerate, "Regenerating draft...")
+                }}
                   disabled={!hasDraft}
                   className="w-full text-left px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center gap-3 text-gray-700 dark:text-gray-200 transition disabled:opacity-40 disabled:cursor-not-allowed"
                 >
@@ -242,7 +304,9 @@ export function DraftOutput({
                 </button>
                 <button
                   type="button"
-                  onClick={() => runMenuAction(onRewrite, "Rewriting draft...")}
+                onClick={() => {
+                  void runMenuAction(onRewrite, "Rewriting draft...")
+                }}
                   disabled={!hasDraft}
                   className="w-full text-left px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center gap-3 text-gray-700 dark:text-gray-200 rounded-b-lg transition disabled:opacity-40 disabled:cursor-not-allowed"
                 >
@@ -292,7 +356,9 @@ export function DraftOutput({
               <div className="absolute right-0 mt-2 w-48 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg z-10">
                 <button
                   type="button"
-                  onClick={() => runMenuAction(() => setShowSaveModal(true), "Save modal opened.")}
+                  onClick={() => {
+                    void runMenuAction(() => setShowSaveModal(true), "Save modal opened.")
+                  }}
                   disabled={!hasDraft}
                   className="w-full text-left px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center gap-3 text-gray-700 dark:text-gray-200 rounded-t-lg transition disabled:opacity-40 disabled:cursor-not-allowed"
                 >
@@ -301,7 +367,9 @@ export function DraftOutput({
                 </button>
                 <button
                   type="button"
-                  onClick={() => runMenuAction(handleExportPDF, "PDF download ready.")}
+                  onClick={() => {
+                    void runMenuAction(handleExportPDF)
+                  }}
                   disabled={!hasDraft}
                   className="w-full text-left px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center gap-3 text-gray-700 dark:text-gray-200 transition disabled:opacity-40 disabled:cursor-not-allowed"
                 >
@@ -310,7 +378,9 @@ export function DraftOutput({
                 </button>
                 <button
                   type="button"
-                  onClick={() => runMenuAction(handleExportDOCX, "DOCX download ready.")}
+                  onClick={() => {
+                    void runMenuAction(handleExportDOCX, "DOCX download ready.")
+                  }}
                   disabled={!hasDraft}
                   className="w-full text-left px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center gap-3 text-gray-700 dark:text-gray-200 transition disabled:opacity-40 disabled:cursor-not-allowed"
                 >
@@ -319,7 +389,9 @@ export function DraftOutput({
                 </button>
                 <button
                   type="button"
-                  onClick={() => runMenuAction(onRegenerate, "Regenerating draft...")}
+                  onClick={() => {
+                    void runMenuAction(onRegenerate, "Regenerating draft...")
+                  }}
                   disabled={!hasDraft}
                   className="w-full text-left px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center gap-3 text-gray-700 dark:text-gray-200 transition disabled:opacity-40 disabled:cursor-not-allowed"
                 >
@@ -328,7 +400,9 @@ export function DraftOutput({
                 </button>
                 <button
                   type="button"
-                  onClick={() => runMenuAction(onRewrite, "Rewriting draft...")}
+                  onClick={() => {
+                    void runMenuAction(onRewrite, "Rewriting draft...")
+                  }}
                   disabled={!hasDraft}
                   className="w-full text-left px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center gap-3 text-gray-700 dark:text-gray-200 rounded-b-lg transition disabled:opacity-40 disabled:cursor-not-allowed"
                 >
