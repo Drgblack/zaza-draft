@@ -5,6 +5,33 @@
 **Document Owner:** Engineering Team  
 **Status:** Ready for Implementation
 
+## Launch Trust & Spec Alignment Update
+
+### Safety tier policy
+- Tier 1 / Tier 2 inputs are automatically reframed into professional parent language on the server before generation. The client receives a gentle notice when reframing occurs; no raw or reframed text is persisted or logged.
+- Tier 3 inputs still trigger a `BLOCKED_LANGUAGE` rejection with a clear user-facing message; only these cases block the generation flow.
+
+### Never-fail resilience
+- The provider call is wrapped in a fallback helper (`generateDraftWithFallback`). When the model fails (network, timeout, rate limit), the route still returns a usable draft plus metadata flags (`usedFallback`, `errorCode`) so the UI can explain the graceful degradation without exposing prompts.
+
+### Mode selector & pronouns
+- Requests include `mode: "parent_message" | "report_comment"` and carry the selection through snippet persistence, exports, and UI state. The backend validates the mode and adjusts the prompt (subject + greeting for parent messages, concise comment for report entries).
+- `pronounPreference` accepts `auto`, `she`, `he`, `they`, and `avoid`. In `auto` mode, the server tries dataset-backed inference (`src/generated/name-gender.ts`) from the provided first name but otherwise defaults to they/them; explicit selections override inference. We never “confidently assume” a pronoun without a signal.
+
+### Exports
+- PDF exports are generated server-side via `/api/export/pdf` (uses pdfkit) and downloaded through the client’s “Export as PDF” action (`components/draft-output.tsx`). The server returns `Content-Type: application/pdf` and proper `Content-Disposition`; the client formats the filename from the header. DOCX exports remain a planned extension.
+
+### QA / Developer tooling
+- `INTERNAL_QA_UIDS` (comma-separated env var) bypasses free-tier usage limits for designated test accounts while leaving production enforcement intact.
+- `NEXT_PUBLIC_SHOW_UID=true` enables a small “UID: … Copy UID” control on `/account` so QA builds can easily retrieve the Firebase UID. The flag is opt-in and only affects builds where the env var is set.
+
+### Observability & diagnostics
+- Server logs include structured `[draft] generate outcome` entries capturing hashed uid, tone, language, latency, model/tokens, and error codes without logging prompts or outputs.
+- `/api/diagnostics` stores metadata such as last model used, last error code, usage snapshots, and pronoun resolution info to power the diagnostics card; the data is appended safely (no PII).
+
+### Deferred from original spec
+- For a complete comparison, see `docs/spec/SPEC_ALIGNMENT_REPORT.md`; it lists legacy spec items that were deferred to Phase 2 (classes, unified accounts, analytics events, etc.).
+
 ---
 
 ## 1. Technical Overview
