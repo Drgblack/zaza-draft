@@ -153,7 +153,8 @@ curl -X POST http://localhost:3000/api/draft/generate \
   - `FIREBASE_SERVICE_ACCOUNT_KEY` (admin SDK for `/api/*`)
   - `NEXT_PUBLIC_FIREBASE_*` keys for the client (API key, auth domain, project ID, app ID, messaging sender, measurement ID optional)
   - `OPENAI_API_KEY`, `OPENAI_MODEL_PRIMARY`, `OPENAI_MODEL_FALLBACK`
-  - `INTERNAL_QA_UIDS` (optional, comma-separated list of Firebase UIDs that should bypass free-tier usage enforcement; set it via `.env.local` during development or add the same key/value under Vercel Project → Settings → Environment Variables for Preview/Production environments you use for QA). 
+  - `INTERNAL_QA_UIDS` (optional, comma-separated list of Firebase UIDs that should bypass free-tier usage enforcement; set it via `.env.local` during development or add the same key/value under Vercel Project → Settings → Environment Variables for Preview/Production environments you use for QA).
+  - `SHOW_UID` / `NEXT_PUBLIC_SHOW_UID` (optional, set to `true` to reveal the current Firebase UID on `/account` for quick copying when NODE_ENV is not `production`, or when you need the preview site to expose it; this never shows in production unless you explicitly flip `SHOW_UID` there).
 
 - **Firebase Auth checklist:**
   1. Enable Email/Password and Google providers in Authentication -> Sign-in method.
@@ -219,4 +220,9 @@ curl -X POST http://localhost:3000/api/draft/generate \
 
 - Run `node scripts/e2e-smoke.mjs` from the repo root (set `API_BASE_URL` if you are testing against a non-default host).
 - Provide `TEST_ID_TOKEN` when available to exercise `/api/draft/generate`; the script skips the authenticated call if that env var is absent.
+
+## User data controls
+
+- **Export your data**: `GET /api/account/export` returns a JSON download (`Content-Disposition` header) containing your `users/{uid}` document (public fields only), all snippets, diagnostics/status, usage snapshots, and any existing rate-limit doc entries. The export never includes raw prompt text, student identifiers, or secret keys. You can trigger this from `/account/data`.
+- **Delete your data**: `POST /api/account/delete` requires `{ confirm: true }`. The route removes `users/{uid}/snippets`, `users/{uid}/diagnostics`, `users/{uid}/rateLimits`, and finally the `users/{uid}` doc itself; Firebase Auth records and other collections stay untouched. This action is also exposed on `/account/data` next to the export flow so teachers can cleanly reset their workspace.
 
