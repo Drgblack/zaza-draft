@@ -9,6 +9,7 @@
     "test:pronouns": "tsx scripts/test-pronouns.ts",
     "test:safety": "tsx scripts/test-safety.ts",
     "test:mode": "tsx scripts/test-draft-mode.ts",
+    "test:never-fail": "tsx scripts/test-never-fail.ts",
     "start": "next start",
     "lint": "next lint"
   },

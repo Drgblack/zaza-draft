@@ -10,24 +10,29 @@ import { logServerEvent } from "@/lib/analytics"
 import { buildUsageResponse, incrementUsage, MonthlyUsageRecord } from "@/lib/usage"
 import { getUserEntitlements } from "@/lib/entitlements"
 import type { DraftLanguage, DraftMode, PronounPreference } from "@/lib/types"
-import { generateDraft, ProviderResult } from "@/lib/ai/provider"
+import { generateDraft, ProviderMeta, ProviderResult } from "@/lib/ai/provider"
 import { enforcePronouns, inferPronounResolution } from "@/lib/text/pronouns"
 import { enforceDraftRateLimit, RateLimitError } from "@/lib/rate-limit"
 import { createHash } from "crypto"
 import { FieldValue } from "firebase-admin/firestore"
 import { resolveDraftMode } from "@/lib/draft-mode"
+import {
+  ALLOWED_LANGUAGES,
+  ALLOWED_TONES,
+  DraftFallbackContext,
+  generateDraftWithFallback,
+  LanguageKey,
+  ProviderRequestInput,
+  ToneKey,
+} from "@/lib/draft/fallback"
 
-const ALLOWED_TONES = ["warm", "professional", "direct", "empathetic"] as const
-const ALLOWED_LANGUAGES = ["en", "de"] as const
-const TONE_DESCRIPTIONS: Record<(typeof ALLOWED_TONES)[number], string> = {
+const TONE_DESCRIPTIONS: Record<ToneKey, string> = {
   warm: "Warm & Encouraging",
   professional: "Professional & Neutral",
   direct: "Direct & Clear",
   empathetic: "Empathetic & Supportive",
 }
 
-type LanguageKey = (typeof ALLOWED_LANGUAGES)[number]
-type ToneKey = (typeof ALLOWED_TONES)[number]
 const PRONOUN_PREFERENCE_VALUES: PronounPreference[] = ["auto", "she", "he", "they", "avoid"]
 
 function parsePronounPreference(value: unknown): PronounPreference {
@@ -242,13 +247,13 @@ export async function POST(request: Request) {
   }
 
   const { uid, firestore } = authContext
-  const userHash = createHash("sha256").update(uid).digest("hex").slice(0, 12)
+  const uidHash = createHash("sha256").update(uid).digest("hex").slice(0, 12)
   const logDraftOutcome = (
     outcomeCode: string,
     extras: { latencyMs?: number; modelUsed?: string; tokensUsed?: number; errorCode?: string } = {},
   ) => {
     console.info("[draft] generate outcome", {
-      userHash,
+      uidHash,
       tone,
       language,
       mode,
@@ -318,6 +323,10 @@ export async function POST(request: Request) {
     subject: payload.context?.subject ? payload.context.subject.trim() : undefined,
     gradeLevel: payload.context?.gradeLevel ? payload.context.gradeLevel.trim() : undefined,
   }
+
+  const snippetCollection = firestore.collection("users").doc(uid).collection("snippets")
+  const snippetDoc = snippetCollection.doc()
+  const requestId = snippetDoc.id
 
   const detection = detectSensitiveContent(situation)
   let sanitizedSituation = detection.sanitized
@@ -391,44 +400,31 @@ export async function POST(request: Request) {
   }
 
   const generationStart = Date.now()
-  let generatedDraft: string
-  let providerMeta: { modelUsed: string; latencyMs: number; tokensUsed?: number }
-  let rewriteAttempted = false
-  try {
-    const result = await generateDraft({
-      situation: currentSituation,
-      tone,
-      language: language as LanguageKey,
-      context: sanitizedContext,
-      rewrite: Boolean(payload.rewrite),
-      previousDraft: payload.previousDraft,
-      pronounPreference: resolvedPronounPreference,
-      mode,
-    })
-    generatedDraft = enforcePronouns(result.text, resolvedPronounPreference)
-    providerMeta = result.providerMeta
-  } catch (error) {
-    console.error("[draft] AI generation failed", error)
-    logServerEvent("draft_generation_failed", {
-      uid,
-      plan,
-      tone,
-      language,
-      error: error instanceof Error ? error.message : "unknown",
-    })
-    logDraftOutcome("AI_GENERATION_FAILED", { errorCode: "AI_GENERATION_FAILED" })
-    void recordDiagnostic({ lastErrorCode: "AI_GENERATION_FAILED" })
-    return NextResponse.json(
-      {
-        success: false,
-        error: {
-          code: "AI_GENERATION_FAILED",
-          message: error instanceof Error ? error.message : "Unable to generate draft.",
-        },
-      },
-      { status: 502 },
-    )
+  const providerInput: ProviderRequestInput = {
+    situation: currentSituation,
+    tone,
+    language: language as LanguageKey,
+    context: sanitizedContext,
+    rewrite: Boolean(payload.rewrite),
+    previousDraft: payload.previousDraft,
+    pronounPreference: resolvedPronounPreference,
+    mode,
   }
+  const fallbackContext: DraftFallbackContext = {
+    mode,
+    tone,
+    language: language as LanguageKey,
+    requestId,
+    uidHash,
+  }
+  const {
+    result: providerResult,
+    usedFallback,
+    errorCode: fallbackErrorCode,
+  } = await generateDraftWithFallback(providerInput, fallbackContext)
+  let generatedDraft = enforcePronouns(providerResult.text, resolvedPronounPreference)
+  let providerMeta = providerResult.providerMeta
+  let rewriteAttempted = false
   const generationTime = providerMeta.latencyMs ?? Date.now() - generationStart
 
   const outputDetection = detectSensitiveContent(generatedDraft)
@@ -516,6 +512,9 @@ export async function POST(request: Request) {
     inputReframed,
     inputReframedTier,
     latencyMs,
+    usedFallback,
+    errorCode: fallbackErrorCode,
+    requestId,
   }
 
   logServerEvent("draft_generation", {
@@ -524,6 +523,8 @@ export async function POST(request: Request) {
     tone,
     language,
     mode,
+    usedFallback,
+    fallbackErrorCode,
     wordCount: metadata.wordCount,
     pronounPreference,
     resolvedPronounPreference,
@@ -533,9 +534,6 @@ export async function POST(request: Request) {
   })
 
   let snippetId: string | null = null
-  const snippetCollection = firestore.collection("users").doc(uid).collection("snippets")
-  const snippetDoc = snippetCollection.doc()
-  snippetId = snippetDoc.id
   const usageAfterGeneration = buildUsageResponse(updatedUsage, plan)
 
   const snippetPayload = {
