@@ -12,6 +12,7 @@
     "test:never-fail": "tsx scripts/test-never-fail.ts",
     "test:internal-qa": "tsx scripts/test-internal-qa.ts",
     "test:show-uid-flag": "tsx scripts/test-show-uid-flag.ts",
+    "test:account-export": "tsx scripts/test-account-export.ts",
     "test:export-pdf": "tsx scripts/test-export-pdf.ts",
     "start": "next start",
     "lint": "next lint"
