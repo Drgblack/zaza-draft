@@ -10,6 +10,7 @@
     "test:safety": "tsx scripts/test-safety.ts",
     "test:mode": "tsx scripts/test-draft-mode.ts",
     "test:never-fail": "tsx scripts/test-never-fail.ts",
+    "test:internal-qa": "tsx scripts/test-internal-qa.ts",
     "test:export-pdf": "tsx scripts/test-export-pdf.ts",
     "start": "next start",
     "lint": "next lint"

@@ -25,6 +25,7 @@ import {
   ProviderRequestInput,
   ToneKey,
 } from "@/lib/draft/fallback"
+import { isInternalQaUid, shouldRespectUsageLimit } from "@/lib/auth/internal-qa"
 
 const TONE_DESCRIPTIONS: Record<ToneKey, string> = {
   warm: "Warm & Encouraging",
@@ -275,6 +276,8 @@ export async function POST(request: Request) {
   }
   const entitlements = await getUserEntitlements(uid, firestore)
   const { plan, usage } = entitlements
+  const isQaUser = isInternalQaUid(uid)
+  const enforceUsageLimits = shouldRespectUsageLimit(uid)
 
   const diagnosticsRef = firestore
     .collection("users")
@@ -289,7 +292,7 @@ export async function POST(request: Request) {
     }
   }
 
-  if (plan === "free" && usage.remaining !== null && usage.remaining <= 0) {
+  if (enforceUsageLimits && plan === "free" && usage.remaining !== null && usage.remaining <= 0) {
     logServerEvent("draft_generation_denied_limit", { uid, plan })
     logDraftOutcome("RATE_LIMITED", { errorCode: "USAGE_LIMIT_EXCEEDED" })
     return NextResponse.json(buildUsageLimitError(usage), { status: 429 })
@@ -474,7 +477,7 @@ export async function POST(request: Request) {
 
   let updatedUsage: MonthlyUsageRecord
   try {
-    updatedUsage = await incrementUsage(uid, firestore, plan === "pro")
+    updatedUsage = await incrementUsage(uid, firestore, plan === "pro" || isQaUser)
   } catch (error) {
     if (error instanceof Error && error.message === "USAGE_LIMIT_EXCEEDED") {
       return NextResponse.json(buildUsageLimitError(usage), { status: 429 })
