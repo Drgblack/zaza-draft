@@ -9,6 +9,38 @@ export interface UserExportData {
   diagnostics: Record<string, unknown> | null
 }
 
+const SUBCOLLECTIONS = ["snippets", "diagnostics", "rateLimits"]
+
+export function hasDeleteConfirm(payload: unknown): payload is { confirm: true } {
+  return typeof payload === "object" && payload !== null && (payload as { confirm?: unknown }).confirm === true
+}
+
+async function deleteCollectionBatched(
+  firestore: Firestore,
+  collectionRef: CollectionReference<DocumentData>,
+  batchSize = 250,
+) {
+  while (true) {
+    const snapshot = await collectionRef.limit(batchSize).get()
+    if (snapshot.empty || snapshot.docs.length === 0) {
+      break
+    }
+    const batch = firestore.batch()
+    snapshot.docs.forEach((doc) => {
+      batch.delete(doc.ref)
+    })
+    await batch.commit()
+  }
+}
+
+export async function deleteUserData(firestore: Firestore, uid: string) {
+  const userRef = firestore.collection("users").doc(uid)
+  for (const name of SUBCOLLECTIONS) {
+    await deleteCollectionBatched(firestore, userRef.collection(name))
+  }
+  await userRef.delete()
+}
+
 function buildExportFilename(date = new Date()) {
   const yyyy = date.getUTCFullYear()
   const mm = String(date.getUTCMonth() + 1).padStart(2, "0")
