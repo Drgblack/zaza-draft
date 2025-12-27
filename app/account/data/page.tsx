@@ -28,8 +28,9 @@ export default function DataPage() {
   const [isExporting, setIsExporting] = useState(false)
   const [deleteStatus, setDeleteStatus] = useState<string | null>(null)
   const [deleteCheckbox, setDeleteCheckbox] = useState(false)
-  const [deleteStage, setDeleteStage] = useState<"idle" | "confirming" | "done">("idle")
+  const [deleteStage, setDeleteStage] = useState<"idle" | "confirming" | "ready" | "done">("idle")
   const [isDeleting, setIsDeleting] = useState(false)
+  const [deleteInput, setDeleteInput] = useState("")
 
   const handleExportData = async () => {
     setExportStatus("Preparing your export…")
@@ -77,7 +78,21 @@ export default function DataPage() {
 
     if (deleteStage === "idle") {
       setDeleteStage("confirming")
-      setDeleteStatus("Click delete again to confirm permanently removing your saved drafts and settings.")
+      setDeleteStatus("Type DELETE in the box below to unlock final confirmation.")
+      return
+    }
+
+    if (deleteStage === "confirming") {
+      if (deleteInput.trim().toUpperCase() !== "DELETE") {
+        setDeleteStatus("Please type DELETE exactly to proceed.")
+        return
+      }
+      setDeleteStage("ready")
+      setDeleteStatus("Click delete again to permanently remove your data.")
+      return
+    }
+
+    if (deleteStage !== "ready") {
       return
     }
 
@@ -161,13 +176,23 @@ export default function DataPage() {
                 <span>I understand this permanently deletes my saved drafts and settings.</span>
               </label>
               <div className="flex flex-col gap-2">
+                {deleteStage !== "done" && (
+                  <input
+                    type="text"
+                    className="border border-gray-300 dark:border-gray-600 rounded px-2 py-1 text-sm text-gray-900 dark:text-white bg-white dark:bg-gray-700"
+                    value={deleteInput}
+                    onChange={(event) => setDeleteInput(event.target.value)}
+                    placeholder="Type DELETE to confirm"
+                    disabled={isDeleting}
+                  />
+                )}
                 <Button
                   onClick={handleDeleteData}
                   variant="destructive"
-                  disabled={isDeleting || deleteStage === "done"}
+                  disabled={isDeleting}
                 >
                   <Trash2 className="mr-2 h-4 w-4" />
-                  {deleteStage === "confirming" ? "Confirm delete" : "Delete my data"}
+                  {deleteStage === "ready" ? "Delete my data" : "Delete my data"}
                 </Button>
                 {(isDeleting || deleteStatus) && (
                   <p className="text-sm text-gray-600 dark:text-gray-300">{deleteStatus}</p>
