@@ -1,30 +1,116 @@
 "use client"
 
+import { useState } from "react"
 import { useLocale } from "@/hooks/use-locale"
+import { useAuth } from "@/hooks/use-auth"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { ArrowLeft, Download, Trash2 } from "lucide-react"
 import Link from "next/link"
 
+const getFilenameFromContentDisposition = (header: string | null): string | null => {
+  if (!header) return null
+  const filenameStarMatch = header.match(/filename\*=UTF-8''([^;]+)/i)
+  if (filenameStarMatch) {
+    return decodeURIComponent(filenameStarMatch[1])
+  }
+  const filenameMatch = header.match(/filename="([^"]+)"/i)
+  if (filenameMatch) {
+    return filenameMatch[1]
+  }
+  return null
+}
+
 export default function DataPage() {
   const { t } = useLocale()
+  const { getIdToken, signOut } = useAuth()
+  const [exportStatus, setExportStatus] = useState<string | null>(null)
+  const [isExporting, setIsExporting] = useState(false)
+  const [deleteStatus, setDeleteStatus] = useState<string | null>(null)
+  const [deleteCheckbox, setDeleteCheckbox] = useState(false)
+  const [deleteStage, setDeleteStage] = useState<"idle" | "confirming" | "done">("idle")
+  const [isDeleting, setIsDeleting] = useState(false)
 
-  const handleExportCSV = () => {
-    console.log("[v0] Exporting data as CSV")
-    // Mock CSV export
-    const csvContent = "data:text/csv;charset=utf-8,Name,Email\nSarah,sarah@school.edu"
-    const encodedUri = encodeURI(csvContent)
-    const link = document.createElement("a")
-    link.setAttribute("href", encodedUri)
-    link.setAttribute("download", "zaza-draft-data.csv")
-    document.body.appendChild(link)
-    link.click()
-    document.body.removeChild(link)
+  const handleExportData = async () => {
+    setExportStatus("Preparing your export…")
+    setIsExporting(true)
+    try {
+      const token = await getIdToken()
+      if (!token) {
+        throw new Error("Unauthenticated")
+      }
+      const response = await fetch("/api/account/export", {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      })
+
+      if (!response.ok) {
+        throw new Error("Export failed")
+      }
+
+      const blob = await response.blob()
+      const filename =
+        getFilenameFromContentDisposition(response.headers.get("content-disposition")) ??
+        `zaza-draft-export-${new Date().toISOString().slice(0, 10)}.json`
+      const url = URL.createObjectURL(blob)
+      const anchor = document.createElement("a")
+      anchor.href = url
+      anchor.download = filename
+      document.body.appendChild(anchor)
+      anchor.click()
+      document.body.removeChild(anchor)
+      URL.revokeObjectURL(url)
+      setExportStatus("Downloaded.")
+    } catch (error) {
+      setExportStatus("Sorry – something went wrong. Please try again.")
+    } finally {
+      setIsExporting(false)
+    }
   }
 
-  const handleDownloadData = () => {
-    console.log("[v0] Downloading all data")
-    // Mock data download
+  const handleDeleteData = async () => {
+    if (!deleteCheckbox) {
+      setDeleteStatus("Please acknowledge the statement before deleting.")
+      return
+    }
+
+    if (deleteStage === "idle") {
+      setDeleteStage("confirming")
+      setDeleteStatus("Click delete again to confirm permanently removing your saved drafts and settings.")
+      return
+    }
+
+    setIsDeleting(true)
+    setDeleteStatus("Deleting…")
+    try {
+      const token = await getIdToken()
+      if (!token) {
+        throw new Error("Unauthenticated")
+      }
+
+      const response = await fetch("/api/account/delete", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ confirm: true }),
+      })
+
+      if (!response.ok) {
+        throw new Error("Delete failed")
+      }
+
+      setDeleteStatus("Your data has been deleted.")
+      setDeleteStage("done")
+      await signOut()
+    } catch (error) {
+      setDeleteStatus("Sorry – something went wrong. Please try again.")
+      setDeleteStage("idle")
+    } finally {
+      setIsDeleting(false)
+    }
   }
 
   return (
@@ -40,36 +126,53 @@ export default function DataPage() {
         <h1 className="text-4xl font-bold text-white mb-8">{t("account.data.title")}</h1>
 
         <div className="space-y-6">
-          {/* Export Data */}
           <Card className="bg-white/80 dark:bg-white/10 backdrop-blur-xl border border-white/40 dark:border-white/20">
             <CardHeader>
               <CardTitle className="text-gray-900 dark:text-white">{t("account.data.export.title")}</CardTitle>
               <CardDescription className="dark:text-gray-300">{t("account.data.export.description")}</CardDescription>
             </CardHeader>
-            <CardContent className="space-y-4">
-              <Button onClick={handleExportCSV} className="bg-purple-600 hover:bg-purple-700 text-white">
+            <CardContent className="space-y-3">
+              <Button
+                onClick={handleExportData}
+                className="bg-purple-600 hover:bg-purple-700 text-white"
+                disabled={isExporting}
+              >
                 <Download className="mr-2 h-4 w-4" />
-                {t("account.data.export.csvButton")}
+                Export my data
               </Button>
-              <Button onClick={handleDownloadData} variant="outline">
-                <Download className="mr-2 h-4 w-4" />
-                {t("account.data.export.allDataButton")}
-              </Button>
+              {exportStatus && <p className="text-sm text-gray-600 dark:text-gray-300">{exportStatus}</p>}
             </CardContent>
           </Card>
 
-          {/* Delete Account */}
           <Card className="bg-white/80 dark:bg-white/10 backdrop-blur-xl border border-red-300/40 dark:border-red-700/40">
             <CardHeader>
               <CardTitle className="text-red-600 dark:text-red-400">{t("account.data.delete.title")}</CardTitle>
               <CardDescription className="dark:text-gray-300">{t("account.data.delete.description")}</CardDescription>
             </CardHeader>
-            <CardContent>
-              <Button disabled variant="destructive" className="opacity-50 cursor-not-allowed">
-                <Trash2 className="mr-2 h-4 w-4" />
-                {t("account.data.delete.button")}
-              </Button>
-              <p className="text-sm text-gray-600 dark:text-gray-400 mt-2">{t("account.data.delete.comingSoon")}</p>
+            <CardContent className="space-y-3">
+              <label className="flex items-start gap-2 text-sm text-gray-600 dark:text-gray-300">
+                <input
+                  type="checkbox"
+                  className="mt-1 h-4 w-4"
+                  checked={deleteCheckbox}
+                  onChange={(event) => setDeleteCheckbox(event.target.checked)}
+                  disabled={isDeleting || deleteStage === "done"}
+                />
+                <span>I understand this permanently deletes my saved drafts and settings.</span>
+              </label>
+              <div className="flex flex-col gap-2">
+                <Button
+                  onClick={handleDeleteData}
+                  variant="destructive"
+                  disabled={isDeleting || deleteStage === "done"}
+                >
+                  <Trash2 className="mr-2 h-4 w-4" />
+                  {deleteStage === "confirming" ? "Confirm delete" : "Delete my data"}
+                </Button>
+                {(isDeleting || deleteStatus) && (
+                  <p className="text-sm text-gray-600 dark:text-gray-300">{deleteStatus}</p>
+                )}
+              </div>
             </CardContent>
           </Card>
         </div>
