@@ -47,7 +47,6 @@ interface GenerateDraftRequest {
   rewrite?: boolean
   previousDraft?: string
   pronounPreference?: PronounPreference
-  studentName?: string
 }
 
 function buildContextLine(context?: GenerateDraftRequest["context"]) {
@@ -118,6 +117,7 @@ async function reRunWithRewrite(
 
 export async function POST(request: Request) {
   const requestedAt = new Date()
+  const requestStart = Date.now()
 
   let payload: GenerateDraftRequest
   try {
@@ -193,8 +193,7 @@ export async function POST(request: Request) {
   }
 
   const pronounPreference = parsePronounPreference(payload?.pronounPreference)
-  const studentNameInput = typeof payload?.studentName === "string" ? payload.studentName.trim() : ""
-  const pronounResolution = inferPronounResolution(pronounPreference, studentNameInput || undefined)
+  const pronounResolution = inferPronounResolution(pronounPreference)
   const resolvedPronounPreference = pronounResolution.resolvedPreference
 
   let authContext
@@ -459,6 +458,7 @@ export async function POST(request: Request) {
     throw error
   }
 
+  const latencyMs = Date.now() - requestStart
   const safetyFlagList = safetyFlags.size ? Array.from(safetyFlags) : ["no-sensitive-content"]
 
   const metadata = {
@@ -472,9 +472,9 @@ export async function POST(request: Request) {
       reason: pronounResolution.reason,
       source: pronounResolution.source ?? null,
     },
-    studentName: studentNameInput || null,
     tokensUsed: providerMeta.tokensUsed ?? null,
     generationTime,
+    latencyMs,
     wordCount: countWords(generatedDraft),
     safetyFlags: safetyFlagList,
     generatedAt: new Date().toISOString(),
@@ -485,6 +485,7 @@ export async function POST(request: Request) {
   const responseMeta = {
     inputReframed,
     inputReframedTier,
+    latencyMs,
   }
 
   logServerEvent("draft_generation", {
@@ -507,7 +508,6 @@ export async function POST(request: Request) {
   const usageAfterGeneration = buildUsageResponse(updatedUsage, plan)
 
   const snippetPayload = {
-    promptText: detection.matches.length === 0 ? currentSituation : undefined,
     generatedText: generatedDraft,
     tone,
     language,
@@ -519,9 +519,9 @@ export async function POST(request: Request) {
     inputReframed,
     inputReframedTier,
     safetyFlags: metadata.safetyFlags,
+    latencyMs,
     generationTime: metadata.generationTime,
     usage: usageAfterGeneration,
-    studentName: studentNameInput || undefined,
     createdAt: new Date().toISOString(),
     requestId: snippetDoc.id,
   }
