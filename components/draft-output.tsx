@@ -1,7 +1,7 @@
 "use client"
 
 import { Copy, Check, Save, FileText, Edit3, RefreshCw, AlertCircle, ChevronDown, Repeat } from "lucide-react"
-import { useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { SaveDraftModal } from "./save-draft-modal"
 import type { DraftMode } from "@/lib/types"
 import { MODE_DISPLAY_NAMES, DEFAULT_DRAFT_MODE } from "@/lib/draft-mode"
@@ -38,6 +38,7 @@ export function DraftOutput({
   const [copied, setCopied] = useState(false)
   const [showSaveModal, setShowSaveModal] = useState(false)
   const [showMoreMenu, setShowMoreMenu] = useState(false)
+  const [actionMessage, setActionMessage] = useState<string | null>(null)
   const modeLabel = MODE_DISPLAY_NAMES[metadata.modeUsed ?? DEFAULT_DRAFT_MODE]
   // Copy to clipboard with rich text support
   const handleCopy = async () => {
@@ -61,7 +62,6 @@ export function DraftOutput({
     a.download = `zaza-draft-${Date.now()}.txt`
     a.click()
     window.URL.revokeObjectURL(url)
-    closeMoreMenu()
   }
 
   // Export as DOCX (client-side generation for now)
@@ -75,12 +75,54 @@ export function DraftOutput({
     a.download = `zaza-draft-${Date.now()}.txt`
     a.click()
     window.URL.revokeObjectURL(url)
+  }
+
+  const runMenuAction = (action: () => void, successMessage: string) => {
+    if (!hasDraft) {
+      setActionMessage("Generate a draft before using that menu.")
+      return
+    }
+    action()
+    setActionMessage(successMessage)
     closeMoreMenu()
   }
 
   const closeMoreMenu = () => {
     setShowMoreMenu(false)
   }
+  const desktopMenuRef = useRef<HTMLDivElement | null>(null)
+  const mobileMenuRef = useRef<HTMLDivElement | null>(null)
+  const hasDraft = Boolean(draftText && draftText.trim())
+  useEffect(() => {
+    if (!showMoreMenu) {
+      return undefined
+    }
+
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as Node
+      if (
+        desktopMenuRef.current?.contains(target) ||
+        mobileMenuRef.current?.contains(target)
+      ) {
+        return
+      }
+      closeMoreMenu()
+    }
+
+    document.addEventListener("mousedown", handleClickOutside)
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside)
+    }
+  }, [showMoreMenu])
+
+  useEffect(() => {
+    if (!actionMessage) {
+      return undefined
+    }
+
+    const timer = setTimeout(() => setActionMessage(null), 3000)
+    return () => clearTimeout(timer)
+  }, [actionMessage])
 
   const toneLabels: Record<string, string> = {
     warm: "Warm & Encouraging",
@@ -107,6 +149,10 @@ export function DraftOutput({
             </div>
           </div>
         </div>
+
+        {actionMessage && (
+          <p className="mt-2 text-xs text-white/70 dark:text-white/60">{actionMessage}</p>
+        )}
 
         {/* Generated Text */}
         <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-4 mb-4">
@@ -146,8 +192,9 @@ export function DraftOutput({
             Edit
           </button>
 
-          <div className="relative" tabIndex={0} onBlur={() => setTimeout(() => closeMoreMenu(), 150)}>
+          <div className="relative" ref={desktopMenuRef}>
             <button
+              type="button"
               onClick={() => setShowMoreMenu((prev) => !prev)}
               aria-expanded={showMoreMenu}
               className="flex items-center gap-2 px-4 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-600 rounded-lg font-medium transition focus-visible:ring-2 focus-visible:ring-purple-600 focus-visible:ring-offset-2"
@@ -158,45 +205,46 @@ export function DraftOutput({
             {showMoreMenu && (
               <div className="absolute right-0 mt-2 w-48 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg z-10">
                 <button
-                  onClick={() => {
-                    setShowSaveModal(true)
-                    closeMoreMenu()
-                  }}
-                  className="w-full text-left px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center gap-3 text-gray-700 dark:text-gray-200 rounded-t-lg transition"
+                  type="button"
+                  onClick={() => runMenuAction(() => setShowSaveModal(true), "Save modal opened.")}
+                  disabled={!hasDraft}
+                  className="w-full text-left px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center gap-3 text-gray-700 dark:text-gray-200 rounded-t-lg transition disabled:opacity-40 disabled:cursor-not-allowed"
                 >
                   <Save size={18} />
                   Save to Library
                 </button>
                 <button
-                  onClick={handleExportPDF}
-                  className="w-full text-left px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center gap-3 text-gray-700 dark:text-gray-200 transition"
+                  type="button"
+                  onClick={() => runMenuAction(handleExportPDF, "PDF download ready.")}
+                  disabled={!hasDraft}
+                  className="w-full text-left px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center gap-3 text-gray-700 dark:text-gray-200 transition disabled:opacity-40 disabled:cursor-not-allowed"
                 >
                   <FileText size={18} />
                   Export as PDF
                 </button>
                 <button
-                  onClick={handleExportDOCX}
-                  className="w-full text-left px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center gap-3 text-gray-700 dark:text-gray-200 transition"
+                  type="button"
+                  onClick={() => runMenuAction(handleExportDOCX, "DOCX download ready.")}
+                  disabled={!hasDraft}
+                  className="w-full text-left px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center gap-3 text-gray-700 dark:text-gray-200 transition disabled:opacity-40 disabled:cursor-not-allowed"
                 >
                   <FileText size={18} />
                   Export as DOCX
                 </button>
                 <button
-                  onClick={() => {
-                    onRegenerate()
-                    closeMoreMenu()
-                  }}
-                  className="w-full text-left px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center gap-3 text-gray-700 dark:text-gray-200 transition"
+                  type="button"
+                  onClick={() => runMenuAction(onRegenerate, "Regenerating draft...")}
+                  disabled={!hasDraft}
+                  className="w-full text-left px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center gap-3 text-gray-700 dark:text-gray-200 transition disabled:opacity-40 disabled:cursor-not-allowed"
                 >
                   <RefreshCw size={18} />
                   Regenerate
                 </button>
                 <button
-                  onClick={() => {
-                    onRewrite()
-                    closeMoreMenu()
-                  }}
-                  className="w-full text-left px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center gap-3 text-gray-700 dark:text-gray-200 rounded-b-lg transition"
+                  type="button"
+                  onClick={() => runMenuAction(onRewrite, "Rewriting draft...")}
+                  disabled={!hasDraft}
+                  className="w-full text-left px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center gap-3 text-gray-700 dark:text-gray-200 rounded-b-lg transition disabled:opacity-40 disabled:cursor-not-allowed"
                 >
                   <Repeat size={18} />
                   Rewrite in tone
@@ -230,8 +278,9 @@ export function DraftOutput({
             <Edit3 size={18} />
             Edit
           </button>
-          <div className="relative flex-1" tabIndex={0} onBlur={() => setTimeout(() => closeMoreMenu(), 150)}>
+          <div className="relative flex-1" ref={mobileMenuRef}>
             <button
+              type="button"
               onClick={() => setShowMoreMenu((prev) => !prev)}
               aria-expanded={showMoreMenu}
               className="flex items-center justify-center gap-2 px-4 py-3 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-600 rounded-lg font-medium transition"
@@ -242,45 +291,46 @@ export function DraftOutput({
             {showMoreMenu && (
               <div className="absolute right-0 mt-2 w-48 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg z-10">
                 <button
-                  onClick={() => {
-                    setShowSaveModal(true)
-                    closeMoreMenu()
-                  }}
-                  className="w-full text-left px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center gap-3 text-gray-700 dark:text-gray-200 rounded-t-lg transition"
+                  type="button"
+                  onClick={() => runMenuAction(() => setShowSaveModal(true), "Save modal opened.")}
+                  disabled={!hasDraft}
+                  className="w-full text-left px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center gap-3 text-gray-700 dark:text-gray-200 rounded-t-lg transition disabled:opacity-40 disabled:cursor-not-allowed"
                 >
                   <Save size={18} />
                   Save to Library
                 </button>
                 <button
-                  onClick={handleExportPDF}
-                  className="w-full text-left px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center gap-3 text-gray-700 dark:text-gray-200 transition"
+                  type="button"
+                  onClick={() => runMenuAction(handleExportPDF, "PDF download ready.")}
+                  disabled={!hasDraft}
+                  className="w-full text-left px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center gap-3 text-gray-700 dark:text-gray-200 transition disabled:opacity-40 disabled:cursor-not-allowed"
                 >
                   <FileText size={18} />
                   Export as PDF
                 </button>
                 <button
-                  onClick={handleExportDOCX}
-                  className="w-full text-left px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center gap-3 text-gray-700 dark:text-gray-200 transition"
+                  type="button"
+                  onClick={() => runMenuAction(handleExportDOCX, "DOCX download ready.")}
+                  disabled={!hasDraft}
+                  className="w-full text-left px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center gap-3 text-gray-700 dark:text-gray-200 transition disabled:opacity-40 disabled:cursor-not-allowed"
                 >
                   <FileText size={18} />
                   Export as DOCX
                 </button>
                 <button
-                  onClick={() => {
-                    onRegenerate()
-                    closeMoreMenu()
-                  }}
-                  className="w-full text-left px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center gap-3 text-gray-700 dark:text-gray-200 transition"
+                  type="button"
+                  onClick={() => runMenuAction(onRegenerate, "Regenerating draft...")}
+                  disabled={!hasDraft}
+                  className="w-full text-left px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center gap-3 text-gray-700 dark:text-gray-200 transition disabled:opacity-40 disabled:cursor-not-allowed"
                 >
                   <RefreshCw size={18} />
                   Regenerate
                 </button>
                 <button
-                  onClick={() => {
-                    onRewrite()
-                    closeMoreMenu()
-                  }}
-                  className="w-full text-left px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center gap-3 text-gray-700 dark:text-gray-200 rounded-b-lg transition"
+                  type="button"
+                  onClick={() => runMenuAction(onRewrite, "Rewriting draft...")}
+                  disabled={!hasDraft}
+                  className="w-full text-left px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center gap-3 text-gray-700 dark:text-gray-200 rounded-b-lg transition disabled:opacity-40 disabled:cursor-not-allowed"
                 >
                   <Repeat size={18} />
                   Rewrite in tone

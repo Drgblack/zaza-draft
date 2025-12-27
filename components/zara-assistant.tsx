@@ -205,10 +205,10 @@ export function ZaraAssistant() {
         ...prev,
         {
           role: "assistant",
-          content:
-            locale === "de-DE"
-              ? "Ich bin hier, um zu helfen! WÃ¤hrend ich noch lerne, probiere die schnellen Tipps oben oder beschreibe deine Situation im Haupteditor fÃ¼r KI-generierte EntwÃ¼rfe."
-              : "I'm here to help! While I'm still learning, try the quick tips above or describe your situation in the main editor for AI-generated drafts.",
+            content:
+              locale === "de-DE"
+                ? "Ich bin hier, um zu helfen! Während ich noch lerne, probiere die schnellen Tipps oben oder beschreibe deine Situation im Haupteditor für KI-generierte Entwürfe."
+                : "I'm here to help! While I'm still learning, try the quick tips above or describe your situation in the main editor for AI-generated drafts.",
         },
       ])
     }, 800)
@@ -344,7 +344,7 @@ export function ZaraAssistant() {
                     {section.type === "framework" && (
                       <>
                         <h4 className="font-medium text-gray-900 dark:text-white mb-2 flex items-center gap-2">
-                          <span className="text-purple-600 dark:text-purple-400">ðŸ“‹</span>
+                          <span className="text-purple-600 dark:text-purple-400">🧭</span>
                           {section.title}
                         </h4>
                         <div className="glass shadow-soft border border-white/60 dark:border-white/20 rounded-lg p-4 space-y-3 bg-white/90 dark:bg-white/10 backdrop-blur-[32px]">
@@ -363,21 +363,21 @@ export function ZaraAssistant() {
                     {section.type === "phrases" && (
                       <>
                         <h4 className="font-medium text-gray-900 dark:text-white mb-2 flex items-center gap-2">
-                          <span className="text-purple-600 dark:text-purple-400">ðŸ’¬</span>
+                          <span className="text-purple-600 dark:text-purple-400">💬</span>
                           {section.title}
                         </h4>
                         <div className="glass shadow-soft rounded-lg p-4 space-y-2 bg-white/90 dark:bg-white/10 backdrop-blur-[32px] border border-white/60 dark:border-white/20">
                           {section.items.map((phrase, idx) => (
                             <div key={idx} className="relative group">
                               <p className="text-sm text-gray-900 dark:text-white font-medium pr-8">{phrase}</p>
-                              <button
-                                onClick={() => handleCopyPhrase(phrase)}
-                                className="absolute right-0 top-0 opacity-0 group-hover:opacity-100 transition text-purple-600 hover:text-purple-700 dark:text-purple-400 dark:hover:text-purple-300 p-1"
-                                title="Copy phrase"
-                                aria-label={`Copy phrase: ${phrase}`}
-                              >
-                                {copiedPhrase === phrase ? <span className="text-xs">âœ“</span> : <Copy size={14} />}
-                              </button>
+                          <button
+                            onClick={() => handleCopyPhrase(phrase)}
+                            className="absolute right-0 top-0 opacity-0 group-hover:opacity-100 transition text-purple-600 hover:text-purple-700 dark:text-purple-400 dark:hover:text-purple-300 p-1"
+                            title="Copy phrase"
+                            aria-label={`Copy phrase: ${phrase}`}
+                          >
+                            {copiedPhrase === phrase ? <span className="text-xs">✓</span> : <Copy size={14} />}
+                          </button>
                             </div>
                           ))}
                         </div>
@@ -387,14 +387,14 @@ export function ZaraAssistant() {
                     {section.type === "avoid" && (
                       <>
                         <h4 className="font-medium text-gray-900 dark:text-white mb-2 flex items-center gap-2">
-                          <span className="text-red-500 dark:text-red-400">âš ï¸</span>
+                          <span className="text-red-500 dark:text-red-400">⚠️</span>
                           {section.title}
                         </h4>
                         <div className="glass shadow-soft rounded-lg p-4 space-y-2 bg-white/90 dark:bg-white/10 backdrop-blur-[32px] border border-white/60 dark:border-white/20">
                           {section.items.map((item, idx) => (
-                            <p key={idx} className="text-sm text-red-900 dark:text-red-200">
-                              âŒ {item}
-                            </p>
+                          <p key={idx} className="text-sm text-red-900 dark:text-red-200">
+                            ✖️ {item}
+                          </p>
                           ))}
                         </div>
                       </>
@@ -403,7 +403,7 @@ export function ZaraAssistant() {
                     {section.type === "example" && (
                       <>
                         <h4 className="font-medium text-gray-900 dark:text-white mb-2 flex items-center gap-2">
-                          <span className="text-purple-600 dark:text-purple-400">ðŸ’¡</span>
+                          <span className="text-purple-600 dark:text-purple-400">💡</span>
                           {section.title}
                         </h4>
                         <div className="glass shadow-soft rounded-lg p-4 border-l-4 border-purple-600 bg-white/90 dark:bg-white/10 backdrop-blur-[32px]">
@@ -415,7 +415,7 @@ export function ZaraAssistant() {
                     {section.type === "template" && (
                       <>
                         <h4 className="font-medium text-gray-900 dark:text-white mb-2 flex items-center gap-2">
-                          <span className="text-purple-600 dark:text-purple-400">ðŸ“§</span>
+                          <span className="text-purple-600 dark:text-purple-400">✉️</span>
                           {section.title}
                         </h4>
                         <div className="glass shadow-soft rounded-lg p-4 space-y-2 bg-white/90 dark:bg-white/10 backdrop-blur-[32px] border border-white/60 dark:border-white/20">
