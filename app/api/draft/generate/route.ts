@@ -47,6 +47,8 @@ interface GenerateDraftRequest {
   rewrite?: boolean
   previousDraft?: string
   pronounPreference?: PronounPreference
+  studentFirstName?: string
+  studentName?: string // deprecated - use studentFirstName
 }
 
 function buildContextLine(context?: GenerateDraftRequest["context"]) {
@@ -139,6 +141,12 @@ export async function POST(request: Request) {
   const promptTooLong = situation.length > 2000
   const tone = payload?.tone
   const language = typeof payload?.language === "string" ? sanitizeLanguageChoice(payload.language) : null
+  const studentFirstNameInput =
+    typeof payload?.studentFirstName === "string"
+      ? payload.studentFirstName.trim()
+      : typeof payload?.studentName === "string"
+      ? payload.studentName.trim()
+      : ""
 
   if (promptTooLong) {
     return NextResponse.json(
@@ -193,7 +201,7 @@ export async function POST(request: Request) {
   }
 
   const pronounPreference = parsePronounPreference(payload?.pronounPreference)
-  const pronounResolution = inferPronounResolution(pronounPreference)
+  const pronounResolution = inferPronounResolution(pronounPreference, studentFirstNameInput || undefined)
   const resolvedPronounPreference = pronounResolution.resolvedPreference
 
   let authContext

@@ -84,7 +84,6 @@ interface SnippetHistoryItem {
   }
   generatedText: string
   pronounPreference?: PronounPreference
-  studentName?: string | null
   pronounResolution?: {
     resolvedPreference?: PronounPreference
     reason?: string | null
@@ -119,7 +118,7 @@ export function MainEditor() {
   const [isEditing, setIsEditing] = useState(false)
   const [subject, setSubject] = useState("")
   const [gradeLevel, setGradeLevel] = useState("")
-  const [studentName, setStudentName] = useState("")
+  const [studentFirstName, setStudentFirstName] = useState("")
   const [languageChoice, setLanguageChoice] = useState<LanguageChoice>("en")
   const [pronounPreference, setPronounPreference] = useState<PronounPreference>("auto")
   const [inputReframeTier, setInputReframeTier] = useState<"tier1" | "tier2" | null>(null)
@@ -322,9 +321,9 @@ export function MainEditor() {
       payload.context = context
     }
 
-    const trimmedStudentName = studentName.trim()
-    if (trimmedStudentName) {
-      payload.studentName = trimmedStudentName
+    const trimmedStudentFirstName = studentFirstName.trim()
+    if (trimmedStudentFirstName) {
+      payload.studentFirstName = trimmedStudentFirstName
     }
 
     payload.pronounPreference = pronounPreference
@@ -341,7 +340,7 @@ export function MainEditor() {
       tone: selectedTone,
       language: languageChoice,
       pronounPreference,
-      studentNameProvided: Boolean(trimmedStudentName),
+      studentFirstNameProvided: Boolean(trimmedStudentFirstName),
     })
 
     try {
@@ -454,7 +453,7 @@ export function MainEditor() {
     setLanguageChoice(snippet.language as LanguageChoice)
     setSubject(snippet.contextUsed?.subject ?? "")
     setGradeLevel(snippet.contextUsed?.gradeLevel ?? "")
-    setStudentName(snippet.studentName ?? "")
+    setStudentFirstName("")
     setPronounPreference(snippet.pronounPreference ?? "auto")
   }
 
@@ -604,9 +603,9 @@ Examples:
             ))}
           </select>
           <input
-            value={studentName}
-            onChange={(event) => setStudentName(event.target.value)}
-            placeholder="Student name (optional)"
+            value={studentFirstName}
+            onChange={(event) => setStudentFirstName(event.target.value)}
+            placeholder="Student first name (optional)"
             className="bg-white/90 dark:bg-white/10 rounded-xl border border-white/40 dark:border-white/30 px-4 py-3 text-gray-900 dark:text-white font-medium shadow-sm focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-2"
           />
           <input
@@ -718,9 +717,6 @@ Examples:
                 </div>
                 <p className="text-sm text-white/90">Language: {item.language.toUpperCase()}</p>
                 <p className="text-sm text-white/90">Words: {item.wordCount}</p>
-                {item.studentName && (
-                  <p className="text-sm text-white/80">Student: {item.studentName}</p>
-                )}
                 {(item.contextUsed?.subject || item.contextUsed?.gradeLevel) && (
                   <p className="text-sm text-white/80">
                     {item.contextUsed?.subject ? `Subject: ${item.contextUsed.subject}` : ""}

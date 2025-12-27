@@ -60,7 +60,6 @@ export async function GET(request: Request) {
         contextUsed: data.contextUsed,
         pronounPreference: data.pronounPreference ?? "auto",
         pronounResolution: data.pronounResolution ?? null,
-        studentName: data.studentName ?? null,
         createdAt: data.createdAt,
       }
     })
