@@ -13,6 +13,7 @@ import { useAuth } from "@/hooks/use-auth"
 import { logClientEvent } from "@/lib/analytics"
 import type { PlanType } from "@/lib/usage"
 import type { PronounPreference } from "@/lib/types"
+import { MODE_DISPLAY_NAMES } from "@/lib/draft-mode"
 import Link from "next/link"
 
 const TONE_OPTIONS = [
@@ -29,6 +30,13 @@ const PRONOUN_OPTIONS: { id: PronounPreference; label: string }[] = [
   { id: "they", label: "They/them" },
   { id: "avoid", label: "Avoid pronouns" },
 ]
+
+const MODE_OPTIONS = [
+  { id: "parent_message", label: MODE_DISPLAY_NAMES.parent_message },
+  { id: "report_comment", label: MODE_DISPLAY_NAMES.report_comment },
+] as const
+
+type ModeKey = (typeof MODE_OPTIONS)[number]["id"]
 
 type ToneKey = (typeof TONE_OPTIONS)[number]["id"]
 type LanguageChoice = "en" | "de"
@@ -84,6 +92,7 @@ interface SnippetHistoryItem {
   }
   generatedText: string
   pronounPreference?: PronounPreference
+  mode?: ModeKey
   pronounResolution?: {
     resolvedPreference?: PronounPreference
     reason?: string | null
@@ -121,6 +130,7 @@ export function MainEditor() {
   const [studentFirstName, setStudentFirstName] = useState("")
   const [languageChoice, setLanguageChoice] = useState<LanguageChoice>("en")
   const [pronounPreference, setPronounPreference] = useState<PronounPreference>("auto")
+  const [mode, setMode] = useState<ModeKey>("parent_message")
   const [inputReframeTier, setInputReframeTier] = useState<"tier1" | "tier2" | null>(null)
   const [isGenerating, setIsGenerating] = useState(false)
   const [generationError, setGenerationError] = useState<string | null>(null)
@@ -327,6 +337,7 @@ export function MainEditor() {
     }
 
     payload.pronounPreference = pronounPreference
+    payload.mode = mode
 
     if (options.rewrite) {
       payload.rewrite = true
@@ -340,6 +351,7 @@ export function MainEditor() {
       tone: selectedTone,
       language: languageChoice,
       pronounPreference,
+      mode,
       studentFirstNameProvided: Boolean(trimmedStudentFirstName),
     })
 
@@ -455,6 +467,7 @@ export function MainEditor() {
     setGradeLevel(snippet.contextUsed?.gradeLevel ?? "")
     setStudentFirstName("")
     setPronounPreference(snippet.pronounPreference ?? "auto")
+    setMode(snippet.mode ?? "parent_message")
   }
 
   const deleteSnippet = async (snippetId: string) => {
@@ -582,7 +595,28 @@ Examples:
           })}
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-5 gap-3 mb-6">
+        <div className="mb-4 flex flex-wrap items-center gap-3">
+          <span className="text-sm font-semibold text-white/90">Mode</span>
+          {MODE_OPTIONS.map((option) => {
+            const isActive = mode === option.id
+            return (
+              <button
+                key={option.id}
+                onClick={() => setMode(option.id)}
+                className={`px-4 py-2 rounded-full text-xs font-semibold transition focus-visible:ring-2 focus-visible:ring-offset-2 ${
+                  isActive
+                    ? "bg-white text-purple-600 shadow-sm focus-visible:ring-white"
+                    : "bg-white/20 text-white/80 hover:bg-white/30 focus-visible:ring-white/40"
+                }`}
+                aria-pressed={isActive}
+              >
+                {option.label}
+              </button>
+            )
+          })}
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-4">
           <select
             value={languageChoice}
             onChange={(event) => setLanguageChoice(event.target.value as LanguageChoice)}
@@ -602,25 +636,36 @@ Examples:
               </option>
             ))}
           </select>
-          <input
-            value={studentFirstName}
-            onChange={(event) => setStudentFirstName(event.target.value)}
-            placeholder="Student first name (optional)"
-            className="bg-white/90 dark:bg-white/10 rounded-xl border border-white/40 dark:border-white/30 px-4 py-3 text-gray-900 dark:text-white font-medium shadow-sm focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-2"
-          />
-          <input
-            value={subject}
-            onChange={(event) => setSubject(event.target.value)}
-            placeholder="Subject (optional)"
-            className="bg-white/90 dark:bg-white/10 rounded-xl border border-white/40 dark:border-white/30 px-4 py-3 text-gray-900 dark:text-white font-medium shadow-sm focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-2"
-          />
-          <input
-            value={gradeLevel}
-            onChange={(event) => setGradeLevel(event.target.value)}
-            placeholder="Grade level (optional)"
-            className="bg-white/90 dark:bg-white/10 rounded-xl border border-white/40 dark:border-white/30 px-4 py-3 text-gray-900 dark:text-white font-medium shadow-sm focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-2"
-          />
         </div>
+
+        <details className="mb-6 rounded-2xl bg-white/10 dark:bg-white/5 border border-white/20 dark:border-white/10 text-white">
+          <summary className="flex items-center justify-between px-4 py-3 cursor-pointer text-sm font-semibold">
+            <span>Optional details</span>
+            <span className="text-xs text-white/60">Add context + pronouns</span>
+          </summary>
+          <div className="px-4 pb-4">
+            <div className="mt-3 grid grid-cols-1 md:grid-cols-3 gap-3">
+              <input
+                value={studentFirstName}
+                onChange={(event) => setStudentFirstName(event.target.value)}
+                placeholder="Student first name (optional)"
+                className="min-w-[200px] bg-white/90 dark:bg-white/10 rounded-xl border border-white/40 dark:border-white/30 px-4 py-3 text-gray-900 dark:text-white font-medium shadow-sm focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-2"
+              />
+              <input
+                value={subject}
+                onChange={(event) => setSubject(event.target.value)}
+                placeholder="Subject (optional)"
+                className="bg-white/90 dark:bg-white/10 rounded-xl border border-white/40 dark:border-white/30 px-4 py-3 text-gray-900 dark:text-white font-medium shadow-sm focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-2"
+              />
+              <input
+                value={gradeLevel}
+                onChange={(event) => setGradeLevel(event.target.value)}
+                placeholder="Grade level (optional)"
+                className="bg-white/90 dark:bg-white/10 rounded-xl border border-white/40 dark:border-white/30 px-4 py-3 text-gray-900 dark:text-white font-medium shadow-sm focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-2"
+              />
+            </div>
+          </div>
+        </details>
 
         <Button
           onClick={() => handleGenerate()}
@@ -717,6 +762,9 @@ Examples:
                 </div>
                 <p className="text-sm text-white/90">Language: {item.language.toUpperCase()}</p>
                 <p className="text-sm text-white/90">Words: {item.wordCount}</p>
+                <p className="text-xs text-white/60 uppercase tracking-wide">
+                  Mode: {MODE_DISPLAY_NAMES[item.mode ?? "parent_message"]}
+                </p>
                 {(item.contextUsed?.subject || item.contextUsed?.gradeLevel) && (
                   <p className="text-sm text-white/80">
                     {item.contextUsed?.subject ? `Subject: ${item.contextUsed.subject}` : ""}

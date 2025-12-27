@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server"
 import { authorizeFirebaseRequest, FirebaseAuthorizationError } from "@/lib/firebase/server"
+import { DEFAULT_DRAFT_MODE } from "@/lib/draft-mode"
 
 const MAX_LIMIT = 20
 
@@ -60,6 +61,7 @@ export async function GET(request: Request) {
         contextUsed: data.contextUsed,
         pronounPreference: data.pronounPreference ?? "auto",
         pronounResolution: data.pronounResolution ?? null,
+        mode: data.mode ?? DEFAULT_DRAFT_MODE,
         createdAt: data.createdAt,
       }
     })

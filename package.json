@@ -8,6 +8,7 @@
     "build:names": "node scripts/build-name-gender.js",
     "test:pronouns": "tsx scripts/test-pronouns.ts",
     "test:safety": "tsx scripts/test-safety.ts",
+    "test:mode": "tsx scripts/test-draft-mode.ts",
     "start": "next start",
     "lint": "next lint"
   },

@@ -1,4 +1,5 @@
-import type { DraftLanguage, DraftTone, PronounPreference } from "@/lib/types"
+import type { DraftLanguage, DraftMode, DraftTone, PronounPreference } from "@/lib/types"
+import { MODE_DISPLAY_NAMES, MODE_PROMPT_INSTRUCTIONS } from "@/lib/draft-mode"
 
 function getOpenAiApiKey() {
   return process.env.OPENAI_API_KEY
@@ -27,6 +28,7 @@ interface ProviderInput {
   rewrite?: boolean
   previousDraft?: string
   pronounPreference: PronounPreference
+  mode: DraftMode
 }
 
 export interface ProviderMeta {
@@ -66,6 +68,7 @@ function buildSystemPrompt(input: ProviderInput) {
     "Never include student PII (full names, emails, phone numbers, addresses). If the prompt is disallowed, explain politely that you cannot help.",
     "Do not include blocked language such as insults, diagnostic labels, or emotionally charged terms; redirect toward behaviour, effort, and growth.",
     PRONOUN_INSTRUCTIONS[input.pronounPreference],
+    MODE_PROMPT_INSTRUCTIONS[input.mode],
   ]
 
   if (input.rewrite) {
@@ -113,6 +116,7 @@ function buildBasePayload(input: ProviderInput): FetchPayload {
   const contextLines = [
     `Tone: ${input.tone}`,
     `Language: ${input.language}`,
+    `Mode: ${MODE_DISPLAY_NAMES[input.mode]}`,
     `Context subject: ${input.context?.subject ?? "-"}`,
     `Context gradeLevel: ${input.context?.gradeLevel ?? "-"}`,
   ]

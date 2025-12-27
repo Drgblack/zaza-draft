@@ -9,12 +9,13 @@ import {
 import { logServerEvent } from "@/lib/analytics"
 import { buildUsageResponse, incrementUsage, MonthlyUsageRecord } from "@/lib/usage"
 import { getUserEntitlements } from "@/lib/entitlements"
-import type { DraftLanguage, PronounPreference } from "@/lib/types"
+import type { DraftLanguage, DraftMode, PronounPreference } from "@/lib/types"
 import { generateDraft, ProviderResult } from "@/lib/ai/provider"
 import { enforcePronouns, inferPronounResolution } from "@/lib/text/pronouns"
 import { enforceDraftRateLimit, RateLimitError } from "@/lib/rate-limit"
 import { createHash } from "crypto"
 import { FieldValue } from "firebase-admin/firestore"
+import { resolveDraftMode } from "@/lib/draft-mode"
 
 const ALLOWED_TONES = ["warm", "professional", "direct", "empathetic"] as const
 const ALLOWED_LANGUAGES = ["en", "de"] as const
@@ -47,6 +48,7 @@ interface GenerateDraftRequest {
   rewrite?: boolean
   previousDraft?: string
   pronounPreference?: PronounPreference
+  mode?: DraftMode
   studentFirstName?: string
   studentName?: string // deprecated - use studentFirstName
 }
@@ -101,6 +103,7 @@ async function reRunWithRewrite(
   payload: GenerateDraftRequest,
   previousDraft: string,
   resolvedPronounPreference: PronounPreference,
+  mode: DraftMode,
 ): Promise<ProviderResult | null> {
   try {
     return await generateDraft({
@@ -111,6 +114,7 @@ async function reRunWithRewrite(
       rewrite: true,
       previousDraft,
       pronounPreference: resolvedPronounPreference,
+      mode,
     })
   } catch (error) {
     return null
@@ -141,12 +145,27 @@ export async function POST(request: Request) {
   const promptTooLong = situation.length > 2000
   const tone = payload?.tone
   const language = typeof payload?.language === "string" ? sanitizeLanguageChoice(payload.language) : null
+  const mode = resolveDraftMode(payload?.mode)
+
   const studentFirstNameInput =
     typeof payload?.studentFirstName === "string"
       ? payload.studentFirstName.trim()
       : typeof payload?.studentName === "string"
       ? payload.studentName.trim()
       : ""
+
+  if (mode === null) {
+    return NextResponse.json(
+      {
+        success: false,
+        error: {
+          code: "INVALID_MODE",
+          message: "Please select a valid mode option.",
+        },
+      },
+      { status: 400 },
+    )
+  }
 
   if (promptTooLong) {
     return NextResponse.json(
@@ -232,6 +251,7 @@ export async function POST(request: Request) {
       userHash,
       tone,
       language,
+      mode,
       outcome: outcomeCode,
       ...extras,
     })
@@ -383,6 +403,7 @@ export async function POST(request: Request) {
       rewrite: Boolean(payload.rewrite),
       previousDraft: payload.previousDraft,
       pronounPreference: resolvedPronounPreference,
+      mode,
     })
     generatedDraft = enforcePronouns(result.text, resolvedPronounPreference)
     providerMeta = result.providerMeta
@@ -442,7 +463,7 @@ export async function POST(request: Request) {
 
     if (!rewriteAttempted) {
       rewriteAttempted = true
-      const rewriteResult = await reRunWithRewrite(payload, generatedDraft, resolvedPronounPreference)
+      const rewriteResult = await reRunWithRewrite(payload, generatedDraft, resolvedPronounPreference, mode)
       if (rewriteResult) {
         generatedDraft = enforcePronouns(rewriteResult.text, resolvedPronounPreference)
         providerMeta = rewriteResult.providerMeta
@@ -473,6 +494,7 @@ export async function POST(request: Request) {
     userId: uid,
     toneUsed: tone,
     language,
+    modeUsed: mode,
     modelUsed: providerMeta.modelUsed,
     pronounPreference,
     pronounResolution: {
@@ -501,6 +523,7 @@ export async function POST(request: Request) {
     plan,
     tone,
     language,
+    mode,
     wordCount: metadata.wordCount,
     pronounPreference,
     resolvedPronounPreference,
@@ -522,6 +545,7 @@ export async function POST(request: Request) {
     pronounPreference,
     pronounResolution: metadata.pronounResolution,
     contextUsed: sanitizedContext,
+    mode,
     wordCount: metadata.wordCount,
     modelUsed: metadata.modelUsed,
     inputReframed,

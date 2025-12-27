@@ -30,6 +30,7 @@ export type DocumentType = "lesson-plan" | "email" | "report"
 export type DraftTone = "warm" | "professional" | "direct" | "empathetic"
 export type DraftLanguage = "en" | "de"
 export type PronounPreference = "auto" | "she" | "he" | "they" | "avoid"
+export type DraftMode = "parent_message" | "report_comment"
 
 export interface Document {
   id: string
