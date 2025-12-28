@@ -115,13 +115,39 @@ export function DraftOutput({
 
   // Export as DOCX (client-side generation for now)
   const handleExportDOCX = async () => {
-    const blob = new Blob([draftText], { type: "text/plain" })
-    const url = window.URL.createObjectURL(blob)
-    const a = document.createElement("a")
-    a.href = url
-    a.download = `zaza-draft-${Date.now()}.txt`
-    a.click()
-    window.URL.revokeObjectURL(url)
+    setActionMessage("Preparing DOCX.")
+    try {
+      const mode = metadata.modeUsed ?? DEFAULT_DRAFT_MODE
+      const language = locale.startsWith("de") ? "de" : "en"
+      const response = await fetch("/api/export/docx", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          draftText,
+          mode,
+          tone,
+          language,
+        }),
+      })
+
+      if (!response.ok) {
+        const payload = await response.json().catch(() => null)
+        setActionMessage(payload?.message ?? "Unable to prepare the DOCX right now.")
+        return
+      }
+
+      const blob = await response.blob()
+      const filename =
+        extractFilenameFromDisposition(response.headers.get("content-disposition")) ??
+        `zaza-draft-${new Date().toISOString().replace(/[:.]/g, "-")}.docx`
+      createDownloadLink(blob, filename)
+      setActionMessage("DOCX download started.")
+    } catch (error) {
+      console.error("[draft output] DOCX export failed", error)
+      setActionMessage("Unable to prepare the DOCX. Please try again.")
+    }
   }
 
   const runMenuAction = async (action: () => Promise<void> | void, successMessage?: string) => {

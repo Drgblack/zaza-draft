@@ -18,6 +18,7 @@
     "test:student-pronouns": "tsx scripts/test-student-pronouns.ts",
     "test:blocked-language": "tsx scripts/test-blocked-language.ts",
     "test:student-name-style": "tsx scripts/test-student-name-style.ts",
+    "test:export-docx": "tsx scripts/test-export-docx.ts",
     "test:export-pdf": "tsx scripts/test-export-pdf.ts",
     "start": "next start",
     "lint": "next lint"
@@ -29,6 +30,7 @@
     ]
   },
   "dependencies": {
+    "docx": "^8.4.1",
     "@hookform/resolvers": "^3.10.0",
     "@radix-ui/react-accordion": "1.2.2",
     "@radix-ui/react-alert-dialog": "1.1.4",
