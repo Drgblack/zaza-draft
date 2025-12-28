@@ -14,6 +14,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { ArrowLeft, LogOut, Upload, Trash2 } from "lucide-react"
 import Link from "next/link"
 import { logClientEvent } from "@/lib/analytics"
+import { canShowDevUid } from "@/lib/dev/feature-flags"
 
 export default function AccountPage() {
   const { t } = useLocale()
@@ -22,6 +23,7 @@ export default function AccountPage() {
   const displayName = user?.displayName ?? prefs.firstName
   const [name, setName] = useState(displayName)
   const [profilePhoto, setProfilePhoto] = useState<string | null>(prefs.profilePhoto)
+  const [uidCopied, setUidCopied] = useState(false)
   const email = user?.email ?? "-"
   const [accountInfo, setAccountInfo] = useState<null | {
     plan: "free" | "pro"
@@ -55,6 +57,7 @@ export default function AccountPage() {
     } | null
   }>(null)
   const [diagnosticsError, setDiagnosticsError] = useState<string | null>(null)
+  const showDevUid = Boolean(user?.uid && canShowDevUid)
 
   const handleSave = () => {
     const trimmedName = name.trim()
@@ -120,6 +123,15 @@ export default function AccountPage() {
   useEffect(() => {
     setProfilePhoto(prefs.profilePhoto)
   }, [prefs.profilePhoto])
+
+  useEffect(() => {
+    if (!uidCopied) {
+      return undefined
+    }
+
+    const timer = window.setTimeout(() => setUidCopied(false), 2000)
+    return () => clearTimeout(timer)
+  }, [uidCopied])
 
   useEffect(() => {
     let isMounted = true
@@ -266,6 +278,18 @@ export default function AccountPage() {
     }
   }, [getIdToken, signOut])
 
+  const handleCopyUid = async () => {
+    if (!user?.uid) {
+      return
+    }
+    try {
+      await navigator.clipboard.writeText(user.uid)
+      setUidCopied(true)
+    } catch {
+      // ignore copy failures
+    }
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-pink-400 via-purple-500 to-orange-400 dark:from-purple-900 dark:via-purple-800 dark:to-pink-900">
       <div className="container mx-auto px-4 py-8 max-w-4xl">
@@ -357,6 +381,24 @@ export default function AccountPage() {
                   className="bg-gray-100 dark:bg-gray-800 dark:text-gray-400 cursor-not-allowed"
                 />
                 <p className="text-sm text-gray-600 dark:text-gray-400">{t("account.profile.emailReadonly")}</p>
+                {showDevUid && (
+                  <div className="flex items-center justify-between gap-2 rounded-lg border border-dashed border-gray-300 bg-gray-50 dark:border-gray-700 dark:bg-white/5 p-2">
+                    <span className="text-xs text-gray-600 dark:text-gray-300">
+                      UID:{" "}
+                      <span className="font-mono text-xs text-gray-900 dark:text-white">
+                        {user?.uid}
+                      </span>
+                    </span>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="text-xs"
+                      onClick={handleCopyUid}
+                    >
+                      {uidCopied ? "Copied!" : "Copy UID"}
+                    </Button>
+                  </div>
+                )}
               </div>
                 <Button
                   onClick={handleSave}

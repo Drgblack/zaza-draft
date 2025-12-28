@@ -44,6 +44,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
       setUser(nextUser)
       setStatus("authenticated")
+      void (async () => {
+        try {
+          const token = await nextUser.getIdToken()
+          await fetch("/api/account/bootstrap", {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          })
+        } catch (error) {
+          console.warn("[auth] account bootstrap failed", error)
+        }
+      })()
     })
 
     return () => unsubscribe()
