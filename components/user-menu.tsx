@@ -20,7 +20,7 @@ export function UserMenu() {
   const { t } = useLocale()
   const router = useRouter()
   const { prefs } = useTeacherPrefs()
-  const { user } = useAuth()
+  const { user, signOut } = useAuth()
   const [open, setOpen] = useState(false)
   const profilePhoto = prefs.profilePhoto
 
@@ -29,10 +29,15 @@ export function UserMenu() {
   const userInitials = displayName.charAt(0)
   const userEmail = user?.email ?? "user@example.com"
 
-  const handleLogout = () => {
-    // Mock logout action
-    console.log("[v0] Logout clicked")
-    setOpen(false)
+  const handleLogout = async () => {
+    try {
+      await signOut()
+    } catch (error) {
+      console.error("[user menu] logout failed", error)
+    } finally {
+      setOpen(false)
+      router.push("/")
+    }
   }
 
   return (
