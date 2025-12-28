@@ -27,6 +27,7 @@ import {
 } from "@/lib/draft/fallback"
 import { isInternalQaUid, shouldRespectUsageLimit } from "@/lib/auth/internal-qa"
 import { buildBlockedLanguageResponse } from "@/lib/draft/blocked-response"
+import { enforceTeacherNameStyle } from "@/lib/draft/teacher-language"
 
 const TONE_DESCRIPTIONS: Record<ToneKey, string> = {
   warm: "Warm & Encouraging",
@@ -436,6 +437,10 @@ export async function POST(request: Request) {
     errorCode: fallbackErrorCode,
   } = await generateDraftWithFallback(providerInput, fallbackContext)
   let generatedDraft = enforcePronouns(providerResult.text, resolvedPronounPreference)
+  generatedDraft = enforceTeacherNameStyle(generatedDraft, {
+    firstName: studentNameForPayload || undefined,
+    pronounPreference: resolvedPronounPreference,
+  })
   let providerMeta = providerResult.providerMeta
   let rewriteAttempted = false
   const generationTime = providerMeta.latencyMs ?? Date.now() - generationStart
@@ -475,6 +480,10 @@ export async function POST(request: Request) {
       const rewriteResult = await reRunWithRewrite(payload, generatedDraft, resolvedPronounPreference, mode)
       if (rewriteResult) {
         generatedDraft = enforcePronouns(rewriteResult.text, resolvedPronounPreference)
+        generatedDraft = enforceTeacherNameStyle(generatedDraft, {
+          firstName: studentNameForPayload || undefined,
+          pronounPreference: resolvedPronounPreference,
+        })
         providerMeta = rewriteResult.providerMeta
         blockedDetection = detectBlockedLanguage(generatedDraft)
       }
