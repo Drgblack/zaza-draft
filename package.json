@@ -15,6 +15,7 @@
     "test:account-export": "tsx scripts/test-account-export.ts",
     "test:account-delete": "tsx scripts/test-account-delete.ts",
     "test:account-bootstrap": "tsx scripts/test-account-bootstrap.ts",
+    "test:student-pronouns": "tsx scripts/test-student-pronouns.ts",
     "test:export-pdf": "tsx scripts/test-export-pdf.ts",
     "start": "next start",
     "lint": "next lint"

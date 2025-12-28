@@ -1,6 +1,7 @@
 import { generateDraft, ProviderMeta, ProviderResult } from "@/lib/ai/provider"
 import type { PronounPreference } from "@/lib/types"
 import { DraftMode } from "@/lib/types"
+import { buildStudentInstruction, buildStudentNameForFallback } from "@/lib/draft/student-policy"
 
 export const ALLOWED_TONES = ["warm", "professional", "direct", "empathetic"] as const
 export const ALLOWED_LANGUAGES = ["en", "de"] as const
@@ -13,6 +14,8 @@ interface DraftFallbackContext {
   language: LanguageKey
   requestId: string
   uidHash: string
+  studentFirstName?: string
+  studentPronounPreference: PronounPreference
 }
 
 const FALLBACK_TONE_TEXT: Record<ToneKey, { parent: string; report: string }> = {
@@ -60,13 +63,21 @@ const FALLBACK_LANGUAGE_COPY: Record<
   },
 }
 
-function buildFallbackDraft({ mode, tone, language }: DraftFallbackContext) {
-  const toneText = FALLBACK_TONE_TEXT[tone]
-  const langCopy = FALLBACK_LANGUAGE_COPY[language]
-  if (mode === "parent_message") {
-    return `${langCopy.subject}\n${langCopy.parentGreeting}\n${toneText.parent}\n${langCopy.nextStep}\n${langCopy.closing}`
+function buildFallbackDraft(context: DraftFallbackContext) {
+  const toneText = FALLBACK_TONE_TEXT[context.tone]
+  const langCopy = FALLBACK_LANGUAGE_COPY[context.language]
+  const studentProps = {
+    firstName: context.studentFirstName,
+    pronoun: context.studentPronounPreference,
   }
-  return `${toneText.report} ${langCopy.reportSuffix}`
+  const nameLine = context.studentFirstName
+    ? `I'm referring to ${buildStudentNameForFallback(studentProps)} and following the ${context.studentPronounPreference} pronoun preference.`
+    : "I'm referring to your child and keeping the wording professional and neutral."
+  const instruction = buildStudentInstruction(studentProps)
+  if (context.mode === "parent_message") {
+    return `${langCopy.subject}\n${langCopy.parentGreeting}\n${nameLine}\n${instruction}\n${toneText.parent}\n${langCopy.nextStep}\n${langCopy.closing}`
+  }
+  return `${nameLine}\n${instruction}\n${toneText.report} ${langCopy.reportSuffix}`
 }
 
 interface ProviderRequestInput {
@@ -81,6 +92,8 @@ interface ProviderRequestInput {
   previousDraft?: string
   pronounPreference: PronounPreference
   mode: DraftMode
+  studentFirstName?: string
+  resolvedPronounPreference?: PronounPreference
 }
 
 interface ProviderFallbackResult {

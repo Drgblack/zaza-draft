@@ -1,5 +1,6 @@
 import type { DraftLanguage, DraftMode, DraftTone, PronounPreference } from "@/lib/types"
 import { MODE_DISPLAY_NAMES, MODE_PROMPT_INSTRUCTIONS } from "@/lib/draft-mode"
+import { buildStudentInstruction } from "@/lib/draft/student-policy"
 
 function getOpenAiApiKey() {
   return process.env.OPENAI_API_KEY
@@ -29,6 +30,8 @@ interface ProviderInput {
   previousDraft?: string
   pronounPreference: PronounPreference
   mode: DraftMode
+  studentFirstName?: string
+  resolvedPronounPreference?: PronounPreference
 }
 
 export interface ProviderMeta {
@@ -70,6 +73,13 @@ function buildSystemPrompt(input: ProviderInput) {
     PRONOUN_INSTRUCTIONS[input.pronounPreference],
     MODE_PROMPT_INSTRUCTIONS[input.mode],
   ]
+
+  const resolvedPronoun = input.resolvedPronounPreference ?? input.pronounPreference
+  const studentInstruction = buildStudentInstruction({
+    firstName: input.studentFirstName,
+    pronoun: resolvedPronoun,
+  })
+  systemLines.push(studentInstruction)
 
   if (input.rewrite) {
     systemLines.push(

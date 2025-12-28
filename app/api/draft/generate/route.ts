@@ -159,6 +159,7 @@ export async function POST(request: Request) {
       : typeof payload?.studentName === "string"
       ? payload.studentName.trim()
       : ""
+  const studentNameForPayload = studentFirstNameInput || ""
 
   if (mode === null) {
     return NextResponse.json(
@@ -412,6 +413,8 @@ export async function POST(request: Request) {
     previousDraft: payload.previousDraft,
     pronounPreference: resolvedPronounPreference,
     mode,
+    studentFirstName: studentNameForPayload || undefined,
+    resolvedPronounPreference,
   }
   const fallbackContext: DraftFallbackContext = {
     mode,
@@ -419,6 +422,8 @@ export async function POST(request: Request) {
     language: language as LanguageKey,
     requestId,
     uidHash,
+    studentFirstName: studentNameForPayload || undefined,
+    studentPronounPreference: resolvedPronounPreference,
   }
   const {
     result: providerResult,
