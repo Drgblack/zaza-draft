@@ -136,6 +136,10 @@ export function MainEditor() {
   const [generationError, setGenerationError] = useState<string | null>(null)
   const [sensitivePreview, setSensitivePreview] = useState<string | null>(null)
   const [generationAction, setGenerationAction] = useState<string | null>(null)
+  const [blockedLanguageContext, setBlockedLanguageContext] = useState<{
+    teacherNote: string
+    safeAlternatives: string[]
+  } | null>(null)
   const [loadingMessageIndex, setLoadingMessageIndex] = useState(0)
 
   const [showWellbeingInsights, setShowWellbeingInsights] = useState(true)
@@ -310,6 +314,7 @@ export function MainEditor() {
     setGeneratedDraft(null)
     setDraftMetadata(null)
     setInputReframeTier(null)
+    setBlockedLanguageContext(null)
 
     const payload: Record<string, unknown> = {
       situation: content.trim(),
@@ -387,6 +392,12 @@ export function MainEditor() {
           mapped?.message || data?.error?.message || "We couldn't generate a draft right now.",
         )
         setGenerationAction(mapped?.action ?? null)
+        const blockedLanguagePayload = data?.data?.blockedLanguage ?? null
+        if (blockedLanguagePayload) {
+          setBlockedLanguageContext(blockedLanguagePayload)
+        } else {
+          setBlockedLanguageContext(null)
+        }
         if (data?.data?.redactedPreview) {
           setSensitivePreview(data.data.redactedPreview)
         }
@@ -396,6 +407,7 @@ export function MainEditor() {
 
         return
       }
+      setBlockedLanguageContext(null)
 
       logClientEvent("draft_generate_succeeded", {
         tone: selectedTone,
@@ -826,6 +838,16 @@ Examples:
               <p className="mt-2 text-xs text-red-700">
                 {generationAction}
               </p>
+            )}
+            {blockedLanguageContext && (
+              <div className="mt-3 rounded-lg border border-blue-200 bg-blue-50/80 p-3 text-sm text-blue-900 dark:border-blue-500/40 dark:bg-blue-950/40 dark:text-blue-100">
+                <p className="font-semibold">{blockedLanguageContext.teacherNote}</p>
+                <ul className="mt-2 space-y-1 list-disc list-inside text-xs text-blue-800 dark:text-blue-200">
+                  {blockedLanguageContext.safeAlternatives.map((alternative, idx) => (
+                    <li key={idx}>{alternative}</li>
+                  ))}
+                </ul>
+              </div>
             )}
           </div>
         )}

@@ -26,6 +26,7 @@ import {
   ToneKey,
 } from "@/lib/draft/fallback"
 import { isInternalQaUid, shouldRespectUsageLimit } from "@/lib/auth/internal-qa"
+import { buildBlockedLanguageResponse } from "@/lib/draft/blocked-response"
 
 const TONE_DESCRIPTIONS: Record<ToneKey, string> = {
   warm: "Warm & Encouraging",
@@ -365,12 +366,16 @@ export async function POST(request: Request) {
       lastErrorCode: "BLOCKED_LANGUAGE",
       lastBlockedLanguageTier: tier,
     })
+    const blockedResponse = buildBlockedLanguageResponse(tier)
     return NextResponse.json(
       {
         success: false,
+        data: {
+          blockedLanguage: blockedResponse,
+        },
         error: {
           code: "BLOCKED_LANGUAGE",
-          message: "Please remove hateful or threatening language so the note stays parent-friendly.",
+          message: blockedResponse.message,
         },
       },
       { status: 422 },
