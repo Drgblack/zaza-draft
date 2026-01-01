@@ -119,6 +119,8 @@ export function MainEditor() {
   })
   const draftsUsed = usage.currentMonthUsage
   const draftsLimit = usage.limit ?? 0
+  const [isQaUser, setIsQaUser] = useState(false)
+  const isLimitedUser = usage.plan === "free" && !isQaUser
   const { prefs } = useTeacherPrefs()
   const { t, locale } = useLocale()
   const { user, getIdToken, signOut } = useAuth()
@@ -160,12 +162,12 @@ export function MainEditor() {
   useEffect(() => {
     let isMounted = true
 
-    const loadAccountUsage = async () => {
-      try {
-        const token = await getIdToken()
-        if (!token) {
-          return
-        }
+        const loadAccountUsage = async () => {
+          try {
+            const token = await getIdToken()
+            if (!token) {
+              return
+            }
 
         const response = await fetch("/api/account/status", {
           headers: {
@@ -179,13 +181,14 @@ export function MainEditor() {
         }
 
         const payload = await response.json()
-        if (payload?.success && payload?.data?.usage && isMounted) {
-          setUsage(payload.data.usage)
+            if (payload?.success && payload?.data?.usage && isMounted) {
+              setUsage(payload.data.usage)
+              setIsQaUser(Boolean(payload.data.isQaUser))
+            }
+          } catch (error) {
+            console.error("[v0] Failed to load account usage", error)
+          }
         }
-      } catch (error) {
-        console.error("[v0] Failed to load account usage", error)
-      }
-    }
 
     loadAccountUsage()
 
@@ -462,7 +465,7 @@ export function MainEditor() {
       setHistory((prev) => (append ? [...prev, ...(payload.data.snippets ?? [])] : payload.data.snippets ?? []))
     } catch (error) {
       console.error("[v1] Failed to load snippet history", error)
-      setHistoryError("Unable to load history right now.")
+      setHistoryError(t("editor.history.error"))
     } finally {
       setHistoryLoading(false)
     }
@@ -545,7 +548,7 @@ export function MainEditor() {
           </p>
         </div>
 
-        {usage.plan === "free" && usage.remaining === 0 && (
+        {isLimitedUser && usage.remaining === 0 && (
           <div className="mt-4 rounded-2xl bg-amber-50/80 border border-amber-200 p-4 text-sm text-amber-900 dark:bg-amber-900/30 dark:border-amber-800 dark:text-amber-100 space-y-3">
             <p>{t("account.billing.paywallMessage")}</p>
             <Link href="/account">
@@ -675,13 +678,13 @@ Examples:
               <input
                 value={subject}
                 onChange={(event) => setSubject(event.target.value)}
-                placeholder="Subject (optional)"
+                placeholder={t("editor.placeholder.subject")}
                 className="bg-white/90 dark:bg-white/10 rounded-xl border border-white/40 dark:border-white/30 px-4 py-3 text-gray-900 dark:text-white font-medium shadow-sm focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-2"
               />
               <input
                 value={gradeLevel}
                 onChange={(event) => setGradeLevel(event.target.value)}
-                placeholder="Grade level (optional)"
+                placeholder={t("editor.placeholder.gradeLevel")}
                 className="bg-white/90 dark:bg-white/10 rounded-xl border border-white/40 dark:border-white/30 px-4 py-3 text-gray-900 dark:text-white font-medium shadow-sm focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-2"
               />
             </div>
@@ -694,45 +697,47 @@ Examples:
           className="w-full bg-gradient-to-br from-[#7c3aed] via-[#6d28d9] to-[#5b21b6] hover:shadow-[0_20px_56px_rgba(124,58,237,0.5),inset_0_2px_4px_rgba(255,255,255,0.3)] text-white dark:text-white text-lg font-bold py-6 rounded-xl transition-all duration-200 shadow-[0_12px_32px_rgba(124,58,237,0.4),inset_0_1px_3px_rgba(255,255,255,0.25),inset_0_-1px_2px_rgba(0,0,0,0.1)] disabled:opacity-50 disabled:cursor-not-allowed focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 hover:-translate-y-1 hover:scale-[1.02] active:translate-y-0 active:scale-100 border border-white/20"
           aria-label={t("button.generate")}
         >
-          {isGenerating ? (locale === "de-DE" ? "Generiere Entwurf…" : "Generating snippet…") : t("button.generate")}
+          {isGenerating ? t("editor.generating.message") : t("button.generate")}
         </Button>
 
         <div className="text-center mt-4 text-sm text-white/90 drop-shadow-[0_1px_4px_rgba(0,0,0,0.25)] font-medium">
-          {usage.plan === "free" ? (
+          {isLimitedUser ? (
             <>{t("insights.draftsUsed", { used: draftsUsed, limit: draftsLimit })}</>
           ) : (
             <>{t("insights.unlimitedDrafts")}</>
           )}
         </div>
-        <div className="text-center mt-3">
-          <Link href="/account">
-            <Button
-              className="bg-gradient-to-r from-[#a855f7] to-[#7c3aed] text-white border-transparent shadow-[0_8px_20px_rgba(124,58,237,0.35)] hover:shadow-[0_10px_28px_rgba(124,58,237,0.5)] hover:from-[#9333ea] hover:to-[#6b21a8]"
-            >
-              {t("account.billing.upgrade")}
-            </Button>
-          </Link>
-        </div>
+        {isLimitedUser && (
+          <div className="text-center mt-3">
+            <Link href="/account">
+              <Button
+                className="bg-gradient-to-r from-[#a855f7] to-[#7c3aed] text-white border-transparent shadow-[0_8px_20px_rgba(124,58,237,0.35)] hover:shadow-[0_10px_28px_rgba(124,58,237,0.5)] hover:from-[#9333ea] hover:to-[#6b21a8]"
+              >
+                {t("account.billing.upgrade")}
+              </Button>
+            </Link>
+          </div>
+        )}
         {onboardingVisible && !onboardingLoading && (
           <div className="mt-6 rounded-2xl border border-white/20 bg-white/10 p-4 shadow-inner text-sm text-white">
             <div className="flex flex-col gap-2">
-              <p className="font-semibold">Welcome to Zaza Draft</p>
+              <p className="font-semibold">{t("editor.welcome.title")}</p>
               <p>
-                Do not include student full names, emails, phone numbers, or addresses. Learn more in{" "}
+                {t("editor.welcome.warning")} {t("editor.welcome.learnMorePrefix")}{" "}
                 <Link href="/privacy" className="underline">
-                  Privacy
+                  {t("link.privacy")}
                 </Link>{" "}
-                or{" "}
+                {t("editor.welcome.learnMoreMiddle")}{" "}
                 <Link href="/account/privacy" className="underline">
-                  Privacy & Safety
+                  {t("link.privacySafety")}
                 </Link>
-                .
+                {t("editor.welcome.learnMoreSuffix")}
               </p>
               <button
                 onClick={dismissOnboarding}
                 className="self-start rounded-full bg-white/20 px-3 py-1 text-xs font-semibold uppercase tracking-[0.1em] hover:bg-white/30 transition"
               >
-                Got it
+                {t("editor.welcome.dismiss")}
               </button>
             </div>
             {onboardingError && <p className="text-xs text-rose-200 mt-2">{onboardingError}</p>}
@@ -740,12 +745,12 @@ Examples:
         )}
 
         <details className="mt-10 rounded-2xl bg-white/10 p-4 backdrop-blur border border-white/20 text-white">
-          <summary className="text-lg font-semibold cursor-pointer">Recent drafts</summary>
-          <p className="text-sm text-white/70 mt-2">Load a previous draft or remove it from history.</p>
+          <summary className="text-lg font-semibold cursor-pointer">{t("editor.history.title")}</summary>
+          <p className="text-sm text-white/70 mt-2">{t("editor.history.description")}</p>
           <p className="text-xs text-white/50 mt-1">
-            What we store: snippet text, tone, language, and timestamps. No student identifiers are saved.{" "}
+            {t("editor.history.storage")}{" "}
             <Link href="/account/data" className="underline">
-              View your data
+              {t("editor.history.viewData")}
             </Link>
           </p>
           {historyLoading && (
@@ -764,7 +769,7 @@ Examples:
           )}
           {historyError && <p className="text-sm text-rose-200 mt-2">{historyError}</p>}
           {!historyLoading && !history.length && (
-            <p className="text-sm text-white/60 mt-2">No drafts saved yet.</p>
+            <p className="text-sm text-white/60 mt-2">{t("editor.history.empty")}</p>
           )}
           <ul className="mt-4 space-y-3">
             {history.map((item) => (
@@ -781,28 +786,36 @@ Examples:
                   </span>
                   <span className="uppercase tracking-wide text-xs">{item.tone}</span>
                 </div>
-                <p className="text-sm text-white/90">Language: {item.language.toUpperCase()}</p>
-                <p className="text-sm text-white/90">Words: {item.wordCount}</p>
+                <p className="text-sm text-white/90">
+                  {t("editor.history.language")}: {item.language.toUpperCase()}
+                </p>
+                <p className="text-sm text-white/90">
+                  {t("editor.history.words")}: {item.wordCount}
+                </p>
                 <p className="text-xs text-white/60 uppercase tracking-wide">
-                  Mode: {MODE_DISPLAY_NAMES[item.mode ?? "parent_message"]}
+                  {t("editor.history.mode")} {MODE_DISPLAY_NAMES[item.mode ?? "parent_message"]}
                 </p>
                 {(item.contextUsed?.subject || item.contextUsed?.gradeLevel) && (
                   <p className="text-sm text-white/80">
-                    {item.contextUsed?.subject ? `Subject: ${item.contextUsed.subject}` : ""}
-                    {item.contextUsed?.gradeLevel ? ` | Grade: ${item.contextUsed.gradeLevel}` : ""}
-                </p>
-              )}
-              {item.pronounResolution?.resolvedPreference && (
-                <p className="text-xs text-white/60 uppercase tracking-wide">
-                  Pronouns: {item.pronounResolution.resolvedPreference}
-                </p>
-              )}
+                    {item.contextUsed?.subject
+                      ? `${t("editor.history.subjectLabel")}: ${item.contextUsed.subject}`
+                      : ""}
+                    {item.contextUsed?.gradeLevel
+                      ? ` | ${t("editor.history.gradeLabel")}: ${item.contextUsed.gradeLevel}`
+                      : ""}
+                  </p>
+                )}
+                {item.pronounResolution?.resolvedPreference && (
+                  <p className="text-xs text-white/60 uppercase tracking-wide">
+                    {t("editor.history.pronouns", { value: item.pronounResolution.resolvedPreference })}
+                  </p>
+                )}
                 <div className="flex gap-2 mt-2">
                   <Button size="sm" variant="outline" onClick={() => loadSnippet(item)}>
-                    Load
+                    {t("draft.action.load")}
                   </Button>
                   <Button size="sm" variant="ghost" className="text-rose-200" onClick={() => deleteSnippet(item.id)}>
-                    Delete
+                    {t("draft.action.delete")}
                   </Button>
                 </div>
               </li>
@@ -816,7 +829,7 @@ Examples:
               onClick={() => refreshHistory(historyCursor, true)}
               disabled={historyLoading}
             >
-              Load more
+              {t("editor.history.loadMore")}
             </Button>
           )}
         </details>
@@ -824,7 +837,7 @@ Examples:
         {isGenerating && (
           <div className="mt-4 rounded-2xl bg-white/10 border border-white/20 p-4 text-sm text-white/90 shadow-inner">
             <p className="font-semibold text-white">
-              {locale === "de-DE" ? "Generiere deinen Entwurf…" : "Generating your snippet…"}
+              {t("editor.generating.message")}
             </p>
             <p>{LOADING_MESSAGES[loadingMessageIndex]}</p>
             <div className="mt-3 grid gap-2">
@@ -863,19 +876,19 @@ Examples:
 
         {generatedDraft && draftMetadata && (
           <div className="mt-8 space-y-4">
-            <DraftOutput
-              draftText={generatedDraft}
-              tone={draftMetadata.toneUsed ?? selectedTone}
-              metadata={draftMetadata}
-              onSave={handleSaveDraft}
-              onEdit={handleEditDraft}
-              onRegenerate={handleRegenerateDraft}
-              onRewrite={handleRewriteDraft}
-              draftsUsed={draftsUsed}
-              draftsLimit={draftsLimit}
-              showUsageLimit={usage.plan === "free"}
-              structure={draftStructure ?? undefined}
-            />
+          <DraftOutput
+            draftText={generatedDraft}
+            tone={draftMetadata.toneUsed ?? selectedTone}
+            metadata={draftMetadata}
+            onSave={handleSaveDraft}
+            onEdit={handleEditDraft}
+            onRegenerate={handleRegenerateDraft}
+            onRewrite={handleRewriteDraft}
+            draftsUsed={draftsUsed}
+            draftsLimit={draftsLimit}
+            showUsageLimit={isLimitedUser}
+            structure={draftStructure ?? undefined}
+          />
             {deescalationSummary?.wasDeescalated && (
               <DeescalationBanner summary={deescalationSummary} />
             )}

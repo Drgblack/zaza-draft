@@ -42,7 +42,7 @@ For more details, see `docs/spec/Zaza Draft - Technical Specification.md`.
 - `STRIPE_PRICE_DRAFT_PRO` (the price ID for the Draft Pro monthly plan)
 - `STRIPE_WEBHOOK_SECRET`
 - `NEXT_PUBLIC_APP_URL` (used in success/cancel URLs for Stripe and should match `http://localhost:3000` in dev)
- - `INTERNAL_QA_UIDS` (optional comma-separated UID list that bypasses the monthly free-tier limit for internal QA/testing accounts; add values only in trusted environments such as your local `.env.local` or Vercel project settings).
+- `INTERNAL_QA_UIDS` (optional comma-separated UID list that bypasses the monthly free-tier limit for internal QA/testing accounts; add values only in trusted environments such as your local `.env.local` or the Vercel project settings for your Preview and Production deployments). When you add a UID, mirror the same value into both Preview and Production environment variables and redeploy each environment so the bypass is applied everywhere.
 
 Firebase envs are already listed above in the Phase 2a section and remain required.
 
@@ -153,7 +153,8 @@ curl -X POST http://localhost:3000/api/draft/generate \
   - `FIREBASE_SERVICE_ACCOUNT_KEY` (admin SDK for `/api/*`)
   - `NEXT_PUBLIC_FIREBASE_*` keys for the client (API key, auth domain, project ID, app ID, messaging sender, measurement ID optional)
   - `OPENAI_API_KEY`, `OPENAI_MODEL_PRIMARY`, `OPENAI_MODEL_FALLBACK`
-  - `INTERNAL_QA_UIDS` (optional, comma-separated list of Firebase UIDs that should bypass free-tier usage enforcement; set it via `.env.local` during development or add the same key/value under Vercel Project → Settings → Environment Variables for Preview/Production environments you use for QA).
+- `INTERNAL_QA_UIDS` (optional, comma-separated list of Firebase UIDs that should bypass free-tier usage enforcement; set it via `.env.local` during development and in BOTH the Preview and Production environment variable slots on Vercel so QA accounts stay unlimited). Redeploy each environment after editing this value. Example: `KJ8ZDQdef1RxSyy1BXkwSFNA2dt2,<your-qa-uid>`.
+  Add test UIDs to `INTERNAL_QA_UIDS` (comma-separated) to enable unlimited drafts in preview/prod—for example, include Sarah's QA UID when verifying upgrades.
   - `SHOW_UID` / `NEXT_PUBLIC_SHOW_UID` (optional, set to `true` to reveal the current Firebase UID on `/account` for quick copying when NODE_ENV is not `production`, or when you need the preview site to expose it; this never shows in production unless you explicitly flip `SHOW_UID` there).
 
 - **Firebase Auth checklist:**

@@ -16,7 +16,7 @@ export const localeNativeNames: Record<Locale, string> = {
   "de-DE": "Deutsch (DE)",
 }
 
-const localeMessages: Record<Locale, LocaleMessages> = {
+export const localeMessages: Record<Locale, LocaleMessages> = {
   "en-GB": {
     newDoc: "New document",
     searchDocs: "Search documents",
@@ -430,6 +430,62 @@ const localeMessages: Record<Locale, LocaleMessages> = {
     "support.contact.title": "Contact Support",
     "support.contact.description": "Get in touch with our support team",
     "support.contact.button": "Contact us",
+    "link.privacy": "Privacy",
+    "link.privacySafety": "Privacy & Safety",
+    "editor.welcome.title": "Welcome to Zaza Draft",
+    "editor.welcome.warning": "Do not include student full names, emails, phone numbers, or addresses.",
+    "editor.welcome.learnMorePrefix": "Learn more in",
+    "editor.welcome.learnMoreMiddle": "or",
+    "editor.welcome.learnMoreSuffix": ".",
+    "editor.welcome.dismiss": "Got it",
+    "editor.history.title": "Recent drafts",
+    "editor.history.description": "Load a previous draft or remove it from history.",
+    "editor.history.storage": "What we store: snippet text, tone, language, and timestamps. No student identifiers are saved.",
+    "editor.history.viewData": "View your data",
+    "editor.history.loading": "Loading history...",
+    "editor.history.error": "Unable to load history right now.",
+    "editor.history.empty": "No drafts saved yet.",
+    "editor.history.language": "Language",
+    "editor.history.words": "Words",
+    "editor.history.mode": "Mode:",
+    "editor.history.loadMore": "Load more",
+    "editor.history.action.load": "Load",
+    "editor.history.action.delete": "Delete",
+    "editor.history.pronouns": "Pronouns: {value}",
+    "editor.history.subjectLabel": "Subject",
+    "editor.history.gradeLabel": "Grade",
+    "editor.placeholder.subject": "Subject (optional)",
+    "editor.placeholder.gradeLevel": "Grade level (optional)",
+    "editor.generating.message": "Generating your snippet.",
+    "draft.generatedTitle": "Draft Generated",
+    "draft.modeLabel": "Mode: {mode}",
+    "draft.generatedDetails": "Generated in {seconds}s",
+    "draft.button.copy": "Copy to Clipboard",
+    "draft.button.copyShort": "Copy",
+    "draft.button.edit": "Edit",
+    "draft.button.moreActions": "More actions",
+    "draft.button.more": "More",
+    "draft.action.load": "Load",
+    "draft.action.delete": "Delete",
+    "draft.actions.loadMore": "Load more",
+    "insights.mini.loading": "Loading your progress...",
+    "insights.mini.createFirstDraft": "Create your first draft to unlock progress tracking",
+    "insights.mini.learnMore": "Learn more",
+    "insights.mini.viewInsights": "View insights",
+    "insights.mini.viewTime": "View time saved insights",
+    "insights.mini.viewStreak": "View streak insights",
+    "insights.mini.viewBalance": "View wellbeing insights",
+    "insights.mini.regionLabel": "Your weekly progress summary",
+    "wellbeing.tip.welcome": "Welcome! Zara will learn your patterns and offer personalized tips as you go.",
+    "wellbeing.tip.weekendHealthy": "Weekend draft #{count}. Excellent job protecting your boundaries!",
+    "wellbeing.tip.momentumBreak": "You've drafted {count} messages today. Great momentum! Consider a short break?",
+    "wellbeing.tip.confidenceGrowing": "Your editing depth dropped {percent}% this month. Growing confidence!",
+    "wellbeing.tip.eveningSuggestion": "Evening work? Your best drafts typically happen in afternoons.",
+    "wellbeing.tip.peakFlow": "You're in your flow zone! Tuesday afternoons are your sweet spot.",
+    "wellbeing.tip.timeCelebration": "You saved {hours}h this week. That's precious time back for yourself.",
+    "wellbeing.tip.default": "Tip: Using 'Empathetic' tone first often saves regeneration time.",
+    "wellbeing.dismiss": "Dismiss wellbeing tip",
+    "wellbeing.tip.label": "Wellbeing tip",
   },
   "en-US": {
     newDoc: "New document",
@@ -641,6 +697,7 @@ const localeMessages: Record<Locale, LocaleMessages> = {
     "zara.tip.difficult.subtitle": "Navigate challenging topics with confidence",
     "insights.title": "Your Teaching Impact, {name}",
     "insights.draftsUsed": "{used} of {limit} drafts used this month",
+    "insights.unlimitedDrafts": "Unlimited drafts",
     "insights.backToEditor": "Back to Editor",
     "insights.subtitle": "Insights that celebrate your growth",
     "insights.dataControl": "Your data, your control",
@@ -821,12 +878,71 @@ const localeMessages: Record<Locale, LocaleMessages> = {
     "account.privacy.policyLink": "Read our full privacy policy",
     "support.title": "Help & Support",
     "support.description": "Get help with Zaza Draft",
+    "support.guides.title": "Teaching Guides",
+    "support.guides.description": "Learn best practices and teaching strategies",
+    "support.guides.button": "Browse guides",
+    "support.community.title": "Community Forum",
+    "support.community.description": "Connect with other teachers and share ideas",
+    "support.community.button": "Join community",
     "support.getHelp.title": "Get Help",
     "support.getHelp.description": "Find answers to common questions",
     "support.getHelp.button": "Browse help articles",
     "support.contact.title": "Contact Support",
     "support.contact.description": "Get in touch with our support team",
     "support.contact.button": "Contact us",
+    "link.privacy": "Privacy",
+    "link.privacySafety": "Privacy & Safety",
+    "editor.welcome.title": "Welcome to Zaza Draft",
+    "editor.welcome.warning": "Do not include student full names, emails, phone numbers, or addresses.",
+    "editor.welcome.learnMorePrefix": "Learn more in",
+    "editor.welcome.learnMoreMiddle": "or",
+    "editor.welcome.learnMoreSuffix": ".",
+    "editor.welcome.dismiss": "Got it",
+    "editor.history.title": "Recent drafts",
+    "editor.history.description": "Load a previous draft or remove it from history.",
+    "editor.history.storage": "What we store: snippet text, tone, language, and timestamps. No student identifiers are saved.",
+    "editor.history.viewData": "View your data",
+    "editor.history.loading": "Loading history...",
+    "editor.history.error": "Unable to load history right now.",
+    "editor.history.empty": "No drafts saved yet.",
+    "editor.history.language": "Language",
+    "editor.history.words": "Words",
+    "editor.history.mode": "Mode:",
+    "editor.history.loadMore": "Load more",
+    "editor.history.action.load": "Load",
+    "editor.history.action.delete": "Delete",
+    "editor.history.pronouns": "Pronouns: {value}",
+    "editor.placeholder.subject": "Subject (optional)",
+    "editor.placeholder.gradeLevel": "Grade level (optional)",
+    "editor.generating.message": "Generating your snippet.",
+    "draft.generatedTitle": "Draft Generated",
+    "draft.modeLabel": "Mode: {mode}",
+    "draft.generatedDetails": "Generated in {seconds}s",
+    "draft.button.copy": "Copy to Clipboard",
+    "draft.button.copyShort": "Copy",
+    "draft.button.edit": "Edit",
+    "draft.button.moreActions": "More actions",
+    "draft.button.more": "More",
+    "draft.action.load": "Load",
+    "draft.action.delete": "Delete",
+    "draft.actions.loadMore": "Load more",
+    "insights.mini.loading": "Loading your progress...",
+    "insights.mini.createFirstDraft": "Create your first draft to unlock progress tracking",
+    "insights.mini.learnMore": "Learn more",
+    "insights.mini.viewInsights": "View insights",
+    "insights.mini.viewTime": "View time saved insights",
+    "insights.mini.viewStreak": "View streak insights",
+    "insights.mini.viewBalance": "View wellbeing insights",
+    "insights.mini.regionLabel": "Your weekly progress summary",
+    "wellbeing.tip.welcome": "Welcome! Zara will learn your patterns and offer personalized tips as you go.",
+    "wellbeing.tip.weekendHealthy": "Weekend draft #{count}. Excellent job protecting your boundaries!",
+    "wellbeing.tip.momentumBreak": "You've drafted {count} messages today. Great momentum! Consider a short break?",
+    "wellbeing.tip.confidenceGrowing": "Your editing depth dropped {percent}% this month. Growing confidence!",
+    "wellbeing.tip.eveningSuggestion": "Evening work? Your best drafts typically happen in afternoons.",
+    "wellbeing.tip.peakFlow": "You're in your flow zone! Tuesday afternoons are your sweet spot.",
+    "wellbeing.tip.timeCelebration": "You saved {hours}h this week. That's precious time back for yourself.",
+    "wellbeing.tip.default": "Tip: Using 'Empathetic' tone first often saves regeneration time.",
+    "wellbeing.dismiss": "Dismiss wellbeing tip",
   },
   "de-DE": {
     newDoc: "Neues Dokument",
@@ -1050,10 +1166,56 @@ const localeMessages: Record<Locale, LocaleMessages> = {
     "zara.tip.parent.subtitle": "Sofort einsetzbare Vorlagen für häufige Szenarien",
     "zara.tip.difficult.title": "Tipps für schwierige Gespräche",
     "zara.tip.difficult.subtitle": "Herausfordernde Themen selbstbewusst meistern",
+    "link.privacy": "Datenschutz",
+    "link.privacySafety": "Datenschutz & Sicherheit",
+    "editor.welcome.title": "Willkommen bei Zaza Draft",
+    "editor.welcome.warning": "Bitte verwenden Sie keine vollständigen Schülernamen, E-Mails, Telefonnummern oder Adressen.",
+    "editor.welcome.learnMorePrefix": "Mehr erfahren in",
+    "editor.welcome.learnMoreMiddle": "oder",
+    "editor.welcome.learnMoreSuffix": ".",
+    "editor.welcome.dismiss": "Verstanden",
+    "editor.history.title": "Kürzliche Entwürfe",
+    "editor.history.description": "Laden Sie einen früheren Entwurf oder entfernen Sie ihn aus der Historie.",
+    "editor.history.storage": "Was wir speichern: Entwurfstext, Ton, Sprache und Zeitstempel. Keine Schüleridentifikatoren werden gespeichert.",
+    "editor.history.viewData": "Ihre Daten ansehen",
+    "editor.history.loading": "Verlauf wird geladen...",
+    "editor.history.error": "Verlauf konnte gerade nicht geladen werden.",
+    "editor.history.empty": "Noch keine Entwürfe gespeichert.",
+    "editor.history.language": "Sprache",
+    "editor.history.words": "Wörter",
+    "editor.history.mode": "Modus:",
+    "editor.history.loadMore": "Mehr laden",
+    "editor.history.action.load": "Laden",
+    "editor.history.action.delete": "Löschen",
+    "editor.history.pronouns": "Pronomen: {value}",
+    "editor.history.subjectLabel": "Fach",
+    "editor.history.gradeLabel": "Klasse",
+    "editor.placeholder.subject": "Betreff (optional)",
+    "editor.placeholder.gradeLevel": "Klassenstufe (optional)",
+    "editor.generating.message": "Entwurf wird erstellt.",
+    "draft.generatedTitle": "Entwurf erstellt",
+    "draft.modeLabel": "Modus: {mode}",
+    "draft.generatedDetails": "Erstellt in {seconds}s",
+    "draft.button.copy": "In die Zwischenablage kopieren",
+    "draft.button.copyShort": "Kopieren",
+    "draft.button.edit": "Bearbeiten",
+    "draft.button.moreActions": "Weitere Aktionen",
+    "draft.button.more": "Mehr",
+    "draft.action.load": "Laden",
+    "draft.action.delete": "Löschen",
+    "draft.actions.loadMore": "Mehr laden",
     "insights.title": "Ihr Einfluss als Lehrkraft, {name}",
     "insights.draftsUsed": "{used} von {limit} Entwürfen diesen Monat verwendet",
     "insights.unlimitedDrafts": "Unbegrenzte Entwürfe",
     "insights.backToEditor": "Zurück zum Editor",
+    "insights.mini.loading": "Fortschritt wird geladen...",
+    "insights.mini.createFirstDraft": "Erstellen Sie Ihren ersten Entwurf, um Fortschritte zu sehen",
+    "insights.mini.learnMore": "Mehr erfahren",
+    "insights.mini.viewInsights": "Einblicke anzeigen",
+    "insights.mini.viewTime": "Zeitersparnis einsehen",
+    "insights.mini.viewStreak": "Streak einsehen",
+    "insights.mini.viewBalance": "Wohlbefinden anzeigen",
+    "insights.mini.regionLabel": "Ihre wöchentliche Fortschrittsübersicht",
     "insights.subtitle": "Einblicke, die Ihr Wachstum feiern",
     "insights.dataControl": "Ihre Daten, Ihre Kontrolle",
     "insights.downloadReport": "Bericht herunterladen",
@@ -1120,6 +1282,16 @@ const localeMessages: Record<Locale, LocaleMessages> = {
     "insights.wellbeing.weekendProtection": "Wochenendschutz",
     "insights.wellbeing.eveningBoundaries": "Abendgrenzen",
     "insights.wellbeing.consecutiveDays": "Aufeinanderfolgende Tage",
+    "wellbeing.tip.welcome": "Willkommen! Zara lernt Ihre Muster und gibt Ihnen nach und nach persönliche Tipps.",
+    "wellbeing.tip.weekendHealthy": "Wochenend-Entwurf #{count}. Toll, dass Sie Ihre Grenzen schützen!",
+    "wellbeing.tip.momentumBreak": "Sie haben heute {count} Nachrichten verfasst. Spitzenleistung! Denken Sie an eine kurze Pause?",
+    "wellbeing.tip.confidenceGrowing": "Ihre Bearbeitungstiefe ist diesen Monat um {percent}% gesunken. Das zeigt wachsende Sicherheit!",
+    "wellbeing.tip.eveningSuggestion": "Abends aktiv? Ihre besten Entwürfe entstehen meist am Nachmittag.",
+    "wellbeing.tip.peakFlow": "Sie sind im Flow! Dienstagnachmittage sind Ihre Stärke.",
+    "wellbeing.tip.timeCelebration": "Sie haben diese Woche {hours}h gespart. Wichtige Zeit für Sie selbst.",
+    "wellbeing.tip.default": "Tipp: Beginnen Sie mit dem Ton „Einfühlsam“, um Wiederholungen zu vermeiden.",
+    "wellbeing.dismiss": "Hinweis verwerfen",
+    "wellbeing.tip.label": "Hinweis",
     "insights.suggestions.title": "Personalisierte Empfehlungen",
     "insights.suggestion.empathetic.title": "Versuchen Sie zuerst den 'Empathischen' Ton",
     "insights.suggestion.empathetic.desc":
@@ -1235,15 +1407,41 @@ const localeMessages: Record<Locale, LocaleMessages> = {
     "account.privacy.neverCollect.item3": "School or class details",
     "account.privacy.neverCollect.item4": "Any identifiable information about students",
     "account.privacy.policyLink": "Read our full privacy policy",
-    "support.title": "Help & Support",
-    "support.description": "Get help with Zaza Draft",
-    "support.getHelp.title": "Get Help",
-    "support.getHelp.description": "Find answers to common questions",
-    "support.getHelp.button": "Browse help articles",
-    "support.contact.title": "Contact Support",
-    "support.contact.description": "Get in touch with our support team",
-    "support.contact.button": "Contact us",
+    "support.title": "Hilfe & Support",
+    "support.description": "Hilfe bei Zaza Draft",
+    "support.guides.title": "Leitfäden",
+    "support.guides.description": "Lernen Sie bewährte Praktiken und Unterrichtsstrategien",
+    "support.guides.button": "Anleitungen suchen",
+    "support.community.title": "Community-Forum",
+    "support.community.description": "Tauschen Sie sich mit anderen Lehrkräften aus",
+    "support.community.button": "Community beitreten",
+    "support.getHelp.title": "Hilfe erhalten",
+    "support.getHelp.description": "Finden Sie Antworten auf häufige Fragen",
+    "support.getHelp.button": "Hilfeseiten durchsuchen",
+    "support.contact.title": "Support kontaktieren",
+    "support.contact.description": "Treten Sie mit unserem Support-Team in Kontakt",
+    "support.contact.button": "Kontakt aufnehmen",
   },
+}
+
+const DEFAULT_LOCALE: Locale = "en-GB"
+
+export function resolveLocale(raw?: string | null): Locale {
+  if (!raw) {
+    return DEFAULT_LOCALE
+  }
+
+  const normalized = raw.trim().toLowerCase()
+  if (normalized.startsWith("de")) {
+    return "de-DE"
+  }
+  if (normalized.includes("en-us") || normalized.includes("en_us")) {
+    return "en-US"
+  }
+  if (normalized.startsWith("en")) {
+    return "en-GB"
+  }
+  return DEFAULT_LOCALE
 }
 
 function normalizeDashes(text: string): string {
@@ -1251,11 +1449,8 @@ function normalizeDashes(text: string): string {
 }
 
 function getBrowserLocale(): Locale {
-  if (typeof window === "undefined") return "en-GB"
-  const browserLang = navigator.language
-  if (browserLang.startsWith("de")) return "de-DE"
-  if (browserLang === "en-US") return "en-US"
-  return "en-GB"
+  if (typeof window === "undefined") return DEFAULT_LOCALE
+  return resolveLocale(navigator.language)
 }
 
 interface LocaleContextValue {
@@ -1278,9 +1473,12 @@ export function useLocale() {
 
 export function LanguageProvider({ children }: { children: React.ReactNode }) {
   const [locale, setLocaleState] = useState<Locale>(() => {
-    if (typeof window === "undefined") return "en-GB"
-    const saved = localStorage.getItem("zaza.lang") as Locale | null
-    return saved || getBrowserLocale()
+    if (typeof window === "undefined") return DEFAULT_LOCALE
+    const saved = localStorage.getItem("zaza.lang")
+    if (saved) {
+      return resolveLocale(saved)
+    }
+    return getBrowserLocale()
   })
 
   useEffect(() => {
@@ -1288,19 +1486,21 @@ export function LanguageProvider({ children }: { children: React.ReactNode }) {
   }, [locale])
 
   const setLocale = useCallback((newLocale: Locale) => {
-    setLocaleState(newLocale)
+    setLocaleState(resolveLocale(newLocale))
   }, [])
 
   const t = useCallback(
     (key: string, vars?: Record<string, string | number>): string => {
-      const message = localeMessages[locale][key] || localeMessages["en-GB"][key] || key
+      const messages = localeMessages[locale] ?? localeMessages[DEFAULT_LOCALE]
+      const fallbackMessages = localeMessages[DEFAULT_LOCALE]
+      const message = messages[key] ?? fallbackMessages[key] ?? key
 
       let text: string
       if (typeof message === "object" && "one" in message && "other" in message) {
         const count = vars?.count as number
         text = count === 1 ? message.one : message.other
       } else {
-        text = message as string
+        text = String(message)
       }
 
       text = normalizeDashes(text)

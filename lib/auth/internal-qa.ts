@@ -1,8 +1,9 @@
-const parseQaUids = () => {
-  const raw = process.env.INTERNAL_QA_UIDS ?? ""
+export function parseQaUids(rawInput?: string) {
+  const raw = rawInput ?? process.env.INTERNAL_QA_UIDS ?? ""
+  // DEV NOTE: Add Sarah's QA UID (or other trusted test UIDs) to INTERNAL_QA_UIDS so unlimited drafts work in preview/prod without touching Stripe.
   return new Set(
     raw
-      .split(",")
+      .split(/[,\n\r]+/)
       .map((uid) => uid.trim())
       .filter(Boolean),
   )

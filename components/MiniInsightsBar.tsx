@@ -3,6 +3,7 @@
 import { Clock, Flame, Heart, ChevronRight, TrendingUp, Sparkles } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { useState, useEffect } from "react"
+import { useLocale } from "@/hooks/use-locale"
 
 interface InsightsData {
   timeSaved: { current: number; previous: number } | null
@@ -58,6 +59,7 @@ function formatBalanceText(balance: number): string {
 
 export function MiniInsightsBar() {
   const router = useRouter()
+  const { t } = useLocale()
   const [data, setData] = useState<InsightsData | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [hasError, setHasError] = useState(false)
@@ -115,7 +117,7 @@ export function MiniInsightsBar() {
       <div className="glass shadow-soft rounded-xl py-3 px-4 mt-4 mb-6 border border-primary/10">
         <div className="flex items-center gap-3">
           <div className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin" />
-          <span className="text-sm text-primary">Loading your progress...</span>
+            <span className="text-sm text-primary">{t("insights.mini.loading")}</span>
         </div>
       </div>
     )
@@ -127,14 +129,14 @@ export function MiniInsightsBar() {
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
           <div className="flex items-center gap-2 text-sm text-primary dark:text-purple-200">
             <Sparkles className="w-4 h-4 flex-shrink-0" />
-            <span>Create your first draft to unlock progress tracking</span>
+            <span>{t("insights.mini.createFirstDraft")}</span>
           </div>
           <button
             onClick={() => router.push("/insights")}
             className="flex items-center gap-1 text-xs text-primary dark:text-primary hover:text-primary dark:hover:text-primary transition-colors duration-200 focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 rounded whitespace-nowrap flex-shrink-0"
-            aria-label="Learn more about insights"
+            aria-label={t("insights.mini.learnMore")}
           >
-            <span>Learn more</span>
+            <span>{t("insights.mini.learnMore")}</span>
             <ChevronRight className="w-3 h-3" />
           </button>
         </div>
@@ -152,15 +154,15 @@ export function MiniInsightsBar() {
     <div
       className={`glass shadow-[0_8px_28px_rgba(0,0,0,0.12)] rounded-xl py-3 px-4 mt-4 mb-6 border border-white/50 dark:border-white/40 transition-all duration-200 hover:shadow-[0_12px_36px_rgba(147,51,234,0.25)] hover:-translate-y-0.5 bg-white/90 dark:bg-white/15 backdrop-blur-[32px] ${animationClass}`}
       role="region"
-      aria-label="Your weekly progress summary"
+      aria-label={t("insights.mini.regionLabel")}
     >
       <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
         <div className="flex flex-wrap items-center gap-x-6 gap-y-2 flex-1 min-w-0">
           <button
             onClick={() => router.push("/insights#time-saved")}
             className="flex items-center gap-2 text-sm text-purple-800 dark:text-purple-200 hover:text-purple-900 dark:hover:text-purple-100 transition-colors duration-200 group whitespace-nowrap focus-visible:ring-2 focus-visible:ring-purple-600 focus-visible:ring-offset-2 rounded font-bold"
-            aria-label="View time saved insights"
-            title="View time saved details in Insights dashboard"
+            aria-label={t("insights.mini.viewTime")}
+            title={t("insights.mini.viewTime")}
           >
             <Clock
               className="w-4 h-4 flex-shrink-0 text-purple-800 dark:text-purple-200"
@@ -183,8 +185,8 @@ export function MiniInsightsBar() {
           <button
             onClick={() => router.push("/insights#streak")}
             className="flex items-center gap-2 text-sm text-orange-800 dark:text-orange-200 hover:text-orange-900 dark:hover:text-orange-100 transition-colors duration-200 group whitespace-nowrap focus-visible:ring-2 focus-visible:ring-orange-600 focus-visible:ring-offset-2 rounded font-bold"
-            aria-label="View streak insights"
-            title="View your streak history in Insights dashboard"
+            aria-label={t("insights.mini.viewStreak")}
+            title={t("insights.mini.viewStreak")}
           >
             <Flame
               className="w-4 h-4 flex-shrink-0 text-orange-800 dark:text-orange-200"
@@ -197,8 +199,8 @@ export function MiniInsightsBar() {
           <button
             onClick={() => router.push("/insights#wellbeing")}
             className="flex items-center gap-2 text-sm text-emerald-800 dark:text-emerald-200 hover:text-emerald-900 dark:hover:text-emerald-100 transition-colors duration-200 group whitespace-nowrap focus-visible:ring-2 focus-visible:ring-emerald-600 focus-visible:ring-offset-2 rounded font-bold"
-            aria-label="View work-life balance insights"
-            title="View wellbeing metrics in Insights dashboard"
+            aria-label={t("insights.mini.viewBalance")}
+            title={t("insights.mini.viewBalance")}
           >
             <Heart
               className="w-4 h-4 flex-shrink-0 text-emerald-800 dark:text-emerald-200"
@@ -212,9 +214,9 @@ export function MiniInsightsBar() {
         <button
           onClick={() => router.push("/insights")}
           className="flex items-center gap-1 text-xs text-purple-800 dark:text-purple-200 hover:text-purple-900 dark:hover:text-purple-100 transition-colors duration-200 group whitespace-nowrap flex-shrink-0 self-start lg:self-auto focus-visible:ring-2 focus-visible:ring-purple-600 focus-visible:ring-offset-2 rounded font-bold"
-          aria-label="View full insights dashboard"
+          aria-label={t("insights.mini.viewInsights")}
         >
-          <span>View insights</span>
+          <span>{t("insights.mini.viewInsights")}</span>
           <ChevronRight
             className="w-3 h-3 group-hover:translate-x-0.5 transition-transform"
             aria-hidden="true"

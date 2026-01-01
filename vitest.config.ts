@@ -13,6 +13,11 @@ export default defineConfig({
   test: {
     environment: "jsdom",
     globals: true,
-    include: ["lib/**/*.test.{ts,tsx}", "components/**/*.test.tsx", "app/**/*.test.{ts,tsx}"],
+    include: [
+      "lib/**/*.test.{ts,tsx}",
+      "components/**/*.test.tsx",
+      "app/**/*.test.{ts,tsx}",
+      "hooks/**/*.test.{ts,tsx}",
+    ],
   },
 })

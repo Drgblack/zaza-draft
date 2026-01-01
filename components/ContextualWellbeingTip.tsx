@@ -4,11 +4,13 @@ import type React from "react"
 
 import { Lightbulb, X, Sparkles, Moon, Heart, Target, Clock } from "lucide-react"
 import { useState, useEffect } from "react"
+import { useLocale } from "@/hooks/use-locale"
 
 interface WellbeingTip {
   id: string
   icon: React.ReactNode
-  text: string
+  textKey: string
+  vars?: Record<string, string | number>
   type: "time" | "usage" | "achievement" | "welcome"
 }
 
@@ -37,7 +39,7 @@ function selectPersonalizedTip(context: TipContext, hasEnoughData: boolean): Wel
     return {
       id: "welcome",
       icon: <Sparkles className="w-4 h-4 text-purple-500" />,
-      text: "Welcome! Zara will learn your patterns and offer personalized tips as you go.",
+      textKey: "wellbeing.tip.welcome",
       type: "welcome",
     }
   }
@@ -46,7 +48,8 @@ function selectPersonalizedTip(context: TipContext, hasEnoughData: boolean): Wel
     return {
       id: "weekend-healthy",
       icon: <Heart className="w-4 h-4 text-green-500" />,
-      text: `Weekend draft #${context.draftsToday}. Excellent job protecting your boundaries!`,
+      textKey: "wellbeing.tip.weekendHealthy",
+      vars: { count: context.draftsToday },
       type: "time",
     }
   }
@@ -55,7 +58,8 @@ function selectPersonalizedTip(context: TipContext, hasEnoughData: boolean): Wel
     return {
       id: "momentum-break",
       icon: <Target className="w-4 h-4 text-purple-500" />,
-      text: `You've drafted ${context.draftsToday} messages today. Great momentum! Consider a short break?`,
+      textKey: "wellbeing.tip.momentumBreak",
+      vars: { count: context.draftsToday },
       type: "usage",
     }
   }
@@ -64,7 +68,8 @@ function selectPersonalizedTip(context: TipContext, hasEnoughData: boolean): Wel
     return {
       id: "confidence-growing",
       icon: <Sparkles className="w-4 h-4 text-orange-500" />,
-      text: `Your editing depth dropped ${Math.abs(context.editDepthChange)}% this month. Growing confidence!`,
+      textKey: "wellbeing.tip.confidenceGrowing",
+      vars: { percent: Math.abs(context.editDepthChange) },
       type: "achievement",
     }
   }
@@ -73,7 +78,7 @@ function selectPersonalizedTip(context: TipContext, hasEnoughData: boolean): Wel
     return {
       id: "evening-suggestion",
       icon: <Moon className="w-4 h-4 text-purple-500" />,
-      text: "Evening work? Your best drafts typically happen in afternoons.",
+      textKey: "wellbeing.tip.eveningSuggestion",
       type: "time",
     }
   }
@@ -82,17 +87,18 @@ function selectPersonalizedTip(context: TipContext, hasEnoughData: boolean): Wel
     return {
       id: "peak-flow",
       icon: <Sparkles className="w-4 h-4 text-orange-500" />,
-      text: "You're in your flow zone! Tuesday afternoons are your sweet spot.",
+      textKey: "wellbeing.tip.peakFlow",
       type: "time",
     }
   }
 
   if (context.draftsThisWeek >= 15) {
-    const timeSaved = (context.draftsThisWeek * 0.25).toFixed(1)
+    const timeSaved = Number((context.draftsThisWeek * 0.25).toFixed(1))
     return {
       id: "time-celebration",
       icon: <Clock className="w-4 h-4 text-purple-500" />,
-      text: `You saved ${timeSaved}h this week. That's precious time back for yourself.`,
+      textKey: "wellbeing.tip.timeCelebration",
+      vars: { hours: timeSaved },
       type: "achievement",
     }
   }
@@ -100,7 +106,7 @@ function selectPersonalizedTip(context: TipContext, hasEnoughData: boolean): Wel
   return {
     id: "default",
     icon: <Lightbulb className="w-4 h-4 text-purple-500" />,
-    text: "Tip: Using 'Empathetic' tone first often saves regeneration time.",
+    textKey: "wellbeing.tip.default",
     type: "usage",
   }
 }
@@ -111,6 +117,7 @@ export function ContextualWellbeingTip() {
   const [isDismissed, setIsDismissed] = useState(false)
   const [prefersReducedMotion, setPrefersReducedMotion] = useState(false)
   const [showWellbeingInsights, setShowWellbeingInsights] = useState(true)
+  const { t } = useLocale()
 
   useEffect(() => {
     const mediaQuery = window.matchMedia("(prefers-reduced-motion: reduce)")
@@ -188,6 +195,8 @@ export function ContextualWellbeingTip() {
 
   if (!showWellbeingInsights || isDismissed || !isVisible || !currentTip) return null
 
+  const tipText = t(currentTip.textKey, currentTip.vars)
+
   const animationClass = prefersReducedMotion ? "" : "animate-gentle-notice"
 
   return (
@@ -205,15 +214,17 @@ export function ContextualWellbeingTip() {
           className="flex-1 text-sm text-gray-900 dark:text-white dark:!text-white leading-relaxed font-medium"
           aria-hidden="true"
         >
-          {currentTip.text}
+          {tipText}
         </p>
 
-        <span className="sr-only">Wellbeing tip: {currentTip.text}</span>
+        <span className="sr-only">
+          {t("wellbeing.tip.label")}: {tipText}
+        </span>
 
         <button
           onClick={handleDismiss}
           className="flex-shrink-0 text-gray-700 dark:text-gray-200 dark:!text-gray-200 hover:text-gray-900 dark:hover:text-white dark:hover:!text-white transition-colors duration-200 focus-visible:ring-2 focus-visible:ring-purple-600 focus-visible:ring-offset-2 rounded"
-          aria-label="Dismiss wellbeing tip"
+          aria-label={t("wellbeing.dismiss")}
         >
           <X className="w-4 h-4" strokeWidth={2.5} />
         </button>

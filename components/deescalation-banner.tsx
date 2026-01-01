@@ -1,7 +1,7 @@
 "use client"
 
 // Copy rules: UK English; keep the tone supportive, never scolding or suggesting wrongdoing; avoid naming "banned words."
-import { useState } from "react"
+import { useEffect, useId, useState } from "react"
 import { Button } from "@/components/ui/button"
 import type { DeescalationSummary } from "@/lib/deescalation/types"
 
@@ -20,6 +20,10 @@ interface DeescalationBannerProps {
 
 export function DeescalationBanner({ summary }: DeescalationBannerProps) {
   const [expanded, setExpanded] = useState(false)
+  const detailsId = useId()
+  useEffect(() => {
+    setExpanded(false)
+  }, [summary])
 
   if (!summary.wasDeescalated) {
     return null
@@ -36,13 +40,19 @@ export function DeescalationBanner({ summary }: DeescalationBannerProps) {
             I softened a few high-emotion phrases to keep this message safe and effective.
           </p>
         </div>
-        <Button variant="outline" size="sm" onClick={() => setExpanded((prev) => !prev)}>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => setExpanded((prev) => !prev)}
+          aria-expanded={expanded}
+          aria-controls={detailsId}
+        >
           {expanded ? "Hide changes" : "See what changed"}
         </Button>
       </div>
 
       {expanded && (
-        <div className="mt-4 space-y-3 text-slate-700">
+        <div id={detailsId} className="mt-4 space-y-3 text-slate-700">
           {phrases.map((phrase, index) => (
             <div key={`${phrase.originalSnippet}-${index}`} className="rounded-xl border border-slate-200 bg-white/80 p-3">
               <div className="flex flex-wrap items-center gap-2 text-xs font-semibold uppercase tracking-widest text-slate-500">

@@ -4,12 +4,40 @@ import { vi } from "vitest"
 import { DraftOutput } from "@/components/draft-output"
 import type { DraftStructure } from "@/lib/draft/format"
 
-vi.mock("@/hooks/use-locale", () => ({
-  useLocale: () => ({
-    locale: "en-GB",
-    t: (key: string) => key,
-  }),
-}))
+vi.mock("@/hooks/use-locale", () => {
+  const translations: Record<string, string> = {
+    "draft.generatedTitle": "Draft Generated",
+    "editor.history.subjectLabel": "Subject",
+    "draft.button.copy": "Copy to Clipboard",
+    "draft.button.copyShort": "Copy",
+    "draft.button.edit": "Edit",
+    "draft.button.moreActions": "More actions",
+    "draft.button.more": "More",
+    "draft.action.load": "Load",
+    "draft.action.delete": "Delete",
+    "draft.actions.loadMore": "Load more",
+  }
+
+  const t = (key: string, vars?: Record<string, string | number>) => {
+    if (key === "draft.modeLabel") {
+      return `Mode: ${vars?.mode ?? ""}`
+    }
+    if (key === "draft.generatedDetails") {
+      return `Generated in ${vars?.seconds ?? "0"}s`
+    }
+    if (key === "statusBar.words") {
+      return `${vars?.count ?? 0} words`
+    }
+    return translations[key] ?? key
+  }
+
+  return {
+    useLocale: () => ({
+      locale: "en-GB",
+      t,
+    }),
+  }
+})
 
 const mockStructure: DraftStructure = {
   subject: "Update on homework",

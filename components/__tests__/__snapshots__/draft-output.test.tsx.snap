@@ -47,38 +47,38 @@ exports[`DraftOutput formatting > matches the snapshot for structured output 1`]
           <p
             class="text-xs text-gray-500 dark:text-gray-400"
           >
-            Mode: 
-            Parent message
+            Mode: Parent message
           </p>
         </div>
       </div>
     </div>
     <div
-      class="bg-gray-50 dark:bg-gray-700 rounded-lg p-4 mb-4 space-y-3"
+      class="bg-gray-50 dark:bg-gray-700 rounded-lg p-4 mb-4 space-y-5"
     >
       <p
-        class="font-semibold text-gray-900 dark:text-gray-100"
+        class="font-semibold text-gray-900 dark:text-gray-100 border-b border-gray-200 dark:border-gray-600 pb-3 mb-0"
       >
-        Subject: 
+        Subject
+        : 
         Update on homework
       </p>
       <p
-        class="text-gray-900 dark:text-gray-100 whitespace-pre-wrap leading-relaxed"
+        class="text-gray-900 dark:text-gray-100 whitespace-pre-wrap leading-relaxed text-base"
       >
         Dear family,
       </p>
       <p
-        class="text-gray-900 dark:text-gray-100 whitespace-pre-wrap leading-relaxed"
+        class="text-gray-900 dark:text-gray-100 whitespace-pre-wrap leading-relaxed text-base"
       >
         Johnny has been trying hard this week.
       </p>
       <p
-        class="text-gray-900 dark:text-gray-100 whitespace-pre-wrap leading-relaxed"
+        class="text-gray-900 dark:text-gray-100 whitespace-pre-wrap leading-relaxed text-base"
       >
         He still struggles with focus, but he is making small steps.
       </p>
       <p
-        class="text-gray-900 dark:text-gray-100 whitespace-pre-wrap leading-relaxed"
+        class="text-gray-900 dark:text-gray-100 whitespace-pre-wrap leading-relaxed text-base"
       >
         Best regards,
 Your teacher
@@ -88,16 +88,13 @@ Your teacher
       class="flex items-center gap-4 text-xs text-gray-500 dark:text-gray-400 mb-4"
     >
       <span>
-        Generated in 
-        1.1
-        s
+        Generated in 1.1s
       </span>
       <span>
         •
       </span>
       <span>
-        46
-         words
+        46 words
       </span>
     </div>
     <div

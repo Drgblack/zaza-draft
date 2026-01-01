@@ -40,4 +40,29 @@ describe("enforceTeacherNameStyle", () => {
     })
     expect(result).toMatch(/Dear Parent\/Carer,/)
   })
+
+  it("rewrites 'the student is/has' using the resolved pronoun set", () => {
+    const input =
+      "The student is improving. The student's focus has come further than before."
+    const result = enforceTeacherNameStyle(input, {
+      firstName: "Johnny",
+      pronounPreference: "he",
+      resolvedPronounPreference: "he",
+    })
+    expect(result).not.toMatch(/the student is/i)
+    expect(result).not.toMatch(/the student's/i)
+    expect(result).toMatch(/Johnny is/i)
+    expect(result).toMatch(/\bhis focus\b/i)
+  })
+
+  it("uses plural verb forms when the resolved preference is they", () => {
+    const input = "The student is engaged and the student has been listening."
+    const result = enforceTeacherNameStyle(input, {
+      pronounPreference: "they",
+      resolvedPronounPreference: "they",
+    })
+    expect(result).not.toMatch(/the student is/i)
+    expect(result).toMatch(/They are/i)
+    expect(result).toMatch(/They have/i)
+  })
 })

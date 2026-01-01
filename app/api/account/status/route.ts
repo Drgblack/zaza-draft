@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { authorizeFirebaseRequest, FirebaseAuthorizationError } from "@/lib/firebase/server"
 import { getUserEntitlements } from "@/lib/entitlements"
+import { isInternalQaUid } from "@/lib/auth/internal-qa"
 
 export async function GET(request: Request) {
   let authContext
@@ -40,6 +41,7 @@ export async function GET(request: Request) {
   const data = snapshot.data() ?? {}
   const subscriptionStatus = (data.subscriptionStatus as string) ?? "none"
   const entitlements = await getUserEntitlements(uid, firestore)
+  const isQaUser = isInternalQaUid(uid)
 
   return NextResponse.json({
     success: true,
@@ -51,6 +53,7 @@ export async function GET(request: Request) {
       cancelAtPeriodEnd: data.cancelAtPeriodEnd ?? false,
       stripeCustomerId: data.stripeCustomerId ?? null,
       usage: entitlements.usage,
+      isQaUser,
     },
   })
 }

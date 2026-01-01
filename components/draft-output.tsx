@@ -43,7 +43,7 @@ export function DraftOutput({
   const [showSaveModal, setShowSaveModal] = useState(false)
   const [showMoreMenu, setShowMoreMenu] = useState(false)
   const [actionMessage, setActionMessage] = useState<string | null>(null)
-  const { locale } = useLocale()
+  const { locale, t } = useLocale()
   const modeLabel = MODE_DISPLAY_NAMES[metadata.modeUsed ?? DEFAULT_DRAFT_MODE]
   const fallbackParagraphs = draftText
     .split(/\n\s*\n+/)
@@ -251,11 +251,11 @@ export function DraftOutput({
               <Check className="text-green-600 dark:text-green-400" size={20} />
             </div>
             <div>
-              <h3 className="font-semibold text-gray-900 dark:text-gray-100">Draft Generated</h3>
+            <h3 className="font-semibold text-gray-900 dark:text-gray-100">{t("draft.generatedTitle")}</h3>
               <p className="text-sm text-gray-500 dark:text-gray-400">
                 {metadata.wordCount} words • {toneLabels[tone] || tone}
               </p>
-              <p className="text-xs text-gray-500 dark:text-gray-400">Mode: {modeLabel}</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400">{t("draft.modeLabel", { mode: modeLabel })}</p>
             </div>
           </div>
         </div>
@@ -265,16 +265,16 @@ export function DraftOutput({
         )}
 
         {/* Generated Text */}
-        <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-4 mb-4 space-y-3">
+        <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-4 mb-4 space-y-5">
           {structure?.subject && (
-            <p className="font-semibold text-gray-900 dark:text-gray-100">
-              Subject: {structure.subject}
+            <p className="font-semibold text-gray-900 dark:text-gray-100 border-b border-gray-200 dark:border-gray-600 pb-3 mb-0">
+              {t("editor.history.subjectLabel")}: {structure.subject}
             </p>
           )}
           {paragraphs.map((paragraph, index) => (
             <p
               key={`${paragraph.slice(0, 20)}-${index}`}
-              className="text-gray-900 dark:text-gray-100 whitespace-pre-wrap leading-relaxed"
+              className="text-gray-900 dark:text-gray-100 whitespace-pre-wrap leading-relaxed text-base"
             >
               {paragraph}
             </p>
@@ -283,9 +283,9 @@ export function DraftOutput({
 
         {/* Metadata */}
         <div className="flex items-center gap-4 text-xs text-gray-500 dark:text-gray-400 mb-4">
-          <span>Generated in {(metadata.generationTime / 1000).toFixed(1)}s</span>
+          <span>{t("draft.generatedDetails", { seconds: (metadata.generationTime / 1000).toFixed(1) })}</span>
           <span>•</span>
-          <span>{metadata.wordCount} words</span>
+          <span>{t("statusBar.words", { count: metadata.wordCount })}</span>
         </div>
 
         <div className="hidden md:flex items-center gap-3">
@@ -301,7 +301,7 @@ export function DraftOutput({
             ) : (
               <>
                 <Copy size={18} />
-                Copy to Clipboard
+                {t("draft.button.copy")}
               </>
             )}
           </button>
@@ -311,19 +311,19 @@ export function DraftOutput({
             className="flex items-center gap-2 px-4 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-600 rounded-lg font-medium transition focus-visible:ring-2 focus-visible:ring-purple-600 focus-visible:ring-offset-2"
           >
             <Edit3 size={18} />
-            Edit
+                {t("draft.button.edit")}
           </button>
 
           <div className="relative" ref={desktopMenuRef}>
-            <button
-              type="button"
-              onClick={() => setShowMoreMenu((prev) => !prev)}
-              aria-expanded={showMoreMenu}
-              className="flex items-center gap-2 px-4 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-600 rounded-lg font-medium transition focus-visible:ring-2 focus-visible:ring-purple-600 focus-visible:ring-offset-2"
-            >
-              <ChevronDown size={16} />
-              More actions
-            </button>
+              <button
+                type="button"
+                onClick={() => setShowMoreMenu((prev) => !prev)}
+                aria-expanded={showMoreMenu}
+                className="flex items-center gap-2 px-4 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-600 rounded-lg font-medium transition focus-visible:ring-2 focus-visible:ring-purple-600 focus-visible:ring-offset-2"
+              >
+                <ChevronDown size={16} />
+                {t("draft.button.moreActions")}
+              </button>
             {showMoreMenu && (
               <div className="absolute right-0 mt-2 w-48 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg z-10">
           <button
@@ -399,7 +399,7 @@ export function DraftOutput({
             ) : (
               <>
                 <Copy size={18} />
-                Copy
+                {t("draft.button.copyShort")}
               </>
             )}
           </button>
@@ -408,7 +408,7 @@ export function DraftOutput({
             className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-600 rounded-lg font-medium transition"
           >
             <Edit3 size={18} />
-            Edit
+        {t("draft.button.edit")}
           </button>
           <div className="relative flex-1" ref={mobileMenuRef}>
             <button
@@ -418,7 +418,7 @@ export function DraftOutput({
               className="flex items-center justify-center gap-2 px-4 py-3 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-600 rounded-lg font-medium transition"
             >
               <ChevronDown size={16} />
-              More
+              {t("draft.button.more")}
             </button>
             {showMoreMenu && (
               <div className="absolute right-0 mt-2 w-48 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg z-10">

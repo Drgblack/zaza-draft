@@ -28,6 +28,22 @@ describe("DeescalationBanner", () => {
     expect(screen.getByText(/Calmer alternative:/)).toBeInTheDocument()
   })
 
+  it("toggles the CTA label and aria state", () => {
+    render(<DeescalationBanner summary={baseSummary} />)
+
+    const toggle = screen.getByRole("button", { name: /see what changed/i })
+    expect(toggle).toHaveTextContent("See what changed")
+    expect(toggle).toHaveAttribute("aria-expanded", "false")
+
+    fireEvent.click(toggle)
+    expect(toggle).toHaveTextContent("Hide changes")
+    expect(toggle).toHaveAttribute("aria-expanded", "true")
+
+    fireEvent.click(toggle)
+    expect(toggle).toHaveTextContent("See what changed")
+    expect(toggle).toHaveAttribute("aria-expanded", "false")
+  })
+
   it("is hidden when there was no de-escalation", () => {
     const calmSummary: DeescalationSummary = {
       ...baseSummary,
@@ -45,5 +61,27 @@ describe("DeescalationBanner", () => {
       screen.getByText("I softened a few high-emotion phrases to keep this message safe and effective."),
     ).toBeInTheDocument()
     expect(screen.getByRole("button", { name: /see what changed/i })).toBeInTheDocument()
+  })
+
+  it("collapses when a new summary is provided", () => {
+    const { rerender } = render(<DeescalationBanner summary={baseSummary} />)
+    const toggle = screen.getByRole("button", { name: /see what changed/i })
+    fireEvent.click(toggle)
+    expect(toggle).toHaveTextContent("Hide changes")
+
+    const nextSummary: DeescalationSummary = {
+      ...baseSummary,
+      flaggedPhrases: [
+        {
+          originalSnippet: "This is rough",
+          category: "sarcasm",
+          suggestionSnippet: "Try a calmer description.",
+        },
+      ],
+    }
+    rerender(<DeescalationBanner summary={nextSummary} />)
+
+    expect(toggle).toHaveTextContent("See what changed")
+    expect(toggle).toHaveAttribute("aria-expanded", "false")
   })
 })

@@ -1,5 +1,5 @@
 import type { PronounPreference } from "@/lib/types"
-import { getPronounSet } from "@/lib/text/pronouns"
+import { getPronounSet, type PronounSet } from "@/lib/text/pronouns"
 
 function escapeRegExp(value: string) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
@@ -51,12 +51,57 @@ export function enforceTeacherNameStyle(text: string, options: TeacherLanguageOp
   }
 
   let processed = sentences.join(" ").replace(/\s+/g, " ").trim()
-  processed = processed.replace(/\bthe student\b/gi, (match) => matchCase(defaultName, match))
 
   const pronounPreference = options.resolvedPronounPreference ?? options.pronounPreference
   const pronounSet = getPronounSet(pronounPreference)
   const subjectReference = firstName || pronounSet.subject
   const objectReference = pronounSet.object
+  const isPronounReference = subjectReference.toLowerCase() === pronounSet.subject.toLowerCase()
+
+  function adjustTheyVerb(verb: "is" | "has" | "was") {
+    switch (verb) {
+      case "is":
+        return "are"
+      case "has":
+        return "have"
+      case "was":
+        return "were"
+      default:
+        return verb
+    }
+  }
+
+  function buildSubjectVerbPhrase(verb: "is" | "has" | "was") {
+    const adjustedVerb =
+      pronounPreference === "they" && isPronounReference ? adjustTheyVerb(verb) : verb
+    return `${subjectReference} ${adjustedVerb}`
+  }
+
+  function replaceTheStudentReferences(source: string) {
+    if (!subjectReference) {
+      return source
+    }
+
+    let updated = source
+    const replacements: Array<{ pattern: RegExp; verb: "is" | "has" | "was" }> = [
+      { pattern: /\bthe student is\b/gi, verb: "is" },
+      { pattern: /\bthe student has\b/gi, verb: "has" },
+      { pattern: /\bthe student was\b/gi, verb: "was" },
+    ]
+    replacements.forEach(({ pattern, verb }) => {
+      const replacement = buildSubjectVerbPhrase(verb)
+      updated = updated.replace(pattern, (match) => matchCase(replacement, match))
+    })
+
+    updated = updated.replace(/\bthe student's\b/gi, (match) => matchCase(pronounSet.possessive, match))
+    return updated
+  }
+
+  if (["he", "she", "they"].includes(pronounPreference)) {
+    processed = replaceTheStudentReferences(processed)
+  }
+
+  processed = processed.replace(/\bthe student\b/gi, (match) => matchCase(defaultName, match))
 
   let yourChildMentions = 0
   processed = processed

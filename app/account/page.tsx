@@ -35,6 +35,7 @@ export default function AccountPage() {
       remaining: number | null
     }
     stripeCustomerId: string | null
+    isQaUser: boolean
   }>(null)
   const [billingError, setBillingError] = useState<string | null>(null)
   const [billingAction, setBillingAction] = useState<null | "upgrade" | "manage">(null)
@@ -58,6 +59,8 @@ export default function AccountPage() {
   }>(null)
   const [diagnosticsError, setDiagnosticsError] = useState<string | null>(null)
   const showDevUid = Boolean(user?.uid && canShowDevUid)
+  const accountLimited =
+    Boolean(accountInfo && accountInfo.usage.plan === "free" && !accountInfo.isQaUser)
 
   const handleSave = () => {
     const trimmedName = name.trim()
@@ -260,7 +263,10 @@ export default function AccountPage() {
 
         const payload = await response.json()
         if (payload?.success && isMounted) {
-          setAccountInfo(payload.data)
+          setAccountInfo({
+            ...payload.data,
+            isQaUser: Boolean(payload.data.isQaUser),
+          })
         } else if (isMounted) {
           setBillingError(payload?.error?.message || "Unable to load billing status.")
         }
@@ -427,10 +433,10 @@ export default function AccountPage() {
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="flex justify-between">
-              <p className="text-sm text-gray-600 dark:text-gray-300">{t("account.billing.planLabel")}</p>
-              <p className="font-semibold text-gray-900 dark:text-white">
-                {accountInfo?.plan === "pro" ? t("account.billing.planPro") : t("account.billing.planFree")}
-              </p>
+            <p className="text-sm text-gray-600 dark:text-gray-300">{t("account.billing.planLabel")}</p>
+            <p className="font-semibold text-gray-900 dark:text-white">
+              {accountInfo?.plan === "pro" ? t("account.billing.planPro") : t("account.billing.planFree")}
+            </p>
             </div>
             <div className="flex justify-between">
               <p className="text-sm text-gray-600 dark:text-gray-300">{t("account.billing.status")}</p>
@@ -439,20 +445,24 @@ export default function AccountPage() {
             <div className="flex justify-between">
               <p className="text-sm text-gray-600 dark:text-gray-300">{t("account.billing.usage")}</p>
               <p className="font-semibold text-gray-900 dark:text-white">
-                {accountInfo?.usage.plan === "free"
-                  ? `${accountInfo.usage.currentMonthUsage}/${accountInfo.usage.limit ?? 0}`
+                {accountLimited
+                  ? `${accountInfo?.usage.currentMonthUsage}/${accountInfo?.usage.limit ?? 0}`
                   : t("account.billing.unlimitedDrafts")}
               </p>
             </div>
             <div className="flex flex-wrap gap-3">
-              <Button onClick={handleUpgrade} disabled={billingAction === "upgrade"}>
-                {t("account.billing.upgrade")}
-              </Button>
+              {accountInfo?.plan === "free" && accountLimited && (
+                <Button onClick={handleUpgrade} disabled={billingAction === "upgrade"}>
+                  {t("account.billing.upgrade")}
+                </Button>
+              )}
               <Button variant="outline" onClick={handleManage} disabled={billingAction === "manage"}>
                 {t("account.billing.manage")}
               </Button>
             </div>
-            {accountInfo?.usage.plan === "free" && accountInfo.usage.remaining !== null && accountInfo.usage.remaining === 0 && (
+            {accountLimited &&
+              accountInfo?.usage.remaining !== null &&
+              accountInfo?.usage.remaining === 0 && (
               <p className="text-sm text-amber-900">
                 {t("account.billing.paywallMessage")}
               </p>
