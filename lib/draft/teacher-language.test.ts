@@ -16,6 +16,7 @@ describe("enforceTeacherNameStyle", () => {
     expect(result).not.toMatch(/instances of disruption/i)
     expect(result).not.toMatch(/disruptions during class/i)
     expect(result).not.toMatch(/disruption/i)
+    expect(result).not.toMatch(/\bthey\s+seems\b|\bthey\s+has\b|\bthey['’]s\b|\bthey\s+was\b/i)
     expect(result).toMatch(/moments where Johnny has found it difficult to stay focused/i)
     expect(result).toMatch(/a few occasions where lessons were interrupted/i)
     expect(result).toContain(
@@ -30,5 +31,13 @@ describe("enforceTeacherNameStyle", () => {
       resolvedPronounPreference: "avoid",
     })
     expect(result).toContain("My aim is to support your child positively and help them feel confident and successful at school.")
+  })
+
+  it("normalises Parent(s) greeting to Parent/Carer", () => {
+    const result = enforceTeacherNameStyle("Dear Parent(s), I wanted to touch base.", {
+      pronounPreference: "avoid",
+      resolvedPronounPreference: "avoid",
+    })
+    expect(result).toMatch(/Dear Parent\/Carer,/)
   })
 })

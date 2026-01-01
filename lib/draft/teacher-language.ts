@@ -100,6 +100,9 @@ export function enforceTeacherNameStyle(text: string, options: TeacherLanguageOp
     })
   })
 
+  processed = normalizeSingularThey(processed)
+  processed = processed.replace(/\bDear Parent\(s\),/gi, "Dear Parent/Carer,")
+
   const reassuranceSentence = firstName
     ? `My aim is to support ${firstName} positively and help ${objectReference} feel confident and successful at school.`
     : "My aim is to support your child positively and help them feel confident and successful at school."
@@ -120,4 +123,12 @@ function insertReassurance(text: string, sentence: string) {
     return `${trimmed.slice(0, index).trimEnd()}\n\n${sentence}\n${trimmed.slice(index).trimStart()}`
   }
   return `${trimmed}\n\n${sentence}`
+}
+
+function normalizeSingularThey(value: string) {
+  return value
+    .replace(/\bthey\s+seems\b/gi, "they seem")
+    .replace(/\bthey\s+has\b/gi, "they have")
+    .replace(/\bthey\s+was\b/gi, "they were")
+    .replace(/\bthey['’]s\b/gi, "their")
 }
