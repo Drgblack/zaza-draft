@@ -8,7 +8,7 @@ const PRONOUN_DESCRIPTIONS: Record<PronounPreference, string> = {
   avoid: "Avoid gendered pronouns and rely on neutral phrasing such as \"your child\".",
 }
 
-const PRONOUN_LABELS: Record<Exclude<PronounPreference, "auto">, string> = {
+export const PRONOUN_LABELS: Record<Exclude<PronounPreference, "auto">, string> = {
   she: "she/her",
   he: "he/him",
   they: "they/them",

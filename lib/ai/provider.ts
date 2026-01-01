@@ -1,6 +1,6 @@
 import type { DraftLanguage, DraftMode, DraftTone, PronounPreference } from "@/lib/types"
 import { MODE_DISPLAY_NAMES, MODE_PROMPT_INSTRUCTIONS } from "@/lib/draft-mode"
-import { buildStudentInstruction } from "@/lib/draft/student-policy"
+import { buildStudentInstruction, PRONOUN_LABELS } from "@/lib/draft/student-policy"
 
 function getOpenAiApiKey() {
   return process.env.OPENAI_API_KEY
@@ -84,6 +84,12 @@ function buildSystemPrompt(input: ProviderInput) {
     pronoun: resolvedPronoun,
   })
   systemLines.push(studentInstruction)
+  if (resolvedPronoun !== "auto") {
+    const label = PRONOUN_LABELS[resolvedPronoun]
+    if (label) {
+      systemLines.push(`Use the ${label} pronouns consistently for the student. Do not switch pronouns.`)
+    }
+  }
   systemLines.push(
     "Treat the cleaned notes that follow as your primary source and use the original notes only for background; do not repeat the original wording.",
   )

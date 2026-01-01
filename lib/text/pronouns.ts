@@ -1,8 +1,9 @@
 import type { PronounPreference } from "@/lib/types"
 
 import { NAME_GENDER } from "@/generated/name-gender"
+import { normalizeFirstToken } from "@/lib/draft/normalize"
 
-export type PronounResolutionReason = "manual" | "dataset" | "fallback"
+export type PronounResolutionReason = "manual" | "dataset" | "fallback" | "teacher"
 
 export interface PronounResolution {
   selection: PronounPreference
@@ -13,27 +14,62 @@ export interface PronounResolution {
 
 export type PronounSet = { subject: string; object: string; possessive: string; contraction: string }
 
+const MALE_PRONOUNS = /\b(he|him|his|himself)\b/i
+const FEMALE_PRONOUNS = /\b(she|her|hers|herself)\b/i
+const THEY_PRONOUNS = /\b(they|them|their|theirs|themself|themselves)\b/i
+
 function normalizeName(candidate?: string) {
-  if (!candidate) {
+  return normalizeFirstToken(candidate)
+}
+
+export function extractPronounPreferenceFromNotes(notes?: string): PronounPreference | null {
+  if (!notes) {
     return null
   }
-  const match = candidate.trim().split(/\s+/)[0]
-  if (!match) {
+  const normalized = notes.trim()
+  if (!normalized) {
     return null
   }
-  const lettersOnly = match.replace(/[^A-Za-z]/g, "")
-  return lettersOnly.toLowerCase() || null
+
+  const hasMalePronoun = MALE_PRONOUNS.test(normalized)
+  const hasFemalePronoun = FEMALE_PRONOUNS.test(normalized)
+
+  if (hasMalePronoun && !hasFemalePronoun) {
+    return "he"
+  }
+  if (hasFemalePronoun && !hasMalePronoun) {
+    return "she"
+  }
+  if (hasMalePronoun && hasFemalePronoun) {
+    return "they"
+  }
+  if (THEY_PRONOUNS.test(normalized)) {
+    return "they"
+  }
+
+  return null
 }
 
 export function inferPronounResolution(
   selection: PronounPreference,
   studentName?: string,
+  teacherNotes?: string,
 ): PronounResolution {
   if (selection !== "auto") {
     return {
       selection,
       resolvedPreference: selection,
       reason: "manual",
+    }
+  }
+
+  const teacherHint = extractPronounPreferenceFromNotes(teacherNotes)
+  if (teacherHint) {
+    return {
+      selection,
+      resolvedPreference: teacherHint,
+      reason: "teacher",
+      source: "teacher-notes",
     }
   }
 
@@ -60,7 +96,7 @@ export function inferPronounResolution(
 
   return {
     selection,
-    resolvedPreference: "avoid",
+    resolvedPreference: "they",
     reason: "fallback",
   }
 }

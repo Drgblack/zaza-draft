@@ -232,7 +232,11 @@ export async function POST(request: Request) {
   }
 
   const pronounPreference = parsePronounPreference(payload?.pronounPreference)
-  const pronounResolution = inferPronounResolution(pronounPreference, studentFirstNameInput || undefined)
+  const pronounResolution = inferPronounResolution(
+    pronounPreference,
+    studentFirstNameInput || undefined,
+    situation,
+  )
   const resolvedPronounPreference = pronounResolution.resolvedPreference
 
   let authContext
