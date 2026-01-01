@@ -20,6 +20,7 @@ function forceFailPrimary() {
 
 interface ProviderInput {
   situation: string
+  originalSituation?: string
   tone: DraftTone
   language: DraftLanguage
   context?: {
@@ -80,6 +81,15 @@ function buildSystemPrompt(input: ProviderInput) {
     pronoun: resolvedPronoun,
   })
   systemLines.push(studentInstruction)
+  systemLines.push(
+    "Treat the cleaned notes that follow as your primary source and use the original notes only for background; do not repeat the original wording.",
+  )
+  systemLines.push(
+    "Never quote, repeat, or paraphrase the original rough notes. Use them only to infer intent.",
+  )
+  systemLines.push(
+    "Always choose calm, school-safe language and do not restate insults, inflammatory labels, or threats.",
+  )
 
   if (input.rewrite) {
     systemLines.push(
@@ -131,7 +141,8 @@ function buildBasePayload(input: ProviderInput): FetchPayload {
     `Context gradeLevel: ${input.context?.gradeLevel ?? "-"}`,
   ]
   const userParts = [
-    `Situation:\n${input.situation}`,
+    `Cleaned notes:\n${input.situation}`,
+    input.originalSituation ? `Original notes (for reference only):\n${input.originalSituation}` : undefined,
     input.rewrite && input.previousDraft ? `Rewrite previous draft:\n${input.previousDraft}` : undefined,
   ].filter(Boolean)
 

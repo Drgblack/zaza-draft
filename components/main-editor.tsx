@@ -7,11 +7,13 @@ import { useLocale } from "@/hooks/use-locale"
 import FooterSlim from "@/components/FooterSlim"
 import { ZaraAssistant } from "@/components/zara-assistant"
 import { DraftOutput } from "@/components/draft-output"
+import { DeescalationBanner } from "@/components/deescalation-banner"
 import { MiniInsightsBar } from "@/components/MiniInsightsBar"
 import { ContextualWellbeingTip } from "@/components/ContextualWellbeingTip"
 import { useAuth } from "@/hooks/use-auth"
 import { logClientEvent } from "@/lib/analytics"
 import type { PlanType } from "@/lib/usage"
+import type { DeescalationSummary } from "@/lib/deescalation/types"
 import type { PronounPreference } from "@/lib/types"
 import { MODE_DISPLAY_NAMES } from "@/lib/draft-mode"
 import Link from "next/link"
@@ -124,6 +126,7 @@ export function MainEditor() {
   const [userName, setUserName] = useState("")
   const [generatedDraft, setGeneratedDraft] = useState<string | null>(null)
   const [draftMetadata, setDraftMetadata] = useState<any>(null)
+  const [deescalationSummary, setDeescalationSummary] = useState<DeescalationSummary | null>(null)
   const [isEditing, setIsEditing] = useState(false)
   const [subject, setSubject] = useState("")
   const [gradeLevel, setGradeLevel] = useState("")
@@ -313,6 +316,7 @@ export function MainEditor() {
     setSensitivePreview(null)
     setGeneratedDraft(null)
     setDraftMetadata(null)
+    setDeescalationSummary(null)
     setInputReframeTier(null)
     setBlockedLanguageContext(null)
 
@@ -427,6 +431,7 @@ export function MainEditor() {
 
       setGeneratedDraft(data.data.generatedDraft)
       setDraftMetadata(data.data.metadata)
+      setDeescalationSummary(data.data.deescalationSummary ?? null)
       setUsage(data.data.usage)
       setGenerationAction(null)
     } catch (error) {
@@ -853,7 +858,7 @@ Examples:
         )}
 
         {generatedDraft && draftMetadata && (
-          <div className="mt-8">
+          <div className="mt-8 space-y-4">
             <DraftOutput
               draftText={generatedDraft}
               tone={draftMetadata.toneUsed ?? selectedTone}
@@ -866,6 +871,9 @@ Examples:
               draftsLimit={draftsLimit}
               showUsageLimit={usage.plan === "free"}
             />
+            {deescalationSummary?.wasDeescalated && (
+              <DeescalationBanner summary={deescalationSummary} />
+            )}
           </div>
         )}
         {generatedDraft && draftMetadata && inputReframeTier && (

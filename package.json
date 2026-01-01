@@ -18,6 +18,7 @@
     "test:student-pronouns": "tsx scripts/test-student-pronouns.ts",
     "test:blocked-language": "tsx scripts/test-blocked-language.ts",
     "test:student-name-style": "tsx scripts/test-student-name-style.ts",
+    "test:unit": "vitest run",
     "test:export-docx": "tsx scripts/test-export-docx.ts",
     "test:export-pdf": "tsx scripts/test-export-pdf.ts",
     "start": "next start",
@@ -103,7 +104,12 @@
     "tsconfig-paths": "^4.0.0",
     "tsx": "^3.14.0",
     "tw-animate-css": "1.3.3",
-    "typescript": "^5"
+    "typescript": "^5",
+    "@testing-library/react": "^14.0.0",
+    "@testing-library/jest-dom": "^6.0.0",
+    "@types/jsdom": "^21.1.1",
+    "jsdom": "^23.0.0",
+    "vitest": "^1.5.1"
   },
   "packageManager": "pnpm@10.0.0"
 }

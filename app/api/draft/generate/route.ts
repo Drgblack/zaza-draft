@@ -28,6 +28,8 @@ import {
 import { isInternalQaUid, shouldRespectUsageLimit } from "@/lib/auth/internal-qa"
 import { buildBlockedLanguageResponse } from "@/lib/draft/blocked-response"
 import { enforceTeacherNameStyle } from "@/lib/draft/teacher-language"
+import { detectHighEmotionPhrases } from "@/lib/deescalation/detect"
+import { rewriteHighEmotionText } from "@/lib/deescalation/rewrite"
 
 const TONE_DESCRIPTIONS: Record<ToneKey, string> = {
   warm: "Warm & Encouraging",
@@ -409,9 +411,17 @@ export async function POST(request: Request) {
     }
   }
 
+  const preRewriteSituation = currentSituation
+  const deescalationDetection = detectHighEmotionPhrases(preRewriteSituation)
+  const deescalationRewrite = rewriteHighEmotionText(preRewriteSituation, deescalationDetection)
+  currentSituation = deescalationRewrite.cleanedText
+  const deescalationSummary = deescalationRewrite.summary
+  const originalSituationForPrompt = preRewriteSituation
+
   const generationStart = Date.now()
   const providerInput: ProviderRequestInput = {
     situation: currentSituation,
+    originalSituation: originalSituationForPrompt,
     tone,
     language: language as LanguageKey,
     context: sanitizedContext,
@@ -611,6 +621,7 @@ export async function POST(request: Request) {
       meta: responseMeta,
       usage: usageAfterGeneration,
       snippetId,
+      deescalationSummary,
     },
   })
 }
