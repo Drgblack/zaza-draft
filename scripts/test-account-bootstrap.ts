@@ -1,4 +1,5 @@
 import assert from "node:assert"
+import type { FirestoreLike } from "../lib/account-bootstrap"
 import { ensureUserDocument } from "../lib/account-bootstrap"
 
 class MockUserRef {
@@ -27,24 +28,22 @@ class MockUserRef {
 }
 
 class MockCollection {
-  userRef: MockUserRef
-  constructor(userRef: MockUserRef) {
-    this.userRef = userRef
-  }
-  doc() {
-    return this.userRef
-  }
-}
-
-class MockFirestore {
   private userRef: MockUserRef
   constructor(userRef: MockUserRef) {
     this.userRef = userRef
   }
-  collection() {
-    return {
-      doc: () => this.userRef,
-    }
+  doc(_id: string) {
+    return this.userRef
+  }
+}
+
+class MockFirestore implements FirestoreLike {
+  private userRef: MockUserRef
+  constructor(userRef: MockUserRef) {
+    this.userRef = userRef
+  }
+  collection(_path: string) {
+    return new MockCollection(this.userRef)
   }
   settings() {
     return this

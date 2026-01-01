@@ -1,10 +1,10 @@
 import { FieldValue } from "firebase-admin/firestore"
 
-type FirestoreLike = {
+export type FirestoreLike = {
   collection: (path: string) => {
     doc: (id: string) => {
       get: () => Promise<{ exists: boolean }>
-      set: (...args: any[]) => Promise<unknown>
+      set: (data: Record<string, unknown>, options?: { merge?: boolean }) => Promise<unknown>
     }
   }
 }
