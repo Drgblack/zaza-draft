@@ -29,6 +29,7 @@ import { isInternalQaUid, shouldRespectUsageLimit } from "@/lib/auth/internal-qa
 import { buildBlockedLanguageResponse } from "@/lib/draft/blocked-response"
 import { enforceTeacherNameStyle } from "@/lib/draft/teacher-language"
 import { formatDraftText, DraftStructure } from "@/lib/draft/format"
+import { cleanStudentName } from "@/lib/draft/student-name"
 import { detectHighEmotionPhrases } from "@/lib/deescalation/detect"
 import { rewriteHighEmotionText } from "@/lib/deescalation/rewrite"
 
@@ -164,7 +165,8 @@ export async function POST(request: Request) {
       : typeof payload?.studentName === "string"
       ? payload.studentName.trim()
       : ""
-  const studentNameForPayload = studentFirstNameInput || ""
+  const sanitizedStudentFirstName = cleanStudentName(studentFirstNameInput)
+  const studentNameForPayload = sanitizedStudentFirstName || ""
 
   if (mode === null) {
     return NextResponse.json(

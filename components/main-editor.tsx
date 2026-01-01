@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { useTeacherPrefs } from "@/hooks/use-teacher-prefs"
 import { useLocale } from "@/hooks/use-locale"
@@ -15,6 +15,7 @@ import { logClientEvent } from "@/lib/analytics"
 import type { PlanType } from "@/lib/usage"
 import type { DeescalationSummary } from "@/lib/deescalation/types"
 import type { DraftStructure } from "@/lib/draft/format"
+import { cleanStudentName } from "@/lib/draft/student-name"
 import type { PronounPreference } from "@/lib/types"
 import { MODE_DISPLAY_NAMES } from "@/lib/draft-mode"
 import Link from "next/link"
@@ -134,7 +135,11 @@ export function MainEditor() {
   const [isEditing, setIsEditing] = useState(false)
   const [subject, setSubject] = useState("")
   const [gradeLevel, setGradeLevel] = useState("")
-  const [studentFirstName, setStudentFirstName] = useState("")
+  const [studentFirstNameInput, setStudentFirstNameInput] = useState("")
+  const displayedStudentFirstName = useMemo(
+    () => cleanStudentName(studentFirstNameInput),
+    [studentFirstNameInput],
+  )
   const [languageChoice, setLanguageChoice] = useState<LanguageChoice>("en")
   const [pronounPreference, setPronounPreference] = useState<PronounPreference>("auto")
   const [mode, setMode] = useState<ModeKey>("parent_message")
@@ -346,9 +351,9 @@ export function MainEditor() {
       payload.context = context
     }
 
-    const trimmedStudentFirstName = studentFirstName.trim()
-    if (trimmedStudentFirstName) {
-      payload.studentFirstName = trimmedStudentFirstName
+    const sanitizedStudentFirstName = displayedStudentFirstName.trim()
+    if (sanitizedStudentFirstName) {
+      payload.studentFirstName = sanitizedStudentFirstName
     }
 
     payload.pronounPreference = pronounPreference
@@ -367,7 +372,7 @@ export function MainEditor() {
       language: languageChoice,
       pronounPreference,
       mode,
-      studentFirstNameProvided: Boolean(trimmedStudentFirstName),
+      studentFirstNameProvided: Boolean(sanitizedStudentFirstName),
     })
 
     try {
@@ -489,7 +494,7 @@ export function MainEditor() {
     setLanguageChoice(snippet.language as LanguageChoice)
     setSubject(snippet.contextUsed?.subject ?? "")
     setGradeLevel(snippet.contextUsed?.gradeLevel ?? "")
-    setStudentFirstName("")
+    setStudentFirstNameInput("")
     setPronounPreference(snippet.pronounPreference ?? "auto")
     setMode(snippet.mode ?? "parent_message")
   }
@@ -669,12 +674,19 @@ Examples:
           </summary>
           <div className="px-4 pb-4">
             <div className="mt-3 grid grid-cols-1 md:grid-cols-3 gap-3">
-              <input
-                value={studentFirstName}
-                onChange={(event) => setStudentFirstName(event.target.value)}
-                placeholder="Student first name (optional)"
-                className="min-w-[200px] bg-white/90 dark:bg-white/10 rounded-xl border border-white/40 dark:border-white/30 px-4 py-3 text-gray-900 dark:text-white font-medium shadow-sm focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-2"
-              />
+              <div className="min-w-[200px] space-y-1">
+                <input
+                  value={studentFirstNameInput}
+                  onChange={(event) => setStudentFirstNameInput(event.target.value)}
+                  placeholder="Student first name (optional)"
+                  className="w-full bg-white/90 dark:bg-white/10 rounded-xl border border-white/40 dark:border-white/30 px-4 py-3 text-gray-900 dark:text-white font-medium shadow-sm focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-2"
+                />
+                {displayedStudentFirstName && (
+                  <p className="text-xs text-white/60">
+                    {t("editor.studentName.display", { name: displayedStudentFirstName })}
+                  </p>
+                )}
+              </div>
               <input
                 value={subject}
                 onChange={(event) => setSubject(event.target.value)}
