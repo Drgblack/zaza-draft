@@ -84,6 +84,14 @@ export function enforceTeacherNameStyle(text: string, options: TeacherLanguageOp
       pattern: /\bdisruption during lessons\b/gi,
       template: () => "difficulty staying engaged during lessons",
     },
+    {
+      pattern: /\bdisruptions? (?:during|in) (?:lessons|classes?|class)\b/gi,
+      template: () => "a few occasions where lessons were interrupted and staying engaged was challenging",
+    },
+    {
+      pattern: /\bdisruptions?\b/gi,
+      template: () => "moments where it was difficult to stay focused",
+    },
   ]
 
   disruptionReplacements.forEach(({ pattern, template }) => {

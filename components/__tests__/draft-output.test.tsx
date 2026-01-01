@@ -46,6 +46,13 @@ describe("DraftOutput formatting", () => {
     expect(paragraphs.length).toBeGreaterThanOrEqual(2)
   })
 
+  it("renders once with subject separated from greeting", () => {
+    const { container } = render(<DraftOutput {...baseProps} structure={mockStructure} />)
+    expect(container.querySelectorAll(".bg-gray-50").length).toBe(1)
+    const cardText = container.querySelector(".bg-gray-50")?.textContent ?? ""
+    expect(cardText).toMatch(/Subject: Update on homework[\s\S]*Dear family,/)
+  })
+
   it("matches the snapshot for structured output", () => {
     const { container } = render(<DraftOutput {...baseProps} structure={mockStructure} />)
     expect(container).toMatchSnapshot()

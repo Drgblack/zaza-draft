@@ -27,6 +27,16 @@ Your teacher`
     expect(formatted.paragraphs.length).toBeGreaterThan(1)
   })
 
+  it("handles subject and greeting on the same line and creates paragraphs", () => {
+    const draft =
+      "Subject: Weekly check-in Dear Parents, Johnny has had a few moments where staying focused was hard and the lesson pace felt fast. Best regards, Ms. Thompson"
+    const formatted = formatDraftText(draft)
+    expect(formatted.subject).toBe("Weekly check-in")
+    expect(formatted.paragraphs[0]).toMatch(/Dear Parents,/)
+    expect(formatted.paragraphs.length).toBeGreaterThanOrEqual(2)
+    expect(formatted.paragraphs[formatted.paragraphs.length - 1]).toMatch(/Best regards,/)
+  })
+
   it("handles empty strings gracefully", () => {
     const formatted = formatDraftText("")
     expect(formatted.paragraphs).toHaveLength(0)
