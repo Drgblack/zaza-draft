@@ -1,9 +1,10 @@
 "use client"
 
 import { Copy, Check, Save, FileText, Edit3, RefreshCw, AlertCircle, ChevronDown, Repeat } from "lucide-react"
-import { useEffect, useRef, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import { SaveDraftModal } from "./save-draft-modal"
 import type { DraftMode } from "@/lib/types"
+import type { DraftStructure } from "@/lib/draft/format"
 import { MODE_DISPLAY_NAMES, DEFAULT_DRAFT_MODE } from "@/lib/draft-mode"
 import { useLocale } from "@/hooks/use-locale"
 
@@ -15,6 +16,7 @@ interface DraftOutputProps {
     wordCount: number
     modeUsed?: DraftMode
   }
+  structure?: DraftStructure
   onSave: (tags: string[]) => void
   onEdit: () => void
   onRegenerate: () => void
@@ -28,6 +30,7 @@ export function DraftOutput({
   draftText,
   tone,
   metadata,
+  structure,
   onSave,
   onEdit,
   onRegenerate,
@@ -42,10 +45,37 @@ export function DraftOutput({
   const [actionMessage, setActionMessage] = useState<string | null>(null)
   const { locale } = useLocale()
   const modeLabel = MODE_DISPLAY_NAMES[metadata.modeUsed ?? DEFAULT_DRAFT_MODE]
+  const fallbackParagraphs = draftText
+    .split(/\n\s*\n+/)
+    .map((paragraph) => paragraph.trim())
+    .filter(Boolean)
+  const paragraphs =
+    structure && structure.paragraphs.length
+      ? structure.paragraphs
+      : fallbackParagraphs.length
+      ? fallbackParagraphs
+      : draftText.trim()
+      ? [draftText.trim()]
+      : []
+  const clipboardText = useMemo(() => {
+    const segments: string[] = []
+    if (structure?.subject) {
+      segments.push(`Subject: ${structure.subject}`, "")
+    }
+    if (paragraphs.length) {
+      segments.push(paragraphs.join("\n\n"))
+    } else if (draftText.trim()) {
+      segments.push(draftText.trim())
+    }
+    if (!segments.length) {
+      return ""
+    }
+    return segments.join("\n").trim()
+  }, [structure, paragraphs, draftText])
   // Copy to clipboard with rich text support
   const handleCopy = async () => {
     try {
-      await navigator.clipboard.writeText(draftText)
+      await navigator.clipboard.writeText(clipboardText)
       setCopied(true)
       setTimeout(() => setCopied(false), 2000)
     } catch (err) {
@@ -235,8 +265,20 @@ export function DraftOutput({
         )}
 
         {/* Generated Text */}
-        <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-4 mb-4">
-          <p className="text-gray-900 dark:text-gray-100 whitespace-pre-wrap leading-relaxed">{draftText}</p>
+        <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-4 mb-4 space-y-3">
+          {structure?.subject && (
+            <p className="font-semibold text-gray-900 dark:text-gray-100">
+              Subject: {structure.subject}
+            </p>
+          )}
+          {paragraphs.map((paragraph, index) => (
+            <p
+              key={`${paragraph.slice(0, 20)}-${index}`}
+              className="text-gray-900 dark:text-gray-100 whitespace-pre-wrap leading-relaxed"
+            >
+              {paragraph}
+            </p>
+          ))}
         </div>
 
         {/* Metadata */}

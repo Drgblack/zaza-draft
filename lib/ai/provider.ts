@@ -71,6 +71,9 @@ function buildSystemPrompt(input: ProviderInput) {
     "Avoid gendered pronouns unless the teacher explicitly specifies them in the prompt; default to inclusive wording.",
     "Never include student PII (full names, emails, phone numbers, addresses). If the prompt is disallowed, explain politely that you cannot help.",
     "Do not include blocked language such as insults, diagnostic labels, or emotionally charged terms; redirect toward behaviour, effort, and growth.",
+    "Use the student's first name sparingly (once or twice) and then switch to inclusive pronouns or neutral wording; avoid repeating 'your child' in adjacent sentences.",
+    "Describe engagement challenges as calm observations (has found it difficult to stay focused, has had a few moments where...) rather than writing 'instances of disruption' or accusatory language.",
+    "Close parent messages with a short reassurance about aiming to support the student positively and helping them feel confident and successful at school.",
     PRONOUN_INSTRUCTIONS[input.pronounPreference],
     MODE_PROMPT_INSTRUCTIONS[input.mode],
   ]

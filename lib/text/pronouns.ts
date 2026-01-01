@@ -11,6 +11,8 @@ export interface PronounResolution {
   source?: string
 }
 
+export type PronounSet = { subject: string; object: string; possessive: string; contraction: string }
+
 function normalizeName(candidate?: string) {
   if (!candidate) {
     return null
@@ -77,7 +79,7 @@ function matchCase(replacement: string, original: string) {
   return replacement
 }
 
-const PRONOUN_SET: Record<Exclude<PronounPreference, "auto">, { subject: string; object: string; possessive: string; contraction: string }> = {
+const PRONOUN_SET: Record<Exclude<PronounPreference, "auto">, PronounSet> = {
   he: {
     subject: "he",
     object: "him",
@@ -133,4 +135,11 @@ export function enforcePronouns(text: string, preference: PronounPreference) {
   }
 
   return enforced
+}
+
+export function getPronounSet(preference: PronounPreference): PronounSet {
+  if (preference === "auto" || preference === "avoid") {
+    return PRONOUN_SET.they
+  }
+  return PRONOUN_SET[preference]
 }

@@ -14,6 +14,7 @@ import { useAuth } from "@/hooks/use-auth"
 import { logClientEvent } from "@/lib/analytics"
 import type { PlanType } from "@/lib/usage"
 import type { DeescalationSummary } from "@/lib/deescalation/types"
+import type { DraftStructure } from "@/lib/draft/format"
 import type { PronounPreference } from "@/lib/types"
 import { MODE_DISPLAY_NAMES } from "@/lib/draft-mode"
 import Link from "next/link"
@@ -126,6 +127,7 @@ export function MainEditor() {
   const [userName, setUserName] = useState("")
   const [generatedDraft, setGeneratedDraft] = useState<string | null>(null)
   const [draftMetadata, setDraftMetadata] = useState<any>(null)
+  const [draftStructure, setDraftStructure] = useState<DraftStructure | null>(null)
   const [deescalationSummary, setDeescalationSummary] = useState<DeescalationSummary | null>(null)
   const [isEditing, setIsEditing] = useState(false)
   const [subject, setSubject] = useState("")
@@ -316,6 +318,7 @@ export function MainEditor() {
     setSensitivePreview(null)
     setGeneratedDraft(null)
     setDraftMetadata(null)
+    setDraftStructure(null)
     setDeescalationSummary(null)
     setInputReframeTier(null)
     setBlockedLanguageContext(null)
@@ -431,6 +434,7 @@ export function MainEditor() {
 
       setGeneratedDraft(data.data.generatedDraft)
       setDraftMetadata(data.data.metadata)
+      setDraftStructure(data.data.formattedDraft ?? null)
       setDeescalationSummary(data.data.deescalationSummary ?? null)
       setUsage(data.data.usage)
       setGenerationAction(null)
@@ -870,6 +874,7 @@ Examples:
               draftsUsed={draftsUsed}
               draftsLimit={draftsLimit}
               showUsageLimit={usage.plan === "free"}
+              structure={draftStructure ?? undefined}
             />
             {deescalationSummary?.wasDeescalated && (
               <DeescalationBanner summary={deescalationSummary} />

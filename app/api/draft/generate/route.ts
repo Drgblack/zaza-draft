@@ -28,6 +28,7 @@ import {
 import { isInternalQaUid, shouldRespectUsageLimit } from "@/lib/auth/internal-qa"
 import { buildBlockedLanguageResponse } from "@/lib/draft/blocked-response"
 import { enforceTeacherNameStyle } from "@/lib/draft/teacher-language"
+import { formatDraftText, DraftStructure } from "@/lib/draft/format"
 import { detectHighEmotionPhrases } from "@/lib/deescalation/detect"
 import { rewriteHighEmotionText } from "@/lib/deescalation/rewrite"
 
@@ -450,8 +451,10 @@ export async function POST(request: Request) {
   generatedDraft = enforceTeacherNameStyle(generatedDraft, {
     firstName: studentNameForPayload || undefined,
     pronounPreference: resolvedPronounPreference,
+    resolvedPronounPreference: resolvedPronounPreference,
   })
   let providerMeta = providerResult.providerMeta
+  const formattedDraftStructure = formatDraftText(generatedDraft)
   let rewriteAttempted = false
   const generationTime = providerMeta.latencyMs ?? Date.now() - generationStart
 
@@ -617,6 +620,7 @@ export async function POST(request: Request) {
     success: true,
     data: {
       generatedDraft,
+      formattedDraft: formattedDraftStructure,
       metadata,
       meta: responseMeta,
       usage: usageAfterGeneration,
