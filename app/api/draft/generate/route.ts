@@ -286,9 +286,9 @@ export async function POST(request: Request) {
       { status: 500 },
     )
   }
-  const entitlements = await getUserEntitlements(uid, firestore)
-  const { plan, usage } = entitlements
   const isQaUser = isInternalQaUid(uid)
+  const entitlements = await getUserEntitlements(uid, firestore)
+  const { plan, usage: initialUsage, usageRecord } = entitlements
   const enforceUsageLimits = shouldRespectUsageLimit(uid)
 
   const diagnosticsRef = firestore
@@ -304,10 +304,10 @@ export async function POST(request: Request) {
     }
   }
 
-  if (enforceUsageLimits && plan === "free" && usage.remaining !== null && usage.remaining <= 0) {
+  if (enforceUsageLimits && plan === "free" && initialUsage.remaining !== null && initialUsage.remaining <= 0) {
     logServerEvent("draft_generation_denied_limit", { uid, plan })
     logDraftOutcome("RATE_LIMITED", { errorCode: "USAGE_LIMIT_EXCEEDED" })
-    return NextResponse.json(buildUsageLimitError(usage), { status: 429 })
+    return NextResponse.json(buildUsageLimitError(initialUsage), { status: 429 })
   }
 
   try {
@@ -513,15 +513,17 @@ export async function POST(request: Request) {
     return handleBlockedOutput()
   }
 
-  let updatedUsage: MonthlyUsageRecord
-  try {
-    updatedUsage = await incrementUsage(uid, firestore, plan === "pro" || isQaUser)
-  } catch (error) {
-    if (error instanceof Error && error.message === "USAGE_LIMIT_EXCEEDED") {
-      return NextResponse.json(buildUsageLimitError(usage), { status: 429 })
+  let updatedUsage: MonthlyUsageRecord = usageRecord
+  if (!isQaUser) {
+    try {
+      updatedUsage = await incrementUsage(uid, firestore, plan === "pro")
+    } catch (error) {
+      if (error instanceof Error && error.message === "USAGE_LIMIT_EXCEEDED") {
+        return NextResponse.json(buildUsageLimitError(initialUsage), { status: 429 })
+      }
+      console.error("[draft] Usage increment failed", error)
+      throw error
     }
-    console.error("[draft] Usage increment failed", error)
-    throw error
   }
 
   const latencyMs = Date.now() - requestStart
@@ -575,7 +577,7 @@ export async function POST(request: Request) {
   })
 
   let snippetId: string | null = null
-  const usageAfterGeneration = buildUsageResponse(updatedUsage, plan)
+  const usageAfterGeneration = buildUsageResponse(updatedUsage, plan, { unlimited: isQaUser })
 
   const snippetPayload = {
     generatedText: generatedDraft,

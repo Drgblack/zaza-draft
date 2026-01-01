@@ -16,4 +16,14 @@ describe("parseQaUids", () => {
     const parsed = parseQaUids(" , ,, ")
     expect(parsed.size).toBe(0)
   })
+
+  it("parses comma lists with varying whitespace", () => {
+    const combos = ["uid1,uid2", "uid1, uid2", " uid1 , uid2 "]
+    combos.forEach((input) => {
+      const parsed = parseQaUids(input)
+      expect(parsed.has("uid1")).toBe(true)
+      expect(parsed.has("uid2")).toBe(true)
+      expect(parsed.size).toBe(2)
+    })
+  })
 })

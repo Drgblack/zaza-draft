@@ -73,13 +73,28 @@ export async function incrementUsage(uid: string, db: Firestore, allowUnlimited 
   })
 }
 
-export function buildUsageResponse(record: MonthlyUsageRecord, plan: PlanType) {
-  if (plan === "pro") {
+export interface UsageOverview {
+  plan: PlanType
+  currentMonthUsage: number
+  limit: number | null
+  remaining: number | null
+  unlimited: boolean
+}
+
+export function buildUsageResponse(
+  record: MonthlyUsageRecord,
+  plan: PlanType,
+  options?: { unlimited?: boolean },
+): UsageOverview {
+  const unlimited = options?.unlimited ?? plan === "pro"
+
+  if (unlimited) {
     return {
       plan,
       currentMonthUsage: record.generationCount,
       limit: null,
       remaining: null,
+      unlimited: true,
     }
   }
 
@@ -88,5 +103,6 @@ export function buildUsageResponse(record: MonthlyUsageRecord, plan: PlanType) {
     currentMonthUsage: record.generationCount,
     limit: FREE_TIER_LIMIT,
     remaining: Math.max(FREE_TIER_LIMIT - record.generationCount, 0),
+    unlimited: false,
   }
 }

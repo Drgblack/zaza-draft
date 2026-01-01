@@ -1,22 +1,33 @@
-export function parseQaUids(rawInput?: string) {
-  const raw = rawInput ?? process.env.INTERNAL_QA_UIDS ?? ""
-  // DEV NOTE: Add Sarah's QA UID (or other trusted test UIDs) to INTERNAL_QA_UIDS so unlimited drafts work in preview/prod without touching Stripe.
+let qaUids = parseInvitedUids(process.env.INTERNAL_QA_UIDS ?? "")
+
+function parseInvitedUids(source: string) {
   return new Set(
-    raw
-      .split(/[,\n\r]+/)
+    source
+      .replace(/[\n\r]+/g, ",")
+      .split(",")
       .map((uid) => uid.trim())
       .filter(Boolean),
   )
+}
+
+export function parseQaUids(rawInput?: string) {
+  if (typeof rawInput === "string") {
+    return parseInvitedUids(rawInput)
+  }
+  return new Set(qaUids)
 }
 
 export function isInternalQaUid(uid: string) {
   if (!uid) {
     return false
   }
-  const qaUids = parseQaUids()
   return qaUids.has(uid)
 }
 
 export function shouldRespectUsageLimit(uid: string) {
   return !isInternalQaUid(uid)
+}
+
+export function refreshQaUidsFromEnv() {
+  qaUids = parseInvitedUids(process.env.INTERNAL_QA_UIDS ?? "")
 }
