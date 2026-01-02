@@ -43,7 +43,6 @@ export const localeMessages: Record<Locale, LocaleMessages> = {
     profile: "Profile",
     language: "Language",
     "languageDropdown.label": "Select language",
-    "languageDropdown.label": "Select language",
     signOut: "Sign out",
     share: "Share",
     wordCount: { one: "{count} word", other: "{count} words" },
