@@ -34,4 +34,15 @@ describe("LanguageProvider", () => {
     expect(result.current.t("insights.unlimitedDrafts")).toBe("Unlimited drafts")
     expect(result.current.t("insights.draftsUsed", { used: 1, limit: 5 })).toContain("drafts")
   })
+
+  it("returns German translations when the locale is set to de-DE", () => {
+    localStorage.setItem("zaza.lang", "de-DE")
+
+    const wrapper = ({ children }: { children: ReactNode }) => (
+      <LanguageProvider>{children}</LanguageProvider>
+    )
+
+    const { result } = renderHook(() => useLocale(), { wrapper })
+    expect(result.current.t("header.insightsButtonLabel")).toBe("Meine Einblicke")
+  })
 })

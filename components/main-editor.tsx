@@ -17,7 +17,7 @@ import type { DeescalationSummary } from "@/lib/deescalation/types"
 import type { DraftStructure } from "@/lib/draft/format"
 import { cleanStudentName } from "@/lib/draft/student-name"
 import type { PronounPreference } from "@/lib/types"
-import { MODE_DISPLAY_NAMES } from "@/lib/draft-mode"
+import { DRAFT_MODES, MODE_LABEL_KEYS, DEFAULT_DRAFT_MODE } from "@/lib/draft-mode"
 import Link from "next/link"
 
 const TONE_OPTIONS = [
@@ -35,10 +35,10 @@ const PRONOUN_OPTIONS: { id: PronounPreference; label: string }[] = [
   { id: "avoid", label: "Avoid pronouns" },
 ]
 
-const MODE_OPTIONS = [
-  { id: "parent_message", label: MODE_DISPLAY_NAMES.parent_message },
-  { id: "report_comment", label: MODE_DISPLAY_NAMES.report_comment },
-] as const
+const MODE_OPTIONS = DRAFT_MODES.map((id) => ({
+  id,
+  labelKey: MODE_LABEL_KEYS[id],
+})) as const
 
 type ModeKey = (typeof MODE_OPTIONS)[number]["id"]
 
@@ -335,6 +335,9 @@ export function MainEditor() {
       situation: content.trim(),
       tone: selectedTone,
       language: languageChoice,
+      outputLanguage: languageChoice,
+      preferredLanguage: prefs.preferredLanguage,
+      uiLocale: locale,
     }
 
     const context: Record<string, string> = {}
@@ -538,6 +541,12 @@ export function MainEditor() {
     handleGenerate({ rewrite: true, previousDraft: generatedDraft })
   }
 
+  const buildSha =
+    process.env.VERCEL_GIT_COMMIT_SHA ??
+    process.env.NEXT_PUBLIC_VERCEL_GIT_COMMIT_SHA ??
+    "local"
+  const showBuildInfo = process.env.NODE_ENV !== "production"
+
   return (
     <div className="min-h-screen flex flex-col transition-colors">
       <main className="flex-1 max-w-3xl mx-auto px-6 py-12 w-full">
@@ -625,7 +634,7 @@ Examples:
         </div>
 
         <div className="mb-4 flex flex-wrap items-center gap-3">
-          <span className="text-sm font-semibold text-white/90">Mode</span>
+          <span className="text-sm font-semibold text-white/90">{t("editor.mode.label")}</span>
           {MODE_OPTIONS.map((option) => {
             const isActive = mode === option.id
             return (
@@ -639,7 +648,7 @@ Examples:
                 }`}
                 aria-pressed={isActive}
               >
-                {option.label}
+                {t(option.labelKey)}
               </button>
             )
           })}
@@ -649,6 +658,7 @@ Examples:
           <select
             value={languageChoice}
             onChange={(event) => setLanguageChoice(event.target.value as LanguageChoice)}
+            aria-label={t("languageDropdown.label")}
             className="bg-white/90 dark:bg-white/10 rounded-xl border border-white/40 dark:border-white/30 px-4 py-3 text-gray-900 dark:text-white font-medium shadow-sm focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-2"
           >
             <option value="en">English</option>
@@ -669,8 +679,8 @@ Examples:
 
         <details className="mb-6 rounded-2xl bg-white/10 dark:bg-white/5 border border-white/20 dark:border-white/10 text-white">
           <summary className="flex items-center justify-between px-4 py-3 cursor-pointer text-sm font-semibold">
-            <span>Optional details</span>
-            <span className="text-xs text-white/60">Add context + pronouns</span>
+            <span>{t("editor.details.summaryTitle")}</span>
+            <span className="text-xs text-white/60">{t("editor.details.summaryHint")}</span>
           </summary>
           <div className="px-4 pb-4">
             <div className="mt-3 grid grid-cols-1 md:grid-cols-3 gap-3">
@@ -678,7 +688,7 @@ Examples:
                 <input
                   value={studentFirstNameInput}
                   onChange={(event) => setStudentFirstNameInput(event.target.value)}
-                  placeholder="Student first name (optional)"
+                  placeholder={t("editor.studentName.placeholder")}
                   className="w-full bg-white/90 dark:bg-white/10 rounded-xl border border-white/40 dark:border-white/30 px-4 py-3 text-gray-900 dark:text-white font-medium shadow-sm focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-2"
                 />
                 {displayedStudentFirstName && (
@@ -784,11 +794,13 @@ Examples:
             <p className="text-sm text-white/60 mt-2">{t("editor.history.empty")}</p>
           )}
           <ul className="mt-4 space-y-3">
-            {history.map((item) => (
-              <li
-                key={item.id}
-                className="rounded-xl bg-white/20 p-3 border border-white/20 flex flex-col gap-1"
-              >
+            {history.map((item) => {
+              const historyModeKey = (item.mode ?? DEFAULT_DRAFT_MODE) as ModeKey
+              return (
+                <li
+                  key={item.id}
+                  className="rounded-xl bg-white/20 p-3 border border-white/20 flex flex-col gap-1"
+                >
                 <div className="flex items-center justify-between text-sm text-white/80">
                   <span>
                     {new Intl.DateTimeFormat(locale, {
@@ -804,9 +816,9 @@ Examples:
                 <p className="text-sm text-white/90">
                   {t("editor.history.words")}: {item.wordCount}
                 </p>
-                <p className="text-xs text-white/60 uppercase tracking-wide">
-                  {t("editor.history.mode")} {MODE_DISPLAY_NAMES[item.mode ?? "parent_message"]}
-                </p>
+                  <p className="text-xs text-white/60 uppercase tracking-wide">
+                    {t("editor.history.mode")} {t(MODE_LABEL_KEYS[historyModeKey])}
+                  </p>
                 {(item.contextUsed?.subject || item.contextUsed?.gradeLevel) && (
                   <p className="text-sm text-white/80">
                     {item.contextUsed?.subject
@@ -915,6 +927,11 @@ Examples:
 
       <div className="main-editor-footer">
         <FooterSlim />
+        {showBuildInfo && (
+          <div className="mt-2 text-center text-[11px] text-white/60 uppercase tracking-[0.2em]">
+            Build {buildSha} • {process.env.NODE_ENV ?? "dev"}
+          </div>
+        )}
       </div>
 
       <ZaraAssistant />

@@ -7,7 +7,7 @@ import { useLocale } from "@/hooks/use-locale"
 import Image from "next/image"
 
 export function LanguageDropdown() {
-  const { locale, setLocale } = useLocale()
+  const { locale, setLocale, t } = useLocale()
   const [open, setOpen] = useState(false)
 
   const switchLanguage = (newLocale: "en-GB" | "de-DE") => {
@@ -30,7 +30,7 @@ export function LanguageDropdown() {
       <DropdownMenuTrigger asChild>
         <button
           className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium transition-all duration-200 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 glass shadow-soft hover:bg-white/90 dark:hover:bg-white/20 border border-white/40 dark:border-white/30 bg-white/85 dark:bg-white/15 backdrop-blur-[24px] text-gray-900 dark:text-white hover:shadow-[0_4px_12px_rgba(124,58,237,0.2)]"
-          aria-label="Select language"
+          aria-label={t("languageDropdown.label")}
         >
           <Image
             src={current.flag || "/placeholder.svg"}

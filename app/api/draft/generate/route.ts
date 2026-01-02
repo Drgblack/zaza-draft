@@ -17,7 +17,6 @@ import { createHash } from "crypto"
 import { FieldValue } from "firebase-admin/firestore"
 import { resolveDraftMode } from "@/lib/draft-mode"
 import {
-  ALLOWED_LANGUAGES,
   ALLOWED_TONES,
   DraftFallbackContext,
   generateDraftWithFallback,
@@ -32,6 +31,7 @@ import { formatDraftText, DraftStructure } from "@/lib/draft/format"
 import { cleanStudentName } from "@/lib/draft/student-name"
 import { detectHighEmotionPhrases } from "@/lib/deescalation/detect"
 import { rewriteHighEmotionText } from "@/lib/deescalation/rewrite"
+import { resolveOutputLanguage } from "@/lib/draft/language"
 
 const TONE_DESCRIPTIONS: Record<ToneKey, string> = {
   warm: "Warm & Encouraging",
@@ -63,6 +63,9 @@ interface GenerateDraftRequest {
   mode?: DraftMode
   studentFirstName?: string
   studentName?: string // deprecated - use studentFirstName
+  outputLanguage?: string
+  preferredLanguage?: string
+  uiLocale?: string
 }
 
 function buildContextLine(context?: GenerateDraftRequest["context"]) {
@@ -83,15 +86,11 @@ function buildContextLine(context?: GenerateDraftRequest["context"]) {
   return pieces.join(" · ") + "."
 }
 
-function sanitizeLanguageChoice(input: string): LanguageKey | null {
-  const normalized = input.trim().toLowerCase()
-  if (normalized.startsWith("de")) {
-    return "de"
-  }
-  if (normalized.startsWith("en")) {
-    return "en"
-  }
-  return null
+const STRONG_ENGLISH_PATTERNS = [/Subject:/i, /\bDear\b/i, /\bKind regards\b/i, /\bBest regards\b/i, /\bThank you\b/i, /\bPlease\b/i]
+
+function containsStrongEnglishSignals(text: string) {
+  const snippet = text.slice(0, 200)
+  return STRONG_ENGLISH_PATTERNS.some((pattern) => pattern.test(snippet))
 }
 
 function countWords(text: string) {
@@ -116,6 +115,7 @@ async function reRunWithRewrite(
   previousDraft: string,
   resolvedPronounPreference: PronounPreference,
   mode: DraftMode,
+  forceLanguage?: boolean,
 ): Promise<ProviderResult | null> {
   try {
     return await generateDraft({
@@ -127,6 +127,7 @@ async function reRunWithRewrite(
       previousDraft,
       pronounPreference: resolvedPronounPreference,
       mode,
+      forceLanguage,
     })
   } catch (error) {
     return null
@@ -156,7 +157,16 @@ export async function POST(request: Request) {
   const situation = typeof payload?.situation === "string" ? payload.situation.trim() : ""
   const promptTooLong = situation.length > 2000
   const tone = payload?.tone
-  const language = typeof payload?.language === "string" ? sanitizeLanguageChoice(payload.language) : null
+  const requestedLanguageHint = payload?.outputLanguage ?? payload?.language
+  const teacherPreferredLanguage = payload?.preferredLanguage
+  const uiLocale = payload?.uiLocale
+  const acceptLanguageHeader = request.headers.get("accept-language")
+  const language = resolveOutputLanguage({
+    explicit: requestedLanguageHint,
+    preferred: teacherPreferredLanguage,
+    uiLocale,
+    acceptLanguage: acceptLanguageHeader,
+  })
   const mode = resolveDraftMode(payload?.mode)
 
   const studentFirstNameInput =
@@ -288,7 +298,7 @@ export async function POST(request: Request) {
   }
   const isQaUser = isInternalQaUid(uid)
   const entitlements = await getUserEntitlements(uid, firestore)
-  const { plan, usage: initialUsage, usageRecord } = entitlements
+  const { plan, usage: initialUsage, usageRecord, isProSubscriber } = entitlements
   const enforceUsageLimits = shouldRespectUsageLimit(uid)
 
   const diagnosticsRef = firestore
@@ -430,7 +440,7 @@ export async function POST(request: Request) {
     situation: currentSituation,
     originalSituation: originalSituationForPrompt,
     tone,
-    language: language as LanguageKey,
+    language,
     context: sanitizedContext,
     rewrite: Boolean(payload.rewrite),
     previousDraft: payload.previousDraft,
@@ -442,24 +452,42 @@ export async function POST(request: Request) {
   const fallbackContext: DraftFallbackContext = {
     mode,
     tone,
-    language: language as LanguageKey,
+    language,
     requestId,
     uidHash,
     studentFirstName: studentNameForPayload || undefined,
     studentPronounPreference: resolvedPronounPreference,
   }
-  const {
-    result: providerResult,
-    usedFallback,
-    errorCode: fallbackErrorCode,
-  } = await generateDraftWithFallback(providerInput, fallbackContext)
-  let generatedDraft = enforcePronouns(providerResult.text, resolvedPronounPreference)
-  generatedDraft = enforceTeacherNameStyle(generatedDraft, {
-    firstName: studentNameForPayload || undefined,
-    pronounPreference: resolvedPronounPreference,
-    resolvedPronounPreference: resolvedPronounPreference,
-  })
+  const finalizeDraft = (text: string) => {
+    let curated = enforcePronouns(text, resolvedPronounPreference)
+    curated = enforceTeacherNameStyle(curated, {
+      firstName: studentNameForPayload || undefined,
+      pronounPreference: resolvedPronounPreference,
+      resolvedPronounPreference: resolvedPronounPreference,
+    })
+    return curated
+  }
+  const runDraft = (forceLanguage = false) =>
+    generateDraftWithFallback({ ...providerInput, forceLanguage }, fallbackContext)
+
+  let draftAttempt = await runDraft()
+  let providerResult = draftAttempt.result
+  let usedFallback = draftAttempt.usedFallback
+  let fallbackErrorCode = draftAttempt.errorCode
+  let generatedDraft = finalizeDraft(providerResult.text)
   let providerMeta = providerResult.providerMeta
+
+  let forcedLanguageAttempted = false
+  if (language === "de" && containsStrongEnglishSignals(generatedDraft)) {
+    forcedLanguageAttempted = true
+    draftAttempt = await runDraft(true)
+    providerResult = draftAttempt.result
+    usedFallback = draftAttempt.usedFallback
+    fallbackErrorCode = draftAttempt.errorCode
+    generatedDraft = finalizeDraft(providerResult.text)
+    providerMeta = providerResult.providerMeta
+  }
+
   const formattedDraftStructure = formatDraftText(generatedDraft)
   let rewriteAttempted = false
   const generationTime = providerMeta.latencyMs ?? Date.now() - generationStart
@@ -496,7 +524,13 @@ export async function POST(request: Request) {
 
     if (!rewriteAttempted) {
       rewriteAttempted = true
-      const rewriteResult = await reRunWithRewrite(payload, generatedDraft, resolvedPronounPreference, mode)
+      const rewriteResult = await reRunWithRewrite(
+        payload,
+        generatedDraft,
+        resolvedPronounPreference,
+        mode,
+        forcedLanguageAttempted,
+      )
       if (rewriteResult) {
         generatedDraft = enforcePronouns(rewriteResult.text, resolvedPronounPreference)
         generatedDraft = enforceTeacherNameStyle(generatedDraft, {
@@ -578,6 +612,14 @@ export async function POST(request: Request) {
 
   let snippetId: string | null = null
   const usageAfterGeneration = buildUsageResponse(updatedUsage, plan, { unlimited: isQaUser })
+  console.info("[draft] usage", {
+    uid,
+    isQaUser,
+    isProUser: isProSubscriber,
+    usageBefore: initialUsage.currentMonthUsage,
+    usageAfter: updatedUsage.generationCount,
+    unlimitedFlag: usageAfterGeneration.unlimited,
+  })
 
   const snippetPayload = {
     generatedText: generatedDraft,

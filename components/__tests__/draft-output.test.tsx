@@ -16,6 +16,12 @@ vi.mock("@/hooks/use-locale", () => {
     "draft.action.load": "Load",
     "draft.action.delete": "Delete",
     "draft.actions.loadMore": "Load more",
+    "tone.warm": "Warm & Encouraging",
+    "tone.professional": "Professional & Neutral",
+    "tone.direct": "Direct & Clear",
+    "tone.empathetic": "Empathetic & Supportive",
+    "editor.mode.parentMessage": "Parent message",
+    "editor.mode.reportComment": "Report comment",
   }
 
   const t = (key: string, vars?: Record<string, string | number>) => {

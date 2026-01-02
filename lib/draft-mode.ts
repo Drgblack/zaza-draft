@@ -8,6 +8,11 @@ export const MODE_DISPLAY_NAMES: Record<DraftMode, string> = {
   report_comment: "Report comment",
 }
 
+export const MODE_LABEL_KEYS: Record<DraftMode, string> = {
+  parent_message: "editor.mode.parentMessage",
+  report_comment: "editor.mode.reportComment",
+}
+
 export const MODE_PROMPT_INSTRUCTIONS: Record<DraftMode, string> = {
   parent_message:
     "Frame the output as a parent message: start with a subject line prefixed with 'Subject:', include a greeting to the parent(s), write two to four concise paragraphs, keep the tone calm, professional, and supportive, and close with a clear next step or invitation to continue the conversation.",

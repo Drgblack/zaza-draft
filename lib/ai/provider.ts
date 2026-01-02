@@ -33,6 +33,7 @@ interface ProviderInput {
   mode: DraftMode
   studentFirstName?: string
   resolvedPronounPreference?: PronounPreference
+  forceLanguage?: boolean
 }
 
 export interface ProviderMeta {
@@ -104,6 +105,13 @@ function buildSystemPrompt(input: ProviderInput) {
   if (input.rewrite) {
     systemLines.push(
       "You are rewriting content already supplied; keep meaning intact while adapting tone/language per the request.",
+    )
+  }
+
+  if (input.forceLanguage) {
+    const languageName = input.language === "de" ? "German" : "English"
+    systemLines.push(
+      `Respond strictly in ${languageName}; avoid mixing other languages and do not include English phrases when German is requested.`,
     )
   }
 
@@ -329,3 +337,5 @@ export async function generateDraft(input: ProviderInput): Promise<ProviderResul
     },
   }
 }
+
+export { buildSystemPrompt }

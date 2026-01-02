@@ -1,13 +1,14 @@
 import type { Firestore } from "firebase-admin/firestore"
 
-import { buildUsageResponse, fetchUsageRecord, type MonthlyUsageRecord, type PlanType } from "./usage"
+import { buildUsageResponse, fetchUsageRecord, type MonthlyUsageRecord, type PlanType, type UsageOverview } from "./usage"
 import { isInternalQaUid } from "@/lib/auth/internal-qa"
 import { isProOrQa } from "./plan/is-pro-or-qa"
 
 export interface UserEntitlements {
   plan: PlanType
   usageRecord: MonthlyUsageRecord
-  usage: ReturnType<typeof buildUsageResponse>
+  usage: UsageOverview
+  isProSubscriber: boolean
 }
 
 const ACTIVE_STATUSES = new Set(["active", "trialing", "past_due", "unpaid", "active_trial"])
@@ -37,10 +38,12 @@ export async function getUserEntitlements(uid: string, db: Firestore): Promise<U
   const plan: PlanType = isProOrQa(basePlan, uid) ? "pro" : "free"
   const usageRecord = await fetchUsageRecord(uid, db)
   const usage = buildUsageResponse(usageRecord, plan, { unlimited: isInternalQaUid(uid) })
+  const isProSubscriber = basePlan === "pro"
 
   return {
     plan,
     usageRecord,
     usage,
+    isProSubscriber,
   }
 }

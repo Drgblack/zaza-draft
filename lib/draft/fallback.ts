@@ -95,6 +95,7 @@ interface ProviderRequestInput {
   mode: DraftMode
   studentFirstName?: string
   resolvedPronounPreference?: PronounPreference
+  forceLanguage?: boolean
 }
 
 interface ProviderFallbackResult {

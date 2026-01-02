@@ -42,6 +42,8 @@ export const localeMessages: Record<Locale, LocaleMessages> = {
     help: "Help & Guides",
     profile: "Profile",
     language: "Language",
+    "languageDropdown.label": "Select language",
+    "languageDropdown.label": "Select language",
     signOut: "Sign out",
     share: "Share",
     wordCount: { one: "{count} word", other: "{count} words" },
@@ -456,6 +458,9 @@ export const localeMessages: Record<Locale, LocaleMessages> = {
     "editor.history.gradeLabel": "Grade",
     "editor.placeholder.subject": "Subject (optional)",
     "editor.placeholder.gradeLevel": "Grade level (optional)",
+    "editor.studentName.placeholder": "Student first name (optional)",
+    "editor.details.summaryTitle": "Optional details",
+    "editor.details.summaryHint": "Add context + pronouns",
     "editor.studentName.display": "Displayed name: {name}",
     "editor.generating.message": "Generating your snippet.",
     "draft.generatedTitle": "Draft Generated",
@@ -697,6 +702,10 @@ export const localeMessages: Record<Locale, LocaleMessages> = {
     "zara.tip.difficult.title": "Tips for difficult conversations",
     "zara.tip.difficult.subtitle": "Navigate challenging topics with confidence",
     "insights.title": "Your Teaching Impact, {name}",
+    "header.insightsButtonLabel": "My insights",
+    "header.insightsButtonAria": "View my insights",
+    "header.insightsButtonLabel": "My insights",
+    "header.insightsButtonAria": "View my insights",
     "insights.draftsUsed": "{used} of {limit} drafts used this month",
     "insights.unlimitedDrafts": "Unlimited drafts",
     "insights.backToEditor": "Back to Editor",
@@ -915,6 +924,15 @@ export const localeMessages: Record<Locale, LocaleMessages> = {
     "editor.history.pronouns": "Pronouns: {value}",
     "editor.placeholder.subject": "Subject (optional)",
     "editor.placeholder.gradeLevel": "Grade level (optional)",
+    "editor.studentName.placeholder": "Student first name (optional)",
+    "editor.details.summaryTitle": "Optional details",
+    "editor.details.summaryHint": "Add context + pronouns",
+    "editor.mode.label": "Mode",
+    "editor.mode.parentMessage": "Parent message",
+    "editor.mode.reportComment": "Report comment",
+    "editor.mode.label": "Mode",
+    "editor.mode.parentMessage": "Parent message",
+    "editor.mode.reportComment": "Report comment",
     "editor.studentName.display": "Displayed name: {name}",
     "editor.generating.message": "Generating your snippet.",
     "draft.generatedTitle": "Draft Generated",
@@ -945,6 +963,9 @@ export const localeMessages: Record<Locale, LocaleMessages> = {
     "wellbeing.tip.timeCelebration": "You saved {hours}h this week. That's precious time back for yourself.",
     "wellbeing.tip.default": "Tip: Using 'Empathetic' tone first often saves regeneration time.",
     "wellbeing.dismiss": "Dismiss wellbeing tip",
+    "languageDropdown.label": "Select language",
+    "header.insightsButtonLabel": "My insights",
+    "header.insightsButtonAria": "View my insights",
   },
   "de-DE": {
     newDoc: "Neues Dokument",
@@ -972,6 +993,7 @@ export const localeMessages: Record<Locale, LocaleMessages> = {
     help: "Hilfe & Anleitungen",
     profile: "Profil",
     language: "Sprache",
+    "languageDropdown.label": "Sprache auswählen",
     signOut: "Abmelden",
     share: "Teilen",
     wordCount: { one: "{count} Wort", other: "{count} Wörter" },
@@ -1194,6 +1216,12 @@ export const localeMessages: Record<Locale, LocaleMessages> = {
     "editor.history.gradeLabel": "Klasse",
     "editor.placeholder.subject": "Betreff (optional)",
     "editor.placeholder.gradeLevel": "Klassenstufe (optional)",
+    "editor.studentName.placeholder": "Vorname des Kindes (optional)",
+    "editor.details.summaryTitle": "Optionale Details",
+    "editor.details.summaryHint": "Kontext und Pronomen hinzufügen",
+    "editor.mode.label": "Modus",
+    "editor.mode.parentMessage": "Elternnachricht",
+    "editor.mode.reportComment": "Berichtskommentar",
     "editor.studentName.display": "Angezeigter Name: {name}",
     "editor.generating.message": "Entwurf wird erstellt.",
     "draft.generatedTitle": "Entwurf erstellt",
@@ -1208,6 +1236,8 @@ export const localeMessages: Record<Locale, LocaleMessages> = {
     "draft.action.delete": "Löschen",
     "draft.actions.loadMore": "Mehr laden",
     "insights.title": "Ihr Einfluss als Lehrkraft, {name}",
+    "header.insightsButtonLabel": "Meine Einblicke",
+    "header.insightsButtonAria": "Meine Einblicke ansehen",
     "insights.draftsUsed": "{used} von {limit} Entwürfen diesen Monat verwendet",
     "insights.unlimitedDrafts": "Unbegrenzte Entwürfe",
     "insights.backToEditor": "Zurück zum Editor",
@@ -1496,14 +1526,22 @@ export function LanguageProvider({ children }: { children: React.ReactNode }) {
     (key: string, vars?: Record<string, string | number>): string => {
       const messages = localeMessages[locale] ?? localeMessages[DEFAULT_LOCALE]
       const fallbackMessages = localeMessages[DEFAULT_LOCALE]
-      const message = messages[key] ?? fallbackMessages[key] ?? key
+      const message = messages[key] ?? fallbackMessages[key]
+      const missingKey = typeof message === "undefined"
+      if (missingKey) {
+        const placeholder =
+          process.env.NODE_ENV !== "production" ? `[[missing:${key}]]` : key
+        return placeholder
+      }
+
+      const resolvedMessage = message ?? key
 
       let text: string
-      if (typeof message === "object" && "one" in message && "other" in message) {
+      if (typeof resolvedMessage === "object" && "one" in resolvedMessage && "other" in resolvedMessage) {
         const count = vars?.count as number
-        text = count === 1 ? message.one : message.other
+        text = count === 1 ? resolvedMessage.one : resolvedMessage.other
       } else {
-        text = String(message)
+        text = String(resolvedMessage)
       }
 
       text = normalizeDashes(text)

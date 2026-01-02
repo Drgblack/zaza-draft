@@ -5,7 +5,7 @@ import { useEffect, useMemo, useRef, useState } from "react"
 import { SaveDraftModal } from "./save-draft-modal"
 import type { DraftMode } from "@/lib/types"
 import type { DraftStructure } from "@/lib/draft/format"
-import { MODE_DISPLAY_NAMES, DEFAULT_DRAFT_MODE } from "@/lib/draft-mode"
+import { MODE_LABEL_KEYS, DEFAULT_DRAFT_MODE } from "@/lib/draft-mode"
 import { useLocale } from "@/hooks/use-locale"
 
 interface DraftOutputProps {
@@ -44,7 +44,8 @@ export function DraftOutput({
   const [showMoreMenu, setShowMoreMenu] = useState(false)
   const [actionMessage, setActionMessage] = useState<string | null>(null)
   const { locale, t } = useLocale()
-  const modeLabel = MODE_DISPLAY_NAMES[metadata.modeUsed ?? DEFAULT_DRAFT_MODE]
+  const modeKey = (metadata.modeUsed ?? DEFAULT_DRAFT_MODE) as keyof typeof MODE_LABEL_KEYS
+  const modeLabel = t(MODE_LABEL_KEYS[modeKey])
   const fallbackParagraphs = draftText
     .split(/\n\s*\n+/)
     .map((paragraph) => paragraph.trim())
@@ -234,13 +235,6 @@ export function DraftOutput({
     return () => clearTimeout(timer)
   }, [actionMessage])
 
-  const toneLabels: Record<string, string> = {
-    warm: "Warm & Encouraging",
-    professional: "Professional & Neutral",
-    direct: "Direct & Clear",
-    empathetic: "Empathetic & Supportive",
-  }
-
   return (
     <>
       <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6 mb-6 shadow-sm">
@@ -253,7 +247,7 @@ export function DraftOutput({
             <div>
             <h3 className="font-semibold text-gray-900 dark:text-gray-100">{t("draft.generatedTitle")}</h3>
               <p className="text-sm text-gray-500 dark:text-gray-400">
-                {metadata.wordCount} words • {toneLabels[tone] || tone}
+              {metadata.wordCount} words • {t(`tone.${tone}`)}
               </p>
               <p className="text-xs text-gray-500 dark:text-gray-400">{t("draft.modeLabel", { mode: modeLabel })}</p>
             </div>

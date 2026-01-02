@@ -26,4 +26,10 @@ describe("parseQaUids", () => {
       expect(parsed.size).toBe(2)
     })
   })
+
+  it("matches a QA UID with lowercase L versus number 1", () => {
+    const specialUid = "KJ8ZDQdeflRxSyy1BXkwSFNA2dt2"
+    const parsed = parseQaUids(specialUid)
+    expect(parsed.has(specialUid)).toBe(true)
+  })
 })

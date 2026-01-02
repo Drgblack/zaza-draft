@@ -118,10 +118,10 @@ export function Header({
               variant={pathname === "/insights" ? "default" : "ghost"}
               size="sm"
               className="gap-2 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 relative"
-              aria-label="View My Insights"
+              aria-label={t("header.insightsButtonAria")}
             >
               <BarChart3 className="h-4 w-4" aria-hidden="true" />
-              <span className="hidden sm:inline">My Insights</span>
+              <span className="hidden sm:inline">{t("header.insightsButtonLabel")}</span>
             </Button>
           </Link>
 
