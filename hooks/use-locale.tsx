@@ -958,8 +958,6 @@ export const localeMessages: Record<Locale, LocaleMessages> = {
     "wellbeing.tip.default": "Tip: Using 'Empathetic' tone first often saves regeneration time.",
     "wellbeing.dismiss": "Dismiss wellbeing tip",
     "languageDropdown.label": "Select language",
-    "header.insightsButtonLabel": "My insights",
-    "header.insightsButtonAria": "View my insights",
   },
   "de-DE": {
     newDoc: "Neues Dokument",
