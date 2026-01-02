@@ -259,7 +259,7 @@ export function DraftOutput({
         )}
 
         {/* Generated Text */}
-        <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-4 mb-4 space-y-5">
+        <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-4 mb-4 space-y-4 sm:space-y-5">
           {structure?.subject && (
             <p className="font-semibold text-gray-900 dark:text-gray-100 border-b border-gray-200 dark:border-gray-600 pb-3 mb-0">
               {t("editor.history.subjectLabel")}: {structure.subject}
@@ -268,7 +268,7 @@ export function DraftOutput({
           {paragraphs.map((paragraph, index) => (
             <p
               key={`${paragraph.slice(0, 20)}-${index}`}
-              className="text-gray-900 dark:text-gray-100 whitespace-pre-wrap leading-relaxed text-base"
+              className="text-gray-900 dark:text-gray-100 whitespace-pre-wrap leading-relaxed text-sm sm:text-base"
             >
               {paragraph}
             </p>
@@ -276,7 +276,7 @@ export function DraftOutput({
         </div>
 
         {/* Metadata */}
-        <div className="flex items-center gap-4 text-xs text-gray-500 dark:text-gray-400 mb-4">
+        <div className="flex flex-wrap items-center gap-2 text-xs text-gray-500 dark:text-gray-400 mb-4">
           <span>{t("draft.generatedDetails", { seconds: (metadata.generationTime / 1000).toFixed(1) })}</span>
           <span>•</span>
           <span>{t("statusBar.words", { count: metadata.wordCount })}</span>

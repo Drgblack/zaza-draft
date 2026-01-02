@@ -34,6 +34,7 @@ interface ProviderInput {
   studentFirstName?: string
   resolvedPronounPreference?: PronounPreference
   forceLanguage?: boolean
+  signatureBlock?: string
 }
 
 export interface ProviderMeta {
@@ -158,6 +159,9 @@ function buildBasePayload(input: ProviderInput): FetchPayload {
     `Context subject: ${input.context?.subject ?? "-"}`,
     `Context gradeLevel: ${input.context?.gradeLevel ?? "-"}`,
   ]
+  if (input.signatureBlock) {
+    contextLines.push(`Signature block:\n${input.signatureBlock}`)
+  }
   const userParts = [
     `Cleaned notes:\n${input.situation}`,
     input.originalSituation ? `Original notes (for reference only):\n${input.originalSituation}` : undefined,

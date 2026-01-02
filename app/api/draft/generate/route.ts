@@ -32,6 +32,11 @@ import { cleanStudentName } from "@/lib/draft/student-name"
 import { detectHighEmotionPhrases } from "@/lib/deescalation/detect"
 import { rewriteHighEmotionText } from "@/lib/deescalation/rewrite"
 import { resolveOutputLanguage } from "@/lib/draft/language"
+import {
+  applySignatureToDraft,
+  resolveSignature,
+  SignaturePayload,
+} from "@/lib/draft/signature"
 
 const TONE_DESCRIPTIONS: Record<ToneKey, string> = {
   warm: "Warm & Encouraging",
@@ -66,6 +71,7 @@ interface GenerateDraftRequest {
   outputLanguage?: string
   preferredLanguage?: string
   uiLocale?: string
+  signature?: SignaturePayload
 }
 
 function buildContextLine(context?: GenerateDraftRequest["context"]) {
@@ -177,6 +183,11 @@ export async function POST(request: Request) {
       : ""
   const sanitizedStudentFirstName = cleanStudentName(studentFirstNameInput)
   const studentNameForPayload = sanitizedStudentFirstName || ""
+
+  const resolvedSignature = resolveSignature({
+    ...payload.signature,
+    fallbackName: studentNameForPayload || undefined,
+  })
 
   if (mode === null) {
     return NextResponse.json(
@@ -448,6 +459,7 @@ export async function POST(request: Request) {
     mode,
     studentFirstName: studentNameForPayload || undefined,
     resolvedPronounPreference,
+    signatureBlock: resolvedSignature.block,
   }
   const fallbackContext: DraftFallbackContext = {
     mode,
@@ -467,6 +479,8 @@ export async function POST(request: Request) {
     })
     return curated
   }
+  const finalizeDraftWithSignature = (text: string) =>
+    applySignatureToDraft(finalizeDraft(text), resolvedSignature, mode)
   const runDraft = (forceLanguage = false) =>
     generateDraftWithFallback({ ...providerInput, forceLanguage }, fallbackContext)
 
@@ -474,7 +488,7 @@ export async function POST(request: Request) {
   let providerResult = draftAttempt.result
   let usedFallback = draftAttempt.usedFallback
   let fallbackErrorCode = draftAttempt.errorCode
-  let generatedDraft = finalizeDraft(providerResult.text)
+  let generatedDraft = finalizeDraftWithSignature(providerResult.text)
   let providerMeta = providerResult.providerMeta
 
   let forcedLanguageAttempted = false
@@ -484,7 +498,7 @@ export async function POST(request: Request) {
     providerResult = draftAttempt.result
     usedFallback = draftAttempt.usedFallback
     fallbackErrorCode = draftAttempt.errorCode
-    generatedDraft = finalizeDraft(providerResult.text)
+    generatedDraft = finalizeDraftWithSignature(providerResult.text)
     providerMeta = providerResult.providerMeta
   }
 
@@ -532,11 +546,7 @@ export async function POST(request: Request) {
         forcedLanguageAttempted,
       )
       if (rewriteResult) {
-        generatedDraft = enforcePronouns(rewriteResult.text, resolvedPronounPreference)
-        generatedDraft = enforceTeacherNameStyle(generatedDraft, {
-          firstName: studentNameForPayload || undefined,
-          pronounPreference: resolvedPronounPreference,
-        })
+        generatedDraft = finalizeDraftWithSignature(rewriteResult.text)
         providerMeta = rewriteResult.providerMeta
         blockedDetection = detectBlockedLanguage(generatedDraft)
       }
@@ -583,6 +593,7 @@ export async function POST(request: Request) {
     generatedAt: new Date().toISOString(),
     requestedAt: requestedAt.toISOString(),
     contextUsed: sanitizedContext,
+    signatureBlock: resolvedSignature.block,
   }
 
   const responseMeta = {
@@ -639,6 +650,7 @@ export async function POST(request: Request) {
     usage: usageAfterGeneration,
     createdAt: new Date().toISOString(),
     requestId: snippetDoc.id,
+    signatureBlock: resolvedSignature.block,
   }
 
   try {

@@ -10,6 +10,11 @@ export interface TeacherPrefs {
   lastDocType: "lesson-plan" | "email" | "report"
   streakCount: number
   lastActiveAt: string
+  signatureLine1?: string
+  signatureLine2?: string
+  signatureLine3?: string
+  autoAppendSignatureParentMessage?: boolean
+  autoAppendSignatureReportComment?: boolean
 }
 
 const DEFAULT_PREFS: TeacherPrefs = {
@@ -20,6 +25,11 @@ const DEFAULT_PREFS: TeacherPrefs = {
   lastDocType: "lesson-plan",
   streakCount: 3,
   lastActiveAt: new Date().toISOString(),
+  signatureLine1: "Sarah",
+  signatureLine2: undefined,
+  signatureLine3: undefined,
+  autoAppendSignatureParentMessage: true,
+  autoAppendSignatureReportComment: false,
 }
 
 export function useTeacherPrefs() {

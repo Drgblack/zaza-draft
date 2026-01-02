@@ -148,26 +148,7 @@ export function enforceTeacherNameStyle(text: string, options: TeacherLanguageOp
   processed = normalizeSingularThey(processed)
   processed = processed.replace(/\bDear Parent\(s\),/gi, "Dear Parent/Carer,")
 
-  const reassuranceSentence = firstName
-    ? `My aim is to support ${firstName} positively and help ${objectReference} feel confident and successful at school.`
-    : "My aim is to support your child positively and help them feel confident and successful at school."
-
-  if (!/(aim to support|work together|confident and successful)/i.test(processed)) {
-    processed = insertReassurance(processed, reassuranceSentence)
-  }
-
   return processed
-}
-
-function insertReassurance(text: string, sentence: string) {
-  const trimmed = text.trimEnd()
-  const signoffPattern = /\n(?:(?:Kind|Warm|Best|Many)\s+regards,|Sincerely,|Yours sincerely,|Best wishes,|With thanks,|Thanks,)/i
-  const match = trimmed.match(signoffPattern)
-  if (match) {
-    const index = trimmed.search(signoffPattern)
-    return `${trimmed.slice(0, index).trimEnd()}\n\n${sentence}\n${trimmed.slice(index).trimStart()}`
-  }
-  return `${trimmed}\n\n${sentence}`
 }
 
 function normalizeSingularThey(value: string) {

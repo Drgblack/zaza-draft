@@ -41,4 +41,11 @@ Your teacher`
     const formatted = formatDraftText("")
     expect(formatted.paragraphs).toHaveLength(0)
   })
+
+  it("removes markdown bold markers from output", () => {
+    const formatted = formatDraftText("Dear Parents,\n\n**Das war toll**\n\nBest wishes,")
+    expect(formatted.paragraphs[0]).toContain("Dear Parents")
+    expect(formatted.paragraphs[1]).toBe("Das war toll")
+    expect(formatted.paragraphs[1]).not.toContain("**")
+  })
 })

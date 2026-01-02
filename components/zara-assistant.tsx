@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react"
 import { Sparkles, Send, ArrowLeft, ChevronRight, Lightbulb, Copy, Quote, X } from "lucide-react"
 import { useLocale } from "@/hooks/use-locale"
+import { useToast } from "@/hooks/use-toast"
 
 interface Message {
   role: "user" | "assistant"
@@ -173,6 +174,8 @@ export function ZaraAssistant() {
   ])
   const [inputValue, setInputValue] = useState("")
   const [copiedPhrase, setCopiedPhrase] = useState<string | null>(null)
+  const [isSending, setIsSending] = useState(false)
+  const { toast } = useToast()
 
   const tips = getTips(t)
 
@@ -194,24 +197,44 @@ export function ZaraAssistant() {
     }
   }, [])
 
-  const handleSendMessage = () => {
-    if (!inputValue.trim()) return
+  const handleSendMessage = async () => {
+    const trimmed = inputValue.trim()
+    if (!trimmed || isSending) return
 
-    setMessages((prev) => [...prev, { role: "user", content: inputValue }])
+    setMessages((prev) => [...prev, { role: "user", content: trimmed }])
     setInputValue("")
+    setIsSending(true)
 
-    setTimeout(() => {
+    try {
+      const response = await fetch("/api/zara/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message: trimmed, uiLocale: locale }),
+        cache: "no-store",
+      })
+
+      const payload = await response.json()
+      if (!response.ok || !payload?.success || typeof payload?.data?.reply !== "string") {
+        throw new Error(payload?.error?.message || "Zara chat failed")
+      }
+
       setMessages((prev) => [
         ...prev,
         {
           role: "assistant",
-            content:
-              locale === "de-DE"
-                ? "Ich bin hier, um zu helfen! Während ich noch lerne, probiere die schnellen Tipps oben oder beschreibe deine Situation im Haupteditor für KI-generierte Entwürfe."
-                : "I'm here to help! While I'm still learning, try the quick tips above or describe your situation in the main editor for AI-generated drafts.",
+          content: payload.data.reply,
         },
       ])
-    }, 800)
+    } catch (error) {
+      setInputValue(trimmed)
+      toast({
+        title: t("zara.error.title"),
+        description: t("zara.error.description"),
+        variant: "destructive",
+      })
+    } finally {
+      setIsSending(false)
+    }
   }
 
   const handleQuickTip = (tipId: string) => {
@@ -456,7 +479,7 @@ export function ZaraAssistant() {
                 />
                 <button
                   onClick={handleSendMessage}
-                  disabled={!inputValue.trim()}
+                  disabled={!inputValue.trim() || isSending}
                   className="p-2 rounded-lg bg-gradient-to-br from-purple-600 to-purple-700 text-white disabled:opacity-40 disabled:cursor-not-allowed hover:shadow-lg hover:scale-105 active:scale-95 transition-all duration-200 shadow-md shadow-purple-500/30"
                   aria-label={locale === "de-DE" ? "Nachricht senden" : "Send message"}
                 >

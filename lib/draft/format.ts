@@ -9,6 +9,10 @@ const CLOSING_REGEX =
 const SUBJECT_REGEX =
   /^\s*Subject\s*[:\-]\s*(.+?)(?=(?:\n|Dear\b|Hi\b|Hello\b|Parents\b|Family\b|Team\b|Good\b|$))/i
 
+function stripMarkdown(value: string) {
+  return value.replace(/\*\*([\s\S]*?)\*\*/g, "$1").replace(/__([\s\S]*?)__/g, "$1")
+}
+
 function chunkSentences(sentences: string[], targetParagraphs: number) {
   const chunks: string[] = []
   if (!sentences.length) {
@@ -82,7 +86,7 @@ function buildParagraphs(body: string): string[] {
 }
 
 export function formatDraftText(text: string): DraftStructure {
-  const normalized = text.replace(/\r\n/g, "\n").trim()
+  const normalized = stripMarkdown(text).replace(/\r\n/g, "\n").trim()
   if (!normalized) {
     return { paragraphs: [] }
   }

@@ -331,6 +331,14 @@ export function MainEditor() {
     setInputReframeTier(null)
     setBlockedLanguageContext(null)
 
+    const signaturePayload = {
+      line1: prefs.signatureLine1?.trim() || prefs.firstName,
+      line2: prefs.signatureLine2?.trim() || undefined,
+      line3: prefs.signatureLine3?.trim() || undefined,
+      autoAppendParentMessage: prefs.autoAppendSignatureParentMessage,
+      autoAppendReportComment: prefs.autoAppendSignatureReportComment,
+    }
+
     const payload: Record<string, unknown> = {
       situation: content.trim(),
       tone: selectedTone,
@@ -361,6 +369,8 @@ export function MainEditor() {
 
     payload.pronounPreference = pronounPreference
     payload.mode = mode
+
+    payload.signature = signaturePayload
 
     if (options.rewrite) {
       payload.rewrite = true
@@ -549,13 +559,13 @@ export function MainEditor() {
 
   return (
     <div className="min-h-screen flex flex-col transition-colors">
-      <main className="flex-1 max-w-3xl mx-auto px-6 py-12 w-full">
+      <main className="flex-1 max-w-3xl mx-auto px-4 sm:px-6 py-8 sm:py-12 w-full">
         {/* Main Content Area */}
-        <div className="mb-8 animate-fade-in">
-          <h1 className="text-4xl md:text-5xl font-bold text-white mb-3 tracking-tight leading-tight drop-shadow-[0_2px_8px_rgba(0,0,0,0.3)]">
+        <div className="mb-6 sm:mb-8 animate-fade-in">
+          <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold text-white mb-3 tracking-tight leading-tight drop-shadow-[0_2px_8px_rgba(0,0,0,0.3)]">
             {greeting}, {userName || (locale === "de-DE" ? "da" : "there")}
           </h1>
-          <p className="text-lg text-white/95 leading-relaxed drop-shadow-[0_1px_4px_rgba(0,0,0,0.25)]">
+          <p className="text-base sm:text-lg text-white/95 leading-relaxed drop-shadow-[0_1px_4px_rgba(0,0,0,0.25)]">
             {locale === "de-DE"
               ? "Lassen Sie uns präzise und professionell bleiben."
               : "Let's keep it crisp and professional."}
@@ -575,7 +585,7 @@ export function MainEditor() {
 
         {showWellbeingInsights && <MiniInsightsBar />}
 
-        <div className="glass shadow-[0_12px_40px_rgba(0,0,0,0.15),0_4px_12px_rgba(0,0,0,0.1)] rounded-2xl p-8 mb-6 transition-all duration-200 hover:shadow-[0_16px_48px_rgba(0,0,0,0.2),0_6px_16px_rgba(255,255,255,0.12)] hover:-translate-y-0.5 border border-white/40 dark:border-white/30 bg-white/90 dark:bg-white/15 backdrop-blur-[32px]">
+        <div className="glass shadow-[0_12px_40px_rgba(0,0,0,0.15),0_4px_12px_rgba(0,0,0,0.1)] rounded-2xl p-6 sm:p-8 mb-6 transition-all duration-200 hover:shadow-[0_16px_48px_rgba(0,0,0,0.2),0_6px_16px_rgba(255,255,255,0.12)] hover:-translate-y-0.5 border border-white/40 dark:border-white/30 bg-white/90 dark:bg-white/15 backdrop-blur-[32px]">
           <textarea
             value={content}
             onChange={(e) => setContent(e.target.value)}
@@ -594,7 +604,7 @@ Examples:
 • Parent email about homework concerns, professional and empathetic tone
 • Report card comment for excellent progress in reading comprehension`
             }
-            className="w-full h-96 text-lg text-gray-900 dark:text-white bg-transparent border-0 focus:outline-none focus:ring-0 resize-none placeholder:text-gray-600 dark:placeholder:text-white/60 leading-relaxed font-medium"
+            className="w-full h-[22rem] sm:h-96 text-base sm:text-lg text-gray-900 dark:text-white bg-transparent border-0 focus:outline-none focus:ring-0 resize-none placeholder:text-gray-600 dark:placeholder:text-white/60 leading-relaxed font-medium"
             style={{
               color: isDocumentDark ? "#ffffff" : undefined,
             }}
@@ -620,11 +630,11 @@ Examples:
               <button
                 key={tone.id}
                 onClick={() => setSelectedTone(tone.id)}
-                className={`px-6 py-3 rounded-xl font-semibold transition-all duration-200 focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 ${
+                className={`px-4 py-2.5 sm:px-6 sm:py-3 rounded-xl font-semibold text-sm sm:text-base transition-all duration-200 focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 ${
                   isSelected
                     ? "bg-gradient-to-br from-[#7c3aed] to-[#6d28d9] text-white shadow-[0_8px_24px_rgba(124,58,237,0.4),inset_0_1px_3px_rgba(255,255,255,0.3),inset_0_-1px_2px_rgba(0,0,0,0.1)] border border-white/20 hover:-translate-y-0.5 hover:shadow-[0_12px_32px_rgba(124,58,237,0.5),inset_0_2px_4px_rgba(255,255,255,0.35)]"
                     : "glass shadow-soft hover:bg-white/90 dark:hover:bg-white/20 hover:-translate-y-0.5 border border-white/40 dark:border-white/30 bg-white/85 dark:bg-white/10 backdrop-blur-[24px] text-gray-900 dark:text-white"
-                }`}
+                  }`}
                 aria-pressed={isSelected}
               >
                 {t(tone.key)}
@@ -716,7 +726,7 @@ Examples:
         <Button
           onClick={() => handleGenerate()}
           disabled={!content.trim() || isGenerating}
-          className="w-full bg-gradient-to-br from-[#7c3aed] via-[#6d28d9] to-[#5b21b6] hover:shadow-[0_20px_56px_rgba(124,58,237,0.5),inset_0_2px_4px_rgba(255,255,255,0.3)] text-white dark:text-white text-lg font-bold py-6 rounded-xl transition-all duration-200 shadow-[0_12px_32px_rgba(124,58,237,0.4),inset_0_1px_3px_rgba(255,255,255,0.25),inset_0_-1px_2px_rgba(0,0,0,0.1)] disabled:opacity-50 disabled:cursor-not-allowed focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 hover:-translate-y-1 hover:scale-[1.02] active:translate-y-0 active:scale-100 border border-white/20"
+          className="w-full bg-gradient-to-br from-[#7c3aed] via-[#6d28d9] to-[#5b21b6] hover:shadow-[0_20px_56px_rgba(124,58,237,0.5),inset_0_2px_4px_rgba(255,255,255,0.3)] text-white dark:text-white text-base sm:text-lg font-bold py-5 sm:py-6 min-h-[52px] rounded-xl transition-all duration-200 shadow-[0_12px_32px_rgba(124,58,237,0.4),inset_0_1px_3px_rgba(255,255,255,0.25),inset_0_-1px_2px_rgba(0,0,0,0.1)] disabled:opacity-50 disabled:cursor-not-allowed focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 hover:-translate-y-1 hover:scale-[1.02] active:translate-y-0 active:scale-100 border border-white/20"
           aria-label={t("button.generate")}
         >
           {isGenerating ? t("editor.generating.message") : t("button.generate")}
