@@ -801,49 +801,50 @@ Examples:
                   key={item.id}
                   className="rounded-xl bg-white/20 p-3 border border-white/20 flex flex-col gap-1"
                 >
-                <div className="flex items-center justify-between text-sm text-white/80">
-                  <span>
-                    {new Intl.DateTimeFormat(locale, {
-                      dateStyle: "medium",
-                      timeStyle: "short",
-                    }).format(new Date(item.createdAt))}
-                  </span>
-                  <span className="uppercase tracking-wide text-xs">{item.tone}</span>
-                </div>
-                <p className="text-sm text-white/90">
-                  {t("editor.history.language")}: {item.language.toUpperCase()}
-                </p>
-                <p className="text-sm text-white/90">
-                  {t("editor.history.words")}: {item.wordCount}
-                </p>
+                  <div className="flex items-center justify-between text-sm text-white/80">
+                    <span>
+                      {new Intl.DateTimeFormat(locale, {
+                        dateStyle: "medium",
+                        timeStyle: "short",
+                      }).format(new Date(item.createdAt))}
+                    </span>
+                    <span className="uppercase tracking-wide text-xs">{item.tone}</span>
+                  </div>
+                  <p className="text-sm text-white/90">
+                    {t("editor.history.language")}: {item.language.toUpperCase()}
+                  </p>
+                  <p className="text-sm text-white/90">
+                    {t("editor.history.words")}: {item.wordCount}
+                  </p>
                   <p className="text-xs text-white/60 uppercase tracking-wide">
                     {t("editor.history.mode")} {t(MODE_LABEL_KEYS[historyModeKey])}
                   </p>
-                {(item.contextUsed?.subject || item.contextUsed?.gradeLevel) && (
-                  <p className="text-sm text-white/80">
-                    {item.contextUsed?.subject
-                      ? `${t("editor.history.subjectLabel")}: ${item.contextUsed.subject}`
-                      : ""}
-                    {item.contextUsed?.gradeLevel
-                      ? ` | ${t("editor.history.gradeLabel")}: ${item.contextUsed.gradeLevel}`
-                      : ""}
-                  </p>
-                )}
-                {item.pronounResolution?.resolvedPreference && (
-                  <p className="text-xs text-white/60 uppercase tracking-wide">
-                    {t("editor.history.pronouns", { value: item.pronounResolution.resolvedPreference })}
-                  </p>
-                )}
-                <div className="flex gap-2 mt-2">
-                  <Button size="sm" variant="outline" onClick={() => loadSnippet(item)}>
-                    {t("draft.action.load")}
-                  </Button>
-                  <Button size="sm" variant="ghost" className="text-rose-200" onClick={() => deleteSnippet(item.id)}>
-                    {t("draft.action.delete")}
-                  </Button>
-                </div>
-              </li>
-            ))}
+                  {(item.contextUsed?.subject || item.contextUsed?.gradeLevel) && (
+                    <p className="text-sm text-white/80">
+                      {item.contextUsed?.subject
+                        ? `${t("editor.history.subjectLabel")}: ${item.contextUsed.subject}`
+                        : ""}
+                      {item.contextUsed?.gradeLevel
+                        ? ` | ${t("editor.history.gradeLabel")}: ${item.contextUsed.gradeLevel}`
+                        : ""}
+                    </p>
+                  )}
+                  {item.pronounResolution?.resolvedPreference && (
+                    <p className="text-xs text-white/60 uppercase tracking-wide">
+                      {t("editor.history.pronouns", { value: item.pronounResolution.resolvedPreference })}
+                    </p>
+                  )}
+                  <div className="flex gap-2 mt-2">
+                    <Button size="sm" variant="outline" onClick={() => loadSnippet(item)}>
+                      {t("draft.action.load")}
+                    </Button>
+                    <Button size="sm" variant="ghost" className="text-rose-200" onClick={() => deleteSnippet(item.id)}>
+                      {t("draft.action.delete")}
+                    </Button>
+                  </div>
+                </li>
+              )
+            })}
           </ul>
           {historyCursor && (
             <Button
