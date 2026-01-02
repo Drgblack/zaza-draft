@@ -1,5 +1,7 @@
 # Zaza Draft App (Post-v0)
 
+_Note added to nudge build deployment triggers during cleanup work._
+
 ## Phase 1 API
 
 - **Endpoint:** `POST /api/draft/generate`

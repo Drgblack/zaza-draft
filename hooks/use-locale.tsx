@@ -703,8 +703,6 @@ export const localeMessages: Record<Locale, LocaleMessages> = {
     "insights.title": "Your Teaching Impact, {name}",
     "header.insightsButtonLabel": "My insights",
     "header.insightsButtonAria": "View my insights",
-    "header.insightsButtonLabel": "My insights",
-    "header.insightsButtonAria": "View my insights",
     "insights.draftsUsed": "{used} of {limit} drafts used this month",
     "insights.unlimitedDrafts": "Unlimited drafts",
     "insights.backToEditor": "Back to Editor",
