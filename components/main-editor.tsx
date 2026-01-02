@@ -35,12 +35,10 @@ const PRONOUN_OPTIONS: { id: PronounPreference; label: string }[] = [
   { id: "avoid", label: "Avoid pronouns" },
 ]
 
-const MODE_OPTIONS: { id: DraftMode; labelKey: keyof typeof MODE_LABEL_KEYS }[] = DRAFT_MODES.map(
-  (id) => ({
-    id,
-    labelKey: MODE_LABEL_KEYS[id],
-  }),
-)
+const MODE_OPTIONS = DRAFT_MODES.map((id) => ({
+  id,
+  labelKey: MODE_LABEL_KEYS[id],
+}))
 
 type ModeKey = (typeof MODE_OPTIONS)[number]["id"]
 
