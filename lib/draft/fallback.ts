@@ -82,6 +82,7 @@ function buildFallbackDraft(context: DraftFallbackContext) {
 
 interface ProviderRequestInput {
   situation: string
+  signatureBlock?: string
   originalSituation?: string
   tone: ToneKey
   language: LanguageKey
