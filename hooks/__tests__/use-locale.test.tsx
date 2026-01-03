@@ -10,6 +10,9 @@ describe("resolveLocale", () => {
     expect(resolveLocale("en")).toBe("en-GB")
     expect(resolveLocale("EN-us")).toBe("en-US")
     expect(resolveLocale("de")).toBe("de-DE")
+    expect(resolveLocale("en-UK")).toBe("en-GB")
+    expect(resolveLocale("en_gb")).toBe("en-GB")
+    expect(resolveLocale("DE_de")).toBe("de-DE")
   })
 
   it("defaults to en-GB when the input is empty or unknown", () => {
@@ -44,5 +47,19 @@ describe("LanguageProvider", () => {
 
     const { result } = renderHook(() => useLocale(), { wrapper })
     expect(result.current.t("header.insightsButtonLabel")).toBe("Meine Einblicke")
+  })
+
+  it("falls back to British English labels for en-UK input", () => {
+    localStorage.setItem("zaza.lang", "en-UK")
+
+    const wrapper = ({ children }: { children: ReactNode }) => (
+      <LanguageProvider>{children}</LanguageProvider>
+    )
+
+    const { result } = renderHook(() => useLocale(), { wrapper })
+    expect(result.current.t("header.insightsButtonLabel")).toBe("My insights")
+    expect(result.current.t("editor.mode.label")).toBe("Mode")
+    expect(result.current.t("editor.mode.parentMessage")).toBe("Parent message")
+    expect(result.current.t("editor.mode.reportComment")).toBe("Report comment")
   })
 })

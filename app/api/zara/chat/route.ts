@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server"
+import { randomUUID } from "crypto"
 import { authorizeFirebaseRequest, FirebaseAuthorizationError } from "@/lib/firebase/server"
 
 const REPLY_TEMPLATES: Record<string, string> = {
@@ -15,45 +16,68 @@ interface ZaraChatRequest {
   uiLocale?: string
 }
 
+export const runtime = "nodejs"
+
 export async function POST(request: Request) {
+  const requestId = randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2)}`
   let authContext
   try {
     authContext = await authorizeFirebaseRequest(request)
   } catch (error) {
     const status =
       error instanceof FirebaseAuthorizationError ? error.statusCode : 401
-    return NextResponse.json(
-      {
-        success: false,
-        error: {
-          code: "UNAUTHORIZED",
-          message: (error as Error).message || "Unauthorized",
-        },
+    const payload = {
+      success: false,
+      error: {
+        code: "auth_required",
+        message: (error as Error).message || "Authentication required",
+        status,
+        requestId,
       },
-      { status },
-    )
+    }
+    console.error("[zara] chat auth failed", {
+      requestId,
+      status,
+      message: payload.error.message,
+    })
+    return NextResponse.json(payload, { status })
   }
 
   const body: ZaraChatRequest = await request.json().catch(() => ({}))
   const message = typeof body.message === "string" ? body.message.trim() : ""
   if (!message) {
-    return NextResponse.json(
-      {
-        success: false,
-        error: {
-          code: "INVALID_INPUT",
-          message: "Please provide a message before sending.",
-        },
+    const status = 400
+    console.warn("[zara] chat invalid input", {
+      requestId,
+      status,
+    })
+    const payload = {
+      success: false,
+      error: {
+        code: "INVALID_INPUT",
+        message: "Please provide a message before sending.",
+        status,
+        requestId,
       },
-      { status: 400 },
-    )
+    }
+    return NextResponse.json(payload, { status })
   }
 
-  const reply = REPLY_TEMPLATES[body.uiLocale ?? ""] ?? DEFAULT_REPLY
+  const locale = body.uiLocale ?? "en-GB"
+  const reply = REPLY_TEMPLATES[locale] ?? DEFAULT_REPLY
+  console.info("[zara] chat success", {
+    requestId,
+    uid: authContext?.uid ?? "unknown",
+    locale,
+  })
+
   return NextResponse.json({
     success: true,
     data: {
       reply,
+    },
+    meta: {
+      requestId,
     },
   })
 }
@@ -70,3 +94,4 @@ export function GET() {
     { status: 405 },
   )
 }
+

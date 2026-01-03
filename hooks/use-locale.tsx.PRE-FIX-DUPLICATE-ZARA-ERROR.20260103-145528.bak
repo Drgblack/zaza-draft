@@ -251,6 +251,10 @@ export const localeMessages: Record<Locale, LocaleMessages> = {
     "zara.error.description": "I couldn't send your question. Please try again.",
     "zara.error.authRequiredTitle": "Sign in required",
     "zara.error.authRequiredDescription": "Please sign in to chat with Zara.",
+    "zara.error.title": "Something went wrong",
+    "zara.error.description": "I couldn't send your question. Please try again.",
+    "zara.error.authRequiredTitle": "Sign in required",
+    "zara.error.authRequiredDescription": "Please sign in to chat with Zara.",
     "insights.title": "Your Teaching Impact, {name}",
     "insights.draftsUsed": "{used} of {limit} drafts used this month",
     "insights.unlimitedDrafts": "Unlimited drafts",
@@ -1643,7 +1647,6 @@ export function LanguageProvider({ children }: { children: React.ReactNode }) {
 
   return <LocaleContext.Provider value={value}>{children}</LocaleContext.Provider>
 }
-
 
 
 

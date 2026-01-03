@@ -103,6 +103,24 @@ function buildSystemPrompt(input: ProviderInput) {
     "Always choose calm, school-safe language and do not restate insults, inflammatory labels, or threats.",
   )
 
+  if (input.language === "de") {
+    systemLines.push(
+      "When writing in German, keep the sentences warm, calm, and still professional; favour the Sie form and avoid bureaucratic labels such as 'Fach:' unless they were already part of the request.",
+    )
+    systemLines.push("Avoid placeholders like [Name des Schülers], [Parent Name], or [Student Name].")
+    systemLines.push("If no student name was supplied, refer to the child as 'Ihr Kind' (use 'Ihr Sohn' or 'Ihre Tochter' only when the teacher explicitly provides gender).")
+    if (input.mode === "parent_message") {
+      systemLines.push(
+        "German parent messages should stay between 90 and 140 words, include a subject line prefixed with 'Subject:', begin with a polite greeting, and close with a reassurance that you want to work together.",
+      )
+    } else {
+      systemLines.push(
+        "German report comments should span 35 to 70 words, omit greetings, focus on observable behaviour and progress, and end with a short clarity statement without a call to action.",
+      )
+    }
+    systemLines.push("Translate any English notes into natural German rather than copying English words literally.")
+  }
+
   if (input.rewrite) {
     systemLines.push(
       "You are rewriting content already supplied; keep meaning intact while adapting tone/language per the request.",
