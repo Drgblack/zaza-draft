@@ -487,7 +487,13 @@ export function MainEditor() {
     setHistoryError(null)
     try {
       const queryParam = cursor ? `&cursor=${encodeURIComponent(cursor)}` : ""
-      const response = await fetch(`/api/snippets?limit=${HISTORY_PAGE_SIZE}${queryParam}`)
+      const token = await getIdToken()
+      const response = await fetch(`/api/snippets?limit=${HISTORY_PAGE_SIZE}${queryParam}`, {
+        headers: {
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        cache: "no-store",
+      })
       const payload = await response.json()
       if (!response.ok) {
         throw new Error(payload?.error?.message || "Unable to load history.")
@@ -965,6 +971,7 @@ Examples:
     </div>
   )
 }
+
 
 
 
