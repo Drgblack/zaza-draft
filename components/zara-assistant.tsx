@@ -226,9 +226,7 @@ export function ZaraAssistant() {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          ...(token ? { Authorization: `Bearer ${token}` } : {})
-  console.log("[zara] response", { ok: response.ok, status: response.status })
-,
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
         body: JSON.stringify({ message: trimmed, uiLocale: locale }),
         cache: "no-store",
