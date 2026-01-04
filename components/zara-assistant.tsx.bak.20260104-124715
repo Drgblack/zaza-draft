@@ -1,4 +1,4 @@
-"use client"
+﻿"use client"
 
 import { useState, useEffect } from "react"
 import { Sparkles, Send, ArrowLeft, ChevronRight, Lightbulb, Copy, Quote, X } from "lucide-react"

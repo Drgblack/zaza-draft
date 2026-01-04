@@ -1,4 +1,4 @@
-﻿"use client"
+"use client"
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { Button } from "@/components/ui/button"
@@ -581,7 +581,7 @@ export function MainEditor() {
           </h1>
           <p className="text-base sm:text-lg text-white/95 leading-relaxed drop-shadow-[0_1px_4px_rgba(0,0,0,0.25)]">
             {locale === "de-DE"
-              ? "Lassen Sie uns prÃ¤zise und professionell bleiben."
+              ? "Lassen Sie uns präzise und professionell bleiben."
               : "Let's keep it crisp and professional."}
           </p>
         </div>

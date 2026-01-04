@@ -1,4 +1,4 @@
-﻿"use client"
+"use client"
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { Button } from "@/components/ui/button"
@@ -534,8 +534,14 @@ export function MainEditor() {
 
   const deleteSnippet = async (snippetId: string) => {
     try {
+      const token = await getIdToken()
+      if (!token) throw new Error("Missing auth token")
+
       const response = await fetch(`/api/snippets/${snippetId}`, {
         method: "DELETE",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
       })
       const payload = await response.json()
       if (response.ok && payload.success) {
@@ -587,7 +593,7 @@ export function MainEditor() {
           </h1>
           <p className="text-base sm:text-lg text-white/95 leading-relaxed drop-shadow-[0_1px_4px_rgba(0,0,0,0.25)]">
             {locale === "de-DE"
-              ? "Lassen Sie uns prÃ¤zise und professionell bleiben."
+              ? "Lassen Sie uns prÃƒÆ’Ã‚Â¤zise und professionell bleiben."
               : "Let's keep it crisp and professional."}
           </p>
         </div>
@@ -616,15 +622,15 @@ export function MainEditor() {
                 ? `Beschreiben Sie die Situation...
 
 Beispiele:
-• Schüler der 6. Klasse mit Schwierigkeiten bei Brüchen, braucht ermutigendes Feedback
-• Eltern-E-Mail zu Hausaufgaben, professioneller und einfühlsamer Ton
-• Zeugniskommentar für hervorragende Fortschritte beim Leseverständnis`
+Ã¢â‚¬Â¢ SchÃƒÂ¼ler der 6. Klasse mit Schwierigkeiten bei BrÃƒÂ¼chen, braucht ermutigendes Feedback
+Ã¢â‚¬Â¢ Eltern-E-Mail zu Hausaufgaben, professioneller und einfÃƒÂ¼hlsamer Ton
+Ã¢â‚¬Â¢ Zeugniskommentar fÃƒÂ¼r hervorragende Fortschritte beim LeseverstÃƒÂ¤ndnis`
                 : `Describe the situation...
 
 Examples:
-• Year 6 student struggling with fractions, needs encouraging feedback
-• Parent email about homework concerns, professional and empathetic tone
-• Report card comment for excellent progress in reading comprehension`
+Ã¢â‚¬Â¢ Year 6 student struggling with fractions, needs encouraging feedback
+Ã¢â‚¬Â¢ Parent email about homework concerns, professional and empathetic tone
+Ã¢â‚¬Â¢ Report card comment for excellent progress in reading comprehension`
             }
             className="w-full min-h-[96px] max-h-[360px] text-base sm:text-lg text-gray-900 dark:text-white bg-transparent border-0 focus:outline-none focus:ring-0 resize-none placeholder:text-gray-600 dark:placeholder:text-white/60 leading-relaxed font-medium"
             style={{
@@ -636,14 +642,14 @@ Examples:
           />
           <p className="mt-3 text-xs text-white/80">
             {locale === "de-DE"
-              ? "Geben Sie keine vollstÃ¤ndigen Namen, E-Mails, Telefonnummern oder Adressen ein."
+              ? "Geben Sie keine vollstÃƒÆ’Ã‚Â¤ndigen Namen, E-Mails, Telefonnummern oder Adressen ein."
               : "Do not include student full names, email addresses, phone numbers, or street addresses."}
           </p>
         </div>
 
         {showWellbeingInsights && <ContextualWellbeingTip />}
 
-        <div className="flex flex-wrap gap-3 mb-6">
+        <div className="flex flex-nowrap overflow-x-auto gap-3 mb-4 pb-1">
           {TONE_OPTIONS.map((tone) => {
             const isSelected = selectedTone === tone.id
             const isDark = isDocumentDark
@@ -962,7 +968,7 @@ Examples:
         <FooterSlim />
         {showBuildInfo && (
           <div className="mt-2 text-center text-[11px] text-white/60 uppercase tracking-[0.2em]">
-            Build {buildSha} • {process.env.NODE_ENV ?? "dev"}
+            Build {buildSha} Ã¢â‚¬Â¢ {process.env.NODE_ENV ?? "dev"}
           </div>
         )}
       </div>

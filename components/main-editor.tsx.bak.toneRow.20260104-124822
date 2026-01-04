@@ -487,7 +487,13 @@ export function MainEditor() {
     setHistoryError(null)
     try {
       const queryParam = cursor ? `&cursor=${encodeURIComponent(cursor)}` : ""
-      const response = await fetch(`/api/snippets?limit=${HISTORY_PAGE_SIZE}${queryParam}`)
+      const token = await getIdToken()
+      const response = await fetch(`/api/snippets?limit=${HISTORY_PAGE_SIZE}${queryParam}`, {
+        headers: {
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        cache: "no-store",
+      })
       const payload = await response.json()
       if (!response.ok) {
         throw new Error(payload?.error?.message || "Unable to load history.")
@@ -528,8 +534,14 @@ export function MainEditor() {
 
   const deleteSnippet = async (snippetId: string) => {
     try {
+      const token = await getIdToken()
+      if (!token) throw new Error("Missing auth token")
+
       const response = await fetch(`/api/snippets/${snippetId}`, {
         method: "DELETE",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
       })
       const payload = await response.json()
       if (response.ok && payload.success) {
@@ -581,7 +593,7 @@ export function MainEditor() {
           </h1>
           <p className="text-base sm:text-lg text-white/95 leading-relaxed drop-shadow-[0_1px_4px_rgba(0,0,0,0.25)]">
             {locale === "de-DE"
-              ? "Lassen Sie uns präzise und professionell bleiben."
+              ? "Lassen Sie uns prÃƒÂ¤zise und professionell bleiben."
               : "Let's keep it crisp and professional."}
           </p>
         </div>
@@ -630,7 +642,7 @@ Examples:
           />
           <p className="mt-3 text-xs text-white/80">
             {locale === "de-DE"
-              ? "Geben Sie keine vollstÃ¤ndigen Namen, E-Mails, Telefonnummern oder Adressen ein."
+              ? "Geben Sie keine vollstÃƒÂ¤ndigen Namen, E-Mails, Telefonnummern oder Adressen ein."
               : "Do not include student full names, email addresses, phone numbers, or street addresses."}
           </p>
         </div>
@@ -965,5 +977,7 @@ Examples:
     </div>
   )
 }
+
+
 
 
