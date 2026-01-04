@@ -237,7 +237,7 @@ export const localeMessages: Record<Locale, LocaleMessages> = {
     "tone.warm": "Warm & Encouraging",
     "tone.professional": "Professional & Neutral",
     "tone.direct": "Direct & Clear",
-    "tone.empathetic": "Empathisch und unterstützend",
+    "tone.empathetic": "Empathetic & Supportive",
     "button.generate": "Generate Draft",
     "zara.greeting": "Hi! I'm Zara, your teaching assistant.",
     "zara.description": "I can help you with communication tips and pedagogical guidance.",
@@ -471,7 +471,7 @@ export const localeMessages: Record<Locale, LocaleMessages> = {
     "editor.placeholder.gradeLevel": "Grade level (optional)",
     "editor.studentName.placeholder": "Student first name (optional)",
     "editor.details.summaryTitle": "Optional details",
-    "editor.details.summaryHint": "Kontext und Pronomen hinzufügen",
+    "editor.details.summaryHint": "Add context and pronouns",
     "editor.studentName.display": "Displayed name: {name}",
     "editor.generating.message": "Generating your snippet.",
     "draft.generatedTitle": "Draft Generated",
@@ -494,7 +494,7 @@ export const localeMessages: Record<Locale, LocaleMessages> = {
     "insights.mini.viewBalance": "View wellbeing insights",
     "insights.mini.regionLabel": "Your weekly progress summary",
     "wellbeing.tip.welcome": "Welcome! Zara will learn your patterns and offer personalized tips as you go.",
-    "wellbeing.tip.weekendHealthy": "Wochenend-Entwurf #{count}. Toll, dass Sie Ihre Grenzen schützen!",
+    "wellbeing.tip.weekendHealthy": "Weekend draft #{count}. Great job protecting your boundaries!",
     "wellbeing.tip.momentumBreak": "You've drafted {count} messages today. Great momentum! Consider a short break?",
     "wellbeing.tip.confidenceGrowing": "Your editing depth dropped {percent}% this month. Growing confidence!",
     "wellbeing.tip.eveningSuggestion": "Evening work? Your best drafts typically happen in afternoons.",
@@ -704,7 +704,7 @@ export const localeMessages: Record<Locale, LocaleMessages> = {
     "tone.warm": "Warm & Encouraging",
     "tone.professional": "Professional & Neutral",
     "tone.direct": "Direct & Clear",
-    "tone.empathetic": "Empathisch und unterstützend",
+    "tone.empathetic": "Empathetic & Supportive",
     "button.generate": "Generate Draft",
     "zara.greeting": "Hi! I'm Zara, your teaching assistant.",
     "zara.description": "I can help you with communication tips and pedagogical guidance.",
@@ -935,7 +935,7 @@ export const localeMessages: Record<Locale, LocaleMessages> = {
     "editor.placeholder.gradeLevel": "Grade level (optional)",
     "editor.studentName.placeholder": "Student first name (optional)",
     "editor.details.summaryTitle": "Optional details",
-    "editor.details.summaryHint": "Kontext und Pronomen hinzufügen",
+    "editor.details.summaryHint": "Add context and pronouns",
     "editor.mode.label": "Mode",
     "editor.mode.parentMessage": "Parent message",
     "editor.mode.reportComment": "Report comment",
@@ -961,7 +961,7 @@ export const localeMessages: Record<Locale, LocaleMessages> = {
     "insights.mini.viewBalance": "View wellbeing insights",
     "insights.mini.regionLabel": "Your weekly progress summary",
     "wellbeing.tip.welcome": "Welcome! Zara will learn your patterns and offer personalized tips as you go.",
-    "wellbeing.tip.weekendHealthy": "Wochenend-Entwurf #{count}. Toll, dass Sie Ihre Grenzen schützen!",
+    "wellbeing.tip.weekendHealthy": "Weekend draft #{count}. Great job protecting your boundaries!",
     "wellbeing.tip.momentumBreak": "You've drafted {count} messages today. Great momentum! Consider a short break?",
     "wellbeing.tip.confidenceGrowing": "Your editing depth dropped {percent}% this month. Growing confidence!",
     "wellbeing.tip.eveningSuggestion": "Evening work? Your best drafts typically happen in afternoons.",
@@ -1496,6 +1496,10 @@ const normalizedLocaleMessages: Record<Locale, NormalizedMessages> = {
   "de-DE": normaliseMessages(localeMessages["de-DE"]),
 }
 
+const EN_GB_MESSAGES = normalizedLocaleMessages["en-GB"] ?? {}
+const EN_US_MESSAGES = normalizedLocaleMessages["en-US"] ?? {}
+const DE_MESSAGES = normalizedLocaleMessages["de-DE"] ?? {}
+
 function getNormalizedLocale(locale: string): Locale {
   if (!locale) return DEFAULT_LOCALE
   const normalized = locale.trim().replace(/_/g, "-").toLowerCase()
@@ -1513,15 +1517,17 @@ function getNormalizedLocale(locale: string): Locale {
 
 function getLocaleMessages(locale: string): NormalizedMessages {
   const canonical = getNormalizedLocale(locale)
-  return (
-    normalizedLocaleMessages[canonical] ??
-    normalizedLocaleMessages["en-GB"] ??
-    normalizedLocaleMessages["en-US"] ??
-    normalizedLocaleMessages["de-DE"] ??
-    {}
-  )
+  if (canonical === "en-GB") {
+    return { ...EN_US_MESSAGES, ...EN_GB_MESSAGES }
+  }
+  if (canonical === "en-US") {
+    return { ...EN_US_MESSAGES }
+  }
+  if (canonical === "de-DE") {
+    return { ...DE_MESSAGES }
+  }
+  return { ...EN_US_MESSAGES, ...EN_GB_MESSAGES }
 }
-
 const DEFAULT_LOCALE: Locale = "en-GB"
 
 export function resolveLocale(raw?: string | null): Locale {
@@ -1643,6 +1649,11 @@ export function LanguageProvider({ children }: { children: React.ReactNode }) {
 
   return <LocaleContext.Provider value={value}>{children}</LocaleContext.Provider>
 }
+
+
+
+
+
 
 
 
