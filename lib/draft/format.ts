@@ -7,7 +7,7 @@ const GREETING_REGEX = /^\s*(Dear|Hi|Hello|Parents|Family|Team|Good (?:morning|a
 export const CLOSING_REGEX =
   /\b(?:Kind|Warm|Best|Many)\s+regards,|Sincerely,|Yours sincerely,|Best wishes,|With thanks,|Thanks,/i
 const SUBJECT_REGEX =
-  /^\s*Subject\s*[:\-]\s*(.+?)(?=(?:\n|Dear\b|Hi\b|Hello\b|Parents\b|Family\b|Team\b|Good\b|$))/i
+  /^\s*(?:Subject|Betreff)\s*[:\-]\s*(.+?)(?=(?:\n|Dear\b|Hi\b|Hello\b|Parents\b|Family\b|Team\b|Good\b|$))/i
 
 function stripMarkdown(value: string) {
   return value.replace(/\*\*([\s\S]*?)\*\*/g, "$1").replace(/__([\s\S]*?)__/g, "$1")

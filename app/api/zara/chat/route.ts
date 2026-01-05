@@ -1,15 +1,7 @@
 import { NextResponse } from "next/server"
 import { randomUUID } from "crypto"
 import { authorizeFirebaseRequest, FirebaseAuthorizationError } from "@/lib/firebase/server"
-
-const REPLY_TEMPLATES: Record<string, string> = {
-  "de-DE": "Ich bin hier, um zu helfen! Während ich lerne, probiere die Tipps oben aus oder beschreibe deine Situation im Haupteditor.",
-  "en-GB": "I'm here to help! While I'm still learning, try the quick tips above or describe your situation in the main editor for AI-generated drafts.",
-  "en-US": "I'm here to help! While I'm still learning, try the quick tips above or describe your situation in the main editor for AI-generated drafts.",
-}
-
-const DEFAULT_REPLY =
-  "I'm here to help! While I'm still learning, try the quick tips above or describe your situation in the main editor for AI-generated drafts."
+import { generateZaraReply } from "@/lib/ai/zara"
 
 interface ZaraChatRequest {
   message?: string
@@ -24,8 +16,7 @@ export async function POST(request: Request) {
   try {
     authContext = await authorizeFirebaseRequest(request)
   } catch (error) {
-    const status =
-      error instanceof FirebaseAuthorizationError ? error.statusCode : 401
+    const status = error instanceof FirebaseAuthorizationError ? error.statusCode : 401
     const payload = {
       success: false,
       error: {
@@ -64,22 +55,43 @@ export async function POST(request: Request) {
   }
 
   const locale = body.uiLocale ?? "en-GB"
-  const reply = REPLY_TEMPLATES[locale] ?? DEFAULT_REPLY
-  console.info("[zara] chat success", {
-    requestId,
-    uid: authContext?.uid ?? "unknown",
-    locale,
-  })
-
-  return NextResponse.json({
-    success: true,
-    data: {
-      reply,
-    },
-    meta: {
+  try {
+    const reply = await generateZaraReply(message, locale)
+    console.info("[zara] chat success", {
       requestId,
-    },
-  })
+      uid: authContext?.uid ?? "unknown",
+      locale,
+    })
+    return NextResponse.json({
+      success: true,
+      data: {
+        reply,
+      },
+      meta: {
+        requestId,
+      },
+    })
+  } catch (error) {
+    const status = error instanceof Error && error.message.includes("Missing") ? 500 : 502
+    console.error("[zara] chat error", {
+      requestId,
+      uid: authContext?.uid ?? "unknown",
+      locale,
+      error,
+    })
+    return NextResponse.json(
+      {
+        success: false,
+        error: {
+          code: "AI_ERROR",
+          message: error instanceof Error ? error.message : "Unable to call AI",
+          status,
+          requestId,
+        },
+      },
+      { status },
+    )
+  }
 }
 
 export function GET() {
@@ -94,4 +106,3 @@ export function GET() {
     { status: 405 },
   )
 }
-

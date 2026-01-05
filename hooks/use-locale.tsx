@@ -1232,7 +1232,7 @@ export const localeMessages: Record<Locale, LocaleMessages> = {
     "editor.history.action.load": "Laden",
     "editor.history.action.delete": "Löschen",
     "editor.history.pronouns": "Pronomen: {value}",
-    "editor.history.subjectLabel": "Fach",
+    "editor.history.subjectLabel": "Betreff",
     "editor.history.gradeLabel": "Klasse",
     "editor.placeholder.subject": "Betreff (optional)",
     "editor.placeholder.gradeLevel": "Klassenstufe (optional)",

@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Sparkles, Send, ArrowLeft, ChevronRight, Lightbulb, Copy, Quote, X } from "lucide-react"
+import { AlertCircle, Check, FileText, Sparkles, Send, ArrowLeft, ChevronRight, Lightbulb, Copy, Quote, X } from "lucide-react"
 import { useLocale } from "@/hooks/use-locale"
 import { useToast } from "@/hooks/use-toast"
 import { useAuth } from "@/hooks/use-auth"
@@ -412,7 +412,7 @@ export function ZaraAssistant() {
                     {section.type === "framework" && (
                       <>
                         <h4 className="font-medium text-gray-900 dark:text-white mb-2 flex items-center gap-2">
-                          <span className="text-purple-600 dark:text-purple-400">ðŸ§­</span>
+                          <Lightbulb className="text-purple-600 dark:text-purple-400" size={20} />
                           {section.title}
                         </h4>
                         <div className="glass shadow-soft border border-white/60 dark:border-white/20 rounded-lg p-4 space-y-3 bg-white/90 dark:bg-white/10 backdrop-blur-[32px]">
@@ -431,7 +431,7 @@ export function ZaraAssistant() {
                     {section.type === "phrases" && (
                       <>
                         <h4 className="font-medium text-gray-900 dark:text-white mb-2 flex items-center gap-2">
-                          <span className="text-purple-600 dark:text-purple-400">ðŸ’¬</span>
+                          <Quote className="text-purple-600 dark:text-purple-400" size={16} />
                           {section.title}
                         </h4>
                         <div className="glass shadow-soft rounded-lg p-4 space-y-2 bg-white/90 dark:bg-white/10 backdrop-blur-[32px] border border-white/60 dark:border-white/20">
@@ -444,7 +444,11 @@ export function ZaraAssistant() {
                             title="Copy phrase"
                             aria-label={`Copy phrase: ${phrase}`}
                           >
-                            {copiedPhrase === phrase ? <span className="text-xs">ÃƒÂ¢Ã…â€œÃ¢â‚¬Å“</span> : <Copy size={14} />}
+                            {copiedPhrase === phrase ? (
+                              <Check size={14} className="text-green-600 dark:text-green-400" />
+                            ) : (
+                              <Copy size={14} />
+                            )}
                           </button>
                             </div>
                           ))}
@@ -455,14 +459,15 @@ export function ZaraAssistant() {
                     {section.type === "avoid" && (
                       <>
                         <h4 className="font-medium text-gray-900 dark:text-white mb-2 flex items-center gap-2">
-                          <span className="text-red-500 dark:text-red-400">ÃƒÂ¢Ã…Â¡Ã‚Â ÃƒÂ¯Ã‚Â¸Ã‚Â</span>
+                          <AlertCircle className="text-red-500 dark:text-red-400" size={18} />
                           {section.title}
                         </h4>
                         <div className="glass shadow-soft rounded-lg p-4 space-y-2 bg-white/90 dark:bg-white/10 backdrop-blur-[32px] border border-white/60 dark:border-white/20">
                           {section.items.map((item, idx) => (
-                          <p key={idx} className="text-sm text-red-900 dark:text-red-200">
-                            ÃƒÂ¢Ã…â€œÃ¢â‚¬â€œÃƒÂ¯Ã‚Â¸Ã‚Â {item}
-                          </p>
+                            <p key={idx} className="text-sm text-red-900 dark:text-red-200 flex items-start gap-1">
+                              <span className="text-red-500 dark:text-red-400 font-semibold">•</span>
+                              <span>{item}</span>
+                            </p>
                           ))}
                         </div>
                       </>
@@ -471,7 +476,7 @@ export function ZaraAssistant() {
                     {section.type === "example" && (
                       <>
                         <h4 className="font-medium text-gray-900 dark:text-white mb-2 flex items-center gap-2">
-                          <span className="text-purple-600 dark:text-purple-400">ÃƒÂ°Ã…Â¸Ã¢â‚¬â„¢Ã‚Â¡</span>
+                          <Sparkles className="text-purple-600 dark:text-purple-400" size={16} />
                           {section.title}
                         </h4>
                         <div className="glass shadow-soft rounded-lg p-4 border-l-4 border-purple-600 bg-white/90 dark:bg-white/10 backdrop-blur-[32px]">
@@ -483,7 +488,7 @@ export function ZaraAssistant() {
                     {section.type === "template" && (
                       <>
                         <h4 className="font-medium text-gray-900 dark:text-white mb-2 flex items-center gap-2">
-                          <span className="text-purple-600 dark:text-purple-400">ÃƒÂ¢Ã…â€œÃ¢â‚¬Â°ÃƒÂ¯Ã‚Â¸Ã‚Â</span>
+                          <FileText className="text-purple-600 dark:text-purple-400" size={16} />
                           {section.title}
                         </h4>
                         <div className="glass shadow-soft rounded-lg p-4 space-y-2 bg-white/90 dark:bg-white/10 backdrop-blur-[32px] border border-white/60 dark:border-white/20">

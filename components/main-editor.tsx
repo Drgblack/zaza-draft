@@ -620,7 +620,7 @@ export function MainEditor() {
           </h1>
           <p className="text-base sm:text-lg text-white/95 leading-relaxed drop-shadow-[0_1px_4px_rgba(0,0,0,0.25)]">
             {locale === "de-DE"
-              ? "Lassen Sie uns prÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¤zise und professionell bleiben."
+              ? "Lassen Sie uns präzise und professionell bleiben."
               : "Let's keep it crisp and professional."}
           </p>
         </div>
@@ -649,15 +649,15 @@ export function MainEditor() {
                 ? `Beschreiben Sie die Situation...
 
 Beispiele:
-ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ SchÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¼ler der 6. Klasse mit Schwierigkeiten bei BrÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¼chen, braucht ermutigendes Feedback
-ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ Eltern-E-Mail zu Hausaufgaben, professioneller und einfÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¼hlsamer Ton
-ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ Zeugniskommentar fÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¼r hervorragende Fortschritte beim LeseverstÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¤ndnis`
+• Schüler der 6. Klasse mit Schwierigkeiten bei Brüchen, braucht ermutigendes Feedback
+• Eltern-E-Mail zu Hausaufgaben, professioneller und einfühlsamer Ton
+• Zeugniskommentar für hervorragende Fortschritte beim Leseverständnis`
                 : `Describe the situation...
 
 Examples:
-ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ Year 6 student struggling with fractions, needs encouraging feedback
-ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ Parent email about homework concerns, professional and empathetic tone
-ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ Report card comment for excellent progress in reading comprehension`
+• Year 6 student struggling with fractions, needs encouraging feedback
+• Parent email about homework concerns, professional and empathetic tone
+• Report card comment for excellent progress in reading comprehension`
             }
             className="w-full min-h-[96px] max-h-[360px] text-base sm:text-lg text-gray-900 dark:text-white bg-transparent border-0 focus:outline-none focus:ring-0 resize-none placeholder:text-gray-600 dark:placeholder:text-white/60 leading-relaxed font-medium"
             style={{
@@ -669,7 +669,7 @@ Examples:
           />
           <p className="mt-3 text-xs text-white/80">
             {locale === "de-DE"
-              ? "Geben Sie keine vollstÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¤ndigen Namen, E-Mails, Telefonnummern oder Adressen ein."
+              ? "Geben Sie keine vollständigen Namen, E-Mails, Telefonnummern oder Adressen ein."
               : "Do not include student full names, email addresses, phone numbers, or street addresses."}
           </p>
         </div>
@@ -1005,7 +1005,7 @@ Examples:
         <FooterSlim />
         {showBuildInfo && (
           <div className="mt-2 text-center text-[11px] text-white/60 uppercase tracking-[0.2em]">
-            Build {buildSha} ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ {process.env.NODE_ENV ?? "dev"}
+            Build {buildSha} • {process.env.NODE_ENV ?? "dev"}
           </div>
         )}
       </div>
