@@ -1,8 +1,25 @@
 import "@testing-library/jest-dom"
-import { describe, expect, it } from "vitest"
+import { describe, expect, it, vi } from "vitest"
 import { fireEvent, render, screen } from "@testing-library/react"
 import { DeescalationBanner } from "@/components/deescalation-banner"
 import type { DeescalationSummary } from "@/lib/deescalation/types"
+
+vi.mock("@/hooks/use-locale", () => {
+  const translations: Record<string, string> = {
+    "deescalation.title": "Calmed and professionalised",
+    "deescalation.description": "I softened a few high-emotion phrases to keep this message safe and effective.",
+    "deescalation.button.show": "See what changed",
+    "deescalation.button.hide": "Hide changes",
+    "deescalation.diff.original": "Original:",
+    "deescalation.diff.suggestion": "Calmer alternative:",
+  }
+  return {
+    useLocale: () => ({
+      locale: "en-GB",
+      t: (key: string) => translations[key] ?? key,
+    }),
+  }
+})
 
 const baseSummary: DeescalationSummary = {
   wasDeescalated: true,

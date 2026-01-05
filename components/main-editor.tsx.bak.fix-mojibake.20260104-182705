@@ -132,7 +132,6 @@ export function MainEditor() {
   const [draftMetadata, setDraftMetadata] = useState<any>(null)
   const [draftStructure, setDraftStructure] = useState<DraftStructure | null>(null)
   const [deescalationSummary, setDeescalationSummary] = useState<DeescalationSummary | null>(null)
-  const [isDiffViewOpen, setIsDiffViewOpen] = useState(false)
   const [isEditing, setIsEditing] = useState(false)
   const [subject, setSubject] = useState("")
   const [gradeLevel, setGradeLevel] = useState("")
@@ -522,10 +521,6 @@ export function MainEditor() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [draftMetadata?.generatedAt])
 
-  useEffect(() => {
-    setIsDiffViewOpen(false)
-  }, [deescalationSummary])
-
   const loadSnippet = (snippet: SnippetHistoryItem) => {
     setContent(snippet.generatedText)
     setSelectedTone(snippet.tone as ToneKey)
@@ -598,7 +593,7 @@ export function MainEditor() {
           </h1>
           <p className="text-base sm:text-lg text-white/95 leading-relaxed drop-shadow-[0_1px_4px_rgba(0,0,0,0.25)]">
             {locale === "de-DE"
-              ? "Lassen Sie uns prÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¤zise und professionell bleiben."
+              ? "Lassen Sie uns prÃƒÆ’Ã‚Â¤zise und professionell bleiben."
               : "Let's keep it crisp and professional."}
           </p>
         </div>
@@ -627,15 +622,15 @@ export function MainEditor() {
                 ? `Beschreiben Sie die Situation...
 
 Beispiele:
-ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ SchÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¼ler der 6. Klasse mit Schwierigkeiten bei BrÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¼chen, braucht ermutigendes Feedback
-ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ Eltern-E-Mail zu Hausaufgaben, professioneller und einfÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¼hlsamer Ton
-ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ Zeugniskommentar fÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¼r hervorragende Fortschritte beim LeseverstÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¤ndnis`
+Ã¢â‚¬Â¢ SchÃƒÂ¼ler der 6. Klasse mit Schwierigkeiten bei BrÃƒÂ¼chen, braucht ermutigendes Feedback
+Ã¢â‚¬Â¢ Eltern-E-Mail zu Hausaufgaben, professioneller und einfÃƒÂ¼hlsamer Ton
+Ã¢â‚¬Â¢ Zeugniskommentar fÃƒÂ¼r hervorragende Fortschritte beim LeseverstÃƒÂ¤ndnis`
                 : `Describe the situation...
 
 Examples:
-ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ Year 6 student struggling with fractions, needs encouraging feedback
-ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ Parent email about homework concerns, professional and empathetic tone
-ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ Report card comment for excellent progress in reading comprehension`
+Ã¢â‚¬Â¢ Year 6 student struggling with fractions, needs encouraging feedback
+Ã¢â‚¬Â¢ Parent email about homework concerns, professional and empathetic tone
+Ã¢â‚¬Â¢ Report card comment for excellent progress in reading comprehension`
             }
             className="w-full min-h-[96px] max-h-[360px] text-base sm:text-lg text-gray-900 dark:text-white bg-transparent border-0 focus:outline-none focus:ring-0 resize-none placeholder:text-gray-600 dark:placeholder:text-white/60 leading-relaxed font-medium"
             style={{
@@ -647,7 +642,7 @@ Examples:
           />
           <p className="mt-3 text-xs text-white/80">
             {locale === "de-DE"
-              ? "Geben Sie keine vollstÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¤ndigen Namen, E-Mails, Telefonnummern oder Adressen ein."
+              ? "Geben Sie keine vollstÃƒÆ’Ã‚Â¤ndigen Namen, E-Mails, Telefonnummern oder Adressen ein."
               : "Do not include student full names, email addresses, phone numbers, or street addresses."}
           </p>
         </div>
@@ -943,27 +938,22 @@ Examples:
         )}
 
         {generatedDraft && draftMetadata && (
-          <div className="mt-8 space-y-2">
-            {!isDiffViewOpen && (
-              <DraftOutput
-                draftText={generatedDraft}
-                tone={draftMetadata.toneUsed ?? selectedTone}
-                metadata={draftMetadata}
-                onSave={handleSaveDraft}
-                onEdit={handleEditDraft}
-                onRegenerate={handleRegenerateDraft}
-                onRewrite={handleRewriteDraft}
-                draftsUsed={draftsUsed}
-                draftsLimit={draftsLimit}
-                showUsageLimit={isLimitedUser}
-                structure={draftStructure ?? undefined}
-              />
-            )}
+          <div className="mt-8 space-y-4">
+          <DraftOutput
+            draftText={generatedDraft}
+            tone={draftMetadata.toneUsed ?? selectedTone}
+            metadata={draftMetadata}
+            onSave={handleSaveDraft}
+            onEdit={handleEditDraft}
+            onRegenerate={handleRegenerateDraft}
+            onRewrite={handleRewriteDraft}
+            draftsUsed={draftsUsed}
+            draftsLimit={draftsLimit}
+            showUsageLimit={isLimitedUser}
+            structure={draftStructure ?? undefined}
+          />
             {deescalationSummary?.wasDeescalated && (
-              <DeescalationBanner
-                summary={deescalationSummary}
-                onToggleDiffView={setIsDiffViewOpen}
-              />
+              <DeescalationBanner summary={deescalationSummary} />
             )}
           </div>
         )}
@@ -978,7 +968,7 @@ Examples:
         <FooterSlim />
         {showBuildInfo && (
           <div className="mt-2 text-center text-[11px] text-white/60 uppercase tracking-[0.2em]">
-            Build {buildSha} ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ {process.env.NODE_ENV ?? "dev"}
+            Build {buildSha} Ã¢â‚¬Â¢ {process.env.NODE_ENV ?? "dev"}
           </div>
         )}
       </div>
