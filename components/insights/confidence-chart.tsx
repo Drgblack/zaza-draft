@@ -10,15 +10,23 @@ interface ConfidenceChartProps {
   insight: string
 }
 
+export function getConfidenceValue(editRate: number) {
+  return Math.min(100, Math.max(0, 100 - editRate))
+}
+
 export function ConfidenceChart({ data, insight, title }: ConfidenceChartProps) {
   const { t } = useLocale()
+  const chartData = data.map((row) => ({
+    week: row.week,
+    confidence: getConfidenceValue(row.editRate),
+  }))
 
   return (
     <Card className="p-6 bg-white/85 dark:bg-white/10 backdrop-blur-2xl border-white/30 shadow-2xl shadow-purple-500/10">
       <h3 className="text-lg font-semibold mb-4 text-gray-900 dark:text-white">{title}</h3>
 
       <ResponsiveContainer width="100%" height={250}>
-        <LineChart data={data}>
+        <LineChart data={chartData}>
           <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
           <XAxis dataKey="week" className="text-xs" tick={{ fill: "var(--color-foreground)" }} />
           <YAxis
@@ -39,8 +47,9 @@ export function ConfidenceChart({ data, insight, title }: ConfidenceChartProps) 
               borderRadius: "8px",
               color: "var(--color-foreground)",
             }}
+            formatter={(value) => [`${Math.round(value as number)}%`, t("insights.confidence.tooltipLabel")]}
           />
-          <Line type="monotone" dataKey="editRate" stroke="#8B5CF6" strokeWidth={2} dot={{ fill: "#8B5CF6" }} />
+          <Line type="monotone" dataKey="confidence" stroke="#8B5CF6" strokeWidth={2} dot={{ fill: "#8B5CF6" }} />
         </LineChart>
       </ResponsiveContainer>
 
