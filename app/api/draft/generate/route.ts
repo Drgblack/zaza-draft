@@ -460,6 +460,7 @@ export async function POST(request: Request) {
     studentFirstName: studentNameForPayload || undefined,
     resolvedPronounPreference,
     signatureBlock: resolvedSignature.block,
+    uiLocale,
   }
   const fallbackContext: DraftFallbackContext = {
     mode,

@@ -1,6 +1,6 @@
 "use client"
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent } from "react"
 import { Button } from "@/components/ui/button"
 import { useTeacherPrefs } from "@/hooks/use-teacher-prefs"
 import { useLocale } from "@/hooks/use-locale"
@@ -16,9 +16,11 @@ import type { PlanType } from "@/lib/usage"
 import type { DeescalationSummary } from "@/lib/deescalation/types"
 import type { DraftStructure } from "@/lib/draft/format"
 import { cleanStudentName } from "@/lib/draft/student-name"
-import type { PronounPreference } from "@/lib/types"
-import { DRAFT_MODES, MODE_LABEL_KEYS, DEFAULT_DRAFT_MODE } from "@/lib/draft-mode"
+import { resolveLanguageChoiceFromLocale } from "@/lib/draft/language"
+import type { DraftLanguage, DraftMode, PronounPreference } from "@/lib/types"
+import { MODE_LABEL_KEYS, DEFAULT_DRAFT_MODE } from "@/lib/draft-mode"
 import Link from "next/link"
+import { Mail, MessageCircle } from "lucide-react"
 
 const TONE_OPTIONS = [
   { id: "warm", key: "tone.warm" },
@@ -35,15 +37,22 @@ const PRONOUN_OPTIONS: { id: PronounPreference; label: string }[] = [
   { id: "avoid", label: "Avoid pronouns" },
 ]
 
-const MODE_OPTIONS = DRAFT_MODES.map((id) => ({
-  id,
-  labelKey: MODE_LABEL_KEYS[id],
-}))
+type ModeKey = DraftMode
 
-type ModeKey = (typeof MODE_OPTIONS)[number]["id"]
+const MODE_SEGMENT_OPTIONS = [
+  {
+    id: "parent_message" as ModeKey,
+    labelKey: MODE_LABEL_KEYS.parent_message,
+    icon: Mail,
+  },
+  {
+    id: "report_comment" as ModeKey,
+    labelKey: MODE_LABEL_KEYS.report_comment,
+    icon: MessageCircle,
+  },
+]
 
 type ToneKey = (typeof TONE_OPTIONS)[number]["id"]
-type LanguageChoice = "en" | "de"
 const LOADING_MESSAGES = [
   "Analyzing your request...",
   "Understanding context...",
@@ -141,7 +150,20 @@ export function MainEditor() {
     () => cleanStudentName(studentFirstNameInput),
     [studentFirstNameInput],
   )
-  const [languageChoice, setLanguageChoice] = useState<LanguageChoice>("en")
+  const [languageChoice, setLanguageChoice] = useState<DraftLanguage>(
+    () => resolveLanguageChoiceFromLocale(locale),
+  )
+  const [languageWasManuallySet, setLanguageWasManuallySet] = useState(false)
+  useEffect(() => {
+    if (languageWasManuallySet) {
+      return
+    }
+    setLanguageChoice(resolveLanguageChoiceFromLocale(locale))
+  }, [languageWasManuallySet, locale])
+  const handleLanguageChange = (event: ChangeEvent<HTMLSelectElement>) => {
+    setLanguageChoice(event.target.value as DraftLanguage)
+    setLanguageWasManuallySet(true)
+  }
   const [pronounPreference, setPronounPreference] = useState<PronounPreference>("auto")
   const [mode, setMode] = useState<ModeKey>("parent_message")
   const [inputReframeTier, setInputReframeTier] = useState<"tier1" | "tier2" | null>(null)
@@ -529,7 +551,7 @@ export function MainEditor() {
   const loadSnippet = (snippet: SnippetHistoryItem) => {
     setContent(snippet.generatedText)
     setSelectedTone(snippet.tone as ToneKey)
-    setLanguageChoice(snippet.language as LanguageChoice)
+    setLanguageChoice(snippet.language as DraftLanguage)
     setSubject(snippet.contextUsed?.subject ?? "")
     setGradeLevel(snippet.contextUsed?.gradeLevel ?? "")
     setStudentFirstNameInput("")
@@ -676,32 +698,37 @@ Examples:
           })}
         </div>
 
-        <div className="mb-4 flex flex-wrap items-center gap-3">
+        <div className="mb-4">
           <span className="text-sm font-semibold text-white/90">{t("editor.mode.label")}</span>
-          {MODE_OPTIONS.map((option) => {
-            const isActive = mode === option.id
-            return (
-              <button
-                key={option.id}
-                onClick={() => setMode(option.id)}
-                className={`px-4 py-2 rounded-full text-xs font-semibold transition focus-visible:ring-2 focus-visible:ring-offset-2 ${
-                  isActive
-                    ? "bg-white text-purple-600 shadow-sm focus-visible:ring-white"
-                    : "bg-white/20 text-white/80 hover:bg-white/30 focus-visible:ring-white/40"
-                }`}
-                aria-pressed={isActive}
-              >
-                {t(option.labelKey)}
-              </button>
-            )
-          })}
+          <div className="mt-3 grid grid-cols-2 gap-2 rounded-2xl bg-white/10 p-0.5 shadow-inner dark:bg-white/5">
+            {MODE_SEGMENT_OPTIONS.map((option) => {
+              const Icon = option.icon
+              const isActive = mode === option.id
+              return (
+                <button
+                  key={option.id}
+                  type="button"
+                  aria-pressed={isActive}
+                  onClick={() => setMode(option.id)}
+                  className={`flex min-h-[54px] items-center justify-center gap-2 rounded-2xl px-4 py-3 text-sm font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 ${
+                    isActive
+                      ? "bg-white text-purple-700 shadow-[0_12px_40px_rgba(124,58,237,0.35)] border border-transparent dark:bg-purple-600 dark:text-white focus-visible:ring-purple-500 focus-visible:ring-offset-0"
+                      : "bg-white/10 text-white/80 border border-white/20 dark:bg-white/10 dark:border-white/20 dark:text-white/70 hover:bg-white/20 dark:hover:bg-white/20 focus-visible:ring-white/40 focus-visible:ring-offset-0"
+                  }`}
+                >
+                  <Icon size={16} />
+                  <span>{t(option.labelKey)}</span>
+                </button>
+              )
+            })}
+          </div>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-4">
-          <select
-            value={languageChoice}
-            onChange={(event) => setLanguageChoice(event.target.value as LanguageChoice)}
-            aria-label={t("languageDropdown.label")}
+            <select
+              value={languageChoice}
+              onChange={handleLanguageChange}
+              aria-label={t("languageDropdown.label")}
             className="bg-white/90 dark:bg-white/10 rounded-xl border border-white/40 dark:border-white/30 px-4 py-3 text-gray-900 dark:text-white font-medium shadow-sm focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-2"
           >
             <option value="en">English</option>

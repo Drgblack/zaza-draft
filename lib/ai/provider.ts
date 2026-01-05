@@ -35,6 +35,7 @@ interface ProviderInput {
   resolvedPronounPreference?: PronounPreference
   forceLanguage?: boolean
   signatureBlock?: string
+  uiLocale?: string
 }
 
 export interface ProviderMeta {
@@ -119,6 +120,12 @@ function buildSystemPrompt(input: ProviderInput) {
       )
     }
     systemLines.push("Translate any English notes into natural German rather than copying English words literally.")
+  }
+
+  if (input.uiLocale?.toLowerCase().startsWith("de")) {
+    systemLines.push(
+      "DE tone contract: avoid moral judgement words such as Lügen, faul, or schlecht; describe behaviour with neutral observations (for example, 'Es gab einige Situationen, in denen...'); frame collaboration with phrases like 'Ich möchte gemeinsam mit Ihnen' and offer a clear next step such as 'Können wir einen kurzen Termin vereinbaren?'; keep the tone calm, professional, and supportive without sounding accusatory.",
+    )
   }
 
   if (input.rewrite) {
