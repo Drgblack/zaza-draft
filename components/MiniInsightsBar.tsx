@@ -150,7 +150,7 @@ export function MiniInsightsBar() {
 
   const animationClass = prefersReducedMotion ? "" : "animate-fade-in"
   const badgeClass =
-    "flex items-center gap-2 px-4 py-2.5 rounded-2xl border border-white/20 dark:border-gray-700/50 bg-white/60 dark:bg-gray-800/60 backdrop-blur-sm shadow-sm text-sm font-semibold transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-white/40"
+    "flex items-center gap-2 px-3 py-2 rounded-2xl border border-white/20 dark:border-gray-700/50 bg-white/60 dark:bg-gray-800/60 backdrop-blur-sm shadow-sm text-sm font-semibold transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-white/40"
 
   return (
     <div
@@ -158,8 +158,8 @@ export function MiniInsightsBar() {
       role="region"
       aria-label={t("insights.mini.regionLabel")}
     >
-      <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
-        <div className="flex flex-wrap items-center gap-6 flex-1 min-w-0">
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+        <div className="flex flex-wrap items-center gap-3 flex-1 min-w-0">
           <button
             onClick={() => router.push("/insights#time-saved")}
             className={`${badgeClass} text-purple-900 dark:text-purple-100 focus-visible:ring-purple-600`}

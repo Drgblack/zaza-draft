@@ -728,7 +728,7 @@ Examples:
           {showWellbeingInsights && <ContextualWellbeingTip />}
 
           <section className="space-y-3">
-            <div className="flex flex-wrap items-stretch gap-3">
+            <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
               {TONE_OPTIONS.map((tone) => {
                 const isSelected = selectedTone === tone.id
                 const toneStyle = TONE_STYLES[tone.id]
@@ -738,7 +738,7 @@ Examples:
                     key={tone.id}
                     type="button"
                     onClick={() => setSelectedTone(tone.id)}
-                    className={`flex items-center gap-2 px-4 py-3 rounded-lg border-2 text-sm sm:text-base font-semibold transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 ${toneStyle.base} ${
+                    className={`flex items-center justify-center gap-2 px-6 py-3 rounded-lg border-2 text-sm font-semibold whitespace-nowrap transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 ${toneStyle.base} ${
                       isSelected
                         ? `${toneStyle.ring} ring-2 ring-offset-2 shadow-lg`
                         : "hover:-translate-y-0.5"
