@@ -1,7 +1,7 @@
 "use client"
 
-import { useState, useEffect } from "react"
-import { AlertCircle, Check, FileText, Sparkles, Send, ArrowLeft, ChevronRight, Lightbulb, Copy, Quote, X } from "lucide-react"
+import { useState, useEffect, useMemo } from "react"
+import { AlertCircle, Check, FileText, Sparkles, Send, ArrowLeft, ChevronRight, Lightbulb, Copy, Quote, X, Trash2 } from "lucide-react"
 import { useLocale } from "@/hooks/use-locale"
 import { useToast } from "@/hooks/use-toast"
 import { useAuth } from "@/hooks/use-auth"
@@ -164,15 +164,18 @@ const TIP_DETAILS: Record<string, { sections: Array<{ type: string; title: strin
 
 export function ZaraAssistant() {
   const { t, locale } = useLocale()
+  const greetingMessage = useMemo(
+    () => ({
+      role: "assistant",
+      content: t("zara.greeting"),
+    }),
+    [t],
+  )
   const [isOpen, setIsOpen] = useState(false)
   const [currentView, setCurrentView] = useState<"menu" | "tipDetail">("menu")
   const [selectedTipId, setSelectedTipId] = useState<string | null>(null)
-  const [messages, setMessages] = useState<Message[]>([
-    {
-      role: "assistant",
-      content: t("zara.greeting"),
-    },
-  ])
+  const [messages, setMessages] = useState<Message[]>(() => [greetingMessage])
+  const hasConversation = messages.length > 1
   const [inputValue, setInputValue] = useState("")
   const [copiedPhrase, setCopiedPhrase] = useState<string | null>(null)
   const [isSending, setIsSending] = useState(false)
@@ -281,6 +284,14 @@ export function ZaraAssistant() {
     setSelectedTipId(null)
   }
 
+  const handleClearChat = () => {
+    setMessages([greetingMessage])
+    setCurrentView("menu")
+    setSelectedTipId(null)
+    setInputValue("")
+    setCopiedPhrase(null)
+  }
+
   const handleCopyPhrase = (phrase: string) => {
     navigator.clipboard.writeText(phrase)
     setCopiedPhrase(phrase)
@@ -296,12 +307,14 @@ export function ZaraAssistant() {
       {isOpen && (
         <div className="fixed bottom-24 right-6 w-96 max-w-[calc(100vw-3rem)] h-[500px] max-h-[70vh] glass shadow-[0_28px_88px_rgba(124,58,237,0.5),0_12px_28px_rgba(0,0,0,0.25)] border-2 border-[#7c3aed]/60 dark:border-[#a78bfa]/50 rounded-2xl flex flex-col z-50 animate-in slide-in-from-bottom-4 duration-300 md:bottom-24 md:right-6 md:w-96 backdrop-blur-[80px] bg-white/90 dark:bg-gray-900/98">
           <div className="flex items-center justify-between p-4 border-b-2 border-[#7c3aed]/50 bg-gradient-to-r from-[#7c3aed]/95 to-[#6d28d9]/90 backdrop-blur-xl rounded-t-2xl shadow-[inset_0_1px_3px_rgba(255,255,255,0.3),inset_0_-1px_2px_rgba(0,0,0,0.1)]">
+            <div className="flex items-center gap-2">
             {currentView !== "menu" && (
-              <button
-                onClick={handleBackToMenu}
-                className="text-white hover:text-gray-200 transition mr-2 focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-purple-600 rounded"
-                aria-label="Back to menu"
-              >
+                <button
+                  onClick={handleBackToMenu}
+                  className="text-white hover:text-gray-200 transition mr-2 focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-purple-600 rounded"
+                  aria-label={t("zara.button.backToMenu")}
+                  type="button"
+                >
                 <ArrowLeft size={20} strokeWidth={2.5} />
               </button>
             )}
@@ -313,13 +326,28 @@ export function ZaraAssistant() {
               />
             </svg>
             <span className="font-semibold text-white">Zara - Your Assistant</span>
-            <button
-              onClick={() => setIsOpen(false)}
-              className="text-white hover:text-gray-200 transition focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-purple-600 rounded"
-              aria-label="Close assistant"
-            >
-              <X size={20} strokeWidth={2.5} />
-            </button>
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={handleClearChat}
+                disabled={!hasConversation}
+                className={`text-white hover:text-gray-200 transition focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-purple-600 rounded ${
+                  !hasConversation ? "opacity-40 cursor-not-allowed hover:text-white" : ""
+                }`}
+                aria-label={t("zara.button.clearChat")}
+                type="button"
+              >
+                <Trash2 size={20} strokeWidth={2.5} />
+              </button>
+              <button
+                onClick={() => setIsOpen(false)}
+                className="text-white hover:text-gray-200 transition focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-purple-600 rounded"
+                aria-label="Close assistant"
+                type="button"
+              >
+                <X size={20} strokeWidth={2.5} />
+              </button>
+            </div>
           </div>
 
           {currentView === "menu" && (

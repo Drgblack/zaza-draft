@@ -90,8 +90,6 @@ const GENERATION_ERROR_MAP: Record<
   },
 }
 
-const REFRAME_NOTICE_TEXT = "I softened the wording to keep it professional and parent-appropriate."
-
 const HISTORY_PAGE_SIZE = 5
 interface SnippetHistoryItem {
   id: string
@@ -133,6 +131,7 @@ export function MainEditor() {
   const isLimitedUser = usage.plan === "free" && !isQaUser
   const { prefs } = useTeacherPrefs()
   const { t, locale } = useLocale()
+  const reframeNotice = t("editor.reframeNotice")
   const { user, getIdToken, signOut } = useAuth()
 
   const [greeting, setGreeting] = useState("Good morning")
@@ -996,7 +995,7 @@ Examples:
         )}
         {generatedDraft && draftMetadata && inputReframeTier && (
         <div className="mt-4 rounded-2xl bg-blue-50/80 dark:bg-slate-900/60 border border-blue-200 dark:border-blue-500/40 p-4 text-sm text-blue-900 dark:text-blue-200 shadow-inner">
-          <p>{REFRAME_NOTICE_TEXT}</p>
+          <p>{reframeNotice}</p>
         </div>
         )}
       </main>

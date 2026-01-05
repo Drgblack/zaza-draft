@@ -263,7 +263,7 @@ export function DraftOutput({
 
         {/* Generated Text */}
         <div
-          className="bg-gray-50 dark:bg-gray-700 rounded-lg p-4 mb-4 space-y-4 sm:space-y-5"
+          className="bg-gray-50 dark:bg-gray-700 rounded-lg p-4 mb-4 space-y-4 sm:space-y-5 font-normal"
           data-testid="draft-output-body"
         >
           {displaySubject && (
@@ -274,7 +274,7 @@ export function DraftOutput({
           {displayParagraphs.map((paragraph, index) => (
             <p
               key={`paragraph-${index}-${paragraph.slice(0, 16)}`}
-              className="text-gray-900 dark:text-gray-100 whitespace-pre-wrap leading-relaxed text-sm sm:text-base"
+              className="text-gray-900 dark:text-gray-100 whitespace-pre-wrap leading-relaxed text-sm sm:text-base font-normal"
             >
               {paragraph}
             </p>

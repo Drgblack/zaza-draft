@@ -26,6 +26,8 @@ vi.mock("@/hooks/use-locale", () => ({
         "zara.error.description": "I couldn't send your question. Please try again.",
         "zara.error.authRequiredTitle": "Sign in required",
         "zara.error.authRequiredDescription": "Please sign in to chat with Zara.",
+        "zara.button.backToMenu": "Back to menu",
+        "zara.button.clearChat": "Clear chat",
       }
       return translations[key] ?? key
     },
@@ -77,6 +79,50 @@ describe("ZaraAssistant", () => {
         variant: "destructive",
       }),
     )
+  })
+
+  it("keeps the transcript when returning from a tip detail", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ success: true, data: { reply: "Friendly reply" } }),
+    })
+    vi.stubGlobal("fetch", fetchMock)
+
+    render(<ZaraAssistant />)
+    fireEvent.click(screen.getByLabelText("Toggle Zara Assistant"))
+
+    const input = screen.getByPlaceholderText("Ask Zara anything...")
+    fireEvent.change(input, { target: { value: "Hello Zara" } })
+    fireEvent.click(screen.getByLabelText("Send message"))
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalled())
+    await waitFor(() => screen.getByText("Hello Zara"))
+
+    fireEvent.click(screen.getByText("Example parent email templates"))
+    fireEvent.click(screen.getByLabelText("Back to menu"))
+
+    expect(screen.getByText("Hello Zara")).toBeTruthy()
+  })
+
+  it("clears the conversation when using the clear chat button", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ success: true, data: { reply: "Friendly reply" } }),
+    })
+    vi.stubGlobal("fetch", fetchMock)
+
+    render(<ZaraAssistant />)
+    fireEvent.click(screen.getByLabelText("Toggle Zara Assistant"))
+
+    const input = screen.getByPlaceholderText("Ask Zara anything...")
+    fireEvent.change(input, { target: { value: "Hello Zara" } })
+    fireEvent.click(screen.getByLabelText("Send message"))
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalled())
+    await waitFor(() => screen.getByText("Hello Zara"))
+
+    fireEvent.click(screen.getByLabelText("Clear chat"))
+    await waitFor(() => expect(screen.queryByText("Hello Zara")).toBeNull())
   })
 
   it("prompts unauthenticated users to sign in", async () => {

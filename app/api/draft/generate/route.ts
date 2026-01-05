@@ -29,6 +29,7 @@ import { buildBlockedLanguageResponse } from "@/lib/draft/blocked-response"
 import { enforceTeacherNameStyle } from "@/lib/draft/teacher-language"
 import { formatDraftText, DraftStructure } from "@/lib/draft/format"
 import { cleanStudentName } from "@/lib/draft/student-name"
+import { normalizeGermanParentMessage } from "@/lib/draft/german-normalizer"
 import { detectHighEmotionPhrases } from "@/lib/deescalation/detect"
 import { rewriteHighEmotionText } from "@/lib/deescalation/rewrite"
 import { resolveOutputLanguage } from "@/lib/draft/language"
@@ -501,6 +502,10 @@ export async function POST(request: Request) {
     fallbackErrorCode = draftAttempt.errorCode
     generatedDraft = finalizeDraftWithSignature(providerResult.text)
     providerMeta = providerResult.providerMeta
+  }
+
+  if (uiLocale?.toLowerCase().startsWith("de") && mode === "parent_message") {
+    generatedDraft = normalizeGermanParentMessage(generatedDraft)
   }
 
   const formattedDraftStructure = formatDraftText(generatedDraft)
