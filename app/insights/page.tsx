@@ -564,11 +564,11 @@ export default function InsightsPage() {
             </p>
           </div>
 
-          <DialogFooter className="flex flex-col gap-2 pt-4 sm:flex-row">
+          <DialogFooter className="flex flex-col items-center gap-2 pt-4">
             <Button
               asChild
               size="sm"
-              className="w-full bg-gradient-to-r from-purple-600 to-purple-700 text-white hover:from-purple-700 hover:to-purple-800"
+              className="w-full max-w-xs bg-gradient-to-r from-purple-600 to-purple-700 text-white hover:from-purple-700 hover:to-purple-800"
             >
               <a
                 href={calendarUrl}
@@ -582,7 +582,7 @@ export default function InsightsPage() {
             <Button
               variant="outline"
               size="sm"
-              className="w-full border border-purple-300 text-purple-700 hover:bg-purple-50 dark:border-purple-500 dark:text-purple-200 dark:hover:bg-purple-500/10"
+              className="w-full max-w-xs border border-purple-300 text-purple-700 hover:bg-purple-50 dark:border-purple-500 dark:text-purple-200 dark:hover:bg-purple-500/10"
               onClick={handleDownloadIcs}
             >
               {t("insights.suggestion.reminder.downloadIcs")}
