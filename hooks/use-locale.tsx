@@ -337,8 +337,6 @@ export const localeMessages: Record<Locale, LocaleMessages> = {
     "insights.suggestion.reminderToastDescription": "We'll add scheduling nudges so you can focus on teaching.",
     "insights.suggestion.reminderToastTitle": "Reminders coming soon",
     "insights.suggestion.reminderToastDescription": "We'll add scheduling nudges so you can focus on teaching.",
-    "insights.suggestion.reminderToastTitle": "Reminders coming soon",
-    "insights.suggestion.reminderToastDescription": "We'll add scheduling nudges so you can focus on teaching.",
     "insights.suggestion.badge.new": "NEW",
     "insights.dataControls.title": "Data Controls",
     "insights.dataControls.shareData": "Share anonymized data to improve Zaza",
