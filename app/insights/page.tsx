@@ -17,6 +17,9 @@ import { ArrowLeft } from "lucide-react"
 import { useLocale } from "@/hooks/use-locale"
 import { useTeacherPrefs } from "@/hooks/use-teacher-prefs"
 import { useAuth } from "@/hooks/use-auth"
+import { useRouter } from "next/navigation"
+import { useToast } from "@/hooks/use-toast"
+import type { ToastProps } from "@/components/ui/toast"
 
 // Mock data
 const mockMetrics = {
@@ -95,6 +98,31 @@ const mockBadges = [
   },
 ]
 
+export const REMINDER_BUTTON_CLASS =
+  "w-full bg-white/20 backdrop-blur-md border-purple-200 dark:border-purple-400/30 text-gray-900 dark:text-white hover:bg-white/30 dark:hover:bg-white/20 hover:text-gray-900 dark:hover:text-white focus-visible:border-purple-300 focus-visible:ring-2 focus-visible:ring-purple-200/60 transition-all duration-300 shadow-sm"
+
+interface RouterWithPush {
+  push: (url: string) => void
+}
+
+export function handleUpdatePreferences(router: RouterWithPush) {
+  router.push("/settings")
+}
+
+export function handleGetStarted(router: RouterWithPush) {
+  router.push("/class-brain")
+}
+
+export function handleSetReminder(
+  toastFn: (props: ToastProps) => void,
+  t: (key: string, vars?: Record<string, string | number>) => string,
+) {
+  toastFn({
+    title: t("insights.suggestion.reminderToastTitle"),
+    description: t("insights.suggestion.reminderToastDescription"),
+  })
+}
+
 export default function InsightsPage() {
   const [dateRange, setDateRange] = useState<"7" | "30" | "90">("7")
   const [showWellbeing, setShowWellbeing] = useState(false)
@@ -102,6 +130,8 @@ export default function InsightsPage() {
   const { locale, t } = useLocale()
   const { prefs } = useTeacherPrefs()
   const { user } = useAuth()
+  const router = useRouter()
+  const { toast } = useToast()
 
   const getFireIntensity = (days: number) => {
     if (days >= 15) return "🔥🔥🔥"
@@ -409,6 +439,8 @@ export default function InsightsPage() {
               </p>
               <Button
                 size="sm"
+                type="button"
+                onClick={() => handleUpdatePreferences(router)}
                 className="w-full bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800 text-white shadow-lg shadow-purple-500/30"
               >
                 {t("insights.suggestion.empathetic.cta")}
@@ -424,7 +456,9 @@ export default function InsightsPage() {
               <Button
                 variant="outline"
                 size="sm"
-                className="w-full bg-white/20 backdrop-blur-md border-purple-200 dark:border-purple-400/30 text-gray-900 dark:text-white hover:bg-white/30"
+                type="button"
+                onClick={() => handleSetReminder(toast, t)}
+                className={REMINDER_BUTTON_CLASS}
               >
                 {t("insights.suggestion.wednesday.cta")}
               </Button>
@@ -448,6 +482,8 @@ export default function InsightsPage() {
               </p>
               <Button
                 size="sm"
+                type="button"
+                onClick={() => handleGetStarted(router)}
                 className="w-full bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800 text-white shadow-lg shadow-purple-500/30"
               >
                 {t("insights.suggestion.classBrain.cta")}
