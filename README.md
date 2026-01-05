@@ -2,6 +2,8 @@
 
 _Note added to nudge build deployment triggers during cleanup work._
 
+A quick mention here ensures Vercel sees a content change before the next preview build.
+
 ## Phase 1 API
 
 - **Endpoint:** `POST /api/draft/generate`
