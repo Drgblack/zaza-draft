@@ -97,6 +97,7 @@ interface ProviderRequestInput {
   studentFirstName?: string
   resolvedPronounPreference?: PronounPreference
   forceLanguage?: boolean
+  uiLocale?: string
 }
 
 interface ProviderFallbackResult {
