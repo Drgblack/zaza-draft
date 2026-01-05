@@ -305,8 +305,8 @@ export function ZaraAssistant() {
     <>
       {/* Chat Widget */}
       {isOpen && (
-        <div className="fixed bottom-24 right-6 w-96 max-w-[calc(100vw-3rem)] h-[500px] max-h-[70vh] glass shadow-[0_28px_88px_rgba(124,58,237,0.5),0_12px_28px_rgba(0,0,0,0.25)] border-2 border-[#7c3aed]/60 dark:border-[#a78bfa]/50 rounded-2xl flex flex-col z-50 animate-in slide-in-from-bottom-4 duration-300 md:bottom-24 md:right-6 md:w-96 backdrop-blur-[80px] bg-white/90 dark:bg-gray-900/98">
-          <div className="flex items-center justify-between p-4 border-b-2 border-[#7c3aed]/50 bg-gradient-to-r from-[#7c3aed]/95 to-[#6d28d9]/90 backdrop-blur-xl rounded-t-2xl shadow-[inset_0_1px_3px_rgba(255,255,255,0.3),inset_0_-1px_2px_rgba(0,0,0,0.1)]">
+        <div className="fixed bottom-24 right-6 w-96 max-w-[calc(100vw-3rem)] h-[600px] min-h-[600px] max-h-[70vh] glass shadow-lg shadow-[0_28px_88px_rgba(124,58,237,0.5),0_12px_28px_rgba(0,0,0,0.25)] border-2 border-[#7c3aed]/60 dark:border-[#a78bfa]/50 rounded-xl flex flex-col z-50 animate-in slide-in-from-bottom-4 duration-300 md:bottom-24 md:right-6 md:w-96 backdrop-blur-[80px] bg-white/90 dark:bg-gray-900/98">
+          <div className="flex items-center justify-between p-4 border-b-2 border-[#7c3aed]/50 bg-gradient-to-r from-[#7c3aed]/95 to-[#6d28d9]/90 backdrop-blur-xl rounded-t-xl shadow-[inset_0_1px_3px_rgba(255,255,255,0.3),inset_0_-1px_2px_rgba(0,0,0,0.1)]">
             <div className="flex items-center gap-2">
             {currentView !== "menu" && (
                 <button

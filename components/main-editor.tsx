@@ -20,7 +20,8 @@ import { resolveLanguageChoiceFromLocale } from "@/lib/draft/language"
 import type { DraftLanguage, DraftMode, PronounPreference } from "@/lib/types"
 import { MODE_LABEL_KEYS, DEFAULT_DRAFT_MODE } from "@/lib/draft-mode"
 import Link from "next/link"
-import { Mail, MessageCircle } from "lucide-react"
+import { FileText, Mail, MessageCircle, Sun, Target, Users } from "lucide-react"
+import type { LucideIcon } from "lucide-react"
 
 const TONE_OPTIONS = [
   { id: "warm", key: "tone.warm" },
@@ -53,6 +54,32 @@ const MODE_SEGMENT_OPTIONS = [
 ]
 
 type ToneKey = (typeof TONE_OPTIONS)[number]["id"]
+
+const TONE_STYLES: Record<
+  ToneKey,
+  { icon: LucideIcon; base: string; ring: string }
+> = {
+  warm: {
+    icon: Sun,
+    base: "bg-orange-50 border-orange-200 text-orange-700 hover:bg-orange-100 dark:bg-orange-900/20 dark:border-orange-800 dark:text-orange-300",
+    ring: "ring-orange-300 dark:ring-orange-200",
+  },
+  professional: {
+    icon: FileText,
+    base: "bg-blue-50 border-blue-200 text-blue-700 hover:bg-blue-100 dark:bg-blue-900/20 dark:border-blue-800 dark:text-blue-300",
+    ring: "ring-blue-300 dark:ring-blue-200",
+  },
+  direct: {
+    icon: Target,
+    base: "bg-indigo-50 border-indigo-200 text-indigo-700 hover:bg-indigo-100 dark:bg-indigo-900/20 dark:border-indigo-800 dark:text-indigo-300",
+    ring: "ring-indigo-300 dark:ring-indigo-200",
+  },
+  empathetic: {
+    icon: Users,
+    base: "bg-purple-50 border-purple-200 text-purple-700 hover:bg-purple-100 dark:bg-purple-900/20 dark:border-purple-800 dark:text-purple-300",
+    ring: "ring-purple-300 dark:ring-purple-200",
+  },
+}
 const LOADING_MESSAGES = [
   "Analyzing your request...",
   "Understanding context...",
@@ -635,17 +662,18 @@ export function MainEditor() {
           </div>
         )}
 
-        {showWellbeingInsights && <MiniInsightsBar />}
+        <div className="space-y-6">
+          {showWellbeingInsights && <MiniInsightsBar />}
 
-        <div className="glass shadow-[0_12px_40px_rgba(0,0,0,0.15),0_4px_12px_rgba(0,0,0,0.1)] rounded-2xl p-6 sm:p-8 mb-6 transition-all duration-200 hover:shadow-[0_16px_48px_rgba(0,0,0,0.2),0_6px_16px_rgba(255,255,255,0.12)] hover:-translate-y-0.5 border border-white/40 dark:border-white/30 bg-white/90 dark:bg-white/15 backdrop-blur-[32px]">
-          <textarea
-            ref={textareaRef}
-            value={content}
-            onChange={(e) => setContent(e.target.value)}
-            onInput={adjustTextareaHeight}
-            placeholder={
-              locale === "de-DE"
-                ? `Beschreiben Sie die Situation...
+          <section className="glass shadow-lg rounded-xl p-6 sm:p-8 transition-all duration-200 border border-white/40 dark:border-white/30 bg-white/90 dark:bg-white/15 backdrop-blur-[32px]">
+            <textarea
+              ref={textareaRef}
+              value={content}
+              onChange={(e) => setContent(e.target.value)}
+              onInput={adjustTextareaHeight}
+              placeholder={
+                locale === "de-DE"
+                  ? `Beschreiben Sie die Situation...
 
 Beispiele:
 • Schüler der 6. Klasse mit Schwierigkeiten bei Brüchen, braucht ermutigendes Feedback
@@ -658,184 +686,194 @@ Examples:
 • Parent email about homework concerns, professional and empathetic tone
 • Report card comment for excellent progress in reading comprehension`
             }
-            className="w-full min-h-[96px] max-h-[360px] text-base sm:text-lg text-gray-900 dark:text-white bg-transparent border-0 focus:outline-none focus:ring-0 resize-none placeholder:text-gray-600 dark:placeholder:text-white/60 leading-relaxed font-medium"
-            style={{
-              color: isDocumentDark ? "#ffffff" : undefined,
-            }}
-            aria-label={
-              locale === "de-DE" ? "Beschreiben Sie die Situation" : "Describe the situation you need help with"
-            }
-          />
+              className="w-full min-h-[96px] max-h-[360px] text-base sm:text-lg text-gray-900 dark:text-white bg-transparent border-0 focus:outline-none focus:ring-0 resize-none placeholder:text-gray-600 dark:placeholder:text-white/60 leading-relaxed font-medium"
+              style={{
+                color: isDocumentDark ? "#ffffff" : undefined,
+              }}
+              aria-label={
+                locale === "de-DE" ? "Beschreiben Sie die Situation" : "Describe the situation you need help with"
+              }
+            />
           <p className="mt-3 text-xs text-white/80">
             {locale === "de-DE"
               ? "Geben Sie keine vollständigen Namen, E-Mails, Telefonnummern oder Adressen ein."
               : "Do not include student full names, email addresses, phone numbers, or street addresses."}
           </p>
-        </div>
+          </section>
 
-        {showWellbeingInsights && <ContextualWellbeingTip />}
+          {showWellbeingInsights && <ContextualWellbeingTip />}
 
-        <div className="flex flex-nowrap overflow-x-auto gap-3 mb-4 pb-1">
-          {TONE_OPTIONS.map((tone) => {
-            const isSelected = selectedTone === tone.id
-            const isDark = isDocumentDark
+          <section className="space-y-3">
+            <div className="flex flex-wrap items-stretch gap-3">
+              {TONE_OPTIONS.map((tone) => {
+                const isSelected = selectedTone === tone.id
+                const toneStyle = TONE_STYLES[tone.id]
+                const Icon = toneStyle.icon
+                return (
+                  <button
+                    key={tone.id}
+                    type="button"
+                    onClick={() => setSelectedTone(tone.id)}
+                    className={`flex items-center gap-2 px-4 py-3 rounded-lg border-2 text-sm sm:text-base font-semibold transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 ${toneStyle.base} ${
+                      isSelected
+                        ? `${toneStyle.ring} ring-2 ring-offset-2 shadow-lg`
+                        : "hover:-translate-y-0.5"
+                    }`}
+                    aria-pressed={isSelected}
+                  >
+                    <Icon className="w-5 h-5" aria-hidden="true" />
+                    <span>{t(tone.key)}</span>
+                  </button>
+                )
+              })}
+            </div>
+          </section>
 
-            return (
-              <button
-                key={tone.id}
-                onClick={() => setSelectedTone(tone.id)}
-                className={`px-4 py-2.5 sm:px-6 sm:py-3 rounded-xl font-semibold text-sm sm:text-base transition-all duration-200 focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 ${
-                  isSelected
-                    ? "bg-gradient-to-br from-[#7c3aed] to-[#6d28d9] text-white shadow-[0_8px_24px_rgba(124,58,237,0.4),inset_0_1px_3px_rgba(255,255,255,0.3),inset_0_-1px_2px_rgba(0,0,0,0.1)] border border-white/20 hover:-translate-y-0.5 hover:shadow-[0_12px_32px_rgba(124,58,237,0.5),inset_0_2px_4px_rgba(255,255,255,0.35)]"
-                    : "glass shadow-soft hover:bg-white/90 dark:hover:bg-white/20 hover:-translate-y-0.5 border border-white/40 dark:border-white/30 bg-white/85 dark:bg-white/10 backdrop-blur-[24px] text-gray-900 dark:text-white"
-                  }`}
-                aria-pressed={isSelected}
-              >
-                {t(tone.key)}
-              </button>
-            )
-          })}
-        </div>
+          <section className="space-y-2">
+            <span className="text-sm font-semibold text-gray-700 dark:text-gray-300">{t("editor.mode.label")}</span>
+            <p className="text-xs text-gray-500 dark:text-gray-400">{t("editor.mode.helper")}</p>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 bg-white/10 border border-white/20 dark:bg-white/5 dark:border-white/10 rounded-xl p-1 shadow-inner">
+              {MODE_SEGMENT_OPTIONS.map((option) => {
+                const Icon = option.icon
+                const isActive = mode === option.id
+                return (
+                  <button
+                    key={option.id}
+                    type="button"
+                    aria-pressed={isActive}
+                    onClick={() => setMode(option.id)}
+                    className={`flex min-h-[54px] items-center justify-center gap-2 rounded-xl px-6 py-3 text-base font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 ${
+                      isActive
+                        ? "bg-white text-purple-700 shadow-[0_12px_40px_rgba(124,58,237,0.35)] border border-transparent dark:bg-purple-600 dark:text-white focus-visible:ring-purple-500 focus-visible:ring-offset-0"
+                        : "bg-white/10 text-white/80 border border-white/20 dark:bg-white/10 dark:border-white/20 dark:text-white/70 hover:bg-white/20 dark:hover:bg-white/20 focus-visible:ring-white/40 focus-visible:ring-offset-0"
+                    }`}
+                  >
+                    <Icon size={20} />
+                    <span>{t(option.labelKey)}</span>
+                  </button>
+                )
+              })}
+            </div>
+          </section>
 
-        <div className="mb-4">
-          <span className="text-sm font-semibold text-white/90">{t("editor.mode.label")}</span>
-          <div className="mt-3 grid grid-cols-2 gap-2 rounded-2xl bg-white/10 p-0.5 shadow-inner dark:bg-white/5">
-            {MODE_SEGMENT_OPTIONS.map((option) => {
-              const Icon = option.icon
-              const isActive = mode === option.id
-              return (
-                <button
-                  key={option.id}
-                  type="button"
-                  aria-pressed={isActive}
-                  onClick={() => setMode(option.id)}
-                  className={`flex min-h-[54px] items-center justify-center gap-2 rounded-2xl px-4 py-3 text-sm font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 ${
-                    isActive
-                      ? "bg-white text-purple-700 shadow-[0_12px_40px_rgba(124,58,237,0.35)] border border-transparent dark:bg-purple-600 dark:text-white focus-visible:ring-purple-500 focus-visible:ring-offset-0"
-                      : "bg-white/10 text-white/80 border border-white/20 dark:bg-white/10 dark:border-white/20 dark:text-white/70 hover:bg-white/20 dark:hover:bg-white/20 focus-visible:ring-white/40 focus-visible:ring-offset-0"
-                  }`}
-                >
-                  <Icon size={16} />
-                  <span>{t(option.labelKey)}</span>
-                </button>
-              )
-            })}
-          </div>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-4">
+          <section className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <select
               value={languageChoice}
               onChange={handleLanguageChange}
               aria-label={t("languageDropdown.label")}
-            className="bg-white/90 dark:bg-white/10 rounded-xl border border-white/40 dark:border-white/30 px-4 py-3 text-gray-900 dark:text-white font-medium shadow-sm focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-2"
-          >
-            <option value="en">English</option>
-            <option value="de">Deutsch</option>
-          </select>
-          <select
-            value={pronounPreference}
-            onChange={(event) => setPronounPreference(event.target.value as PronounPreference)}
-            className="bg-white/90 dark:bg-white/10 rounded-xl border border-white/40 dark:border-white/30 px-4 py-3 text-gray-900 dark:text-white font-medium shadow-sm focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-2"
-          >
-            {PRONOUN_OPTIONS.map((option) => (
-              <option key={option.id} value={option.id}>
-                {option.label}
-              </option>
-            ))}
-          </select>
-        </div>
+              className="bg-white/90 dark:bg-white/10 rounded-xl border border-white/40 dark:border-white/30 px-4 py-3 text-gray-900 dark:text-white font-medium shadow-sm focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-2"
+            >
+              <option value="en">English</option>
+              <option value="de">Deutsch</option>
+            </select>
+            <select
+              value={pronounPreference}
+              onChange={(event) => setPronounPreference(event.target.value as PronounPreference)}
+              className="bg-white/90 dark:bg-white/10 rounded-xl border border-white/40 dark:border-white/30 px-4 py-3 text-gray-900 dark:text-white font-medium shadow-sm focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-2"
+            >
+              {PRONOUN_OPTIONS.map((option) => (
+                <option key={option.id} value={option.id}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </section>
 
-        <details className="mb-6 rounded-2xl bg-white/10 dark:bg-white/5 border border-white/20 dark:border-white/10 text-white">
-          <summary className="flex items-center justify-between px-4 py-3 cursor-pointer text-sm font-semibold">
-            <span>{t("editor.details.summaryTitle")}</span>
-            <span className="text-xs text-white/60">{t("editor.details.summaryHint")}</span>
-          </summary>
-          <div className="px-4 pb-4">
-            <div className="mt-3 grid grid-cols-1 md:grid-cols-3 gap-3">
-              <div className="min-w-[200px] space-y-1">
-                <input
-                  value={studentFirstNameInput}
-                  onChange={(event) => setStudentFirstNameInput(event.target.value)}
-                  placeholder={t("editor.studentName.placeholder")}
-                  className="w-full bg-white/90 dark:bg-white/10 rounded-xl border border-white/40 dark:border-white/30 px-4 py-3 text-gray-900 dark:text-white font-medium shadow-sm focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-2"
-                />
-                {displayedStudentFirstName && (
-                  <p className="text-xs text-white/60">
-                    {t("editor.studentName.display", { name: displayedStudentFirstName })}
-                  </p>
-                )}
+          <section>
+            <details className="rounded-xl bg-white/10 dark:bg-white/5 border border-white/20 dark:border-white/10 shadow-lg">
+              <summary className="flex items-center justify-between px-4 py-3 cursor-pointer text-sm font-semibold text-white/90">
+                <span>{t("editor.details.summaryTitle")}</span>
+                <span className="text-xs text-white/60">{t("editor.details.summaryHint")}</span>
+              </summary>
+              <div className="px-4 pb-4">
+                <div className="mt-3 grid grid-cols-1 md:grid-cols-3 gap-3">
+                  <div className="min-w-[200px] space-y-1">
+                    <input
+                      value={studentFirstNameInput}
+                      onChange={(event) => setStudentFirstNameInput(event.target.value)}
+                      placeholder={t("editor.studentName.placeholder")}
+                      className="w-full bg-white/90 dark:bg-white/10 rounded-xl border border-white/40 dark:border-white/30 px-4 py-3 text-gray-900 dark:text-white font-medium shadow-sm focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-2"
+                    />
+                    {displayedStudentFirstName && (
+                      <p className="text-xs text-white/60">
+                        {t("editor.studentName.display", { name: displayedStudentFirstName })}
+                      </p>
+                    )}
+                  </div>
+                  <input
+                    value={subject}
+                    onChange={(event) => setSubject(event.target.value)}
+                    placeholder={t("editor.placeholder.subject")}
+                    className="bg-white/90 dark:bg-white/10 rounded-xl border border-white/40 dark:border-white/30 px-4 py-3 text-gray-900 dark:text-white font-medium shadow-sm focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-2"
+                  />
+                  <input
+                    value={gradeLevel}
+                    onChange={(event) => setGradeLevel(event.target.value)}
+                    placeholder={t("editor.placeholder.gradeLevel")}
+                    className="bg-white/90 dark:bg-white/10 rounded-xl border border-white/40 dark:border-white/30 px-4 py-3 text-gray-900 dark:text-white font-medium shadow-sm focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-2"
+                  />
+                </div>
               </div>
-              <input
-                value={subject}
-                onChange={(event) => setSubject(event.target.value)}
-                placeholder={t("editor.placeholder.subject")}
-                className="bg-white/90 dark:bg-white/10 rounded-xl border border-white/40 dark:border-white/30 px-4 py-3 text-gray-900 dark:text-white font-medium shadow-sm focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-2"
-              />
-              <input
-                value={gradeLevel}
-                onChange={(event) => setGradeLevel(event.target.value)}
-                placeholder={t("editor.placeholder.gradeLevel")}
-                className="bg-white/90 dark:bg-white/10 rounded-xl border border-white/40 dark:border-white/30 px-4 py-3 text-gray-900 dark:text-white font-medium shadow-sm focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-2"
-              />
+            </details>
+          </section>
+
+          <section className="space-y-3 text-center">
+            <Button
+              onClick={() => handleGenerate()}
+              disabled={!content.trim() || isGenerating}
+              className="w-full bg-gradient-to-br from-[#7c3aed] via-[#6d28d9] to-[#5b21b6] hover:shadow-[0_20px_56px_rgba(124,58,237,0.5),inset_0_2px_4px_rgba(255,255,255,0.3)] text-white dark:text-white text-base sm:text-lg font-bold py-5 sm:py-6 min-h-[52px] rounded-xl transition-all duration-200 shadow-[0_12px_32px_rgba(124,58,237,0.4),inset_0_1px_3px_rgba(255,255,255,0.25),inset_0_-1px_2px_rgba(0,0,0,0.1)] disabled:opacity-50 disabled:cursor-not-allowed focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 hover:-translate-y-1 hover:scale-[1.02] active:translate-y-0 active:scale-100 border border-white/20"
+              aria-label={t("button.generate")}
+            >
+              {isGenerating ? t("editor.generating.message") : t("button.generate")}
+            </Button>
+            <div className="text-sm text-white/90 drop-shadow-[0_1px_4px_rgba(0,0,0,0.25)] font-medium">
+              {isLimitedUser ? (
+                <>{t("insights.draftsUsed", { used: draftsUsed, limit: draftsLimit })}</>
+              ) : (
+                <>{t("insights.unlimitedDrafts")}</>
+              )}
             </div>
-          </div>
-        </details>
+            {isLimitedUser && (
+              <div>
+                <Link href="/account">
+                  <Button
+                    className="bg-gradient-to-r from-[#a855f7] to-[#7c3aed] text-white border-transparent shadow-[0_8px_20px_rgba(124,58,237,0.35)] hover:shadow-[0_10px_28px_rgba(124,58,237,0.5)] hover:from-[#9333ea] hover:to-[#6b21a8]"
+                  >
+                    {t("account.billing.upgrade")}
+                  </Button>
+                </Link>
+              </div>
+            )}
+          </section>
 
-        <Button
-          onClick={() => handleGenerate()}
-          disabled={!content.trim() || isGenerating}
-          className="w-full bg-gradient-to-br from-[#7c3aed] via-[#6d28d9] to-[#5b21b6] hover:shadow-[0_20px_56px_rgba(124,58,237,0.5),inset_0_2px_4px_rgba(255,255,255,0.3)] text-white dark:text-white text-base sm:text-lg font-bold py-5 sm:py-6 min-h-[52px] rounded-xl transition-all duration-200 shadow-[0_12px_32px_rgba(124,58,237,0.4),inset_0_1px_3px_rgba(255,255,255,0.25),inset_0_-1px_2px_rgba(0,0,0,0.1)] disabled:opacity-50 disabled:cursor-not-allowed focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 hover:-translate-y-1 hover:scale-[1.02] active:translate-y-0 active:scale-100 border border-white/20"
-          aria-label={t("button.generate")}
-        >
-          {isGenerating ? t("editor.generating.message") : t("button.generate")}
-        </Button>
-
-        <div className="text-center mt-4 text-sm text-white/90 drop-shadow-[0_1px_4px_rgba(0,0,0,0.25)] font-medium">
-          {isLimitedUser ? (
-            <>{t("insights.draftsUsed", { used: draftsUsed, limit: draftsLimit })}</>
-          ) : (
-            <>{t("insights.unlimitedDrafts")}</>
+          {onboardingVisible && !onboardingLoading && (
+            <div className="rounded-xl border border-white/20 bg-white/10 p-4 shadow-lg text-sm text-white">
+              <div className="flex flex-col gap-2">
+                <p className="font-semibold">{t("editor.welcome.title")}</p>
+                <p>
+                  {t("editor.welcome.warning")} {t("editor.welcome.learnMorePrefix")}{" "}
+                  <Link href="/privacy" className="underline">
+                    {t("link.privacy")}
+                  </Link>{" "}
+                  {t("editor.welcome.learnMoreMiddle")}{" "}
+                  <Link href="/account/privacy" className="underline">
+                    {t("link.privacySafety")}
+                  </Link>
+                  {t("editor.welcome.learnMoreSuffix")}
+                </p>
+                <button
+                  onClick={dismissOnboarding}
+                  className="self-start rounded-full bg-white/20 px-3 py-1 text-xs font-semibold uppercase tracking-[0.1em] hover:bg-white/30 transition"
+                >
+                  {t("editor.welcome.dismiss")}
+                </button>
+              </div>
+              {onboardingError && <p className="text-xs text-rose-200 mt-2">{onboardingError}</p>}
+            </div>
           )}
         </div>
-        {isLimitedUser && (
-          <div className="text-center mt-3">
-            <Link href="/account">
-              <Button
-                className="bg-gradient-to-r from-[#a855f7] to-[#7c3aed] text-white border-transparent shadow-[0_8px_20px_rgba(124,58,237,0.35)] hover:shadow-[0_10px_28px_rgba(124,58,237,0.5)] hover:from-[#9333ea] hover:to-[#6b21a8]"
-              >
-                {t("account.billing.upgrade")}
-              </Button>
-            </Link>
-          </div>
-        )}
-        {onboardingVisible && !onboardingLoading && (
-          <div className="mt-6 rounded-2xl border border-white/20 bg-white/10 p-4 shadow-inner text-sm text-white">
-            <div className="flex flex-col gap-2">
-              <p className="font-semibold">{t("editor.welcome.title")}</p>
-              <p>
-                {t("editor.welcome.warning")} {t("editor.welcome.learnMorePrefix")}{" "}
-                <Link href="/privacy" className="underline">
-                  {t("link.privacy")}
-                </Link>{" "}
-                {t("editor.welcome.learnMoreMiddle")}{" "}
-                <Link href="/account/privacy" className="underline">
-                  {t("link.privacySafety")}
-                </Link>
-                {t("editor.welcome.learnMoreSuffix")}
-              </p>
-              <button
-                onClick={dismissOnboarding}
-                className="self-start rounded-full bg-white/20 px-3 py-1 text-xs font-semibold uppercase tracking-[0.1em] hover:bg-white/30 transition"
-              >
-                {t("editor.welcome.dismiss")}
-              </button>
-            </div>
-            {onboardingError && <p className="text-xs text-rose-200 mt-2">{onboardingError}</p>}
-          </div>
-        )}
 
-        <details className="mt-10 rounded-2xl bg-white/10 p-4 backdrop-blur border border-white/20 text-white">
+        <details className="mt-10 rounded-xl bg-white/10 p-4 backdrop-blur border border-white/20 text-white shadow-lg">
           <summary className="text-lg font-semibold cursor-pointer">{t("editor.history.title")}</summary>
           <p className="text-sm text-white/70 mt-2">{t("editor.history.description")}</p>
           <p className="text-xs text-white/50 mt-1">
@@ -862,13 +900,13 @@ Examples:
           {!historyLoading && !history.length && (
             <p className="text-sm text-white/60 mt-2">{t("editor.history.empty")}</p>
           )}
-          <ul className="mt-4 space-y-3">
+          <ul className="mt-4 space-y-4">
             {history.map((item) => {
               const historyModeKey = (item.mode ?? DEFAULT_DRAFT_MODE) as ModeKey
               return (
                 <li
                   key={item.id}
-                  className="rounded-xl bg-white/20 p-3 border border-white/20 flex flex-col gap-1"
+                  className="rounded-xl bg-white/20 p-3 border border-white/20 flex flex-col gap-1 shadow-sm"
                 >
                   <div className="flex items-center justify-between text-sm text-white/80">
                     <span>
@@ -929,7 +967,7 @@ Examples:
         </details>
 
         {isGenerating && (
-          <div className="mt-4 rounded-2xl bg-white/10 border border-white/20 p-4 text-sm text-white/90 shadow-inner">
+          <div className="mt-4 rounded-xl bg-white/10 border border-white/20 p-4 text-sm text-white/90 shadow-lg space-y-3">
             <p className="font-semibold text-white">
               {t("editor.generating.message")}
             </p>

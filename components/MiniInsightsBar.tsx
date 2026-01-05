@@ -149,6 +149,8 @@ export function MiniInsightsBar() {
   const balanceText = formatBalanceText(data.balance!.score)
 
   const animationClass = prefersReducedMotion ? "" : "animate-fade-in"
+  const badgeClass =
+    "flex items-center gap-2 px-4 py-2.5 rounded-2xl border border-white/20 dark:border-gray-700/50 bg-white/60 dark:bg-gray-800/60 backdrop-blur-sm shadow-sm text-sm font-semibold transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-white/40"
 
   return (
     <div
@@ -157,24 +159,24 @@ export function MiniInsightsBar() {
       aria-label={t("insights.mini.regionLabel")}
     >
       <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
-        <div className="flex flex-wrap items-center gap-x-6 gap-y-2 flex-1 min-w-0">
+        <div className="flex flex-wrap items-center gap-4 flex-1 min-w-0">
           <button
             onClick={() => router.push("/insights#time-saved")}
-            className="flex items-center gap-2 text-sm text-purple-800 dark:text-purple-200 hover:text-purple-900 dark:hover:text-purple-100 transition-colors duration-200 group whitespace-nowrap focus-visible:ring-2 focus-visible:ring-purple-600 focus-visible:ring-offset-2 rounded font-bold"
+            className={`${badgeClass} text-purple-900 dark:text-purple-100 focus-visible:ring-purple-600`}
             aria-label={t("insights.mini.viewTime")}
             title={t("insights.mini.viewTime")}
           >
             <Clock
-              className="w-4 h-4 flex-shrink-0 text-purple-800 dark:text-purple-200"
+              className="w-5 h-5 flex-shrink-0 text-purple-700 dark:text-purple-200"
               aria-hidden="true"
-              strokeWidth={2.5}
+              strokeWidth={2}
             />
-            <span className="font-bold">
+            <span className="font-semibold text-purple-900 dark:text-purple-100">
               {timeText.showTrend && (
                 <TrendingUp
                   className="inline w-3 h-3 mr-1 text-emerald-700 dark:text-emerald-300"
                   aria-hidden="true"
-                  strokeWidth={2.5}
+                  strokeWidth={2}
                 />
               )}
               {timeText.text}
@@ -184,30 +186,30 @@ export function MiniInsightsBar() {
 
           <button
             onClick={() => router.push("/insights#streak")}
-            className="flex items-center gap-2 text-sm text-orange-800 dark:text-orange-200 hover:text-orange-900 dark:hover:text-orange-100 transition-colors duration-200 group whitespace-nowrap focus-visible:ring-2 focus-visible:ring-orange-600 focus-visible:ring-offset-2 rounded font-bold"
+            className={`${badgeClass} text-orange-900 dark:text-orange-100 focus-visible:ring-orange-600`}
             aria-label={t("insights.mini.viewStreak")}
             title={t("insights.mini.viewStreak")}
           >
             <Flame
-              className="w-4 h-4 flex-shrink-0 text-orange-800 dark:text-orange-200"
+              className="w-5 h-5 flex-shrink-0 text-orange-700 dark:text-orange-200"
               aria-hidden="true"
-              strokeWidth={2.5}
+              strokeWidth={2}
             />
-            <span className="font-bold">{streakText}</span>
+            <span className="font-semibold text-orange-900 dark:text-orange-100">{streakText}</span>
           </button>
 
           <button
             onClick={() => router.push("/insights#wellbeing")}
-            className="flex items-center gap-2 text-sm text-emerald-800 dark:text-emerald-200 hover:text-emerald-900 dark:hover:text-emerald-100 transition-colors duration-200 group whitespace-nowrap focus-visible:ring-2 focus-visible:ring-emerald-600 focus-visible:ring-offset-2 rounded font-bold"
+            className={`${badgeClass} text-emerald-900 dark:text-emerald-100 focus-visible:ring-emerald-600`}
             aria-label={t("insights.mini.viewBalance")}
             title={t("insights.mini.viewBalance")}
           >
             <Heart
-              className="w-4 h-4 flex-shrink-0 text-emerald-800 dark:text-emerald-200"
+              className="w-5 h-5 flex-shrink-0 text-emerald-700 dark:text-emerald-200"
               aria-hidden="true"
-              strokeWidth={2.5}
+              strokeWidth={2}
             />
-            <span className="font-bold">{balanceText}</span>
+            <span className="font-semibold text-emerald-900 dark:text-emerald-100">{balanceText}</span>
           </button>
         </div>
 

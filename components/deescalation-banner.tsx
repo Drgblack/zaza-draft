@@ -45,7 +45,7 @@ export function DeescalationBanner({ summary, onToggleDiffView }: DeescalationBa
   }
 
   return (
-    <div className="mt-6 rounded-2xl border border-slate-200 bg-slate-50/80 p-4 shadow-sm">
+    <div className="mt-6 rounded-xl border border-slate-200 bg-slate-50/80 p-4 shadow-lg">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
           <p className="font-semibold text-slate-900">{t("deescalation.title")}</p>
@@ -63,18 +63,25 @@ export function DeescalationBanner({ summary, onToggleDiffView }: DeescalationBa
       </div>
 
       {expanded && (
-        <div id={detailsId} className="mt-4 space-y-3 text-slate-700">
+        <div id={detailsId} className="mt-4 space-y-4 text-slate-700">
           {phrases.map((phrase, index) => (
-            <div key={`${phrase.originalSnippet}-${index}`} className="rounded-xl border border-slate-200 bg-white/80 p-3">
+            <div
+              key={`${phrase.originalSnippet}-${index}`}
+              className="rounded-xl border border-slate-200 bg-white/80 p-3 shadow-sm mb-6"
+            >
               <div className="flex flex-wrap items-center gap-2 text-xs font-semibold uppercase tracking-widest text-slate-500">
                 <span>{CATEGORY_LABELS[phrase.category]}</span>
               </div>
-              <p className="text-sm text-slate-800">
-                <span className="font-semibold text-slate-900">{t("deescalation.diff.original")}</span>{" "}
+              <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-1 mt-3">
+                {t("deescalation.diff.original")}
+              </p>
+              <p className="text-base font-medium text-gray-900 dark:text-gray-100 leading-relaxed">
                 {phrase.originalSnippet}
               </p>
-              <p className="text-sm text-slate-500 mt-1">
-                <span className="font-semibold text-slate-900">{t("deescalation.diff.suggestion")}</span>{" "}
+              <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400 mt-4 mb-1">
+                {t("deescalation.diff.suggestion")}
+              </p>
+              <p className="text-sm text-gray-600 dark:text-gray-300 italic pl-3 border-l-2 border-blue-200 dark:border-blue-800">
                 {phrase.suggestionSnippet}
               </p>
             </div>
