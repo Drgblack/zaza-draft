@@ -36,7 +36,6 @@ interface ProviderInput {
   forceLanguage?: boolean
   signatureBlock?: string
   uiLocale?: string
-  uiLocale?: string
 }
 
 export interface ProviderMeta {
