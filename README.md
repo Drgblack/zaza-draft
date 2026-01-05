@@ -2,6 +2,8 @@
 
 _Note added to nudge build deployment triggers during cleanup work._
 
+Build trigger: touched this section to kick off a fresh Vercel preview build.
+
 A quick mention here ensures Vercel sees a content change before the next preview build.
 
 ## Phase 1 API
