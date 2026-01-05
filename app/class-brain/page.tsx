@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react"
 import Link from "next/link"
-import { Info, Save, CheckCircle2 } from "lucide-react"
+import { Info, Save, CheckCircle2, Shield } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { Textarea } from "@/components/ui/textarea"
@@ -58,14 +58,14 @@ export default function ClassBrainPage() {
             </div>
             <Tooltip>
               <TooltipTrigger>
-                <Info className="h-4 w-4 text-white/70 transition-all duration-300 hover:text-white" />
+                <Info className="h-5 w-5 text-purple-200 transition-transform duration-200 hover:scale-110 hover:text-white" />
               </TooltipTrigger>
               <TooltipContent className="max-w-xs text-xs leading-relaxed">{tooltipMessage}</TooltipContent>
             </Tooltip>
           </div>
           <Link
             href="/"
-            className="ml-auto rounded-full border border-white/50 px-5 py-2 text-sm font-semibold text-white transition-all duration-300 hover:bg-white/20"
+            className="ml-auto rounded-full bg-purple-600 px-6 py-3 text-sm font-semibold text-white shadow-lg shadow-purple-900/40 transition-all duration-300 hover:bg-purple-500"
           >
             Back to Draft
           </Link>
@@ -77,8 +77,8 @@ export default function ClassBrainPage() {
           and the tone you need for this group.
         </p>
 
-        <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
-          <Card className="bg-white/10 border border-white/10 p-8 shadow-xl shadow-purple-900/20 transition-all duration-300 hover:border-white/20 hover:shadow-2xl hover:scale-[1.02]">
+        <div className="grid grid-cols-1 gap-8 md:grid-cols-2">
+          <Card className="rounded-2xl border border-white/20 bg-white/5 p-8 shadow-2xl shadow-black/20 transition-all duration-300 backdrop-blur-sm">
             <h2 className="text-2xl font-bold text-white">What it is</h2>
             <p className="mt-3 text-sm leading-relaxed text-white/80">
               A lightweight knowledge base for the students and focus areas you teach most. Class
@@ -89,7 +89,7 @@ export default function ClassBrainPage() {
             </p>
           </Card>
 
-          <Card className="bg-white/10 border border-white/10 p-8 shadow-xl shadow-purple-900/20 transition-all duration-300 hover:border-white/20 hover:shadow-2xl hover:scale-[1.02]">
+          <Card className="rounded-2xl border border-white/20 bg-white/5 p-8 shadow-2xl shadow-black/20 transition-all duration-300 backdrop-blur-sm">
             <h2 className="text-2xl font-bold text-white">What to add</h2>
             <ul className="mt-3 space-y-3 text-sm leading-relaxed text-white/80">
               <li>• Grade level or course you are writing for.</li>
@@ -98,7 +98,7 @@ export default function ClassBrainPage() {
             </ul>
           </Card>
 
-          <Card className="bg-white/10 border border-white/10 p-8 shadow-xl shadow-purple-900/20 transition-all duration-300 hover:border-white/20 hover:shadow-2xl hover:scale-[1.02]">
+          <Card className="rounded-2xl border border-white/20 bg-white/5 p-8 shadow-2xl shadow-black/20 transition-all duration-300 backdrop-blur-sm">
             <h2 className="text-2xl font-bold text-white">What NOT to add</h2>
             <ul className="mt-3 space-y-3 text-sm leading-relaxed text-white/80">
               <li>• No full names, student IDs, or contact info.</li>
@@ -107,10 +107,13 @@ export default function ClassBrainPage() {
             </ul>
           </Card>
 
-          <Card className="bg-white/10 border border-white/10 p-8 shadow-xl shadow-purple-900/20 transition-all duration-300 hover:border-white/20 hover:shadow-2xl hover:scale-[1.02]">
+          <Card className="rounded-2xl border border-white/20 bg-white/5 p-8 shadow-2xl shadow-black/20 transition-all duration-300 backdrop-blur-sm hover:shadow-3xl hover:scale-[1.01]">
             <div className="flex items-center justify-between">
               <h2 className="text-2xl font-bold text-white">Your saved context</h2>
-              <span className="text-xs uppercase tracking-wide text-white/60">Stored locally</span>
+              <span className="flex items-center gap-2 rounded-full border border-purple-300/50 bg-purple-500/30 px-3 py-1 text-xs font-semibold text-purple-200">
+                <Shield className="h-4 w-4 text-purple-100" />
+                Stored locally
+              </span>
             </div>
             <p className="mt-1 text-xs uppercase tracking-wide text-white/60">
               Safe, editable, and stored locally
@@ -120,7 +123,7 @@ export default function ClassBrainPage() {
                 value={context}
                 onChange={(event) => setContext(event.target.value)}
                 placeholder="e.g., 'AP Biology class focused on cellular respiration. Students are preparing for state exam in May. Class mood is engaged but slightly anxious.'"
-                className="min-h-[150px] border-2 border-white/30 bg-white/10 p-4 text-sm leading-relaxed text-white placeholder:text-white/60 focus:border-white/50 focus:outline-none"
+                className="min-h-[150px] rounded-2xl border-2 border-white/30 bg-white/10 p-4 text-sm leading-relaxed text-white placeholder:text-white/40 focus:border-white/50 focus:outline-none focus:ring-2 focus:ring-purple-400"
                 rows={5}
                 maxLength={maxCharacters}
               />
@@ -128,9 +131,13 @@ export default function ClassBrainPage() {
                 Save a short reminder (no names) that sets up the next writing session.
               </p>
             </div>
-            <div className="mt-2 flex flex-wrap items-center justify-between text-xs text-white/60">
-              <span>{`${Math.min(characterCount, maxCharacters)}/${maxCharacters} characters`}</span>
-              <span>{`${wordCount} words`}</span>
+            <div className="mt-2 flex flex-wrap items-center gap-3 text-sm text-white/70">
+              <span className="rounded-full bg-white/10 px-3 py-1 font-semibold text-white/70">
+                {`${Math.min(characterCount, maxCharacters)}/${maxCharacters} characters`}
+              </span>
+              <span className="rounded-full bg-white/10 px-3 py-1 font-semibold text-white/70">
+                {`${wordCount} words`}
+              </span>
             </div>
             {lastSavedAt && (
               <p className="mt-2 flex items-center gap-2 text-xs text-emerald-200">
@@ -151,7 +158,7 @@ export default function ClassBrainPage() {
             )}
             <div className="mt-4">
               <Button
-                className="w-full justify-center gap-2 rounded-2xl bg-gradient-to-r from-purple-600 to-purple-700 px-5 py-3 text-base font-semibold text-white shadow-lg shadow-purple-900/40 transition-all duration-300 hover:bg-purple-500 active:scale-95"
+                className="w-full justify-center gap-2 rounded-2xl bg-gradient-to-r from-purple-600 to-purple-700 px-5 py-3 text-base font-semibold text-white shadow-lg shadow-purple-900/40 transition-all duration-200 hover:bg-purple-500 hover:shadow-lg hover:shadow-purple-400/50 active:scale-95 focus-visible:ring-2 focus-visible:ring-purple-400"
                 onClick={handleSave}
               >
                 <Save className="h-4 w-4" />
@@ -161,10 +168,12 @@ export default function ClassBrainPage() {
           </Card>
         </div>
 
-        <p className="text-xs text-white/60">
-          Saved context stays on this device unless you copy it to a shared document. The safe
-          guidelines above keep sensitive details out of Class Brain.
-        </p>
+        <div className="mt-8 rounded-2xl border border-white/20 bg-purple-900/30 p-4 text-sm leading-relaxed text-white/80 shadow-2xl shadow-black/30">
+          <p>
+            Saved context stays on this device unless you copy it to a shared document. The safe
+            guidelines above keep sensitive details out of Class Brain.
+          </p>
+        </div>
       </div>
     </div>
   )
