@@ -159,7 +159,7 @@ export function MiniInsightsBar() {
       aria-label={t("insights.mini.regionLabel")}
     >
       <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
-        <div className="flex flex-wrap items-center gap-4 flex-1 min-w-0">
+        <div className="flex flex-wrap items-center gap-6 flex-1 min-w-0">
           <button
             onClick={() => router.push("/insights#time-saved")}
             className={`${badgeClass} text-purple-900 dark:text-purple-100 focus-visible:ring-purple-600`}

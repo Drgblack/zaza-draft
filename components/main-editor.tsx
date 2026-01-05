@@ -212,6 +212,8 @@ export function MainEditor() {
   const [onboardingVisible, setOnboardingVisible] = useState(false)
   const [onboardingLoading, setOnboardingLoading] = useState(true)
   const [onboardingError, setOnboardingError] = useState<string | null>(null)
+  const [dontShowWelcome, setDontShowWelcome] = useState(false)
+  const [welcomeDismissed, setWelcomeDismissed] = useState(false)
   const textareaRef = useRef<HTMLTextAreaElement | null>(null)
   const adjustTextareaHeight = useCallback(() => {
     const el = textareaRef.current
@@ -313,6 +315,16 @@ export function MainEditor() {
     }
   }, [getIdToken])
 
+  useEffect(() => {
+    if (typeof localStorage === "undefined") {
+      return
+    }
+    const savedDismissal = localStorage.getItem("zazaDraftWelcomeDismissed")
+    setWelcomeDismissed(savedDismissal === "true")
+  }, [])
+
+  const showWelcomeBox = onboardingVisible && !onboardingLoading && !welcomeDismissed
+
   const dismissOnboarding = async () => {
     try {
       const response = await fetch("/api/onboarding", {
@@ -327,6 +339,18 @@ export function MainEditor() {
       console.error("[v0] Failed to dismiss onboarding", error)
       setOnboardingError("We couldn't save your onboarding preference.")
     }
+  }
+
+  const handleDontShowAgain = (event: ChangeEvent<HTMLInputElement>) => {
+    setDontShowWelcome(event.target.checked)
+  }
+
+  const handleWelcomeDismiss = async () => {
+    if (dontShowWelcome && typeof localStorage !== "undefined") {
+      localStorage.setItem("zazaDraftWelcomeDismissed", "true")
+      setWelcomeDismissed(true)
+    }
+    await dismissOnboarding()
   }
 
   useEffect(() => {
@@ -686,7 +710,7 @@ Examples:
 • Parent email about homework concerns, professional and empathetic tone
 • Report card comment for excellent progress in reading comprehension`
             }
-              className="w-full min-h-[96px] max-h-[360px] text-base sm:text-lg text-gray-900 dark:text-white bg-transparent border-0 focus:outline-none focus:ring-0 resize-none placeholder:text-gray-600 dark:placeholder:text-white/60 leading-relaxed font-medium"
+            className="w-full min-h-[80px] max-h-[320px] text-base sm:text-lg text-gray-900 dark:text-white bg-transparent border-0 focus:outline-none focus:ring-0 resize-none placeholder:text-gray-600 dark:placeholder:text-white/60 leading-relaxed font-medium"
               style={{
                 color: isDocumentDark ? "#ffffff" : undefined,
               }}
@@ -730,8 +754,8 @@ Examples:
           </section>
 
           <section className="space-y-2">
-            <span className="text-sm font-semibold text-gray-700 dark:text-gray-300">{t("editor.mode.label")}</span>
-            <p className="text-xs text-gray-500 dark:text-gray-400">{t("editor.mode.helper")}</p>
+            <span className="text-sm font-semibold text-gray-800 dark:text-gray-200 mb-2">{t("editor.mode.label")}</span>
+            <p className="text-xs text-gray-600 dark:text-gray-400 mb-3">{t("editor.mode.helper")}</p>
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 bg-white/10 border border-white/20 dark:bg-white/5 dark:border-white/10 rounded-xl p-1 shadow-inner">
               {MODE_SEGMENT_OPTIONS.map((option) => {
                 const Icon = option.icon
@@ -761,7 +785,7 @@ Examples:
               value={languageChoice}
               onChange={handleLanguageChange}
               aria-label={t("languageDropdown.label")}
-              className="bg-white/90 dark:bg-white/10 rounded-xl border border-white/40 dark:border-white/30 px-4 py-3 text-gray-900 dark:text-white font-medium shadow-sm focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-2"
+              className="bg-white/80 dark:bg-gray-800/80 border border-gray-300 dark:border-gray-600 shadow-sm rounded-xl px-4 py-3 text-gray-900 dark:text-white font-medium focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 hover:border-purple-400 dark:hover:border-purple-500 transition-colors"
             >
               <option value="en">English</option>
               <option value="de">Deutsch</option>
@@ -769,7 +793,7 @@ Examples:
             <select
               value={pronounPreference}
               onChange={(event) => setPronounPreference(event.target.value as PronounPreference)}
-              className="bg-white/90 dark:bg-white/10 rounded-xl border border-white/40 dark:border-white/30 px-4 py-3 text-gray-900 dark:text-white font-medium shadow-sm focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-2"
+              className="bg-white/80 dark:bg-gray-800/80 border border-gray-300 dark:border-gray-600 shadow-sm rounded-xl px-4 py-3 text-gray-900 dark:text-white font-medium focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 hover:border-purple-400 dark:hover:border-purple-500 transition-colors"
             >
               {PRONOUN_OPTIONS.map((option) => (
                 <option key={option.id} value={option.id}>
@@ -821,7 +845,7 @@ Examples:
             <Button
               onClick={() => handleGenerate()}
               disabled={!content.trim() || isGenerating}
-              className="w-full bg-gradient-to-br from-[#7c3aed] via-[#6d28d9] to-[#5b21b6] hover:shadow-[0_20px_56px_rgba(124,58,237,0.5),inset_0_2px_4px_rgba(255,255,255,0.3)] text-white dark:text-white text-base sm:text-lg font-bold py-5 sm:py-6 min-h-[52px] rounded-xl transition-all duration-200 shadow-[0_12px_32px_rgba(124,58,237,0.4),inset_0_1px_3px_rgba(255,255,255,0.25),inset_0_-1px_2px_rgba(0,0,0,0.1)] disabled:opacity-50 disabled:cursor-not-allowed focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 hover:-translate-y-1 hover:scale-[1.02] active:translate-y-0 active:scale-100 border border-white/20"
+              className="w-full bg-gradient-to-br from-[#7c3aed] via-[#6d28d9] to-[#5b21b6] hover:shadow-[0_20px_56px_rgba(124,58,237,0.5),inset_0_2px_4px_rgba(255,255,255,0.3)] text-white dark:text-white text-base sm:text-lg font-bold py-5 sm:py-6 min-h-[52px] rounded-xl transition-all duration-200 shadow-xl shadow-[0_12px_32px_rgba(124,58,237,0.4),inset_0_1px_3px_rgba(255,255,255,0.25),inset_0_-1px_2px_rgba(0,0,0,0.1)] disabled:opacity-50 disabled:cursor-not-allowed focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 hover:-translate-y-1 hover:scale-[1.02] active:translate-y-0 active:scale-100 border-2 border-white/30"
               aria-label={t("button.generate")}
             >
               {isGenerating ? t("editor.generating.message") : t("button.generate")}
@@ -846,35 +870,49 @@ Examples:
             )}
           </section>
 
-          {onboardingVisible && !onboardingLoading && (
-            <div className="rounded-xl border border-white/20 bg-white/10 p-4 shadow-lg text-sm text-white">
-              <div className="flex flex-col gap-2">
-                <p className="font-semibold">{t("editor.welcome.title")}</p>
-                <p>
-                  {t("editor.welcome.warning")} {t("editor.welcome.learnMorePrefix")}{" "}
-                  <Link href="/privacy" className="underline">
-                    {t("link.privacy")}
-                  </Link>{" "}
-                  {t("editor.welcome.learnMoreMiddle")}{" "}
-                  <Link href="/account/privacy" className="underline">
-                    {t("link.privacySafety")}
-                  </Link>
-                  {t("editor.welcome.learnMoreSuffix")}
-                </p>
-                <button
-                  onClick={dismissOnboarding}
-                  className="self-start rounded-full bg-white/20 px-3 py-1 text-xs font-semibold uppercase tracking-[0.1em] hover:bg-white/30 transition"
-                >
-                  {t("editor.welcome.dismiss")}
-                </button>
-              </div>
-              {onboardingError && <p className="text-xs text-rose-200 mt-2">{onboardingError}</p>}
+        {showWelcomeBox && (
+          <div className="rounded-xl border border-white/20 bg-white/10 p-4 shadow-lg text-sm text-white">
+            <div className="flex flex-col gap-2">
+              <p className="font-semibold">{t("editor.welcome.title")}</p>
+              <p>
+                {t("editor.welcome.warning")} {t("editor.welcome.learnMorePrefix")}{" "}
+                <Link href="/privacy" className="underline">
+                  {t("link.privacy")}
+                </Link>{" "}
+                {t("editor.welcome.learnMoreMiddle")}{" "}
+                <Link href="/account/privacy" className="underline">
+                  {t("link.privacySafety")}
+                </Link>
+                {t("editor.welcome.learnMoreSuffix")}
+              </p>
+              <button
+                onClick={handleWelcomeDismiss}
+                className="self-start rounded-full bg-white/20 px-3 py-1 text-xs font-semibold uppercase tracking-[0.1em] hover:bg-white/30 transition"
+              >
+                {t("editor.welcome.dismiss")}
+              </button>
+              <label className="flex items-center gap-2 text-sm text-white/90 mt-2">
+                <input
+                  type="checkbox"
+                  checked={dontShowWelcome}
+                  onChange={handleDontShowAgain}
+                  className="rounded"
+                />
+                Don't show this again
+              </label>
             </div>
-          )}
+            {onboardingError && <p className="text-xs text-rose-200 mt-2">{onboardingError}</p>}
+          </div>
+        )}
         </div>
 
         <details className="mt-10 rounded-xl bg-white/10 p-4 backdrop-blur border border-white/20 text-white shadow-lg">
-          <summary className="text-lg font-semibold cursor-pointer">{t("editor.history.title")}</summary>
+          <summary className="text-lg font-semibold cursor-pointer flex items-center">
+            {t("editor.history.title")}
+            <span className="ml-1.5 px-2 py-0.5 bg-purple-100 dark:bg-purple-900/40 text-purple-700 dark:text-purple-300 text-xs font-semibold rounded-full">
+              {history.length}
+            </span>
+          </summary>
           <p className="text-sm text-white/70 mt-2">{t("editor.history.description")}</p>
           <p className="text-xs text-white/50 mt-1">
             {t("editor.history.storage")}{" "}
