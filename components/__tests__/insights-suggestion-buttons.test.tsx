@@ -1,5 +1,10 @@
 import { describe, expect, it, vi } from "vitest"
-import { handleGetStarted, handleSetReminder, handleUpdatePreferences, REMINDER_BUTTON_CLASS } from "@/app/insights/page"
+import {
+  handleGetStarted,
+  handleSetReminder,
+  handleUpdatePreferences,
+  REMINDER_BUTTON_CLASS,
+} from "@/app/insights/suggestion-actions"
 
 describe("Personalized suggestions buttons", () => {
   it("keeps button text readable when hovering", () => {
