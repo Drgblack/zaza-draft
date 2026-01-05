@@ -330,6 +330,12 @@ export const localeMessages: Record<Locale, LocaleMessages> = {
     "insights.suggestion.wednesday.desc":
       "Your Wednesday drafts have 50% fewer edits. Consider scheduling heavy writing then.",
     "insights.suggestion.wednesday.cta": "Set reminder",
+    "insights.suggestion.reminder.modalHint":
+      "Pick how you'd like to lock this protected writing time into your calendar.",
+    "insights.suggestion.reminder.modalFootnote":
+      "You can edit or cancel this reminder anytime from your calendar.",
+    "insights.suggestion.reminder.openCalendar": "Open Google Calendar",
+    "insights.suggestion.reminder.downloadIcs": "Download .ics",
     "insights.suggestion.classBrain.title": "Unlock Class Brain",
     "insights.suggestion.classBrain.desc": "Add student context to increase your one-shot rate by 35%",
     "insights.suggestion.classBrain.cta": "Get started",
@@ -802,6 +808,12 @@ export const localeMessages: Record<Locale, LocaleMessages> = {
     "insights.suggestion.wednesday.desc":
       "Your Wednesday drafts have 50% fewer edits. Consider scheduling heavy writing then.",
     "insights.suggestion.wednesday.cta": "Set reminder",
+    "insights.suggestion.reminder.modalHint":
+      "Pick how you'd like to lock this protected writing time into your calendar.",
+    "insights.suggestion.reminder.modalFootnote":
+      "You can edit or cancel this reminder anytime from your calendar.",
+    "insights.suggestion.reminder.openCalendar": "Open Google Calendar",
+    "insights.suggestion.reminder.downloadIcs": "Download .ics",
     "insights.suggestion.classBrain.title": "Unlock Class Brain",
     "insights.suggestion.classBrain.desc": "Add student context to increase your one-shot rate by 35%",
     "insights.suggestion.classBrain.cta": "Get started",
@@ -1373,6 +1385,12 @@ export const localeMessages: Record<Locale, LocaleMessages> = {
     "insights.suggestion.wednesday.desc":
       "Ihre Mittwoch-Entwürfe haben 50% weniger Bearbeitungen. Erwägen Sie, schweres Schreiben dann zu planen.",
     "insights.suggestion.wednesday.cta": "Erinnerung setzen",
+    "insights.suggestion.reminder.modalHint":
+      "Waehlen Sie, wie dieser Fokuszeitraum in Ihrem Kalender bleibt.",
+    "insights.suggestion.reminder.modalFootnote":
+      "Sie koennen die Erinnerung jederzeit in Ihrem Kalender bearbeiten oder loeschen.",
+    "insights.suggestion.reminder.openCalendar": "Google Kalender oeffnen",
+    "insights.suggestion.reminder.downloadIcs": ".ics herunterladen",
     "insights.suggestion.classBrain.title": "Klassengehirn freischalten",
     "insights.suggestion.classBrain.desc": "Fügen Sie Schülerkontext hinzu, um Ihre Trefferquote um 35% zu erhöhen",
     "insights.suggestion.classBrain.cta": "Los geht's",

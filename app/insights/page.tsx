@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useMemo, useState } from "react"
 import { Download, Shield } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
@@ -18,13 +18,22 @@ import { useLocale } from "@/hooks/use-locale"
 import { useTeacherPrefs } from "@/hooks/use-teacher-prefs"
 import { useAuth } from "@/hooks/use-auth"
 import { useRouter } from "next/navigation"
-import { useToast } from "@/hooks/use-toast"
 import {
   REMINDER_BUTTON_CLASS,
+  buildGoogleCalendarUrl,
+  buildIcsEvent,
+  getNextWednesdayAt,
   handleGetStarted,
-  handleSetReminder,
   handleUpdatePreferences,
 } from "@/app/insights/suggestion-actions"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
 
 // Mock data
 const mockMetrics = {
@@ -103,15 +112,64 @@ const mockBadges = [
   },
 ]
 
+const REMINDER_EVENT_TITLE = "Protected writing time - Zaza Draft"
+
 export default function InsightsPage() {
   const [dateRange, setDateRange] = useState<"7" | "30" | "90">("7")
   const [showWellbeing, setShowWellbeing] = useState(false)
   const [shareData, setShareData] = useState(true)
+  const [isReminderDialogOpen, setIsReminderDialogOpen] = useState(false)
   const { locale, t } = useLocale()
   const { prefs } = useTeacherPrefs()
   const { user } = useAuth()
   const router = useRouter()
-  const { toast } = useToast()
+  const reminderInsight = t("insights.suggestion.wednesday.desc")
+  const reminderHint = t("insights.suggestion.reminder.modalHint")
+  const reminderFootnote = t("insights.suggestion.reminder.modalFootnote")
+  const reminderEvent = useMemo(() => {
+    const start = getNextWednesdayAt(15, 30)
+    const end = new Date(start.getTime() + 15 * 60 * 1000)
+
+    return { start, end }
+  }, [])
+  const reminderStart = reminderEvent.start
+  const reminderEnd = reminderEvent.end
+  const calendarUrl = useMemo(
+    () =>
+      buildGoogleCalendarUrl({
+        title: REMINDER_EVENT_TITLE,
+        description: reminderInsight,
+        start: reminderStart,
+        end: reminderEnd,
+      }),
+    [reminderInsight, reminderStart, reminderEnd],
+  )
+  const formatTime = (date: Date) =>
+    date.toLocaleTimeString(locale, { hour: "numeric", minute: "2-digit" })
+  const reminderDateLabel = reminderStart.toLocaleDateString(locale, {
+    weekday: "long",
+    month: "long",
+    day: "numeric",
+  })
+  const reminderTimeLabel = `${formatTime(reminderStart)} – ${formatTime(reminderEnd)}`
+  const handleDownloadIcs = () => {
+    const payload = buildIcsEvent({
+      title: REMINDER_EVENT_TITLE,
+      description: reminderInsight,
+      start: reminderStart,
+      end: reminderEnd,
+    })
+    const blob = new Blob([payload], { type: "text/calendar" })
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement("a")
+    link.href = url
+    link.download = "protected-writing-time.ics"
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    URL.revokeObjectURL(url)
+    setIsReminderDialogOpen(false)
+  }
 
   const getFireIntensity = (days: number) => {
     if (days >= 15) return "🔥🔥🔥"
@@ -437,7 +495,7 @@ export default function InsightsPage() {
                 variant="outline"
                 size="sm"
                 type="button"
-                onClick={() => handleSetReminder(toast, t)}
+                onClick={() => setIsReminderDialogOpen(true)}
                 className={REMINDER_BUTTON_CLASS}
               >
                 {t("insights.suggestion.wednesday.cta")}
@@ -486,6 +544,56 @@ export default function InsightsPage() {
       </div>
 
       </main>
+
+      <Dialog open={isReminderDialogOpen} onOpenChange={setIsReminderDialogOpen}>
+        <DialogContent className="max-w-md rounded-3xl border border-white/30 bg-white/90 p-6 shadow-2xl shadow-purple-500/30 dark:border-white/20 dark:bg-gray-900/80">
+          <DialogHeader className="text-left">
+            <DialogTitle className="text-2xl text-gray-900 dark:text-white">
+              {t("insights.suggestion.wednesday.title")}
+            </DialogTitle>
+            <DialogDescription className="text-sm text-gray-600 dark:text-gray-300">
+              {reminderHint}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="mt-4 rounded-2xl border border-purple-100/80 bg-white/80 p-4 text-sm text-gray-700 shadow-sm dark:border-purple-500/40 dark:bg-white/5 dark:text-white/80">
+            <p className="text-sm font-semibold text-gray-900 dark:text-white">{reminderDateLabel}</p>
+            <p className="text-xs text-gray-500 dark:text-gray-300">{reminderTimeLabel}</p>
+            <p className="mt-2 text-xs leading-relaxed text-gray-600 dark:text-gray-300">
+              {reminderInsight}
+            </p>
+          </div>
+
+          <DialogFooter className="flex flex-col gap-2 pt-4 sm:flex-row">
+            <Button
+              asChild
+              size="sm"
+              className="w-full bg-gradient-to-r from-purple-600 to-purple-700 text-white hover:from-purple-700 hover:to-purple-800"
+            >
+              <a
+                href={calendarUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={() => setIsReminderDialogOpen(false)}
+              >
+                {t("insights.suggestion.reminder.openCalendar")}
+              </a>
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              className="w-full border border-purple-300 text-purple-700 hover:bg-purple-50 dark:border-purple-500 dark:text-purple-200 dark:hover:bg-purple-500/10"
+              onClick={handleDownloadIcs}
+            >
+              {t("insights.suggestion.reminder.downloadIcs")}
+            </Button>
+          </DialogFooter>
+
+          <p className="mt-3 text-center text-xs text-gray-500 dark:text-gray-400">
+            {reminderFootnote}
+          </p>
+        </DialogContent>
+      </Dialog>
 
       <FooterSlim />
     </div>
