@@ -253,8 +253,6 @@ export const localeMessages: Record<Locale, LocaleMessages> = {
     "zara.error.authRequiredDescription": "Please sign in to chat with Zara.",
     "zara.button.backToMenu": "Back to menu",
     "zara.button.clearChat": "Clear chat",
-    "zara.button.backToMenu": "Back to menu",
-    "zara.button.clearChat": "Clear chat",
     "insights.title": "Your Teaching Impact, {name}",
     "insights.draftsUsed": "{used} of {limit} drafts used this month",
     "insights.unlimitedDrafts": "Unlimited drafts",
