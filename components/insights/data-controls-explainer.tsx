@@ -227,7 +227,7 @@ export default function DataControlsExplainer({
                 link: "",
               })}{" "}
               <a
-                href="https://www.zazatechnologies.com/privacy"
+                href="https://www.zazadraft.com/privacy"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="text-purple-600 dark:text-purple-300 hover:text-purple-700 dark:hover:text-purple-200 hover:underline font-medium transition-colors"
