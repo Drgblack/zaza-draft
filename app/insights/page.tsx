@@ -1,7 +1,7 @@
 "use client"
 
 import { useMemo, useState } from "react"
-import { Download, Shield } from "lucide-react"
+import { ArrowLeft, CalendarDays, Download, Shield } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { Switch } from "@/components/ui/switch"
@@ -28,6 +28,7 @@ import {
 } from "@/app/insights/suggestion-actions"
 import {
   Dialog,
+  DialogClose,
   DialogContent,
   DialogDescription,
   DialogFooter,
@@ -546,9 +547,13 @@ export default function InsightsPage() {
       </main>
 
       <Dialog open={isReminderDialogOpen} onOpenChange={setIsReminderDialogOpen}>
-        <DialogContent className="max-w-md rounded-3xl border border-white/30 bg-white/90 p-6 shadow-2xl shadow-purple-500/30 dark:border-white/20 dark:bg-gray-900/80">
+        <DialogContent className="relative w-full max-w-md space-y-6 rounded-3xl border border-white/30 bg-white/90 p-8 shadow-2xl shadow-purple-500/30 dark:border-white/20 dark:bg-gray-900/80">
+          <DialogClose
+            className="absolute right-4 top-4 rounded-full p-1 text-gray-600 transition hover:bg-gray-100 hover:text-gray-900 dark:text-gray-300 dark:hover:bg-gray-700"
+            aria-label="Close reminder"
+          />
           <DialogHeader className="text-left">
-            <DialogTitle className="text-2xl text-gray-900 dark:text-white">
+            <DialogTitle className="text-3xl font-bold text-gray-900 dark:text-white">
               {t("insights.suggestion.wednesday.title")}
             </DialogTitle>
             <DialogDescription className="text-sm text-gray-600 dark:text-gray-300">
@@ -556,19 +561,23 @@ export default function InsightsPage() {
             </DialogDescription>
           </DialogHeader>
 
-          <div className="mt-4 rounded-2xl border border-purple-100/80 bg-white/80 p-4 text-sm text-gray-700 shadow-sm dark:border-purple-500/40 dark:bg-white/5 dark:text-white/80">
-            <p className="text-sm font-semibold text-gray-900 dark:text-white">{reminderDateLabel}</p>
-            <p className="text-xs text-gray-500 dark:text-gray-300">{reminderTimeLabel}</p>
-            <p className="mt-2 text-xs leading-relaxed text-gray-600 dark:text-gray-300">
-              {reminderInsight}
-            </p>
+          <div className="rounded-lg border border-gray-200 bg-purple-50/30 p-4 shadow-sm space-y-2">
+            <div className="flex items-center gap-2 text-gray-800">
+              <CalendarDays className="h-5 w-5" />
+              <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                {t("insights.suggestion.reminder.nextEvent") ?? "Next event"}
+              </span>
+            </div>
+            <p className="text-xl font-semibold text-gray-900 dark:text-white">{reminderDateLabel}</p>
+            <p className="text-lg font-semibold text-gray-900 dark:text-white">{reminderTimeLabel}</p>
+            <p className="text-sm leading-relaxed text-gray-600 dark:text-gray-300">{reminderInsight}</p>
           </div>
 
-          <DialogFooter className="flex flex-col items-center gap-2 pt-4">
+          <DialogFooter className="flex flex-col gap-3 pt-4">
             <Button
               asChild
               size="sm"
-              className="w-full max-w-xs bg-gradient-to-r from-purple-600 to-purple-700 text-white hover:from-purple-700 hover:to-purple-800"
+              className="w-full rounded-lg bg-purple-600 py-3 text-base font-semibold text-white hover:bg-purple-500"
             >
               <a
                 href={calendarUrl}
@@ -582,14 +591,14 @@ export default function InsightsPage() {
             <Button
               variant="outline"
               size="sm"
-              className="w-full max-w-xs border border-purple-300 text-purple-700 hover:bg-purple-50 dark:border-purple-500 dark:text-purple-200 dark:hover:bg-purple-500/10"
+              className="w-full rounded-lg border-2 border-purple-600 py-3 text-base font-semibold text-purple-600 hover:bg-purple-50 dark:hover:bg-purple-900/20"
               onClick={handleDownloadIcs}
             >
               {t("insights.suggestion.reminder.downloadIcs")}
             </Button>
           </DialogFooter>
 
-          <p className="mt-3 text-center text-xs text-gray-500 dark:text-gray-400">
+          <p className="text-sm text-gray-500 dark:text-gray-400">
             {reminderFootnote}
           </p>
         </DialogContent>
