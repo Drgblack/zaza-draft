@@ -56,7 +56,7 @@ describe("ZaraAssistant", () => {
     authMock.status = "authenticated"
   })
 
-  it("restores the input and shows an error toast when the chat request fails", async () => {
+  it("clears the input, keeps the transcript, and shows an error toast when the chat request fails", async () => {
     const fetchMock = vi.fn().mockRejectedValue(new Error("network error"))
     vi.stubGlobal("fetch", fetchMock)
 
@@ -69,7 +69,8 @@ describe("ZaraAssistant", () => {
 
     await waitFor(() => expect(fetchMock).toHaveBeenCalled())
 
-    expect(input.value).toBe("Hello Zara")
+    expect(input.value).toBe("")
+    await waitFor(() => expect(screen.getAllByText("Hello Zara").length).toBeGreaterThan(0))
     expect(toastMock).toHaveBeenCalledWith(
       expect.objectContaining({
         title: "Something went wrong",

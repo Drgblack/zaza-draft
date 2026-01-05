@@ -249,14 +249,21 @@ export function ZaraAssistant() {
       ])
     } catch (error) {
       console.error("[zara] chat widget error", { error, locale })
-      setInputValue(trimmed)
       const descriptionExtra = error instanceof Error ? ` ${error.message}` : ""
       const isAuthError = error instanceof Error && error.message === "auth_required"
+      const toastDescription = isAuthError
+        ? t("zara.error.authRequiredDescription")
+        : `${t("zara.error.description")}${descriptionExtra}`.trim()
+      setMessages((prev) => [
+        ...prev,
+        {
+          role: "assistant",
+          content: toastDescription,
+        },
+      ])
       toast({
         title: isAuthError ? t("zara.error.authRequiredTitle") : t("zara.error.title"),
-        description: isAuthError
-          ? t("zara.error.authRequiredDescription")
-          : `${t("zara.error.description")}${descriptionExtra}`.trim(),
+        description: toastDescription,
         variant: "destructive",
       })
     } finally {
@@ -316,7 +323,18 @@ export function ZaraAssistant() {
           </div>
 
           {currentView === "menu" && (
-            <div className="flex-1 overflow-y-auto p-4 md:p-6">
+            <>
+              {messages.length > 0 && (
+                <div className="mb-4 space-y-2 rounded-md border border-white/10 bg-black/30 p-3 text-sm">
+                  {messages.map((m, i) => (
+                    <div key={i} className={m.role === "assistant" ? "text-white/90" : "text-white/60"}>
+                      <strong>{m.role === "assistant" ? "Zara:" : "You:"}</strong> {m.content}
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              <div className="flex-1 overflow-y-auto p-4 md:p-6">
               <h3
                 className="text-2xl font-bold text-gray-900 dark:!text-white drop-shadow-sm leading-tight"
                 style={{
@@ -334,7 +352,7 @@ export function ZaraAssistant() {
                 {t("zara.description")}
               </p>
 
-              <div className="space-y-3 mt-6">
+            <div className="space-y-3 mt-6">
                 {tips.map((tip) => (
                   <button
                     key={tip.id}
@@ -375,8 +393,8 @@ export function ZaraAssistant() {
                 ))}
               </div>
             </div>
+            </>
           )}
-
           {currentView === "tipDetail" && selectedTip && selectedTipDetails && (
             <div className="flex-1 overflow-y-auto p-4 md:p-6">
               {/* Tip header */}
@@ -426,7 +444,7 @@ export function ZaraAssistant() {
                             title="Copy phrase"
                             aria-label={`Copy phrase: ${phrase}`}
                           >
-                            {copiedPhrase === phrase ? <span className="text-xs">✓</span> : <Copy size={14} />}
+                            {copiedPhrase === phrase ? <span className="text-xs">Ã¢Å“â€œ</span> : <Copy size={14} />}
                           </button>
                             </div>
                           ))}
@@ -437,13 +455,13 @@ export function ZaraAssistant() {
                     {section.type === "avoid" && (
                       <>
                         <h4 className="font-medium text-gray-900 dark:text-white mb-2 flex items-center gap-2">
-                          <span className="text-red-500 dark:text-red-400">⚠️</span>
+                          <span className="text-red-500 dark:text-red-400">Ã¢Å¡Â Ã¯Â¸Â</span>
                           {section.title}
                         </h4>
                         <div className="glass shadow-soft rounded-lg p-4 space-y-2 bg-white/90 dark:bg-white/10 backdrop-blur-[32px] border border-white/60 dark:border-white/20">
                           {section.items.map((item, idx) => (
                           <p key={idx} className="text-sm text-red-900 dark:text-red-200">
-                            ✖️ {item}
+                            Ã¢Å“â€“Ã¯Â¸Â {item}
                           </p>
                           ))}
                         </div>
@@ -453,7 +471,7 @@ export function ZaraAssistant() {
                     {section.type === "example" && (
                       <>
                         <h4 className="font-medium text-gray-900 dark:text-white mb-2 flex items-center gap-2">
-                          <span className="text-purple-600 dark:text-purple-400">💡</span>
+                          <span className="text-purple-600 dark:text-purple-400">Ã°Å¸â€™Â¡</span>
                           {section.title}
                         </h4>
                         <div className="glass shadow-soft rounded-lg p-4 border-l-4 border-purple-600 bg-white/90 dark:bg-white/10 backdrop-blur-[32px]">
@@ -465,7 +483,7 @@ export function ZaraAssistant() {
                     {section.type === "template" && (
                       <>
                         <h4 className="font-medium text-gray-900 dark:text-white mb-2 flex items-center gap-2">
-                          <span className="text-purple-600 dark:text-purple-400">✉️</span>
+                          <span className="text-purple-600 dark:text-purple-400">Ã¢Å“â€°Ã¯Â¸Â</span>
                           {section.title}
                         </h4>
                         <div className="glass shadow-soft rounded-lg p-4 space-y-2 bg-white/90 dark:bg-white/10 backdrop-blur-[32px] border border-white/60 dark:border-white/20">
@@ -542,8 +560,6 @@ export function ZaraAssistant() {
     </>
   )
 }
-
-
 
 
 
