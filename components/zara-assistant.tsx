@@ -164,7 +164,7 @@ const TIP_DETAILS: Record<string, { sections: Array<{ type: string; title: strin
 
 export function ZaraAssistant() {
   const { t, locale } = useLocale()
-  const greetingMessage = useMemo(
+  const greetingMessage = useMemo<Message>(
     () => ({
       role: "assistant",
       content: t("zara.greeting"),
