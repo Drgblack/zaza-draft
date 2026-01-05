@@ -61,23 +61,23 @@ const TONE_STYLES: Record<
 > = {
   warm: {
     icon: Sun,
-    base: "bg-orange-50 border-orange-200 text-orange-700 hover:bg-orange-100 dark:bg-orange-900/20 dark:border-orange-800 dark:text-orange-300",
-    ring: "ring-orange-300 dark:ring-orange-200",
+    base: "bg-orange-100 border-orange-400 text-orange-700 hover:bg-orange-200 dark:bg-orange-900/40 dark:border-orange-600 dark:text-orange-200",
+    ring: "ring-orange-400 dark:ring-orange-200",
   },
   professional: {
     icon: FileText,
-    base: "bg-blue-50 border-blue-200 text-blue-700 hover:bg-blue-100 dark:bg-blue-900/20 dark:border-blue-800 dark:text-blue-300",
-    ring: "ring-blue-300 dark:ring-blue-200",
+    base: "bg-blue-100 border-blue-400 text-blue-700 hover:bg-blue-200 dark:bg-blue-900/40 dark:border-blue-600 dark:text-blue-200",
+    ring: "ring-blue-400 dark:ring-blue-200",
   },
   direct: {
     icon: Target,
-    base: "bg-indigo-50 border-indigo-200 text-indigo-700 hover:bg-indigo-100 dark:bg-indigo-900/20 dark:border-indigo-800 dark:text-indigo-300",
-    ring: "ring-indigo-300 dark:ring-indigo-200",
+    base: "bg-indigo-100 border-indigo-400 text-indigo-700 hover:bg-indigo-200 dark:bg-indigo-900/40 dark:border-indigo-600 dark:text-indigo-200",
+    ring: "ring-indigo-400 dark:ring-indigo-200",
   },
   empathetic: {
     icon: Users,
-    base: "bg-purple-50 border-purple-200 text-purple-700 hover:bg-purple-100 dark:bg-purple-900/20 dark:border-purple-800 dark:text-purple-300",
-    ring: "ring-purple-300 dark:ring-purple-200",
+    base: "bg-purple-100 border-purple-400 text-purple-700 hover:bg-purple-200 dark:bg-purple-900/40 dark:border-purple-600 dark:text-purple-200",
+    ring: "ring-purple-400 dark:ring-purple-200",
   },
 }
 const LOADING_MESSAGES = [
