@@ -29,7 +29,10 @@ export function SegmentedControl({
   const prefersReduced = usePrefersReducedMotion()
   const buttonRefs = React.useRef<Array<HTMLButtonElement | null>>([])
 
-  const handleKeyDown = (event: React.KeyboardEvent<HTMLButtonElement>, idx: number) => {
+  const handleKeyDown = (
+    event: React.KeyboardEvent<HTMLButtonElement>,
+    idx: number,
+  ) => {
     if (disabled) return
     const count = options.length
     let targetIdx = idx
@@ -52,22 +55,33 @@ export function SegmentedControl({
     <div
       role="tablist"
       aria-label={ariaLabel}
-      className={cn("flex overflow-hidden rounded-full border border-[var(--color-border)] bg-transparent p-1", className)}
+      className={cn(
+        "flex overflow-hidden rounded-full border border-[var(--color-border)] bg-transparent p-1",
+        className,
+      )}
     >
       {options.map((option, index) => {
         const selected = option.value === value
+
         const baseClasses = cn(
-          "flex-1 min-h-[44px] items-center justify-center rounded-full px-4 text-sm font-semibold transition-transform duration-[var(--transition-standard)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-purple-400 focus-visible:ring-offset-2",
+          "flex-1 min-h-[44px] items-center justify-center rounded-full px-4 text-sm font-semibold",
           "flex gap-2 text-center",
-          prefersReduced ? "transition-none" : "motion-safe:transform motion-safe:transition",
+          "focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-purple-400 focus-visible:ring-offset-2",
+          prefersReduced
+            ? "transition-none"
+            : "motion-safe:transform motion-safe:transition motion-safe:duration-[var(--transition-standard)]",
         )
+
         const stateClasses = selected
           ? "bg-[var(--color-primary)] text-[var(--color-primary-foreground)] shadow-[0_10px_25px_rgba(124,58,237,0.25)]"
           : "bg-transparent text-[var(--color-foreground)] hover:bg-white/10"
+
         return (
           <button
             key={option.value}
-            ref={(el) => (buttonRefs.current[index] = el)}
+            ref={(el) => {
+              buttonRefs.current[index] = el
+            }}
             type="button"
             role="tab"
             aria-selected={selected}
