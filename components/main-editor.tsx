@@ -842,7 +842,11 @@ Examples:
             <Button
               onClick={() => handleGenerate()}
               disabled={!content.trim() || isGenerating}
+fix/i18n-de-zara-textarea
+            className="w-full bg-gradient-to-br from-[#7c3aed] via-[#6d28d9] to-[#5b21b6] text-white dark:text-white text-base sm:text-lg font-bold py-5 sm:py-6 min-h-[52px] rounded-xl transition-all duration-200 shadow-[inset_0_1px_0_rgba(255,255,255,0.35),0_18px_48px_rgba(124,58,237,0.45)] hover:shadow-[inset_0_1px_0_rgba(255,255,255,0.55),0_22px_56px_rgba(124,58,237,0.55)] hover:-translate-y-1 hover:scale-[1.02] active:translate-y-[1px] active:scale-[0.99] active:shadow-[inset_0_1px_0_rgba(255,255,255,0.3),0_12px_28px_rgba(124,58,237,0.5)] disabled:opacity-50 disabled:cursor-not-allowed focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 border-2 border-white/30 motion-reduce:transition-none motion-reduce:transform-none"
+
               className="w-full bg-gradient-to-br from-[#7c3aed] via-[#6d28d9] to-[#5b21b6] hover:shadow-[0_20px_56px_rgba(124,58,237,0.5),inset_0_2px_4px_rgba(255,255,255,0.3)] text-white dark:text-white text-base sm:text-lg font-bold py-5 sm:py-6 min-h-[52px] rounded-xl transition-all duration-200 shadow-xl shadow-[0_12px_32px_rgba(124,58,237,0.4),inset_0_1px_3px_rgba(255,255,255,0.25),inset_0_-1px_2px_rgba(0,0,0,0.1)] disabled:opacity-50 disabled:cursor-not-allowed focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 hover:-translate-y-1 hover:scale-[1.02] active:translate-y-0 active:scale-100 border-2 border-white/30"
+main
               aria-label={t("button.generate")}
             >
               {isGenerating ? t("editor.generating.message") : t("button.generate")}
