@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent } from "react"
 import { Button } from "@/components/ui/button"
+import { SegmentedControl } from "@/components/ui/segmented-control"
 import { useTeacherPrefs } from "@/hooks/use-teacher-prefs"
 import { useLocale } from "@/hooks/use-locale"
 import FooterSlim from "@/components/FooterSlim"
@@ -160,6 +161,32 @@ export function MainEditor() {
   const { t, locale } = useLocale()
   const reframeNotice = t("editor.reframeNotice")
   const { user, getIdToken, signOut } = useAuth()
+  const toneControlOptions = useMemo(
+    () =>
+      TONE_OPTIONS.map((tone) => {
+        const Icon = TONE_STYLES[tone.id].icon
+        return {
+          value: tone.id,
+          label: t(tone.key),
+          icon: <Icon className="h-4 w-4" aria-hidden="true" />,
+          ariaLabel: t(tone.key),
+        }
+      }),
+    [t],
+  )
+  const modeControlOptions = useMemo(
+    () =>
+      MODE_SEGMENT_OPTIONS.map((option) => {
+        const Icon = option.icon
+        return {
+          value: option.id,
+          label: t(option.labelKey),
+          icon: <Icon size={16} aria-hidden="true" />,
+          ariaLabel: t(option.labelKey),
+        }
+      }),
+    [t],
+  )
 
   const [greeting, setGreeting] = useState("Good morning")
   const [userName, setUserName] = useState("")
@@ -728,55 +755,25 @@ Examples:
           {showWellbeingInsights && <ContextualWellbeingTip />}
 
           <section className="space-y-3">
-            <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-              {TONE_OPTIONS.map((tone) => {
-                const isSelected = selectedTone === tone.id
-                const toneStyle = TONE_STYLES[tone.id]
-                const Icon = toneStyle.icon
-                return (
-                  <button
-                    key={tone.id}
-                    type="button"
-                    onClick={() => setSelectedTone(tone.id)}
-                    className={`flex items-center justify-center gap-2 px-6 py-3 rounded-lg border-2 text-sm font-semibold whitespace-nowrap transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 ${toneStyle.base} ${
-                      isSelected
-                        ? `${toneStyle.ring} ring-2 ring-offset-2 shadow-lg`
-                        : "hover:-translate-y-0.5"
-                    }`}
-                    aria-pressed={isSelected}
-                  >
-                    <Icon className="w-5 h-5" aria-hidden="true" />
-                    <span>{t(tone.key)}</span>
-                  </button>
-                )
-              })}
-            </div>
+            <SegmentedControl
+              options={toneControlOptions}
+              value={selectedTone}
+              onChange={(value) => setSelectedTone(value as ToneKey)}
+              className="bg-white/10 border-white/20 dark:bg-white/5 dark:border-white/10 shadow-inner"
+            />
           </section>
 
           <section className="space-y-2">
             <span className="text-sm font-semibold text-gray-800 dark:text-gray-200 mb-2">{t("editor.mode.label")}</span>
             <p className="text-xs text-gray-600 dark:text-gray-400 mb-3">{t("editor.mode.helper")}</p>
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 bg-white/10 border border-white/20 dark:bg-white/5 dark:border-white/10 rounded-xl p-1 shadow-inner">
-              {MODE_SEGMENT_OPTIONS.map((option) => {
-                const Icon = option.icon
-                const isActive = mode === option.id
-                return (
-                  <button
-                    key={option.id}
-                    type="button"
-                    aria-pressed={isActive}
-                    onClick={() => setMode(option.id)}
-                    className={`flex min-h-[54px] items-center justify-center gap-2 rounded-xl px-6 py-3 text-base font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 ${
-                      isActive
-                        ? "bg-white text-purple-700 shadow-[0_12px_40px_rgba(124,58,237,0.35)] border border-transparent dark:bg-purple-600 dark:text-white focus-visible:ring-purple-500 focus-visible:ring-offset-0"
-                        : "bg-white/10 text-white/80 border border-white/20 dark:bg-white/10 dark:border-white/20 dark:text-white/70 hover:bg-white/20 dark:hover:bg-white/20 focus-visible:ring-white/40 focus-visible:ring-offset-0"
-                    }`}
-                  >
-                    <Icon size={20} />
-                    <span>{t(option.labelKey)}</span>
-                  </button>
-                )
-              })}
+            <div className="bg-white/10 border border-white/20 dark:bg-white/5 dark:border-white/10 rounded-xl p-1 shadow-inner">
+              <SegmentedControl
+                options={modeControlOptions}
+                value={mode}
+                onChange={(value) => setMode(value as ModeKey)}
+                ariaLabel={t("editor.mode.label")}
+                className="border-none bg-transparent p-0 shadow-none"
+              />
             </div>
           </section>
 
