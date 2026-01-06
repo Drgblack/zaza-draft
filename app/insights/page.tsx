@@ -32,6 +32,8 @@ import {
   DialogDescription,
   DialogFooter,
   DialogHeader,
+  DialogOverlay,
+  DialogPortal,
   DialogTitle,
 } from "@/components/ui/dialog"
 
@@ -558,59 +560,62 @@ export default function InsightsPage() {
       </main>
 
       <Dialog open={isReminderDialogOpen} onOpenChange={setIsReminderDialogOpen}>
-      <DialogContent className="relative w-full max-w-md space-y-6 rounded-3xl border border-white/30 bg-white/90 p-8 shadow-2xl shadow-purple-500/30 dark:border-white/20 dark:bg-gray-900/80 max-h-[calc(100vh-3rem)] overflow-y-auto">
-          <DialogClose
-            className="absolute right-4 top-4 rounded-full p-1 text-gray-600 transition hover:bg-gray-100 hover:text-gray-900 dark:text-gray-300 dark:hover:bg-gray-700"
-            aria-label="Close reminder"
-          />
-          <DialogHeader className="text-left">
-            <DialogTitle className="text-3xl font-bold text-gray-900 dark:text-white">
-              {t("insights.suggestion.wednesday.title")}
-            </DialogTitle>
-            <DialogDescription className="text-sm text-gray-600 dark:text-gray-300">
-              {reminderHint}
-            </DialogDescription>
-          </DialogHeader>
+        <DialogPortal>
+          <DialogOverlay className="fixed inset-0 bg-black/40 backdrop-blur-sm" />
+          <DialogContent className="fixed left-1/2 top-1/2 z-50 w-full max-w-md -translate-x-1/2 -translate-y-1/2 space-y-6 rounded-3xl border border-white/30 bg-white/90 p-8 shadow-2xl shadow-purple-500/30 dark:border-white/20 dark:bg-gray-900/80 max-h-[calc(100vh-4rem)] overflow-y-auto">
+            <DialogClose
+              className="absolute right-4 top-4 rounded-full p-1 text-gray-600 transition hover:bg-gray-100 hover:text-gray-900 dark:text-gray-300 dark:hover:bg-gray-700"
+              aria-label="Close reminder"
+            />
+            <DialogHeader className="text-left">
+              <DialogTitle className="text-3xl font-bold text-gray-900 dark:text-white">
+                {t("insights.suggestion.wednesday.title")}
+              </DialogTitle>
+              <DialogDescription className="text-sm text-gray-600 dark:text-gray-300">
+                {reminderHint}
+              </DialogDescription>
+            </DialogHeader>
 
-          <div className="rounded-lg border border-gray-200 bg-gray-50 p-4 shadow-sm space-y-2">
-            <div className="flex items-center gap-2 text-gray-800">
-              <CalendarDays className="h-5 w-5" />
-              <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">
-                {t("insights.suggestion.reminder.nextEvent")}
-              </span>
+            <div className="rounded-lg border border-gray-200 bg-gray-50 p-4 shadow-sm space-y-2">
+              <div className="flex items-center gap-2 text-gray-800">
+                <CalendarDays className="h-5 w-5" />
+                <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                  {t("insights.suggestion.reminder.nextEvent")}
+                </span>
+              </div>
+              <p className="text-xl font-semibold text-gray-900 dark:text-white">{reminderDateLabel}</p>
+              <p className="text-lg font-semibold text-gray-900 dark:text-white">{reminderTimeLabel}</p>
+              <p className="text-sm leading-relaxed text-gray-600 dark:text-gray-300">{reminderInsight}</p>
             </div>
-            <p className="text-xl font-semibold text-gray-900 dark:text-white">{reminderDateLabel}</p>
-            <p className="text-lg font-semibold text-gray-900 dark:text-white">{reminderTimeLabel}</p>
-            <p className="text-sm leading-relaxed text-gray-600 dark:text-gray-300">{reminderInsight}</p>
-          </div>
 
-          <DialogFooter className="flex flex-col items-center gap-3 pt-4 w-full">
-            <Button
-              asChild
-              className="w-full rounded-lg bg-purple-600 py-3 text-base font-semibold text-white transition-all duration-200 hover:bg-purple-500"
-            >
-              <a
-                href={calendarUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                onClick={() => setIsReminderDialogOpen(false)}
+            <DialogFooter className="flex flex-col items-center gap-3 pt-4 w-full">
+              <Button
+                asChild
+                className="w-full rounded-lg bg-purple-600 py-3 text-base font-semibold text-white transition-all duration-200 hover:bg-purple-500"
               >
-                {t("insights.suggestion.reminder.openCalendar")}
-              </a>
-            </Button>
-            <Button
-              variant="outline"
-              className="w-full rounded-lg border-2 border-purple-600 py-3 text-base font-semibold text-purple-600 transition-all duration-200 hover:bg-purple-50 dark:hover:bg-purple-900/20"
-              onClick={handleDownloadIcs}
-            >
-              {t("insights.suggestion.reminder.downloadIcs")}
-            </Button>
-          </DialogFooter>
+                <a
+                  href={calendarUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={() => setIsReminderDialogOpen(false)}
+                >
+                  {t("insights.suggestion.reminder.openCalendar")}
+                </a>
+              </Button>
+              <Button
+                variant="outline"
+                className="w-full rounded-lg border-2 border-purple-600 py-3 text-base font-semibold text-purple-600 transition-all duration-200 hover:bg-purple-50 dark:hover:bg-purple-900/20"
+                onClick={handleDownloadIcs}
+              >
+                {t("insights.suggestion.reminder.downloadIcs")}
+              </Button>
+            </DialogFooter>
 
-          <p className="text-sm text-gray-500 dark:text-gray-400">
-            {reminderFootnote}
-          </p>
-        </DialogContent>
+            <p className="text-sm text-gray-500 dark:text-gray-400">
+              {reminderFootnote}
+            </p>
+          </DialogContent>
+        </DialogPortal>
       </Dialog>
 
       <FooterSlim />
