@@ -126,10 +126,10 @@ export function Header({
               <Button
                 variant={pathname === "/insights" ? "secondary" : "ghost"}
                 size="sm"
-                className="gap-2 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 relative"
                 aria-label={t("header.insightsButtonAria")}
+                leftIcon={<BarChart3 className="h-4 w-4" aria-hidden="true" />}
+                className="gap-2"
               >
-                <BarChart3 className="h-4 w-4" aria-hidden="true" />
                 <span className="hidden sm:inline">{t("header.insightsButtonLabel")}</span>
               </Button>
             </Link>
@@ -141,7 +141,7 @@ export function Header({
               size="icon"
               onClick={onToggleDarkMode}
               aria-label={isDarkMode ? t("switchToLightMode") : t("switchToDarkMode")}
-              className="focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+              className="rounded-full"
             >
               {isDarkMode ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
             </Button>
@@ -151,9 +151,9 @@ export function Header({
               size="sm"
               onClick={() => setShareDialogOpen(true)}
               aria-label={t("shareDocLabel")}
-              className="rounded-[14px] focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+              leftIcon={<Share2 className="h-4 w-4" aria-hidden="true" />}
+              className="rounded-[14px]"
             >
-              <Share2 className="h-4 w-4 mr-2" aria-hidden="true" />
               {t("share")}
             </Button>
 

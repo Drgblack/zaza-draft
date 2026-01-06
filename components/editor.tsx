@@ -54,6 +54,8 @@ export function Editor({ content, onChange, rightPanelVisible, onToggleRightPane
     if (tone === "Professional") return t("sublineProfessional")
     return t("sublineFormal")
   }
+  const toolbarButtonClass =
+    "rounded-full transition-all duration-150 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
 
   return (
     <div className="flex-1 flex flex-col overflow-hidden zd-editor">
@@ -74,7 +76,7 @@ export function Editor({ content, onChange, rightPanelVisible, onToggleRightPane
                   size="icon"
                   onClick={() => applyFormat("bold")}
                   aria-label={t("toolbarBold")}
-                  className="focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                  className={toolbarButtonClass}
                 >
                   <Bold className="h-4 w-4" />
                 </Button>
@@ -89,7 +91,7 @@ export function Editor({ content, onChange, rightPanelVisible, onToggleRightPane
                   size="icon"
                   onClick={() => applyFormat("italic")}
                   aria-label={t("toolbarItalic")}
-                  className="focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                  className={toolbarButtonClass}
                 >
                   <Italic className="h-4 w-4" />
                 </Button>
@@ -104,7 +106,7 @@ export function Editor({ content, onChange, rightPanelVisible, onToggleRightPane
                   size="icon"
                   onClick={() => applyFormat("underline")}
                   aria-label={t("toolbarUnderline")}
-                  className="focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                  className={toolbarButtonClass}
                 >
                   <Underline className="h-4 w-4" />
                 </Button>
@@ -121,7 +123,7 @@ export function Editor({ content, onChange, rightPanelVisible, onToggleRightPane
                   size="icon"
                   onClick={() => applyFormat("insertUnorderedList")}
                   aria-label={t("toolbarBulletList")}
-                  className="focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                  className={toolbarButtonClass}
                 >
                   <List className="h-4 w-4" />
                 </Button>
@@ -136,7 +138,7 @@ export function Editor({ content, onChange, rightPanelVisible, onToggleRightPane
                   size="icon"
                   onClick={() => applyFormat("insertOrderedList")}
                   aria-label={t("toolbarNumberedList")}
-                  className="focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                  className={toolbarButtonClass}
                 >
                   <ListOrdered className="h-4 w-4" />
                 </Button>
@@ -151,7 +153,7 @@ export function Editor({ content, onChange, rightPanelVisible, onToggleRightPane
                   size="icon"
                   onClick={() => applyFormat("formatBlock", "h2")}
                   aria-label={t("toolbarHeading")}
-                  className="focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                  className={toolbarButtonClass}
                 >
                   <Heading2 className="h-4 w-4" />
                 </Button>
@@ -168,7 +170,7 @@ export function Editor({ content, onChange, rightPanelVisible, onToggleRightPane
                   size="icon"
                   onClick={() => applyFormat("undo")}
                   aria-label={t("toolbarUndo")}
-                  className="focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                  className={toolbarButtonClass}
                 >
                   <Undo className="h-4 w-4" />
                 </Button>
