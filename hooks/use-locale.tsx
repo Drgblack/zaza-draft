@@ -348,6 +348,66 @@ export const localeMessages: Record<Locale, LocaleMessages> = {
     "insights.dataControls.collect.title": "What we collect",
     "insights.dataControls.collect.timestamps": "Timestamps of when you draft",
     "insights.dataControls.collect.tones": "Tone selections you choose",
+      "settings.preferences.tagline": "Personalized control",
+      "settings.preferences.title": "Preferences",
+      "settings.preferences.description":
+        "Keep your most important defaults in one place. We lock the heavy lifting until the next release, but you can always head back to the draft to keep writing.",
+      "settings.preferences.footerNote":
+        "Saved context stays on this device unless you copy it to a shared document. The safe guidelines above keep sensitive details out of Class Brain.",
+      "settings.backToDraft": "Back to Draft",
+      "settings.cards.toneDefaults.title": "Tone defaults",
+      "settings.cards.toneDefaults.description":
+        "Tone controls will unlock when we connect to your tone history. Until then, we honor the tone you have selected in the editor.",
+      "settings.cards.language.title": "Language",
+      "settings.cards.language.description":
+        "Language defaults mirror your last document and automatically roll into new drafts without manual adjustments.",
+      "settings.cards.signature.title": "Signature",
+      "settings.cards.signature.preview": "Preview",
+      "settings.cards.signature.empty": "No signature set yet.",
+      "settings.cards.signature.description":
+        "Signature editing arrives with the next phase of export workflows. Until then we keep the preview read-only.",
+      "settings.lockedBadge": "Locked",
+      "settings.cards.safeguard.title": "Safeguarding defaults",
+      "settings.cards.safeguard.subhead": "What we protect",
+      "settings.cards.safeguard.list.1": "We never store full student names or identifiers without explicit permission.",
+      "settings.cards.safeguard.list.2": "Sensitive attachments, private addresses, and contact information remain off-limits.",
+      "settings.cards.safeguard.list.3": "You can toggle anonymized data sharing from within the insights panel.",
+      "settings.cards.safeguard.footer":
+        "These defaults are enforced automatically. If you need a tighter guardrail, reach out through the support menu in the editor.",
+      "classBrain.label": "Class Brain",
+      "classBrain.title": "Build your class brain",
+      "classBrain.backToDraft": "Back to Draft",
+      "classBrain.description":
+        "Class Brain lets you store safe, evergreen student context so the assistant understands {name}'s classroom before you start writing. Share the high-level wins, the goals, and the tone you need for this group.",
+      "classBrain.tooltip":
+        "Class Brain keeps this classroom context in the browser so the assistant understands your goals without storing anything sensitive.",
+      "classBrain.sections.whatItIs.title": "What it is",
+      "classBrain.sections.whatItIs.body":
+        "A lightweight knowledge base for the students and focus areas you teach most. Class Brain keeps this context nearby so every generation understands your classroom stage.",
+      "classBrain.sections.whatItIs.subtext":
+        "Match the right tone and scaffold wording without repeating the same setup every time.",
+      "classBrain.sections.whatToAdd.title": "What to add",
+      "classBrain.add.grade": "Grade level or course you are writing for.",
+      "classBrain.add.mood": "Classroom mood, pacing, or recurring themes.",
+      "classBrain.add.goals": "Student goals (e.g., mastering a standard or improving confidence).",
+      "classBrain.sections.whatNotToAdd.title": "What NOT to add",
+      "classBrain.notAdd.noNames": "No full names, student IDs, or contact info.",
+      "classBrain.notAdd.noSensitive": "Avoid medical details, disciplinary notes, or sensitive data.",
+      "classBrain.notAdd.noOpinions": "Skip personal opinions about individuals.",
+      "classBrain.savedContext.title": "Your saved context",
+      "classBrain.savedContext.storedLocally": "Stored locally",
+      "classBrain.savedContext.tagline": "Safe, editable, and stored locally",
+      "classBrain.textarea.placeholder":
+        "e.g., 'AP Biology class focused on cellular respiration. Students are preparing for state exam in May. Class mood is engaged but slightly anxious.'",
+      "classBrain.textarea.helper": "Save a short reminder (no names) that sets up the next writing session.",
+      "classBrain.stats.characters": "{count}/{max} characters",
+      "classBrain.stats.words": "{count} words",
+      "classBrain.lastSaved": "Last saved: {time}",
+      "classBrain.saveContext": "Save context",
+      "classBrain.footerNote":
+        "Saved context stays on this device unless you copy it to a shared document. The safe guidelines above keep sensitive details out of Class Brain.",
+      "classBrain.toast.title": "Context saved",
+      "classBrain.toast.description": "Class Brain remembers this locally for your next session.",
     "insights.dataControls.collect.editPatterns": "Edit patterns (how much you change)",
     "insights.dataControls.collect.performance": "Generation time and performance",
     "insights.dataControls.collect.languages": "Languages you write in",
@@ -1403,6 +1463,69 @@ export const localeMessages: Record<Locale, LocaleMessages> = {
     "insights.dataControls.collect.title": "Was wir sammeln",
     "insights.dataControls.collect.timestamps": "Zeitstempel, wann Sie entwerfen",
     "insights.dataControls.collect.tones": "Ihre gewählten Tonauswahlen",
+    "settings.preferences.tagline": "Personalisierte Kontrolle",
+    "settings.preferences.title": "Einstellungen",
+    "settings.preferences.description":
+      "Behalte deine wichtigsten Voreinstellungen an einem Ort. Wir halten schwerere Änderungen bis zum nächsten Release zurück, aber du kannst jederzeit zum Entwurf zurückkehren und weiter schreiben.",
+    "settings.preferences.footerNote":
+      "Gespeicherte Kontexte bleiben auf diesem Gerät, solange du sie nicht in ein geteiltes Dokument kopierst. Die oben genannten Sicherheitsrichtlinien halten sensible Details aus dem Class Brain fern.",
+    "settings.backToDraft": "Zurück zum Entwurf",
+    "settings.cards.toneDefaults.title": "Ton-Voreinstellungen",
+    "settings.cards.toneDefaults.description":
+      "Tonsteuerungen werden freigeschaltet, sobald wir deine Ton-Historie einbinden. Bis dahin übernehmen wir den im Editor gewählten Ton.",
+    "settings.cards.language.title": "Sprache",
+    "settings.cards.language.description":
+      "Sprachvoreinstellungen orientieren sich an deinem letzten Dokument und übertragen sich automatisch auf neue Entwürfe.",
+    "settings.cards.signature.title": "Signatur",
+    "settings.cards.signature.preview": "Vorschau",
+    "settings.cards.signature.empty": "Noch keine Signatur hinterlegt.",
+    "settings.cards.signature.description":
+      "Die Signaturbearbeitung erscheint mit der nächsten Exportphase. Bis dahin bleibt die Vorschau schreibgeschützt.",
+    "settings.lockedBadge": "Gesichert",
+    "settings.cards.safeguard.title": "Schutzvorgaben",
+    "settings.cards.safeguard.subhead": "Was wir schützen",
+    "settings.cards.safeguard.list.1":
+      "Wir speichern niemals vollständige Schülernamen oder Identifikatoren ohne deine ausdrückliche Erlaubnis.",
+    "settings.cards.safeguard.list.2":
+      "Sensible Anhänge, private Adressen und Kontaktinformationen bleiben tabu.",
+    "settings.cards.safeguard.list.3":
+      "Die anonymisierte Datenteilung lässt sich im Einblicke-Panel an- oder ausschalten.",
+    "settings.cards.safeguard.footer":
+      "Diese Vorgaben gelten automatisch. Falls du strengere Schutzmechanismen brauchst, wende dich über das Support-Menü im Editor an uns.",
+    "classBrain.label": "Class Brain",
+    "classBrain.title": "Dein Class Brain aufbauen",
+    "classBrain.backToDraft": "Zurück zum Entwurf",
+    "classBrain.description":
+      "Class Brain speichert sicheren Kontext zu deinen Schüler:innen, sodass der Assistent {name}s Klasse versteht, bevor du schreibst. Teile die wichtigsten Erfolge, Ziele und den gewünschten Ton.",
+    "classBrain.tooltip":
+      "Class Brain bewahrt diesen Kontext im Browser, damit der Assistent deine Ziele erkennt, ohne sensible Daten zu speichern.",
+    "classBrain.sections.whatItIs.title": "Was das ist",
+    "classBrain.sections.whatItIs.body":
+      "Eine leichte Wissensbasis für die Schüler:innen und Fokusbereiche, die du am häufigsten unterrichtest. Class Brain hält diesen Kontext bereit, damit jede Gruppe deine Klasse einordnen kann.",
+    "classBrain.sections.whatItIs.subtext":
+      "Finde den richtigen Ton und das passende Gerüst, ohne das Setup jedes Mal neu zu erklären.",
+    "classBrain.sections.whatToAdd.title": "Was du hinzufügen kannst",
+    "classBrain.add.grade": "Klassenstufe oder Kurs, für den du schreibst.",
+    "classBrain.add.mood": "Stimmung, Tempo oder wiederkehrende Themen deiner Klasse.",
+    "classBrain.add.goals": "Ziele der Schüler:innen (z. B. einen Standard meistern oder Selbstvertrauen stärken).",
+    "classBrain.sections.whatNotToAdd.title": "Was du nicht hinzufügen solltest",
+    "classBrain.notAdd.noNames": "Keine vollständigen Schülernamen, IDs oder Kontaktdaten.",
+    "classBrain.notAdd.noSensitive": "Vermeide medizinische Details, Disziplinarberichte oder sensible Daten.",
+    "classBrain.notAdd.noOpinions": "Keine persönlichen Meinungen zu einzelnen Personen.",
+    "classBrain.savedContext.title": "Dein gespeicherter Kontext",
+    "classBrain.savedContext.storedLocally": "Lokal gespeichert",
+    "classBrain.savedContext.tagline": "Sicher, bearbeitbar und lokal gespeichert",
+    "classBrain.textarea.placeholder":
+      "z. B. „Bio-Kurs zur Zellatmung. Die Klasse bereitet sich im Mai auf die Abschlussprüfung vor und ist engagiert, aber leicht angespannt.“",
+    "classBrain.textarea.helper": "Speichere eine kurze Erinnerung (keine Namen), die die nächste Schreibsession vorbereitet.",
+    "classBrain.stats.characters": "{count}/{max} Zeichen",
+    "classBrain.stats.words": "{count} Wörter",
+    "classBrain.lastSaved": "Zuletzt gespeichert: {time}",
+    "classBrain.saveContext": "Kontext speichern",
+    "classBrain.footerNote":
+      "Gespeicherte Kontexte bleiben auf diesem Gerät, solange du sie nicht in ein geteiltes Dokument kopierst. Die oben genannten Sicherheitsrichtlinien halten sensible Details aus dem Class Brain fern.",
+    "classBrain.toast.title": "Kontext gespeichert",
+    "classBrain.toast.description": "Class Brain erinnert sich lokal an diesen Kontext für deine nächste Sitzung.",
     "insights.dataControls.collect.editPatterns": "Bearbeitungsmuster (wie viel Sie ändern)",
     "insights.dataControls.collect.performance": "Generierungszeit und Leistung",
     "insights.dataControls.collect.languages": "Sprachen, in denen Sie schreiben",
