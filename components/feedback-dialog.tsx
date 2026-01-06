@@ -81,11 +81,11 @@ export function FeedbackDialog({ open, onOpenChange, suggestionId, onSubmit }: F
           </div>
         </div>
 
-        <DialogFooter>
+        <DialogFooter className="flex flex-wrap gap-2">
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             Cancel
           </Button>
-          <Button onClick={handleSubmit} disabled={!reason}>
+          <Button variant="primary" onClick={handleSubmit} disabled={!reason}>
             Submit
           </Button>
         </DialogFooter>
