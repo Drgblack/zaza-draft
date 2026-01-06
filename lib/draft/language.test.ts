@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest"
 
-import { resolveOutputLanguage } from "@/lib/draft/language"
+import { resolveLanguageChoiceFromLocale, resolveOutputLanguage } from "@/lib/draft/language"
 
 describe("resolveOutputLanguage", () => {
   it("prefers explicit output language over other hints", () => {
@@ -40,5 +40,18 @@ describe("resolveOutputLanguage", () => {
   it("defaults to English when no hints are provided", () => {
     const result = resolveOutputLanguage({})
     expect(result).toBe("en")
+  })
+})
+
+describe("resolveLanguageChoiceFromLocale", () => {
+  it("returns German when locale starts with de", () => {
+    expect(resolveLanguageChoiceFromLocale("de-DE")).toBe("de")
+    expect(resolveLanguageChoiceFromLocale("de_CH")).toBe("de")
+  })
+
+  it("defaults to English for other locales and missing values", () => {
+    expect(resolveLanguageChoiceFromLocale("en-GB")).toBe("en")
+    expect(resolveLanguageChoiceFromLocale("")).toBe("en")
+    expect(resolveLanguageChoiceFromLocale()).toBe("en")
   })
 })

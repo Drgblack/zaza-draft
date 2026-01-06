@@ -28,11 +28,8 @@ export default function DataControlsExplainer({
   }
 
   return (
-    <Card className="p-8 bg-white/85 dark:bg-white/10 backdrop-blur-2xl border-2 border-purple-200/50 dark:border-purple-400/30 shadow-2xl shadow-purple-500/10 dark:shadow-purple-500/20 rounded-2xl relative overflow-hidden transition-all duration-300 hover:shadow-3xl hover:shadow-purple-500/20 dark:hover:shadow-purple-500/30 hover:scale-[1.01]">
-      <div className="absolute inset-0 bg-gradient-to-br from-white/40 via-transparent to-transparent dark:from-white/20 pointer-events-none rounded-2xl" />
-      <div className="absolute inset-0 bg-gradient-to-tl from-purple-500/10 via-transparent to-transparent dark:from-purple-400/20 pointer-events-none rounded-2xl" />
-
-      <div className="relative z-10">
+    <Card className="relative z-10 rounded-2xl border border-gray-200 bg-white/95 p-8 text-gray-900 shadow-xl transition-all duration-300 hover:shadow-2xl">
+      <div className="space-y-4">
         <div className="flex items-start justify-between gap-4 mb-4">
           <div className="flex-1">
             <div className="flex items-center gap-2 mb-2">
@@ -65,178 +62,141 @@ export default function DataControlsExplainer({
         </div>
 
         {isExpanded && (
-          <div className="space-y-8 pt-6 border-t border-purple-200/50 dark:border-purple-400/30">
+          <div className="space-y-8 pt-6 border-t border-gray-200">
             <div className="grid md:grid-cols-2 gap-6">
-              <Card className="p-5 bg-white/90 dark:bg-white/15 backdrop-blur-xl border-2 border-green-300/50 dark:border-green-400/40 shadow-xl shadow-green-500/10 dark:shadow-green-500/20 rounded-xl relative overflow-hidden transition-all duration-300 hover:shadow-2xl hover:shadow-green-500/20 dark:hover:shadow-green-500/30 hover:scale-[1.02] hover:-translate-y-1">
-                <div className="absolute inset-0 bg-gradient-to-br from-white/50 via-transparent to-transparent dark:from-white/30 pointer-events-none rounded-xl" />
-                <div className="absolute inset-0 bg-gradient-to-tl from-green-400/10 via-transparent to-transparent dark:from-green-400/20 pointer-events-none rounded-xl" />
-
-                <div className="relative z-10">
-                  <h3 className="font-semibold text-green-900 dark:text-white mb-4 flex items-center gap-2">
-                    <span className="text-green-600 dark:text-green-300 text-lg drop-shadow-md">✓</span>
-                    {t("insights.dataControls.collect.title")}
-                  </h3>
-                  <ul className="space-y-2.5 text-sm text-green-800 dark:text-gray-100">
-                    <li className="flex items-start gap-2">
-                      <span className="text-green-600 dark:text-green-300 mt-0.5 font-bold">✓</span>
-                      <span>{t("insights.dataControls.collect.timestamps")}</span>
-                    </li>
-                    <li className="flex items-start gap-2">
-                      <span className="text-green-600 dark:text-green-300 mt-0.5 font-bold">✓</span>
-                      <span>{t("insights.dataControls.collect.tones")}</span>
-                    </li>
-                    <li className="flex items-start gap-2">
-                      <span className="text-green-600 dark:text-green-300 mt-0.5 font-bold">✓</span>
-                      <span>{t("insights.dataControls.collect.editPatterns")}</span>
-                    </li>
-                    <li className="flex items-start gap-2">
-                      <span className="text-green-600 dark:text-green-300 mt-0.5 font-bold">✓</span>
-                      <span>{t("insights.dataControls.collect.performance")}</span>
-                    </li>
-                    <li className="flex items-start gap-2">
-                      <span className="text-green-600 dark:text-green-300 mt-0.5 font-bold">✓</span>
-                      <span>{t("insights.dataControls.collect.languages")}</span>
-                    </li>
-                  </ul>
-                </div>
+              <Card className="rounded-2xl border border-gray-200 bg-white/95 p-5 shadow-lg transition-all duration-300 hover:shadow-xl hover:-translate-y-0.5">
+                <h3 className="font-semibold text-green-900 mb-4 flex items-center gap-2">
+                  <span className="text-lg font-bold text-green-600">V</span>
+                  {t("insights.dataControls.collect.title")}
+                </h3>
+                <ul className="space-y-2.5 text-sm text-gray-700">
+                  <li className="flex items-start gap-2">
+                    <span className="text-green-600 mt-0.5 font-bold">V</span>
+                    <span>{t("insights.dataControls.collect.timestamps")}</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <span className="text-green-600 mt-0.5 font-bold">V</span>
+                    <span>{t("insights.dataControls.collect.tones")}</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <span className="text-green-600 mt-0.5 font-bold">V</span>
+                    <span>{t("insights.dataControls.collect.editPatterns")}</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <span className="text-green-600 mt-0.5 font-bold">V</span>
+                    <span>{t("insights.dataControls.collect.performance")}</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <span className="text-green-600 mt-0.5 font-bold">V</span>
+                    <span>{t("insights.dataControls.collect.languages")}</span>
+                  </li>
+                </ul>
               </Card>
 
-              <Card className="p-5 bg-white/90 dark:bg-white/15 backdrop-blur-xl border-2 border-red-300/50 dark:border-red-400/40 shadow-xl shadow-red-500/10 dark:shadow-red-500/20 rounded-xl relative overflow-hidden transition-all duration-300 hover:shadow-2xl hover:shadow-red-500/20 dark:hover:shadow-red-500/30 hover:scale-[1.02] hover:-translate-y-1">
-                <div className="absolute inset-0 bg-gradient-to-br from-white/50 via-transparent to-transparent dark:from-white/30 pointer-events-none rounded-xl" />
-                <div className="absolute inset-0 bg-gradient-to-tl from-red-400/10 via-transparent to-transparent dark:from-red-400/20 pointer-events-none rounded-xl" />
-
-                <div className="relative z-10">
-                  <h3 className="font-semibold text-red-900 dark:text-white mb-4 flex items-center gap-2">
-                    <span className="text-red-600 dark:text-red-300 text-lg drop-shadow-md">✗</span>
-                    {t("insights.dataControls.neverCollect.title")}
-                  </h3>
-                  <ul className="space-y-2.5 text-sm text-red-800 dark:text-gray-100">
-                    <li className="flex items-start gap-2">
-                      <span className="text-red-600 dark:text-red-300 mt-0.5 font-bold">✗</span>
-                      <span>{t("insights.dataControls.neverCollect.content")}</span>
-                    </li>
-                    <li className="flex items-start gap-2">
-                      <span className="text-red-600 dark:text-red-300 mt-0.5 font-bold">✗</span>
-                      <span>{t("insights.dataControls.neverCollect.students")}</span>
-                    </li>
-                    <li className="flex items-start gap-2">
-                      <span className="text-red-600 dark:text-red-300 mt-0.5 font-bold">✗</span>
-                      <span>{t("insights.dataControls.neverCollect.parents")}</span>
-                    </li>
-                    <li className="flex items-start gap-2">
-                      <span className="text-red-600 dark:text-red-300 mt-0.5 font-bold">✗</span>
-                      <span>{t("insights.dataControls.neverCollect.school")}</span>
-                    </li>
-                    <li className="flex items-start gap-2">
-                      <span className="text-red-600 dark:text-red-300 mt-0.5 font-bold">✗</span>
-                      <span>{t("insights.dataControls.neverCollect.pii")}</span>
-                    </li>
-                  </ul>
-                </div>
+              <Card className="rounded-2xl border border-gray-200 bg-white/95 p-5 shadow-lg transition-all duration-300 hover:shadow-xl hover:-translate-y-0.5">
+                <h3 className="font-semibold text-red-900 mb-4 flex items-center gap-2">
+                  <span className="text-lg font-bold text-red-600">?</span>
+                  {t("insights.dataControls.neverCollect.title")}
+                </h3>
+                <ul className="space-y-2.5 text-sm text-gray-700">
+                  <li className="flex items-start gap-2">
+                    <span className="text-red-600 mt-0.5 font-bold">?</span>
+                    <span>{t("insights.dataControls.neverCollect.content")}</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <span className="text-red-600 mt-0.5 font-bold">?</span>
+                    <span>{t("insights.dataControls.neverCollect.students")}</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <span className="text-red-600 mt-0.5 font-bold">?</span>
+                    <span>{t("insights.dataControls.neverCollect.parents")}</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <span className="text-red-600 mt-0.5 font-bold">?</span>
+                    <span>{t("insights.dataControls.neverCollect.school")}</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <span className="text-red-600 mt-0.5 font-bold">?</span>
+                    <span>{t("insights.dataControls.neverCollect.pii")}</span>
+                  </li>
+                </ul>
               </Card>
             </div>
 
             <div className="space-y-4">
-              <h3 className="font-semibold text-gray-900 dark:text-white">
-                {t("insights.dataControls.benefits.title")}
-              </h3>
+              <h3 className="font-semibold text-gray-900">{t("insights.dataControls.benefits.title")}</h3>
               <div className="grid sm:grid-cols-2 gap-4">
-                <div className="flex items-start gap-3 p-4 bg-white/90 dark:bg-white/15 backdrop-blur-xl border-2 border-purple-200/50 dark:border-purple-400/30 shadow-lg shadow-purple-500/10 dark:shadow-purple-500/20 rounded-xl relative overflow-hidden transition-all duration-300 hover:shadow-xl hover:shadow-purple-500/20 dark:hover:shadow-purple-500/30 hover:scale-[1.02] hover:-translate-y-0.5">
-                  <div className="absolute inset-0 bg-gradient-to-br from-white/40 via-transparent to-transparent dark:from-white/20 pointer-events-none rounded-xl" />
-                  <div className="relative z-10 flex items-start gap-3 w-full">
-                    <TrendingUp className="h-5 w-5 text-purple-600 dark:text-purple-300 flex-shrink-0 mt-0.5 drop-shadow-lg" />
+                {[
+                  {
+                    icon: <TrendingUp className="h-5 w-5 text-purple-600" />,
+                    title: t("insights.dataControls.benefits.toneSuggestions"),
+                    description: t("insights.dataControls.benefits.toneSuggestions.desc"),
+                  },
+                  {
+                    icon: <Shield className="h-5 w-5 text-purple-600" />,
+                    title: t("insights.dataControls.benefits.fasterGeneration"),
+                    description: t("insights.dataControls.benefits.fasterGeneration.desc"),
+                  },
+                  {
+                    icon: <Info className="h-5 w-5 text-purple-600" />,
+                    title: t("insights.dataControls.benefits.catchIssues"),
+                    description: t("insights.dataControls.benefits.catchIssues.desc"),
+                  },
+                  {
+                    icon: <Users className="h-5 w-5 text-purple-600" />,
+                    title: t("insights.dataControls.benefits.buildFeatures"),
+                    description: t("insights.dataControls.benefits.buildFeatures.desc"),
+                  },
+                ].map((item) => (
+                  <div
+                    key={item.title}
+                    className="flex items-start gap-3 p-4 rounded-2xl border border-gray-200 bg-white/95 shadow-lg transition-all duration-300 hover:shadow-xl hover:-translate-y-0.5"
+                  >
+                    {item.icon}
                     <div>
-                      <p className="font-medium text-sm text-gray-900 dark:text-white">
-                        {t("insights.dataControls.benefits.toneSuggestions")}
-                      </p>
-                      <p className="text-xs text-gray-600 dark:text-gray-300">
-                        {t("insights.dataControls.benefits.toneSuggestions.desc")}
-                      </p>
+                      <p className="font-medium text-sm text-gray-900">{item.title}</p>
+                      <p className="text-xs text-gray-500">{item.description}</p>
                     </div>
                   </div>
-                </div>
-
-                <div className="flex items-start gap-3 p-4 bg-white/90 dark:bg-white/15 backdrop-blur-xl border-2 border-purple-200/50 dark:border-purple-400/30 shadow-lg shadow-purple-500/10 dark:shadow-purple-500/20 rounded-xl relative overflow-hidden transition-all duration-300 hover:shadow-xl hover:shadow-purple-500/20 dark:hover:shadow-purple-500/30 hover:scale-[1.02] hover:-translate-y-0.5">
-                  <div className="absolute inset-0 bg-gradient-to-br from-white/40 via-transparent to-transparent dark:from-white/20 pointer-events-none rounded-xl" />
-                  <div className="relative z-10 flex items-start gap-3 w-full">
-                    <Shield className="h-5 w-5 text-purple-600 dark:text-purple-300 flex-shrink-0 mt-0.5 drop-shadow-lg" />
-                    <div>
-                      <p className="font-medium text-sm text-gray-900 dark:text-white">
-                        {t("insights.dataControls.benefits.fasterGeneration")}
-                      </p>
-                      <p className="text-xs text-gray-600 dark:text-gray-300">
-                        {t("insights.dataControls.benefits.fasterGeneration.desc")}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="flex items-start gap-3 p-4 bg-white/90 dark:bg-white/15 backdrop-blur-xl border-2 border-purple-200/50 dark:border-purple-400/30 shadow-lg shadow-purple-500/10 dark:shadow-purple-500/20 rounded-xl relative overflow-hidden transition-all duration-300 hover:shadow-xl hover:shadow-purple-500/20 dark:hover:shadow-purple-500/30 hover:scale-[1.02] hover:-translate-y-0.5">
-                  <div className="absolute inset-0 bg-gradient-to-br from-white/40 via-transparent to-transparent dark:from-white/20 pointer-events-none rounded-xl" />
-                  <div className="relative z-10 flex items-start gap-3 w-full">
-                    <Info className="h-5 w-5 text-purple-600 dark:text-purple-300 flex-shrink-0 mt-0.5 drop-shadow-lg" />
-                    <div>
-                      <p className="font-medium text-sm text-gray-900 dark:text-white">
-                        {t("insights.dataControls.benefits.catchIssues")}
-                      </p>
-                      <p className="text-xs text-gray-600 dark:text-gray-300">
-                        {t("insights.dataControls.benefits.catchIssues.desc")}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="flex items-start gap-3 p-4 bg-white/90 dark:bg-white/15 backdrop-blur-xl border-2 border-purple-200/50 dark:border-purple-400/30 shadow-lg shadow-purple-500/10 dark:shadow-purple-500/20 rounded-xl relative overflow-hidden transition-all duration-300 hover:shadow-xl hover:shadow-purple-500/20 dark:hover:shadow-purple-500/30 hover:scale-[1.02] hover:-translate-y-0.5">
-                  <div className="absolute inset-0 bg-gradient-to-br from-white/40 via-transparent to-transparent dark:from-white/20 pointer-events-none rounded-xl" />
-                  <div className="relative z-10 flex items-start gap-3 w-full">
-                    <Users className="h-5 w-5 text-purple-600 dark:text-purple-300 flex-shrink-0 mt-0.5 drop-shadow-lg" />
-                    <div>
-                      <p className="font-medium text-sm text-gray-900 dark:text-white">
-                        {t("insights.dataControls.benefits.buildFeatures")}
-                      </p>
-                      <p className="text-xs text-gray-600 dark:text-gray-300">
-                        {t("insights.dataControls.benefits.buildFeatures.desc")}
-                      </p>
-                    </div>
-                  </div>
-                </div>
+                ))}
               </div>
             </div>
 
-            <div className="flex flex-wrap gap-3 pt-6 border-t border-purple-200/50 dark:border-purple-400/30">
+            <div className="flex flex-wrap gap-3 pt-6 border-t border-gray-200">
               <Button
                 variant="outline"
                 size="sm"
-                className="gap-2 bg-white/80 dark:bg-white/10 backdrop-blur-md border-purple-200 dark:border-purple-400/30 hover:bg-purple-50 dark:hover:bg-purple-500/20 hover:border-purple-300 dark:hover:border-purple-400/50 transition-all duration-300 hover:shadow-lg hover:shadow-purple-500/20 hover:scale-105"
+                className="gap-2 bg-white/80 backdrop-blur-md border-purple-200 hover:bg-purple-50 hover:border-purple-300 transition-all duration-300 hover:shadow-lg hover:shadow-purple-500/20 hover:scale-105"
               >
-                <Download className="h-4 w-4 text-purple-600 dark:text-purple-300" />
-                <span className="text-gray-900 dark:text-white">{t("insights.dataControls.downloadData")}</span>
+                <Download className="h-4 w-4 text-purple-600" />
+                <span className="text-gray-900">{t("insights.dataControls.downloadData")}</span>
               </Button>
               <Button
                 variant="outline"
                 size="sm"
                 onClick={handlePrivacyClick}
-                className="bg-white/80 dark:bg-white/10 backdrop-blur-md border-purple-200 dark:border-purple-400/30 hover:bg-purple-50 dark:hover:bg-purple-500/20 hover:border-purple-300 dark:hover:border-purple-400/50 transition-all duration-300 hover:shadow-lg hover:shadow-purple-500/20 hover:scale-105 text-gray-900 dark:text-white"
+                className="bg-white/80 backdrop-blur-md border-purple-200 hover:bg-purple-50 hover:border-purple-300 transition-all duration-300 hover:shadow-lg hover:shadow-purple-500/20 hover:scale-105 text-gray-900"
               >
                 {t("insights.dataControls.privacySettings")}
               </Button>
             </div>
 
-            <p className="text-xs text-gray-600 dark:text-gray-300">
+            <p className="text-xs text-gray-600">
               {t("insights.dataControls.privacyNote", {
                 link: "",
-              })}{" "}
+              })} 
               <a
-                href="https://www.zazatechnologies.com/privacy"
+                href="https://www.zazadraft.com/privacy"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-purple-600 dark:text-purple-300 hover:text-purple-700 dark:hover:text-purple-200 hover:underline font-medium transition-colors"
+                className="text-purple-600 hover:text-purple-700 underline font-medium transition-colors"
               >
                 {t("insights.dataControls.learnMore")}
               </a>
             </p>
           </div>
         )}
+
       </div>
     </Card>
   )

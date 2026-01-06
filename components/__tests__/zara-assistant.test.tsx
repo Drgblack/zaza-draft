@@ -4,6 +4,10 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react"
 import { ZaraAssistant } from "@/components/zara-assistant"
 
 const toastMock = vi.fn()
+const authMock = {
+  getIdToken: vi.fn().mockResolvedValue("token"),
+  status: "authenticated" as const,
+}
 
 vi.mock("@/hooks/use-locale", () => ({
   useLocale: () => ({
@@ -20,6 +24,10 @@ vi.mock("@/hooks/use-locale", () => ({
         "zara.tip.difficult.subtitle": "Navigate challenging topics with confidence",
         "zara.error.title": "Something went wrong",
         "zara.error.description": "I couldn't send your question. Please try again.",
+        "zara.error.authRequiredTitle": "Sign in required",
+        "zara.error.authRequiredDescription": "Please sign in to chat with Zara.",
+        "zara.button.backToMenu": "Back to menu",
+        "zara.button.clearChat": "Clear chat",
       }
       return translations[key] ?? key
     },
@@ -37,13 +45,20 @@ vi.mock("@/hooks/use-toast", () => ({
   }),
 }))
 
+vi.mock("@/hooks/use-auth", () => ({
+  useAuth: () => authMock,
+}))
+
 describe("ZaraAssistant", () => {
   afterEach(() => {
     toastMock.mockReset()
     vi.restoreAllMocks()
+    authMock.getIdToken.mockReset()
+    authMock.getIdToken.mockResolvedValue("token")
+    authMock.status = "authenticated"
   })
 
-  it("restores the input and shows an error toast when the chat request fails", async () => {
+  it("clears the input, keeps the transcript, and shows an error toast when the chat request fails", async () => {
     const fetchMock = vi.fn().mockRejectedValue(new Error("network error"))
     vi.stubGlobal("fetch", fetchMock)
 
@@ -56,11 +71,82 @@ describe("ZaraAssistant", () => {
 
     await waitFor(() => expect(fetchMock).toHaveBeenCalled())
 
-    expect(input.value).toBe("Hello Zara")
-    expect(toastMock).toHaveBeenCalledWith({
-      title: "Something went wrong",
-      description: "I couldn't send your question. Please try again.",
-      variant: "destructive",
+    expect(input.value).toBe("")
+    await waitFor(() => expect(screen.getAllByText("Hello Zara").length).toBeGreaterThan(0))
+    expect(toastMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        title: "Something went wrong",
+        variant: "destructive",
+      }),
+    )
+  })
+
+  it("keeps the transcript when returning from a tip detail", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ success: true, data: { reply: "Friendly reply" } }),
     })
+    vi.stubGlobal("fetch", fetchMock)
+
+    render(<ZaraAssistant />)
+    fireEvent.click(screen.getByLabelText("Toggle Zara Assistant"))
+
+    const input = screen.getByPlaceholderText("Ask Zara anything...")
+    fireEvent.change(input, { target: { value: "Hello Zara" } })
+    fireEvent.click(screen.getByLabelText("Send message"))
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalled())
+    await waitFor(() => screen.getByText("Hello Zara"))
+
+    fireEvent.click(screen.getByText("Example parent email templates"))
+    fireEvent.click(screen.getByLabelText("Back to menu"))
+
+    expect(screen.getByText("Hello Zara")).toBeTruthy()
+  })
+
+  it("clears the conversation when using the clear chat button", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ success: true, data: { reply: "Friendly reply" } }),
+    })
+    vi.stubGlobal("fetch", fetchMock)
+
+    render(<ZaraAssistant />)
+    fireEvent.click(screen.getByLabelText("Toggle Zara Assistant"))
+
+    const input = screen.getByPlaceholderText("Ask Zara anything...")
+    fireEvent.change(input, { target: { value: "Hello Zara" } })
+    fireEvent.click(screen.getByLabelText("Send message"))
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalled())
+    await waitFor(() => screen.getByText("Hello Zara"))
+
+    fireEvent.click(screen.getByLabelText("Clear chat"))
+    await waitFor(() => expect(screen.queryByText("Hello Zara")).toBeNull())
+  })
+
+  it("prompts unauthenticated users to sign in", async () => {
+    const fetchMock = vi.fn()
+    vi.stubGlobal("fetch", fetchMock)
+    authMock.status = "unauthenticated"
+
+    render(<ZaraAssistant />)
+    fireEvent.click(screen.getByLabelText("Toggle Zara Assistant"))
+
+    const input = screen.getByPlaceholderText("Ask Zara anything...")
+    fireEvent.change(input, { target: { value: "Hello Zara" } })
+    fireEvent.click(screen.getByLabelText("Send message"))
+
+    await waitFor(() =>
+      expect(toastMock).toHaveBeenCalledWith(
+        expect.objectContaining({
+          title: "Sign in required",
+          description: "Please sign in to chat with Zara.",
+          variant: "destructive",
+        }),
+      ),
+    )
+
+    expect(fetchMock).not.toHaveBeenCalled()
   })
 })

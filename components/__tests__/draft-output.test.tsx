@@ -1,5 +1,5 @@
 import "@testing-library/jest-dom"
-import { render, screen } from "@testing-library/react"
+import { render, screen, within } from "@testing-library/react"
 import { vi } from "vitest"
 import { DraftOutput } from "@/components/draft-output"
 import type { DraftStructure } from "@/lib/draft/format"
@@ -73,18 +73,31 @@ const baseProps = {
 }
 
 describe("DraftOutput formatting", () => {
-  it("renders a separate subject line and paragraphs", () => {
+  it("renders the subject, structured paragraphs, and signature once", () => {
     render(<DraftOutput {...baseProps} structure={mockStructure} />)
-    expect(screen.getByText("Subject: Update on homework")).toBeInTheDocument()
-    const paragraphs = screen.getAllByText(/Johnny|Best regards/)
-    expect(paragraphs.length).toBeGreaterThanOrEqual(2)
+    const body = screen.getByTestId("draft-output-body")
+    const subjectRows = within(body).getAllByText("Subject: Update on homework")
+    expect(subjectRows).toHaveLength(1)
+    expect(within(body).getByText("Dear family,")).toBeInTheDocument()
+    expect(within(body).getByText("Johnny has been trying hard this week.")).toBeInTheDocument()
+    expect(
+      within(body).getByText("He still struggles with focus, but he is making small steps."),
+    ).toBeInTheDocument()
+    const signature = within(body).getByText(/Best regards,/)
+    expect(signature).toBeInTheDocument()
+    expect(signature.className).toContain("border-t")
   })
 
-  it("renders once with subject separated from greeting", () => {
-    const { container } = render(<DraftOutput {...baseProps} structure={mockStructure} />)
-    expect(container.querySelectorAll(".bg-gray-50").length).toBe(1)
-    const cardText = container.querySelector(".bg-gray-50")?.textContent ?? ""
-    expect(cardText).toMatch(/Subject: Update on homework[\s\S]*Dear family,/)
+  it("does not render a subject when the report comment mode is active", () => {
+    render(
+      <DraftOutput
+        {...baseProps}
+        metadata={{ ...baseProps.metadata, modeUsed: "report_comment" }}
+        structure={mockStructure}
+      />,
+    )
+    expect(screen.queryByText("Subject: Update on homework")).not.toBeInTheDocument()
+    expect(screen.getByText("Johnny has been trying hard this week.")).toBeInTheDocument()
   })
 
   it("matches the snapshot for structured output", () => {

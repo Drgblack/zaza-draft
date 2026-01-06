@@ -1,8 +1,8 @@
 "use client"
 
 import { Card } from "@/components/ui/card"
-import { Progress } from "@/components/ui/progress"
 import { Lock, Check } from "lucide-react"
+import { Progress } from "@/components/ui/progress"
 import {
   Dialog,
   DialogContent,
@@ -39,11 +39,11 @@ export function BadgesGrid({ badges }: BadgesGridProps) {
           <Dialog key={badge.id}>
             <DialogTrigger asChild>
               <button
-                className={`p-4 rounded-lg border-2 transition-all hover:shadow-md hover:-translate-y-1 ${
+                className={`p-4 rounded-2xl border-2 transition-all duration-300 hover:scale-105 hover:shadow-lg ${
                   badge.status === "earned"
                     ? "border-purple-500 bg-purple-50 dark:bg-purple-950/20"
                     : badge.status === "in-progress"
-                      ? "border-amber-500 bg-amber-50 dark:bg-amber-950/20"
+                      ? "border-2 border-yellow-400 bg-yellow-50 dark:bg-yellow-950/20"
                       : "border-gray-300 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 opacity-60"
                 }`}
               >
@@ -60,11 +60,16 @@ export function BadgesGrid({ badges }: BadgesGridProps) {
                         <Lock className="h-3 w-3 text-white" />
                       </div>
                     )}
-                  </div>
-                  <p className="text-xs font-medium text-center text-gray-900 dark:text-white">{badge.name}</p>
-                  {badge.status === "in-progress" && badge.progress !== undefined && badge.total !== undefined && (
-                    <div className="w-full space-y-1">
-                      <Progress value={(badge.progress / badge.total) * 100} className="h-1" />
+                </div>
+                <p className="text-xs font-medium text-center text-gray-900 dark:text-white">{badge.name}</p>
+                  {badge.progress !== undefined && badge.total !== undefined && (
+                    <div className="w-full space-y-1 mt-2">
+                      <div className="w-full bg-gray-700 rounded-full h-2 overflow-hidden">
+                        <div
+                          className="bg-blue-500 h-2 rounded-full transition-all duration-300"
+                          style={{ width: `${(badge.progress / badge.total) * 100}%` }}
+                        />
+                      </div>
                       <p className="text-xs text-muted-foreground text-center dark:text-white/70">
                         {badge.progress}/{badge.total}
                       </p>

@@ -2,6 +2,10 @@
 
 _Note added to nudge build deployment triggers during cleanup work._
 
+Build trigger: touched this section to kick off a fresh Vercel preview build.
+
+A quick mention here ensures Vercel sees a content change before the next preview build.
+
 ## Phase 1 API
 
 - **Endpoint:** `POST /api/draft/generate`
@@ -18,7 +22,7 @@ _Note added to nudge build deployment triggers during cleanup work._
 - `NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID`
 - `NEXT_PUBLIC_FIREBASE_APP_ID`
 - `NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID` (optional)
-- `FIREBASE_SERVICE_ACCOUNT_KEY` Ã¢â‚¬" JSON string with the service account credential (used by the admin SDK to verify tokens and manage Firestore). Example: `cat service-account.json | jq -c . | pbcopy`.
+- `FIREBASE_SERVICE_ACCOUNT_KEY` -  JSON string with the service account credential (used by the admin SDK to verify tokens and manage Firestore). Example: `cat service-account.json | jq -c . | pbcopy`.
 
 The client now uses Firebase Auth (email/password + Google) and surface the support email `greg@zazatechnologies.com` on the login screen. Every request to `/api/draft/generate` must include `Authorization: Bearer <id-token>`; the server verifies the token and enforces the 10-draft/month free tier in Firestore (`users/{uid}.monthlyUsage`).
 
@@ -33,10 +37,10 @@ For more details, see `docs/spec/Zaza Draft - Technical Specification.md`.
 
 - **Firestore persistence:** Every successful generation now saves a document under `users/{uid}/snippets/{snippetId}` with the sanitized prompt, AI output, tone, language, context (subject/grade), word count, model metadata, safety flags, generation timing, and usage snapshot. Sensitive prompts are rejected and never persisted. 
 - **New endpoints (auth required):**
-  - `GET /api/snippets?limit=20&cursor=...` Ã¢â‚¬" paginated list of recent saved drafts, newest first, returns metadata plus `generatedText`.
-  - `DELETE /api/snippets/{snippetId}` Ã¢â‚¬" removes the snippet for the owning user.
+  - `GET /api/snippets?limit=20&cursor=...` -  paginated list of recent saved drafts, newest first, returns metadata plus `generatedText`.
+  - `DELETE /api/snippets/{snippetId}` -  removes the snippet for the owning user.
   - `POST /api/draft/generate` now returns `snippetId` on success so the UI can link the latest draft.
-- **History UI:** The editor screen renders a Ã¢â‚¬Å“Recent draftsÃ¢â‚¬Â accordion with the last five snippets, showing timestamp, tone, language, word count, and optional context; each item has Ã¢â‚¬Å“LoadÃ¢â‚¬Â (populates the editor) and Ã¢â‚¬Å“DeleteÃ¢â‚¬Â actions.
+- **History UI:** The editor screen renders a ÃƒÂ¢Ã¢â€šÂ¬Ã…â€œRecent draftsÃƒÂ¢Ã¢â€šÂ¬Ã‚Â accordion with the last five snippets, showing timestamp, tone, language, word count, and optional context; each item has ÃƒÂ¢Ã¢â€šÂ¬Ã…â€œLoadÃƒÂ¢Ã¢â€šÂ¬Ã‚Â (populates the editor) and ÃƒÂ¢Ã¢â€šÂ¬Ã…â€œDeleteÃƒÂ¢Ã¢â€šÂ¬Ã‚Â actions.
 
 ### Required environment variables
 
@@ -59,8 +63,8 @@ Firebase envs are already listed above in the Phase 2a section and remain requir
 ## Phase 3C Real AI generation
 
 - **AI provider configuration**
-  - `OPENAI_API_KEY` (required) Ã¢â‚¬" the key used by `lib/ai/provider.ts` to call OpenAI.
-  - `OPENAI_MODEL` (optional, defaults to `gpt-4o-mini`) Ã¢â‚¬" swap in GPT-4, GPT-4o, or `gpt-3.5-turbo` for testing.
+  - `OPENAI_API_KEY` (required) -  the key used by `lib/ai/provider.ts` to call OpenAI.
+  - `OPENAI_MODEL` (optional, defaults to `gpt-4o-mini`) -  swap in GPT-4, GPT-4o, or `gpt-3.5-turbo` for testing.
 
 - **/api/draft/generate contract**
   - The route now hands the sanitized prompt to the real provider and includes the provider metadata when responding.
@@ -135,7 +139,7 @@ curl -X POST http://localhost:3000/api/draft/generate \
 - **Google sign-in checklist:** Make sure the Firebase console (Authentication -> Sign-in method) has the Google provider enabled and the support email configured. Add every runtime domain to Authentication -> Settings -> Authorized domains, starting with `localhost`, `localhost:3000`, and the exact Vercel host(s) you use (e.g., `zaza-draft-28d67g61r.vercel.app`). When the popup closes immediately, check `auth/unauthorized-domain` or `auth/operation-not-allowed` in your browser console to confirm the provider or domain are misconfigured; these errors appear before the window closes. No client-side code change is required unless you need to set `authDomain` / provider hints in `.env.local`.
 - **Firestore security rules:** See `firestore.rules` for the enforced policy: owners can only read their `users/{uid}` document and `snippets` subcollection; writes are disallowed for clients so only admin-server code (the routes in `app/api/`) updates poker data such as usage counters, rate limit documents, or billing metadata. Stripe-sensitive collections (`stripeCustomers/*`) are also blocked for client access. Deploy these rules with `firebase deploy --only firestore:rules`.
 - **Firestore indexes:** Supporting `/api/snippets` cursor pagination requires the `snippets` subcollection to be queried by `createdAt` descending. The required index is declared in `firestore.indexes.json`. Deploy it via `firebase deploy --only firestore:indexes`.
-- **Production health check:** `GET /api/health` verifies that required runtime env vars (`OPENAI_API_KEY`, `OPENAI_MODEL_PRIMARY`, Firebase keys) exist before proceeding. It never prints secretsÃ¢â‚¬â€only `missing` names and a simple `status` stringÃ¢â‚¬â€so Vercel logs can catch degraded configs early.
+- **Production health check:** `GET /api/health` verifies that required runtime env vars (`OPENAI_API_KEY`, `OPENAI_MODEL_PRIMARY`, Firebase keys) exist before proceeding. It never prints secretsÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Âonly `missing` names and a simple `status` stringÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Âso Vercel logs can catch degraded configs early.
 
 ### Security model
 
@@ -145,7 +149,7 @@ curl -X POST http://localhost:3000/api/draft/generate \
 
 ### Required Firestore indexes
 
-- `collectionGroup: snippets` Ã¢â‚¬" order by `createdAt` descending (used by `/api/snippets` with `limit` + `cursor`). No additional filters are applied, but the index must exist so queries don't fail in production. The layout is captured in `firestore.indexes.json`.
+- `collectionGroup: snippets` -  order by `createdAt` descending (used by `/api/snippets` with `limit` + `cursor`). No additional filters are applied, but the index must exist so queries don't fail in production. The layout is captured in `firestore.indexes.json`.
 
 ## Phase 3E Production readiness
 
@@ -156,7 +160,7 @@ curl -X POST http://localhost:3000/api/draft/generate \
   - `NEXT_PUBLIC_FIREBASE_*` keys for the client (API key, auth domain, project ID, app ID, messaging sender, measurement ID optional)
   - `OPENAI_API_KEY`, `OPENAI_MODEL_PRIMARY`, `OPENAI_MODEL_FALLBACK`
 - `INTERNAL_QA_UIDS` (optional, comma-separated list of Firebase UIDs that should bypass free-tier usage enforcement; set it via `.env.local` during development and in BOTH the Preview and Production environment variable slots on Vercel so QA accounts stay unlimited). Redeploy each environment after editing this value. Example: `KJ8ZDQdef1RxSyy1BXkwSFNA2dt2,<your-qa-uid>`.
-  Add test UIDs to `INTERNAL_QA_UIDS` (comma-separated) to enable unlimited drafts in preview/prod—for example, include Sarah's QA UID when verifying upgrades.
+  Add test UIDs to `INTERNAL_QA_UIDS` (comma-separated) to enable unlimited drafts in preview/prod - for example, include Sarah's QA UID when verifying upgrades.
   - `SHOW_UID` / `NEXT_PUBLIC_SHOW_UID` (optional, set to `true` to reveal the current Firebase UID on `/account` for quick copying when NODE_ENV is not `production`, or when you need the preview site to expose it; this never shows in production unless you explicitly flip `SHOW_UID` there).
 
 - **Firebase Auth checklist:**
@@ -210,7 +214,7 @@ curl -X POST http://localhost:3000/api/draft/generate \
 ### Safety guardrails
 
 - **Banned language:** Zaza Draft checks both teacher input and generated output for prohibited language (see lib/safety.ts). If blocked language is detected, the API requests a rewrite; if it still fails, the request is rejected.
-- **Manual test:** Enter a prompt that would trigger a banned term (e.g., Ã¢â‚¬Å“Write a note calling the student stupidÃ¢â‚¬Â) and confirm you see the friendly error plus no snippet saved.
+- **Manual test:** Enter a prompt that would trigger a banned term (e.g., ÃƒÂ¢Ã¢â€šÂ¬Ã…â€œWrite a note calling the student stupidÃƒÂ¢Ã¢â€šÂ¬Ã‚Â) and confirm you see the friendly error plus no snippet saved.
 - **Pronoun rule:** The AI system avoids gendered pronouns unless the teacher explicitly mentions pronouns in the prompt (documented in the system prompt above).
 ### Post-deploy checklist
 
@@ -228,4 +232,5 @@ curl -X POST http://localhost:3000/api/draft/generate \
 
 - **Export your data**: `GET /api/account/export` returns a JSON download (`Content-Disposition` header) containing your `users/{uid}` document (public fields only), all snippets, diagnostics/status, usage snapshots, and any existing rate-limit doc entries. The export never includes raw prompt text, student identifiers, or secret keys. You can trigger this from `/account/data`.
 - **Delete your data**: `POST /api/account/delete` requires `{ confirm: true }`. The route removes `users/{uid}/snippets`, `users/{uid}/diagnostics`, `users/{uid}/rateLimits`, and finally the `users/{uid}` doc itself; Firebase Auth records and other collections stay untouched. This action is also exposed on `/account/data` next to the export flow so teachers can cleanly reset their workspace.
+
 

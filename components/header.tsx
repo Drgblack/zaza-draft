@@ -124,7 +124,7 @@ export function Header({
           <div className="flex flex-wrap items-center gap-2 justify-end">
             <Link href="/insights">
               <Button
-                variant={pathname === "/insights" ? "default" : "ghost"}
+                variant={pathname === "/insights" ? "secondary" : "ghost"}
                 size="sm"
                 className="gap-2 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 relative"
                 aria-label={t("header.insightsButtonAria")}

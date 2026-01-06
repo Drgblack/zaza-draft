@@ -35,6 +35,7 @@ interface ProviderInput {
   resolvedPronounPreference?: PronounPreference
   forceLanguage?: boolean
   signatureBlock?: string
+  uiLocale?: string
 }
 
 export interface ProviderMeta {
@@ -102,6 +103,41 @@ function buildSystemPrompt(input: ProviderInput) {
   systemLines.push(
     "Always choose calm, school-safe language and do not restate insults, inflammatory labels, or threats.",
   )
+
+  if (input.language === "de") {
+    systemLines.push(
+      "When writing in German, keep the sentences warm, calm, and still professional; favour the Sie form and avoid bureaucratic labels such as 'Fach:' unless they were already part of the request.",
+    )
+    systemLines.push("Avoid placeholders like [Name des Schülers], [Parent Name], or [Student Name].")
+    systemLines.push("If no student name was supplied, refer to the child as 'Ihr Kind' (use 'Ihr Sohn' or 'Ihre Tochter' only when the teacher explicitly provides gender).")
+    if (input.mode === "parent_message") {
+      systemLines.push(
+        "German parent messages should stay between 90 and 140 words, include a subject line prefixed with 'Betreff:', begin with a polite greeting, deliver 2-4 short paragraphs separated by blank lines, and close with a collaborative note to work together.",
+      )
+      systemLines.push(
+        "Structure the output exactly like a brief German email: 'Betreff: <short subject>' on the first line, followed by a blank line, a greeting on its own line (e.g., 'Liebe Eltern,'), the body paragraphs separated by blank lines, another blank line, 'Freundliche Grüße,' or 'Herzliche Grüße,' on its own line, and the teacher name on the final line.",
+      )
+      systemLines.push(
+        "Avoid judgment words such as 'Ausreden', 'Lügen', or 'faul'; describe the behaviour with neutral observations, keep the tone calm and supportive, and add a collaborative next step (e.g., 'Können wir einen kurzen Termin vereinbaren?').",
+      )
+    } else {
+      systemLines.push(
+        "German report comments should span 35 to 70 words, omit greetings, focus on observable behaviour and progress, and end with a short clarity statement without a call to action.",
+      )
+    }
+    systemLines.push("Translate any English notes into natural German rather than copying English words literally.")
+  }
+
+  if (input.uiLocale?.toLowerCase().startsWith("de")) {
+    systemLines.push(
+      "DE tone contract: avoid moral judgement words such as 'Lügen', 'Ausreden', 'faul', or 'schlecht'; describe behaviour with neutral observations (for example, 'Es gab einige Situationen, in denen...'); frame collaboration with phrases like 'Ich möchte gemeinsam mit Ihnen' and offer a clear next step such as 'Können wir einen kurzen Termin vereinbaren?'; keep the tone calm, professional, and supportive without sounding accusatory.",
+    )
+    if (input.mode === "parent_message") {
+      systemLines.push(
+        "German parent messages must follow a concise email template: start with 'Betreff: <short subject>', add a blank line, include 'Liebe Eltern,' or 'Liebe Erziehungsberechtigte,' followed by 2-4 short paragraphs separated by blank lines, and finish with 'Freundliche Grüße,' or 'Herzliche Grüße,' plus the teacher name on the last line.",
+      )
+    }
+  }
 
   if (input.rewrite) {
     systemLines.push(

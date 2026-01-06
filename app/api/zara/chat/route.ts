@@ -1,61 +1,97 @@
 import { NextResponse } from "next/server"
+import { randomUUID } from "crypto"
 import { authorizeFirebaseRequest, FirebaseAuthorizationError } from "@/lib/firebase/server"
-
-const REPLY_TEMPLATES: Record<string, string> = {
-  "de-DE": "Ich bin hier, um zu helfen! Während ich lerne, probiere die Tipps oben aus oder beschreibe deine Situation im Haupteditor.",
-  "en-GB": "I'm here to help! While I'm still learning, try the quick tips above or describe your situation in the main editor for AI-generated drafts.",
-  "en-US": "I'm here to help! While I'm still learning, try the quick tips above or describe your situation in the main editor for AI-generated drafts.",
-}
-
-const DEFAULT_REPLY =
-  "I'm here to help! While I'm still learning, try the quick tips above or describe your situation in the main editor for AI-generated drafts."
+import { generateZaraReply } from "@/lib/ai/zara"
 
 interface ZaraChatRequest {
   message?: string
   uiLocale?: string
 }
 
+export const runtime = "nodejs"
+
 export async function POST(request: Request) {
+  const requestId = randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2)}`
   let authContext
   try {
     authContext = await authorizeFirebaseRequest(request)
   } catch (error) {
-    const status =
-      error instanceof FirebaseAuthorizationError ? error.statusCode : 401
-    return NextResponse.json(
-      {
-        success: false,
-        error: {
-          code: "UNAUTHORIZED",
-          message: (error as Error).message || "Unauthorized",
-        },
+    const status = error instanceof FirebaseAuthorizationError ? error.statusCode : 401
+    const payload = {
+      success: false,
+      error: {
+        code: "auth_required",
+        message: (error as Error).message || "Authentication required",
+        status,
+        requestId,
       },
-      { status },
-    )
+    }
+    console.error("[zara] chat auth failed", {
+      requestId,
+      status,
+      message: payload.error.message,
+    })
+    return NextResponse.json(payload, { status })
   }
 
   const body: ZaraChatRequest = await request.json().catch(() => ({}))
   const message = typeof body.message === "string" ? body.message.trim() : ""
   if (!message) {
+    const status = 400
+    console.warn("[zara] chat invalid input", {
+      requestId,
+      status,
+    })
+    const payload = {
+      success: false,
+      error: {
+        code: "INVALID_INPUT",
+        message: "Please provide a message before sending.",
+        status,
+        requestId,
+      },
+    }
+    return NextResponse.json(payload, { status })
+  }
+
+  const locale = body.uiLocale ?? "en-GB"
+  try {
+    const reply = await generateZaraReply(message, locale)
+    console.info("[zara] chat success", {
+      requestId,
+      uid: authContext?.uid ?? "unknown",
+      locale,
+    })
+    return NextResponse.json({
+      success: true,
+      data: {
+        reply,
+      },
+      meta: {
+        requestId,
+      },
+    })
+  } catch (error) {
+    const status = error instanceof Error && error.message.includes("Missing") ? 500 : 502
+    console.error("[zara] chat error", {
+      requestId,
+      uid: authContext?.uid ?? "unknown",
+      locale,
+      error,
+    })
     return NextResponse.json(
       {
         success: false,
         error: {
-          code: "INVALID_INPUT",
-          message: "Please provide a message before sending.",
+          code: "AI_ERROR",
+          message: error instanceof Error ? error.message : "Unable to call AI",
+          status,
+          requestId,
         },
       },
-      { status: 400 },
+      { status },
     )
   }
-
-  const reply = REPLY_TEMPLATES[body.uiLocale ?? ""] ?? DEFAULT_REPLY
-  return NextResponse.json({
-    success: true,
-    data: {
-      reply,
-    },
-  })
 }
 
 export function GET() {

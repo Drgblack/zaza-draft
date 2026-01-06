@@ -1,7 +1,8 @@
 "use client"
 
-import { useEffect, useMemo, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent } from "react"
 import { Button } from "@/components/ui/button"
+import { SegmentedControl } from "@/components/ui/segmented-control"
 import { useTeacherPrefs } from "@/hooks/use-teacher-prefs"
 import { useLocale } from "@/hooks/use-locale"
 import FooterSlim from "@/components/FooterSlim"
@@ -16,9 +17,12 @@ import type { PlanType } from "@/lib/usage"
 import type { DeescalationSummary } from "@/lib/deescalation/types"
 import type { DraftStructure } from "@/lib/draft/format"
 import { cleanStudentName } from "@/lib/draft/student-name"
-import type { PronounPreference } from "@/lib/types"
-import { DRAFT_MODES, MODE_LABEL_KEYS, DEFAULT_DRAFT_MODE } from "@/lib/draft-mode"
+import { resolveLanguageChoiceFromLocale } from "@/lib/draft/language"
+import type { DraftLanguage, DraftMode, PronounPreference } from "@/lib/types"
+import { MODE_LABEL_KEYS, DEFAULT_DRAFT_MODE } from "@/lib/draft-mode"
 import Link from "next/link"
+import { FileText, Mail, MessageCircle, Sun, Target, Users } from "lucide-react"
+import type { LucideIcon } from "lucide-react"
 
 const TONE_OPTIONS = [
   { id: "warm", key: "tone.warm" },
@@ -35,15 +39,48 @@ const PRONOUN_OPTIONS: { id: PronounPreference; label: string }[] = [
   { id: "avoid", label: "Avoid pronouns" },
 ]
 
-const MODE_OPTIONS = DRAFT_MODES.map((id) => ({
-  id,
-  labelKey: MODE_LABEL_KEYS[id],
-}))
+type ModeKey = DraftMode
 
-type ModeKey = (typeof MODE_OPTIONS)[number]["id"]
+const MODE_SEGMENT_OPTIONS = [
+  {
+    id: "parent_message" as ModeKey,
+    labelKey: MODE_LABEL_KEYS.parent_message,
+    icon: Mail,
+  },
+  {
+    id: "report_comment" as ModeKey,
+    labelKey: MODE_LABEL_KEYS.report_comment,
+    icon: MessageCircle,
+  },
+]
 
 type ToneKey = (typeof TONE_OPTIONS)[number]["id"]
-type LanguageChoice = "en" | "de"
+
+const TONE_STYLES: Record<
+  ToneKey,
+  { icon: LucideIcon; base: string; ring: string }
+> = {
+  warm: {
+    icon: Sun,
+    base: "bg-orange-100 border-orange-400 text-orange-700 hover:bg-orange-200 dark:bg-orange-900/40 dark:border-orange-600 dark:text-orange-200",
+    ring: "ring-orange-400 dark:ring-orange-200",
+  },
+  professional: {
+    icon: FileText,
+    base: "bg-blue-100 border-blue-400 text-blue-700 hover:bg-blue-200 dark:bg-blue-900/40 dark:border-blue-600 dark:text-blue-200",
+    ring: "ring-blue-400 dark:ring-blue-200",
+  },
+  direct: {
+    icon: Target,
+    base: "bg-indigo-100 border-indigo-400 text-indigo-700 hover:bg-indigo-200 dark:bg-indigo-900/40 dark:border-indigo-600 dark:text-indigo-200",
+    ring: "ring-indigo-400 dark:ring-indigo-200",
+  },
+  empathetic: {
+    icon: Users,
+    base: "bg-purple-100 border-purple-400 text-purple-700 hover:bg-purple-200 dark:bg-purple-900/40 dark:border-purple-600 dark:text-purple-200",
+    ring: "ring-purple-400 dark:ring-purple-200",
+  },
+}
 const LOADING_MESSAGES = [
   "Analyzing your request...",
   "Understanding context...",
@@ -80,8 +117,6 @@ const GENERATION_ERROR_MAP: Record<
     action: "Try a calmer description and generate again.",
   },
 }
-
-const REFRAME_NOTICE_TEXT = "I softened the wording to keep it professional and parent-appropriate."
 
 const HISTORY_PAGE_SIZE = 5
 interface SnippetHistoryItem {
@@ -124,7 +159,34 @@ export function MainEditor() {
   const isLimitedUser = usage.plan === "free" && !isQaUser
   const { prefs } = useTeacherPrefs()
   const { t, locale } = useLocale()
+  const reframeNotice = t("editor.reframeNotice")
   const { user, getIdToken, signOut } = useAuth()
+  const toneControlOptions = useMemo(
+    () =>
+      TONE_OPTIONS.map((tone) => {
+        const Icon = TONE_STYLES[tone.id].icon
+        return {
+          value: tone.id,
+          label: t(tone.key),
+          icon: <Icon className="h-4 w-4" aria-hidden="true" />,
+          ariaLabel: t(tone.key),
+        }
+      }),
+    [t],
+  )
+  const modeControlOptions = useMemo(
+    () =>
+      MODE_SEGMENT_OPTIONS.map((option) => {
+        const Icon = option.icon
+        return {
+          value: option.id,
+          label: t(option.labelKey),
+          icon: <Icon size={16} aria-hidden="true" />,
+          ariaLabel: t(option.labelKey),
+        }
+      }),
+    [t],
+  )
 
   const [greeting, setGreeting] = useState("Good morning")
   const [userName, setUserName] = useState("")
@@ -132,6 +194,7 @@ export function MainEditor() {
   const [draftMetadata, setDraftMetadata] = useState<any>(null)
   const [draftStructure, setDraftStructure] = useState<DraftStructure | null>(null)
   const [deescalationSummary, setDeescalationSummary] = useState<DeescalationSummary | null>(null)
+  const [isDiffViewOpen, setIsDiffViewOpen] = useState(false)
   const [isEditing, setIsEditing] = useState(false)
   const [subject, setSubject] = useState("")
   const [gradeLevel, setGradeLevel] = useState("")
@@ -140,7 +203,20 @@ export function MainEditor() {
     () => cleanStudentName(studentFirstNameInput),
     [studentFirstNameInput],
   )
-  const [languageChoice, setLanguageChoice] = useState<LanguageChoice>("en")
+  const [languageChoice, setLanguageChoice] = useState<DraftLanguage>(
+    () => resolveLanguageChoiceFromLocale(locale),
+  )
+  const [languageWasManuallySet, setLanguageWasManuallySet] = useState(false)
+  useEffect(() => {
+    if (languageWasManuallySet) {
+      return
+    }
+    setLanguageChoice(resolveLanguageChoiceFromLocale(locale))
+  }, [languageWasManuallySet, locale])
+  const handleLanguageChange = (event: ChangeEvent<HTMLSelectElement>) => {
+    setLanguageChoice(event.target.value as DraftLanguage)
+    setLanguageWasManuallySet(true)
+  }
   const [pronounPreference, setPronounPreference] = useState<PronounPreference>("auto")
   const [mode, setMode] = useState<ModeKey>("parent_message")
   const [inputReframeTier, setInputReframeTier] = useState<"tier1" | "tier2" | null>(null)
@@ -163,6 +239,22 @@ export function MainEditor() {
   const [onboardingVisible, setOnboardingVisible] = useState(false)
   const [onboardingLoading, setOnboardingLoading] = useState(true)
   const [onboardingError, setOnboardingError] = useState<string | null>(null)
+  const [dontShowWelcome, setDontShowWelcome] = useState(false)
+  const [welcomeDismissed, setWelcomeDismissed] = useState(false)
+  const textareaRef = useRef<HTMLTextAreaElement | null>(null)
+  const adjustTextareaHeight = useCallback(() => {
+    const el = textareaRef.current
+    if (!el) return
+    el.style.height = "auto"
+    const minHeight = 160
+    const maxHeight = 360
+    const nextHeight = Math.min(Math.max(el.scrollHeight, minHeight), maxHeight)
+    el.style.height = `${nextHeight}px`
+  }, [])
+
+  useEffect(() => {
+    adjustTextareaHeight()
+  }, [content, adjustTextareaHeight])
 
   useEffect(() => {
     let isMounted = true
@@ -250,6 +342,16 @@ export function MainEditor() {
     }
   }, [getIdToken])
 
+  useEffect(() => {
+    if (typeof localStorage === "undefined") {
+      return
+    }
+    const savedDismissal = localStorage.getItem("zazaDraftWelcomeDismissed")
+    setWelcomeDismissed(savedDismissal === "true")
+  }, [])
+
+  const showWelcomeBox = onboardingVisible && !onboardingLoading && !welcomeDismissed
+
   const dismissOnboarding = async () => {
     try {
       const response = await fetch("/api/onboarding", {
@@ -264,6 +366,18 @@ export function MainEditor() {
       console.error("[v0] Failed to dismiss onboarding", error)
       setOnboardingError("We couldn't save your onboarding preference.")
     }
+  }
+
+  const handleDontShowAgain = (event: ChangeEvent<HTMLInputElement>) => {
+    setDontShowWelcome(event.target.checked)
+  }
+
+  const handleWelcomeDismiss = async () => {
+    if (dontShowWelcome && typeof localStorage !== "undefined") {
+      localStorage.setItem("zazaDraftWelcomeDismissed", "true")
+      setWelcomeDismissed(true)
+    }
+    await dismissOnboarding()
   }
 
   useEffect(() => {
@@ -473,7 +587,13 @@ export function MainEditor() {
     setHistoryError(null)
     try {
       const queryParam = cursor ? `&cursor=${encodeURIComponent(cursor)}` : ""
-      const response = await fetch(`/api/snippets?limit=${HISTORY_PAGE_SIZE}${queryParam}`)
+      const token = await getIdToken()
+      const response = await fetch(`/api/snippets?limit=${HISTORY_PAGE_SIZE}${queryParam}`, {
+        headers: {
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        cache: "no-store",
+      })
       const payload = await response.json()
       if (!response.ok) {
         throw new Error(payload?.error?.message || "Unable to load history.")
@@ -501,10 +621,14 @@ export function MainEditor() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [draftMetadata?.generatedAt])
 
+  useEffect(() => {
+    setIsDiffViewOpen(false)
+  }, [deescalationSummary])
+
   const loadSnippet = (snippet: SnippetHistoryItem) => {
     setContent(snippet.generatedText)
     setSelectedTone(snippet.tone as ToneKey)
-    setLanguageChoice(snippet.language as LanguageChoice)
+    setLanguageChoice(snippet.language as DraftLanguage)
     setSubject(snippet.contextUsed?.subject ?? "")
     setGradeLevel(snippet.contextUsed?.gradeLevel ?? "")
     setStudentFirstNameInput("")
@@ -514,8 +638,14 @@ export function MainEditor() {
 
   const deleteSnippet = async (snippetId: string) => {
     try {
+      const token = await getIdToken()
+      if (!token) throw new Error("Missing auth token")
+
       const response = await fetch(`/api/snippets/${snippetId}`, {
         method: "DELETE",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
       })
       const payload = await response.json()
       if (response.ok && payload.success) {
@@ -583,15 +713,18 @@ export function MainEditor() {
           </div>
         )}
 
-        {showWellbeingInsights && <MiniInsightsBar />}
+        <div className="space-y-6">
+          {showWellbeingInsights && <MiniInsightsBar />}
 
-        <div className="glass shadow-[0_12px_40px_rgba(0,0,0,0.15),0_4px_12px_rgba(0,0,0,0.1)] rounded-2xl p-6 sm:p-8 mb-6 transition-all duration-200 hover:shadow-[0_16px_48px_rgba(0,0,0,0.2),0_6px_16px_rgba(255,255,255,0.12)] hover:-translate-y-0.5 border border-white/40 dark:border-white/30 bg-white/90 dark:bg-white/15 backdrop-blur-[32px]">
-          <textarea
-            value={content}
-            onChange={(e) => setContent(e.target.value)}
-            placeholder={
-              locale === "de-DE"
-                ? `Beschreiben Sie die Situation...
+          <section className="glass shadow-lg rounded-xl p-6 sm:p-8 transition-all duration-200 border border-white/40 dark:border-white/30 bg-white/90 dark:bg-white/15 backdrop-blur-[32px]">
+            <textarea
+              ref={textareaRef}
+              value={content}
+              onChange={(e) => setContent(e.target.value)}
+              onInput={adjustTextareaHeight}
+              placeholder={
+                locale === "de-DE"
+                  ? `Beschreiben Sie die Situation...
 
 Beispiele:
 • Schüler der 6. Klasse mit Schwierigkeiten bei Brüchen, braucht ermutigendes Feedback
@@ -604,154 +737,138 @@ Examples:
 • Parent email about homework concerns, professional and empathetic tone
 • Report card comment for excellent progress in reading comprehension`
             }
-            className="w-full h-[22rem] sm:h-96 text-base sm:text-lg text-gray-900 dark:text-white bg-transparent border-0 focus:outline-none focus:ring-0 resize-none placeholder:text-gray-600 dark:placeholder:text-white/60 leading-relaxed font-medium"
-            style={{
-              color: isDocumentDark ? "#ffffff" : undefined,
-            }}
-            aria-label={
-              locale === "de-DE" ? "Beschreiben Sie die Situation" : "Describe the situation you need help with"
-            }
-          />
+            className="w-full min-h-[80px] max-h-[320px] text-base sm:text-lg text-gray-900 dark:text-white bg-transparent border-0 focus:outline-none focus:ring-0 resize-none placeholder:text-gray-600 dark:placeholder:text-white/60 leading-relaxed font-medium"
+              style={{
+                color: isDocumentDark ? "#ffffff" : undefined,
+              }}
+              aria-label={
+                locale === "de-DE" ? "Beschreiben Sie die Situation" : "Describe the situation you need help with"
+              }
+            />
           <p className="mt-3 text-xs text-white/80">
             {locale === "de-DE"
               ? "Geben Sie keine vollständigen Namen, E-Mails, Telefonnummern oder Adressen ein."
               : "Do not include student full names, email addresses, phone numbers, or street addresses."}
           </p>
-        </div>
+          </section>
 
-        {showWellbeingInsights && <ContextualWellbeingTip />}
+          {showWellbeingInsights && <ContextualWellbeingTip />}
 
-        <div className="flex flex-wrap gap-3 mb-6">
-          {TONE_OPTIONS.map((tone) => {
-            const isSelected = selectedTone === tone.id
-            const isDark = isDocumentDark
+          <section className="space-y-3">
+            <SegmentedControl
+              options={toneControlOptions}
+              value={selectedTone}
+              onChange={(value) => setSelectedTone(value as ToneKey)}
+              className="bg-white/10 border-white/20 dark:bg-white/5 dark:border-white/10 shadow-inner"
+            />
+          </section>
 
-            return (
-              <button
-                key={tone.id}
-                onClick={() => setSelectedTone(tone.id)}
-                className={`px-4 py-2.5 sm:px-6 sm:py-3 rounded-xl font-semibold text-sm sm:text-base transition-all duration-200 focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 ${
-                  isSelected
-                    ? "bg-gradient-to-br from-[#7c3aed] to-[#6d28d9] text-white shadow-[0_8px_24px_rgba(124,58,237,0.4),inset_0_1px_3px_rgba(255,255,255,0.3),inset_0_-1px_2px_rgba(0,0,0,0.1)] border border-white/20 hover:-translate-y-0.5 hover:shadow-[0_12px_32px_rgba(124,58,237,0.5),inset_0_2px_4px_rgba(255,255,255,0.35)]"
-                    : "glass shadow-soft hover:bg-white/90 dark:hover:bg-white/20 hover:-translate-y-0.5 border border-white/40 dark:border-white/30 bg-white/85 dark:bg-white/10 backdrop-blur-[24px] text-gray-900 dark:text-white"
-                  }`}
-                aria-pressed={isSelected}
-              >
-                {t(tone.key)}
-              </button>
-            )
-          })}
-        </div>
-
-        <div className="mb-4 flex flex-wrap items-center gap-3">
-          <span className="text-sm font-semibold text-white/90">{t("editor.mode.label")}</span>
-          {MODE_OPTIONS.map((option) => {
-            const isActive = mode === option.id
-            return (
-              <button
-                key={option.id}
-                onClick={() => setMode(option.id)}
-                className={`px-4 py-2 rounded-full text-xs font-semibold transition focus-visible:ring-2 focus-visible:ring-offset-2 ${
-                  isActive
-                    ? "bg-white text-purple-600 shadow-sm focus-visible:ring-white"
-                    : "bg-white/20 text-white/80 hover:bg-white/30 focus-visible:ring-white/40"
-                }`}
-                aria-pressed={isActive}
-              >
-                {t(option.labelKey)}
-              </button>
-            )
-          })}
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-4">
-          <select
-            value={languageChoice}
-            onChange={(event) => setLanguageChoice(event.target.value as LanguageChoice)}
-            aria-label={t("languageDropdown.label")}
-            className="bg-white/90 dark:bg-white/10 rounded-xl border border-white/40 dark:border-white/30 px-4 py-3 text-gray-900 dark:text-white font-medium shadow-sm focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-2"
-          >
-            <option value="en">English</option>
-            <option value="de">Deutsch</option>
-          </select>
-          <select
-            value={pronounPreference}
-            onChange={(event) => setPronounPreference(event.target.value as PronounPreference)}
-            className="bg-white/90 dark:bg-white/10 rounded-xl border border-white/40 dark:border-white/30 px-4 py-3 text-gray-900 dark:text-white font-medium shadow-sm focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-2"
-          >
-            {PRONOUN_OPTIONS.map((option) => (
-              <option key={option.id} value={option.id}>
-                {option.label}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        <details className="mb-6 rounded-2xl bg-white/10 dark:bg-white/5 border border-white/20 dark:border-white/10 text-white">
-          <summary className="flex items-center justify-between px-4 py-3 cursor-pointer text-sm font-semibold">
-            <span>{t("editor.details.summaryTitle")}</span>
-            <span className="text-xs text-white/60">{t("editor.details.summaryHint")}</span>
-          </summary>
-          <div className="px-4 pb-4">
-            <div className="mt-3 grid grid-cols-1 md:grid-cols-3 gap-3">
-              <div className="min-w-[200px] space-y-1">
-                <input
-                  value={studentFirstNameInput}
-                  onChange={(event) => setStudentFirstNameInput(event.target.value)}
-                  placeholder={t("editor.studentName.placeholder")}
-                  className="w-full bg-white/90 dark:bg-white/10 rounded-xl border border-white/40 dark:border-white/30 px-4 py-3 text-gray-900 dark:text-white font-medium shadow-sm focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-2"
-                />
-                {displayedStudentFirstName && (
-                  <p className="text-xs text-white/60">
-                    {t("editor.studentName.display", { name: displayedStudentFirstName })}
-                  </p>
-                )}
-              </div>
-              <input
-                value={subject}
-                onChange={(event) => setSubject(event.target.value)}
-                placeholder={t("editor.placeholder.subject")}
-                className="bg-white/90 dark:bg-white/10 rounded-xl border border-white/40 dark:border-white/30 px-4 py-3 text-gray-900 dark:text-white font-medium shadow-sm focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-2"
-              />
-              <input
-                value={gradeLevel}
-                onChange={(event) => setGradeLevel(event.target.value)}
-                placeholder={t("editor.placeholder.gradeLevel")}
-                className="bg-white/90 dark:bg-white/10 rounded-xl border border-white/40 dark:border-white/30 px-4 py-3 text-gray-900 dark:text-white font-medium shadow-sm focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-2"
+          <section className="space-y-2">
+            <span className="text-sm font-semibold text-gray-800 dark:text-gray-200 mb-2">{t("editor.mode.label")}</span>
+            <p className="text-xs text-gray-600 dark:text-gray-400 mb-3">{t("editor.mode.helper")}</p>
+            <div className="bg-white/10 border border-white/20 dark:bg-white/5 dark:border-white/10 rounded-xl p-1 shadow-inner">
+              <SegmentedControl
+                options={modeControlOptions}
+                value={mode}
+                onChange={(value) => setMode(value as ModeKey)}
+                ariaLabel={t("editor.mode.label")}
+                className="border-none bg-transparent p-0 shadow-none"
               />
             </div>
-          </div>
-        </details>
+          </section>
 
-        <Button
-          onClick={() => handleGenerate()}
-          disabled={!content.trim() || isGenerating}
-          className="w-full bg-gradient-to-br from-[#7c3aed] via-[#6d28d9] to-[#5b21b6] hover:shadow-[0_20px_56px_rgba(124,58,237,0.5),inset_0_2px_4px_rgba(255,255,255,0.3)] text-white dark:text-white text-base sm:text-lg font-bold py-5 sm:py-6 min-h-[52px] rounded-xl transition-all duration-200 shadow-[0_12px_32px_rgba(124,58,237,0.4),inset_0_1px_3px_rgba(255,255,255,0.25),inset_0_-1px_2px_rgba(0,0,0,0.1)] disabled:opacity-50 disabled:cursor-not-allowed focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 hover:-translate-y-1 hover:scale-[1.02] active:translate-y-0 active:scale-100 border border-white/20"
-          aria-label={t("button.generate")}
-        >
-          {isGenerating ? t("editor.generating.message") : t("button.generate")}
-        </Button>
+          <section className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <select
+              value={languageChoice}
+              onChange={handleLanguageChange}
+              aria-label={t("languageDropdown.label")}
+              className="bg-white/80 dark:bg-gray-800/80 border border-gray-300 dark:border-gray-600 shadow-sm rounded-xl px-4 py-3 text-gray-900 dark:text-white font-medium focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 hover:border-purple-400 dark:hover:border-purple-500 transition-colors"
+            >
+              <option value="en">English</option>
+              <option value="de">Deutsch</option>
+            </select>
+            <select
+              value={pronounPreference}
+              onChange={(event) => setPronounPreference(event.target.value as PronounPreference)}
+              className="bg-white/80 dark:bg-gray-800/80 border border-gray-300 dark:border-gray-600 shadow-sm rounded-xl px-4 py-3 text-gray-900 dark:text-white font-medium focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 hover:border-purple-400 dark:hover:border-purple-500 transition-colors"
+            >
+              {PRONOUN_OPTIONS.map((option) => (
+                <option key={option.id} value={option.id}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </section>
 
-        <div className="text-center mt-4 text-sm text-white/90 drop-shadow-[0_1px_4px_rgba(0,0,0,0.25)] font-medium">
-          {isLimitedUser ? (
-            <>{t("insights.draftsUsed", { used: draftsUsed, limit: draftsLimit })}</>
-          ) : (
-            <>{t("insights.unlimitedDrafts")}</>
-          )}
-        </div>
-        {isLimitedUser && (
-          <div className="text-center mt-3">
-            <Link href="/account">
-              <Button
-                className="bg-gradient-to-r from-[#a855f7] to-[#7c3aed] text-white border-transparent shadow-[0_8px_20px_rgba(124,58,237,0.35)] hover:shadow-[0_10px_28px_rgba(124,58,237,0.5)] hover:from-[#9333ea] hover:to-[#6b21a8]"
-              >
-                {t("account.billing.upgrade")}
-              </Button>
-            </Link>
-          </div>
-        )}
-        {onboardingVisible && !onboardingLoading && (
-          <div className="mt-6 rounded-2xl border border-white/20 bg-white/10 p-4 shadow-inner text-sm text-white">
+          <section>
+            <details className="rounded-xl bg-white/10 dark:bg-white/5 border border-white/20 dark:border-white/10 shadow-lg">
+              <summary className="flex items-center justify-between px-4 py-3 cursor-pointer text-sm font-semibold text-white/90">
+                <span>{t("editor.details.summaryTitle")}</span>
+                <span className="text-xs text-white/60">{t("editor.details.summaryHint")}</span>
+              </summary>
+              <div className="px-4 pb-4">
+                <div className="mt-3 grid grid-cols-1 md:grid-cols-3 gap-3">
+                  <div className="min-w-[200px] space-y-1">
+                    <input
+                      value={studentFirstNameInput}
+                      onChange={(event) => setStudentFirstNameInput(event.target.value)}
+                      placeholder={t("editor.studentName.placeholder")}
+                      className="w-full bg-white/90 dark:bg-white/10 rounded-xl border border-white/40 dark:border-white/30 px-4 py-3 text-gray-900 dark:text-white font-medium shadow-sm focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-2"
+                    />
+                    {displayedStudentFirstName && (
+                      <p className="text-xs text-white/60">
+                        {t("editor.studentName.display", { name: displayedStudentFirstName })}
+                      </p>
+                    )}
+                  </div>
+                  <input
+                    value={subject}
+                    onChange={(event) => setSubject(event.target.value)}
+                    placeholder={t("editor.placeholder.subject")}
+                    className="bg-white/90 dark:bg-white/10 rounded-xl border border-white/40 dark:border-white/30 px-4 py-3 text-gray-900 dark:text-white font-medium shadow-sm focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-2"
+                  />
+                  <input
+                    value={gradeLevel}
+                    onChange={(event) => setGradeLevel(event.target.value)}
+                    placeholder={t("editor.placeholder.gradeLevel")}
+                    className="bg-white/90 dark:bg-white/10 rounded-xl border border-white/40 dark:border-white/30 px-4 py-3 text-gray-900 dark:text-white font-medium shadow-sm focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-2"
+                  />
+                </div>
+              </div>
+            </details>
+          </section>
+
+          <section className="space-y-3 text-center">
+            <Button
+              onClick={() => handleGenerate()}
+              disabled={!content.trim() || isGenerating}
+              className="w-full bg-gradient-to-br from-[#7c3aed] via-[#6d28d9] to-[#5b21b6] hover:shadow-[0_20px_56px_rgba(124,58,237,0.5),inset_0_2px_4px_rgba(255,255,255,0.3)] text-white dark:text-white text-base sm:text-lg font-bold py-5 sm:py-6 min-h-[52px] rounded-xl transition-all duration-200 shadow-xl shadow-[0_12px_32px_rgba(124,58,237,0.4),inset_0_1px_3px_rgba(255,255,255,0.25),inset_0_-1px_2px_rgba(0,0,0,0.1)] disabled:opacity-50 disabled:cursor-not-allowed focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 hover:-translate-y-1 hover:scale-[1.02] active:translate-y-0 active:scale-100 border-2 border-white/30"
+              aria-label={t("button.generate")}
+            >
+              {isGenerating ? t("editor.generating.message") : t("button.generate")}
+            </Button>
+            <div className="text-sm text-white/90 drop-shadow-[0_1px_4px_rgba(0,0,0,0.25)] font-medium">
+              {isLimitedUser ? (
+                <>{t("insights.draftsUsed", { used: draftsUsed, limit: draftsLimit })}</>
+              ) : (
+                <>{t("insights.unlimitedDrafts")}</>
+              )}
+            </div>
+            {isLimitedUser && (
+              <div>
+                <Link href="/account">
+                  <Button
+                    className="bg-gradient-to-r from-[#a855f7] to-[#7c3aed] text-white border-transparent shadow-[0_8px_20px_rgba(124,58,237,0.35)] hover:shadow-[0_10px_28px_rgba(124,58,237,0.5)] hover:from-[#9333ea] hover:to-[#6b21a8]"
+                  >
+                    {t("account.billing.upgrade")}
+                  </Button>
+                </Link>
+              </div>
+            )}
+          </section>
+
+        {showWelcomeBox && (
+          <div className="rounded-xl border border-white/20 bg-white/10 p-4 shadow-lg text-sm text-white">
             <div className="flex flex-col gap-2">
               <p className="font-semibold">{t("editor.welcome.title")}</p>
               <p>
@@ -765,19 +882,37 @@ Examples:
                 </Link>
                 {t("editor.welcome.learnMoreSuffix")}
               </p>
-              <button
-                onClick={dismissOnboarding}
-                className="self-start rounded-full bg-white/20 px-3 py-1 text-xs font-semibold uppercase tracking-[0.1em] hover:bg-white/30 transition"
+              <Button
+                onClick={handleWelcomeDismiss}
+                variant="tertiary"
+                size="md"
+                aria-label={t("editor.welcome.dismiss")}
+                className="self-start h-11 px-4 text-xs font-semibold uppercase tracking-[0.1em] rounded-full transition focus-visible:ring-2 focus-visible:ring-offset-2"
               >
                 {t("editor.welcome.dismiss")}
-              </button>
+              </Button>
+              <label className="flex items-center gap-2 text-sm text-white/90 mt-2">
+                <input
+                  type="checkbox"
+                  checked={dontShowWelcome}
+                  onChange={handleDontShowAgain}
+                  className="rounded"
+                />
+                Don't show this again
+              </label>
             </div>
             {onboardingError && <p className="text-xs text-rose-200 mt-2">{onboardingError}</p>}
           </div>
         )}
+        </div>
 
-        <details className="mt-10 rounded-2xl bg-white/10 p-4 backdrop-blur border border-white/20 text-white">
-          <summary className="text-lg font-semibold cursor-pointer">{t("editor.history.title")}</summary>
+        <details className="mt-10 rounded-xl bg-white/10 p-4 backdrop-blur border border-white/20 text-white shadow-lg">
+          <summary className="text-lg font-semibold cursor-pointer flex items-center">
+            {t("editor.history.title")}
+            <span className="ml-1.5 px-2 py-0.5 bg-purple-100 dark:bg-purple-900/40 text-purple-700 dark:text-purple-300 text-xs font-semibold rounded-full">
+              {history.length}
+            </span>
+          </summary>
           <p className="text-sm text-white/70 mt-2">{t("editor.history.description")}</p>
           <p className="text-xs text-white/50 mt-1">
             {t("editor.history.storage")}{" "}
@@ -803,13 +938,13 @@ Examples:
           {!historyLoading && !history.length && (
             <p className="text-sm text-white/60 mt-2">{t("editor.history.empty")}</p>
           )}
-          <ul className="mt-4 space-y-3">
+          <ul className="mt-4 space-y-4">
             {history.map((item) => {
               const historyModeKey = (item.mode ?? DEFAULT_DRAFT_MODE) as ModeKey
               return (
                 <li
                   key={item.id}
-                  className="rounded-xl bg-white/20 p-3 border border-white/20 flex flex-col gap-1"
+                  className="rounded-xl bg-white/20 p-3 border border-white/20 flex flex-col gap-1 shadow-sm"
                 >
                   <div className="flex items-center justify-between text-sm text-white/80">
                     <span>
@@ -870,7 +1005,7 @@ Examples:
         </details>
 
         {isGenerating && (
-          <div className="mt-4 rounded-2xl bg-white/10 border border-white/20 p-4 text-sm text-white/90 shadow-inner">
+          <div className="mt-4 rounded-xl bg-white/10 border border-white/20 p-4 text-sm text-white/90 shadow-lg space-y-3">
             <p className="font-semibold text-white">
               {t("editor.generating.message")}
             </p>
@@ -910,28 +1045,33 @@ Examples:
         )}
 
         {generatedDraft && draftMetadata && (
-          <div className="mt-8 space-y-4">
-          <DraftOutput
-            draftText={generatedDraft}
-            tone={draftMetadata.toneUsed ?? selectedTone}
-            metadata={draftMetadata}
-            onSave={handleSaveDraft}
-            onEdit={handleEditDraft}
-            onRegenerate={handleRegenerateDraft}
-            onRewrite={handleRewriteDraft}
-            draftsUsed={draftsUsed}
-            draftsLimit={draftsLimit}
-            showUsageLimit={isLimitedUser}
-            structure={draftStructure ?? undefined}
-          />
+          <div className="mt-8 space-y-2">
+            {!isDiffViewOpen && (
+              <DraftOutput
+                draftText={generatedDraft}
+                tone={draftMetadata.toneUsed ?? selectedTone}
+                metadata={draftMetadata}
+                onSave={handleSaveDraft}
+                onEdit={handleEditDraft}
+                onRegenerate={handleRegenerateDraft}
+                onRewrite={handleRewriteDraft}
+                draftsUsed={draftsUsed}
+                draftsLimit={draftsLimit}
+                showUsageLimit={isLimitedUser}
+                structure={draftStructure ?? undefined}
+              />
+            )}
             {deescalationSummary?.wasDeescalated && (
-              <DeescalationBanner summary={deescalationSummary} />
+              <DeescalationBanner
+                summary={deescalationSummary}
+                onToggleDiffView={setIsDiffViewOpen}
+              />
             )}
           </div>
         )}
         {generatedDraft && draftMetadata && inputReframeTier && (
         <div className="mt-4 rounded-2xl bg-blue-50/80 dark:bg-slate-900/60 border border-blue-200 dark:border-blue-500/40 p-4 text-sm text-blue-900 dark:text-blue-200 shadow-inner">
-          <p>{REFRAME_NOTICE_TEXT}</p>
+          <p>{reframeNotice}</p>
         </div>
         )}
       </main>
@@ -949,3 +1089,7 @@ Examples:
     </div>
   )
 }
+
+
+
+

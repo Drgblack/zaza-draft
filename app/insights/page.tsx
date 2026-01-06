@@ -1,7 +1,7 @@
 "use client"
 
-import { useState } from "react"
-import { Download, Shield } from "lucide-react"
+import { useMemo, useState } from "react"
+import { ArrowLeft, CalendarDays, Download, Shield } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { Switch } from "@/components/ui/switch"
@@ -13,10 +13,27 @@ import { BadgesGrid } from "@/components/insights/badges-grid"
 import DataControlsExplainer from "@/components/insights/data-controls-explainer"
 import FooterSlim from "@/components/FooterSlim"
 import Link from "next/link"
-import { ArrowLeft } from "lucide-react"
 import { useLocale } from "@/hooks/use-locale"
 import { useTeacherPrefs } from "@/hooks/use-teacher-prefs"
 import { useAuth } from "@/hooks/use-auth"
+import { useRouter } from "next/navigation"
+import {
+  REMINDER_BUTTON_CLASS,
+  buildGoogleCalendarUrl,
+  buildIcsEvent,
+  getNextWednesdayAt,
+  handleGetStarted,
+  handleUpdatePreferences,
+} from "@/app/insights/suggestion-actions"
+import {
+  Dialog,
+  DialogClose,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
 
 // Mock data
 const mockMetrics = {
@@ -95,13 +112,64 @@ const mockBadges = [
   },
 ]
 
+const REMINDER_EVENT_TITLE = "Protected writing time - Zaza Draft"
+
 export default function InsightsPage() {
   const [dateRange, setDateRange] = useState<"7" | "30" | "90">("7")
   const [showWellbeing, setShowWellbeing] = useState(false)
   const [shareData, setShareData] = useState(true)
+  const [isReminderDialogOpen, setIsReminderDialogOpen] = useState(false)
   const { locale, t } = useLocale()
   const { prefs } = useTeacherPrefs()
   const { user } = useAuth()
+  const router = useRouter()
+  const reminderInsight = t("insights.suggestion.wednesday.desc")
+  const reminderHint = t("insights.suggestion.reminder.modalHint")
+  const reminderFootnote = t("insights.suggestion.reminder.modalFootnote")
+  const reminderEvent = useMemo(() => {
+    const start = getNextWednesdayAt(15, 30)
+    const end = new Date(start.getTime() + 15 * 60 * 1000)
+
+    return { start, end }
+  }, [])
+  const reminderStart = reminderEvent.start
+  const reminderEnd = reminderEvent.end
+  const calendarUrl = useMemo(
+    () =>
+      buildGoogleCalendarUrl({
+        title: REMINDER_EVENT_TITLE,
+        description: reminderInsight,
+        start: reminderStart,
+        end: reminderEnd,
+      }),
+    [reminderInsight, reminderStart, reminderEnd],
+  )
+  const formatTime = (date: Date) =>
+    date.toLocaleTimeString(locale, { hour: "numeric", minute: "2-digit" })
+  const reminderDateLabel = reminderStart.toLocaleDateString(locale, {
+    weekday: "long",
+    month: "long",
+    day: "numeric",
+  })
+  const reminderTimeLabel = `${formatTime(reminderStart)} – ${formatTime(reminderEnd)}`
+  const handleDownloadIcs = () => {
+    const payload = buildIcsEvent({
+      title: REMINDER_EVENT_TITLE,
+      description: reminderInsight,
+      start: reminderStart,
+      end: reminderEnd,
+    })
+    const blob = new Blob([payload], { type: "text/calendar" })
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement("a")
+    link.href = url
+    link.download = "protected-writing-time.ics"
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    URL.revokeObjectURL(url)
+    setIsReminderDialogOpen(false)
+  }
 
   const getFireIntensity = (days: number) => {
     if (days >= 15) return "🔥🔥🔥"
@@ -176,17 +244,17 @@ export default function InsightsPage() {
             </div>
           </div>
 
-          <div className="flex gap-2 mt-4">
+          <div className="flex flex-wrap gap-6 mt-4">
             {(["7", "30", "90"] as const).map((days) => (
               <Button
                 key={days}
-                variant={dateRange === days ? "default" : "outline"}
+                variant={dateRange === days ? "secondary" : "ghost"}
                 size="sm"
                 onClick={() => setDateRange(days)}
-                className={`rounded-full ${
+                className={`rounded-lg px-4 py-2 text-sm font-semibold transition-all duration-200 ${
                   dateRange === days
-                    ? "bg-white text-purple-600 hover:bg-white/90 shadow-lg"
-                    : "bg-white/10 backdrop-blur-md border-white/20 text-white hover:bg-white/20"
+                    ? "bg-white/20 border border-white/30 text-purple-600 shadow-sm"
+                    : "bg-white/10 border border-transparent text-white hover:bg-white/15 hover:border-white/30"
                 }`}
               >
                 {t(`insights.filter.last${days}` as any)}
@@ -197,7 +265,8 @@ export default function InsightsPage() {
       </header>
 
       <main className="flex-1 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 w-full">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 mb-10">
+        <div className="space-y-10">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-10">
           <StatCard
             title={t("insights.timeSaved.title")}
             value={t("insights.timeSaved.hours", { hours: "4.2" })}
@@ -270,7 +339,7 @@ export default function InsightsPage() {
           />
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-10">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
           <TimeHeatmap
             data={mockHeatmapData}
             title={t("insights.heatmap.title")}
@@ -284,7 +353,7 @@ export default function InsightsPage() {
           />
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-10">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
           <ConfidenceChart
             data={mockConfidenceData}
             title={t("insights.confidence.title")}
@@ -293,7 +362,7 @@ export default function InsightsPage() {
           <BadgesGrid badges={mockBadges} />
         </div>
 
-        <Card className="p-6 mb-10 bg-white/85 dark:bg-white/10 backdrop-blur-2xl border-white/30 shadow-2xl shadow-purple-500/10">
+        <Card className="p-6 bg-white/85 dark:bg-white/10 backdrop-blur-2xl border-white/30 shadow-2xl shadow-purple-500/10">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2">
               <h2 className="text-xl font-semibold text-gray-900 dark:text-white">{t("insights.wellbeing.title")}</h2>
@@ -395,10 +464,10 @@ export default function InsightsPage() {
           )}
         </Card>
 
-        <div className="mb-10">
+        <div>
           <h2 className="text-2xl font-bold mb-6 text-gray-900 dark:text-white">{t("insights.suggestions.title")}</h2>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <Card className="p-6 hover:shadow-2xl hover:shadow-purple-500/20 transition-all duration-300 hover:-translate-y-1 bg-white/85 dark:bg-white/15 backdrop-blur-xl border-white/30 shadow-lg">
+            <Card className="p-6 rounded-2xl border border-gray-200 bg-white/95 text-gray-900 shadow-xl transition-all duration-300 hover:shadow-2xl">
               <span className="text-3xl mb-3 block filter drop-shadow-lg">💡</span>
               <h3 className="font-semibold mb-2 text-gray-900 dark:text-white">
                 {t("insights.suggestion.empathetic.title")}
@@ -408,13 +477,15 @@ export default function InsightsPage() {
               </p>
               <Button
                 size="sm"
-                className="w-full bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800 text-white shadow-lg shadow-purple-500/30"
+                type="button"
+                onClick={() => handleUpdatePreferences(router)}
+                className="w-full rounded-lg bg-gradient-to-r from-purple-600 to-purple-700 text-white shadow-lg"
               >
                 {t("insights.suggestion.empathetic.cta")}
               </Button>
             </Card>
 
-            <Card className="p-6 hover:shadow-2xl hover:shadow-purple-500/20 transition-all duration-300 hover:-translate-y-1 bg-white/85 dark:bg-white/15 backdrop-blur-xl border-white/30 shadow-lg">
+            <Card className="p-6 rounded-2xl border border-gray-200 bg-white/95 text-gray-900 shadow-xl transition-all duration-300 hover:shadow-2xl">
               <span className="text-3xl mb-3 block filter drop-shadow-lg">📅</span>
               <h3 className="font-semibold mb-2 text-gray-900 dark:text-white">
                 {t("insights.suggestion.wednesday.title")}
@@ -422,8 +493,9 @@ export default function InsightsPage() {
               <p className="text-sm text-gray-600 dark:text-white/80 mb-4">{t("insights.suggestion.wednesday.desc")}</p>
               <Button
                 variant="outline"
-                size="sm"
-                className="w-full bg-white/20 backdrop-blur-md border-purple-200 dark:border-purple-400/30 text-gray-900 dark:text-white hover:bg-white/30"
+                type="button"
+                onClick={() => setIsReminderDialogOpen(true)}
+                className={REMINDER_BUTTON_CLASS}
               >
                 {t("insights.suggestion.wednesday.cta")}
               </Button>
@@ -432,7 +504,10 @@ export default function InsightsPage() {
             <Card className="p-6 hover:shadow-2xl hover:shadow-purple-500/30 transition-all duration-300 hover:-translate-y-1 border-2 border-purple-300 dark:border-purple-400/40 bg-white/85 dark:bg-white/15 backdrop-blur-xl shadow-xl shadow-purple-500/20">
               <div className="flex items-center gap-2 mb-3">
                 <span className="text-3xl filter drop-shadow-lg">⭐</span>
-                <span className="text-xs font-semibold bg-purple-100 dark:bg-purple-500/30 text-purple-700 dark:text-purple-300 px-2 py-1 rounded-full shadow-sm">
+                <span
+                  className="text-xs font-bold text-white bg-gradient-to-r from-yellow-500 to-orange-500 px-3 py-1 rounded-full shadow-lg animate-pulse"
+                  aria-hidden="true"
+                >
                   {t("insights.suggestion.badge.new")}
                 </span>
               </div>
@@ -444,6 +519,8 @@ export default function InsightsPage() {
               </p>
               <Button
                 size="sm"
+                type="button"
+                onClick={() => handleGetStarted(router)}
                 className="w-full bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800 text-white shadow-lg shadow-purple-500/30"
               >
                 {t("insights.suggestion.classBrain.cta")}
@@ -452,16 +529,76 @@ export default function InsightsPage() {
           </div>
         </div>
 
+      </div>
+
+      <div className="mt-10">
         <DataControlsExplainer
-  shareData={shareData}
-  onShareDataChange={setShareData}
-  onPrivacySettingsClick={() => {
-    // TODO: wire to real settings modal later
-    window.location.href = "/privacy"
-  }}
-/>
+          shareData={shareData}
+          onShareDataChange={setShareData}
+          onPrivacySettingsClick={() => {
+            // TODO: wire to real settings modal later
+            window.location.href = "/privacy"
+          }}
+        />
+      </div>
 
       </main>
+
+      <Dialog open={isReminderDialogOpen} onOpenChange={setIsReminderDialogOpen}>
+        <DialogContent className="relative w-full max-w-md space-y-6 rounded-3xl border border-white/30 bg-white/90 p-8 shadow-2xl shadow-purple-500/30 dark:border-white/20 dark:bg-gray-900/80">
+          <DialogClose
+            className="absolute right-4 top-4 rounded-full p-1 text-gray-600 transition hover:bg-gray-100 hover:text-gray-900 dark:text-gray-300 dark:hover:bg-gray-700"
+            aria-label="Close reminder"
+          />
+          <DialogHeader className="text-left">
+            <DialogTitle className="text-3xl font-bold text-gray-900 dark:text-white">
+              {t("insights.suggestion.wednesday.title")}
+            </DialogTitle>
+            <DialogDescription className="text-sm text-gray-600 dark:text-gray-300">
+              {reminderHint}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="rounded-lg border border-gray-200 bg-gray-50 p-4 shadow-sm space-y-2">
+            <div className="flex items-center gap-2 text-gray-800">
+              <CalendarDays className="h-5 w-5" />
+              <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                {t("insights.suggestion.reminder.nextEvent") ?? "Next event"}
+              </span>
+            </div>
+            <p className="text-xl font-semibold text-gray-900 dark:text-white">{reminderDateLabel}</p>
+            <p className="text-lg font-semibold text-gray-900 dark:text-white">{reminderTimeLabel}</p>
+            <p className="text-sm leading-relaxed text-gray-600 dark:text-gray-300">{reminderInsight}</p>
+          </div>
+
+          <DialogFooter className="flex flex-col items-center gap-3 pt-4 w-full">
+            <Button
+              asChild
+              className="w-full rounded-lg bg-purple-600 py-3 text-base font-semibold text-white transition-all duration-200 hover:bg-purple-500"
+            >
+              <a
+                href={calendarUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={() => setIsReminderDialogOpen(false)}
+              >
+                {t("insights.suggestion.reminder.openCalendar")}
+              </a>
+            </Button>
+            <Button
+              variant="outline"
+              className="w-full rounded-lg border-2 border-purple-600 py-3 text-base font-semibold text-purple-600 transition-all duration-200 hover:bg-purple-50 dark:hover:bg-purple-900/20"
+              onClick={handleDownloadIcs}
+            >
+              {t("insights.suggestion.reminder.downloadIcs")}
+            </Button>
+          </DialogFooter>
+
+          <p className="text-sm text-gray-500 dark:text-gray-400">
+            {reminderFootnote}
+          </p>
+        </DialogContent>
+      </Dialog>
 
       <FooterSlim />
     </div>

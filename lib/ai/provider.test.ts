@@ -23,4 +23,15 @@ describe("buildSystemPrompt", () => {
     const prompt = buildSystemPrompt(baseInput)
     expect(prompt).not.toContain("Respond strictly in German")
   })
+
+  it("adds the DE tone contract when the locale is German", () => {
+    const prompt = buildSystemPrompt({
+      ...baseInput,
+      uiLocale: "de-DE",
+    })
+    expect(prompt).toContain("DE tone contract")
+    expect(prompt).toContain("Lügen")
+    expect(prompt).toContain("Ich möchte gemeinsam mit Ihnen")
+    expect(prompt).toContain("Können wir einen kurzen Termin vereinbaren")
+  })
 })

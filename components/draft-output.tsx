@@ -4,7 +4,7 @@ import { Copy, Check, Save, FileText, Edit3, RefreshCw, AlertCircle, ChevronDown
 import { useEffect, useMemo, useRef, useState } from "react"
 import { SaveDraftModal } from "./save-draft-modal"
 import type { DraftMode } from "@/lib/types"
-import type { DraftStructure } from "@/lib/draft/format"
+import { DraftStructure, formatDraftText, CLOSING_REGEX } from "@/lib/draft/format"
 import { MODE_LABEL_KEYS, DEFAULT_DRAFT_MODE } from "@/lib/draft-mode"
 import { useLocale } from "@/hooks/use-locale"
 
@@ -46,33 +46,36 @@ export function DraftOutput({
   const { locale, t } = useLocale()
   const modeKey = (metadata.modeUsed ?? DEFAULT_DRAFT_MODE) as keyof typeof MODE_LABEL_KEYS
   const modeLabel = t(MODE_LABEL_KEYS[modeKey])
-  const fallbackParagraphs = draftText
-    .split(/\n\s*\n+/)
-    .map((paragraph) => paragraph.trim())
-    .filter(Boolean)
-  const paragraphs =
-    structure && structure.paragraphs.length
-      ? structure.paragraphs
-      : fallbackParagraphs.length
-      ? fallbackParagraphs
-      : draftText.trim()
-      ? [draftText.trim()]
-      : []
+  const { displaySubject, displayParagraphs, signatureParagraph } = useMemo(() => {
+    const resolvedStructure = structure ?? formatDraftText(draftText)
+    const subject = modeKey === "parent_message" ? resolvedStructure.subject : undefined
+    const paragraphs = [...(resolvedStructure.paragraphs ?? [])]
+    let signature: string | undefined
+    if (paragraphs.length && CLOSING_REGEX.test(paragraphs[paragraphs.length - 1])) {
+      signature = paragraphs.pop()
+    }
+    return {
+      displaySubject: subject,
+      displayParagraphs: paragraphs,
+      signatureParagraph: signature,
+    }
+  }, [structure, draftText, modeKey])
   const clipboardText = useMemo(() => {
     const segments: string[] = []
-    if (structure?.subject) {
-      segments.push(`Subject: ${structure.subject}`, "")
+    if (displaySubject) {
+      segments.push(`Subject: ${displaySubject}`, "")
     }
-    if (paragraphs.length) {
-      segments.push(paragraphs.join("\n\n"))
-    } else if (draftText.trim()) {
-      segments.push(draftText.trim())
+    if (displayParagraphs.length) {
+      segments.push(displayParagraphs.join("\n\n"))
+    }
+    if (signatureParagraph) {
+      segments.push(signatureParagraph)
     }
     if (!segments.length) {
       return ""
     }
     return segments.join("\n").trim()
-  }, [structure, paragraphs, draftText])
+  }, [displaySubject, displayParagraphs, signatureParagraph])
   // Copy to clipboard with rich text support
   const handleCopy = async () => {
     try {
@@ -259,20 +262,28 @@ export function DraftOutput({
         )}
 
         {/* Generated Text */}
-        <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-4 mb-4 space-y-4 sm:space-y-5">
-          {structure?.subject && (
+        <div
+          className="bg-gray-50 dark:bg-gray-700 rounded-lg p-4 mb-4 space-y-4 sm:space-y-5 font-normal"
+          data-testid="draft-output-body"
+        >
+          {displaySubject && (
             <p className="font-semibold text-gray-900 dark:text-gray-100 border-b border-gray-200 dark:border-gray-600 pb-3 mb-0">
-              {t("editor.history.subjectLabel")}: {structure.subject}
+              {t("editor.history.subjectLabel")}: {displaySubject}
             </p>
           )}
-          {paragraphs.map((paragraph, index) => (
+          {displayParagraphs.map((paragraph, index) => (
             <p
-              key={`${paragraph.slice(0, 20)}-${index}`}
-              className="text-gray-900 dark:text-gray-100 whitespace-pre-wrap leading-relaxed text-sm sm:text-base"
+              key={`paragraph-${index}-${paragraph.slice(0, 16)}`}
+              className="text-gray-900 dark:text-gray-100 whitespace-pre-wrap leading-relaxed text-sm sm:text-base font-normal"
             >
               {paragraph}
             </p>
           ))}
+          {signatureParagraph && (
+            <p className="text-sm text-gray-600 dark:text-gray-300 whitespace-pre-wrap border-t border-gray-200 dark:border-gray-600 pt-3">
+              {signatureParagraph}
+            </p>
+          )}
         </div>
 
         {/* Metadata */}

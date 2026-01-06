@@ -32,6 +32,11 @@ export function parseAcceptLanguage(header?: string | null): LanguageKey | null 
     .find((lang): lang is LanguageKey => lang !== null) ?? null
 }
 
+export function resolveLanguageChoiceFromLocale(locale?: string | null): LanguageKey {
+  const normalized = normalizeLangInput(locale ?? undefined)
+  return normalized === "de" ? "de" : "en"
+}
+
 export interface ResolveOutputLanguageOptions {
   explicit?: string
   preferred?: string
