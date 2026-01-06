@@ -1,5 +1,5 @@
-@import 'tailwindcss';
-@import 'tw-animate-css';
+@import "tailwindcss";
+@import "tw-animate-css";
 
 @custom-variant dark (&:is(.dark *));
 
@@ -75,14 +75,16 @@
 }
 
 @theme inline {
-  --font-sans: 'Geist', 'Geist Fallback';
-  --font-mono: 'Geist Mono', 'Geist Mono Fallback';
+  --font-sans: "Geist", "Geist Fallback";
+  --font-mono: "Geist Mono", "Geist Mono Fallback";
+
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-card: var(--card);
   --color-card-foreground: var(--card-foreground);
   --color-popover: var(--popover);
   --color-popover-foreground: var(--popover-foreground);
+
   --color-primary: var(--primary);
   --color-primary-foreground: var(--primary-foreground);
   --color-neutral: var(--muted);
@@ -91,17 +93,31 @@
   --color-highlight-foreground: var(--accent-foreground);
   --color-document: var(--secondary);
   --color-document-foreground: var(--secondary-foreground);
+
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
+
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
   --radius-xl: calc(var(--radius) + 4px);
+
   --shadow-soft: 0 12px 30px rgba(0, 0, 0, 0.15);
-  --shadow-neumorphic: inset 0 1px 2px rgba(255, 255, 255, 0.6), inset 0 -1px 2px rgba(0, 0, 0, 0.25);
+  --shadow-neumorphic: inset 0 1px 2px rgba(255, 255, 255, 0.6),
+    inset 0 -1px 2px rgba(0, 0, 0, 0.25);
   --shadow-focus: 0 0 0 3px rgba(124, 58, 237, 0.35);
+
+  /* Added tokens for button hover/active surfaces + alias used by buttons.tsx */
+  --color-surface: var(--card);
+  --color-surface-hover: color-mix(in oklch, var(--card) 92%, var(--foreground));
+  --color-surface-active: color-mix(in oklch, var(--card) 86%, var(--foreground));
+  --color-primary-hover: color-mix(in oklch, var(--primary) 92%, var(--foreground));
+  --color-primary-active: color-mix(in oklch, var(--primary) 86%, var(--foreground));
+  --shadow-neu: var(--shadow-neumorphic);
+
   --transition-standard: 250ms cubic-bezier(0.4, 0, 0.2, 1);
+
   --font-size-sm: 0.75rem;
   --font-size-md: 0.9375rem;
   --font-size-lg: 1rem;
@@ -112,10 +128,12 @@
   * {
     @apply border-border outline-none;
   }
+
   body {
     @apply bg-background text-foreground;
     font-family: var(--font-sans);
   }
+
   :focus-visible {
     outline: 3px solid rgba(124, 58, 237, 0.8);
     outline-offset: 2px;
