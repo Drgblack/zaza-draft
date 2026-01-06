@@ -8,30 +8,41 @@ import { Card } from "@/components/ui/card"
 import FooterSlim from "@/components/FooterSlim"
 import { useTeacherPrefs } from "@/hooks/use-teacher-prefs"
 import { useLocale } from "@/hooks/use-locale"
+import type { Locale } from "@/hooks/use-locale"
 import { backToDraftButtonClasses } from "@/lib/ui/back-to-draft"
 
-const LANGUAGE_LABELS: Record<string, string> = {
+const LANGUAGE_DISPLAY_NAMES: Record<Locale, Record<string, string>> = {
+  "en-GB": { en: "English", de: "Deutsch" },
+  "en-US": { en: "English", de: "Deutsch" },
+  "de-DE": { en: "Englisch", de: "Deutsch" },
+}
+const FALLBACK_LANGUAGE_NAMES: Record<string, string> = {
   en: "English",
   de: "Deutsch",
 }
+
+const getLanguageLabel = (locale: Locale, code: string) =>
+  LANGUAGE_DISPLAY_NAMES[locale]?.[code] ?? FALLBACK_LANGUAGE_NAMES[code] ?? code
 
 const CARD_BASE =
   "relative min-h-[320px] rounded-2xl border border-gray-200 bg-white/95 p-8 text-gray-900 shadow-2xl shadow-purple-900/40 transition-all duration-300 backdrop-blur-sm"
 const LOCKED_CARD = `${CARD_BASE} opacity-90 cursor-not-allowed`
 const INTERACTIVE_CARD =
   `${CARD_BASE} cursor-pointer hover:shadow-[0_25px_45px_rgba(99,102,241,0.35)] hover:scale-[1.01] hover:border-white/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-purple-400`
-const SAFEGUARD_CARD = "min-h-[320px] rounded-2xl border border-gray-200 bg-blue-50/30 p-8 text-gray-900 shadow-2xl shadow-purple-900/20"
+const SAFEGUARD_CARD =
+  "min-h-[320px] rounded-2xl border border-gray-200 bg-blue-50/70 p-8 text-gray-900 shadow-2xl shadow-purple-900/20"
 const LOCKED_BADGE =
   "flex items-center gap-2 rounded-full border border-purple-300 bg-purple-100/90 px-3 py-1.5 text-xs font-semibold text-purple-700"
 
 export default function SettingsPage() {
   const { prefs } = useTeacherPrefs()
   const router = useRouter()
-  const { t } = useLocale()
+  const { t, locale } = useLocale()
   const signatureLines = [prefs.signatureLine1, prefs.signatureLine2, prefs.signatureLine3].filter(
     Boolean,
   )
   const [isSaving, setIsSaving] = useState(false)
+  const languageLabel = getLanguageLabel(locale, prefs.preferredLanguage)
 
   const handleReturn = () => {
     if (isSaving) return
@@ -81,7 +92,7 @@ export default function SettingsPage() {
                   {t("settings.cards.language.title")}
                 </p>
                 <p className="mb-2 text-3xl font-bold text-gray-900">
-                  {LANGUAGE_LABELS[prefs.preferredLanguage] ?? prefs.preferredLanguage}
+                  {languageLabel}
                 </p>
               </div>
               <ChevronRight
@@ -127,17 +138,17 @@ export default function SettingsPage() {
           </Card>
 
           <Card className={SAFEGUARD_CARD}>
-            <div className="flex items-center gap-2 text-gray-700">
+            <div className="flex items-center gap-2 text-gray-900">
               <Shield className="h-5 w-5 text-blue-500" />
-              <p className="text-xs font-semibold tracking-wider text-gray-700">
+              <p className="text-xs font-semibold tracking-wider text-gray-900">
                 {t("settings.cards.safeguard.title")}
               </p>
             </div>
             <div className="mt-1 flex items-center gap-2">
               <p className="text-3xl font-bold text-gray-900">{t("settings.cards.safeguard.subhead")}</p>
-              <Info className="h-5 w-5 text-gray-700" />
+              <Info className="h-5 w-5 text-gray-900" />
             </div>
-            <ul className="mt-3 space-y-3 text-sm leading-relaxed text-gray-700">
+            <ul className="mt-3 space-y-3 text-sm leading-relaxed text-gray-800">
               {["settings.cards.safeguard.list.1", "settings.cards.safeguard.list.2", "settings.cards.safeguard.list.3"].map(
                 (key) => (
                   <li key={key}>{t(key)}</li>

@@ -144,14 +144,27 @@ export default function InsightsPage() {
       }),
     [reminderInsight, reminderStart, reminderEnd],
   )
-  const formatTime = (date: Date) =>
-    date.toLocaleTimeString(locale, { hour: "numeric", minute: "2-digit" })
-  const reminderDateLabel = reminderStart.toLocaleDateString(locale, {
-    weekday: "long",
-    month: "long",
-    day: "numeric",
-  })
-  const reminderTimeLabel = `${formatTime(reminderStart)} – ${formatTime(reminderEnd)}`
+  const dateFormatter = useMemo(
+    () =>
+      new Intl.DateTimeFormat(locale, {
+        weekday: "long",
+        month: "long",
+        day: "numeric",
+      }),
+    [locale],
+  )
+  const timeFormatter = useMemo(
+    () =>
+      new Intl.DateTimeFormat(locale, {
+        hour: "numeric",
+        minute: "2-digit",
+      }),
+    [locale],
+  )
+  const reminderDateLabel = dateFormatter.format(reminderStart)
+  const reminderTimeLabel = `${timeFormatter.format(reminderStart)} - ${timeFormatter.format(
+    reminderEnd,
+  )}`
   const handleDownloadIcs = () => {
     const payload = buildIcsEvent({
       title: REMINDER_EVENT_TITLE,
@@ -563,7 +576,7 @@ export default function InsightsPage() {
             <div className="flex items-center gap-2 text-gray-800">
               <CalendarDays className="h-5 w-5" />
               <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">
-                {t("insights.suggestion.reminder.nextEvent") ?? "Next event"}
+                {t("insights.suggestion.reminder.nextEvent")}
               </span>
             </div>
             <p className="text-xl font-semibold text-gray-900 dark:text-white">{reminderDateLabel}</p>

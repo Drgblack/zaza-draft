@@ -334,6 +334,7 @@ export const localeMessages: Record<Locale, LocaleMessages> = {
       "Pick how you'd like to lock this protected writing time into your calendar.",
     "insights.suggestion.reminder.modalFootnote":
       "You can edit or cancel this reminder anytime from your calendar.",
+    "insights.suggestion.reminder.nextEvent": "Next event",
     "insights.suggestion.reminder.openCalendar": "Open Google Calendar",
     "insights.suggestion.reminder.downloadIcs": "Download .ics",
     "insights.suggestion.classBrain.title": "Unlock Class Brain",
@@ -872,6 +873,7 @@ export const localeMessages: Record<Locale, LocaleMessages> = {
       "Pick how you'd like to lock this protected writing time into your calendar.",
     "insights.suggestion.reminder.modalFootnote":
       "You can edit or cancel this reminder anytime from your calendar.",
+    "insights.suggestion.reminder.nextEvent": "Next event",
     "insights.suggestion.reminder.openCalendar": "Open Google Calendar",
     "insights.suggestion.reminder.downloadIcs": "Download .ics",
     "insights.suggestion.classBrain.title": "Unlock Class Brain",
@@ -1449,6 +1451,7 @@ export const localeMessages: Record<Locale, LocaleMessages> = {
       "Waehlen Sie, wie dieser Fokuszeitraum in Ihrem Kalender bleibt.",
     "insights.suggestion.reminder.modalFootnote":
       "Sie koennen die Erinnerung jederzeit in Ihrem Kalender bearbeiten oder loeschen.",
+    "insights.suggestion.reminder.nextEvent": "Naechstes Ereignis",
     "insights.suggestion.reminder.openCalendar": "Google Kalender oeffnen",
     "insights.suggestion.reminder.downloadIcs": ".ics herunterladen",
     "insights.suggestion.classBrain.title": "Klassengehirn freischalten",
