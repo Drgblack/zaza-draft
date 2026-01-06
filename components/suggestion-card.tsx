@@ -167,27 +167,16 @@ export function SuggestionCard({ suggestion, onAction, onSelect }: SuggestionCar
         <div className="flex items-center gap-2 pt-2">
           <Button
             size="sm"
+            variant="primary"
             onClick={handleApply}
+            loading={isApplying}
             disabled={isApplying}
-            className={cn(
-              "flex-1 rounded-xl bg-purple-600 hover:bg-purple-700 active:bg-purple-800 text-white",
-              "focus:outline-none focus-visible:ring-2 focus-visible:ring-purple-400",
-              "transition-all duration-200",
-              isApplying && "scale-95 opacity-80",
-            )}
+            leftIcon={!isApplying ? <Sparkles className="h-4 w-4 text-white" /> : undefined}
+            rightIcon={!isApplying ? <Check className="h-4 w-4 text-white" /> : undefined}
+            className="flex-1 rounded-xl transition-all duration-200 focus-visible:ring-2 focus-visible:ring-purple-400"
             aria-label="Apply this suggestion"
           >
-            {isApplying ? (
-              <>
-                <Sparkles className="h-4 w-4 mr-1 animate-spin" />
-                {t("panel.card.use")}
-              </>
-            ) : (
-              <>
-                <Check className="h-4 w-4 mr-1" />
-                {t("panel.card.use")}
-              </>
-            )}
+            {t("panel.card.use")}
           </Button>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
