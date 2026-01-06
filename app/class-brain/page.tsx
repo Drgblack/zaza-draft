@@ -66,8 +66,10 @@ export default function ClassBrainPage() {
           </div>
           <Button asChild className={`${backToDraftButtonClasses} ml-auto`}>
             <Link href="/">
-              <ArrowLeft className="h-4 w-4" />
-              Back to Draft
+              <span className="flex items-center gap-2">
+                <ArrowLeft className="h-4 w-4" />
+                Back to Draft
+              </span>
             </Link>
           </Button>
         </div>

@@ -3,6 +3,7 @@
 import { Clock, Flame, Heart, ChevronRight, TrendingUp, Sparkles } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { useState, useEffect } from "react"
+import { Button } from "@/components/ui/button"
 import { useLocale } from "@/hooks/use-locale"
 
 interface InsightsData {
@@ -131,14 +132,16 @@ export function MiniInsightsBar() {
             <Sparkles className="w-4 h-4 flex-shrink-0" />
             <span>{t("insights.mini.createFirstDraft")}</span>
           </div>
-          <button
+          <Button
+            variant="secondary"
+            size="sm"
             onClick={() => router.push("/insights")}
-            className="flex items-center gap-1 text-xs text-primary dark:text-primary hover:text-primary dark:hover:text-primary transition-colors duration-200 focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 rounded whitespace-nowrap flex-shrink-0"
+            className="gap-2 px-3 py-1.5 rounded-full shadow-none text-xs"
             aria-label={t("insights.mini.learnMore")}
           >
             <span>{t("insights.mini.learnMore")}</span>
             <ChevronRight className="w-3 h-3" />
-          </button>
+          </Button>
         </div>
       </div>
     )
@@ -149,8 +152,13 @@ export function MiniInsightsBar() {
   const balanceText = formatBalanceText(data.balance!.score)
 
   const animationClass = prefersReducedMotion ? "" : "animate-fade-in"
-  const badgeClass =
-    "flex items-center gap-2 px-3 py-2 rounded-2xl border border-white/20 dark:border-gray-700/50 bg-white/70 dark:bg-gray-900/60 backdrop-blur-sm shadow-sm text-sm font-semibold whitespace-nowrap transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-white/40"
+  const badgeBase =
+    "flex items-center gap-2 px-3 py-2 rounded-2xl border shadow-[inset_0_1px_4px_rgba(255,255,255,0.7),0_6px_16px_rgba(0,0,0,0.08)] transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-purple-500/60 focus-visible:ring-offset-white/70 text-sm font-semibold whitespace-nowrap"
+  const badgeStyles = {
+    time: "border-purple-200 bg-white/90 text-purple-900 dark:border-purple-600 dark:bg-white/10 dark:text-purple-100",
+    streak: "border-orange-200 bg-white/90 text-orange-900 dark:border-orange-500 dark:bg-white/10 dark:text-orange-100",
+    balance: "border-emerald-200 bg-white/90 text-emerald-900 dark:border-emerald-500 dark:bg-white/10 dark:text-emerald-100",
+  }
 
   return (
     <div
@@ -159,10 +167,10 @@ export function MiniInsightsBar() {
       aria-label={t("insights.mini.regionLabel")}
     >
       <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-        <div className="flex flex-row flex-wrap items-center gap-2 flex-1 min-w-0 w-full lg:flex-nowrap">
+        <div className="flex flex-row flex-wrap items-center gap-3 flex-1 min-w-0 w-full lg:flex-nowrap">
           <button
             onClick={() => router.push("/insights#time-saved")}
-            className={`${badgeClass} text-purple-900 dark:text-purple-100 focus-visible:ring-purple-600`}
+            className={`${badgeBase} ${badgeStyles.time}`}
             aria-label={t("insights.mini.viewTime")}
             title={t("insights.mini.viewTime")}
           >
@@ -181,12 +189,11 @@ export function MiniInsightsBar() {
               )}
               {timeText.text}
             </span>
-            <span className="text-purple-600 dark:text-purple-300">📋</span>
           </button>
 
           <button
             onClick={() => router.push("/insights#streak")}
-            className={`${badgeClass} text-orange-900 dark:text-orange-100 focus-visible:ring-orange-600`}
+            className={`${badgeBase} ${badgeStyles.streak}`}
             aria-label={t("insights.mini.viewStreak")}
             title={t("insights.mini.viewStreak")}
           >
@@ -200,7 +207,7 @@ export function MiniInsightsBar() {
 
           <button
             onClick={() => router.push("/insights#wellbeing")}
-            className={`${badgeClass} text-emerald-900 dark:text-emerald-100 focus-visible:ring-emerald-600`}
+            className={`${badgeBase} ${badgeStyles.balance}`}
             aria-label={t("insights.mini.viewBalance")}
             title={t("insights.mini.viewBalance")}
           >
@@ -213,18 +220,16 @@ export function MiniInsightsBar() {
           </button>
         </div>
 
-        <button
+        <Button
+          variant="secondary"
+          size="sm"
+          className="flex-shrink-0 gap-2 px-3 py-2 rounded-full text-xs font-semibold transition-transform duration-200 hover:-translate-y-0.5"
           onClick={() => router.push("/insights")}
-          className="flex items-center gap-1 text-xs text-purple-800 dark:text-purple-200 hover:text-purple-900 dark:hover:text-purple-100 transition-colors duration-200 group whitespace-nowrap flex-shrink-0 self-start lg:self-auto focus-visible:ring-2 focus-visible:ring-purple-600 focus-visible:ring-offset-2 rounded font-bold"
           aria-label={t("insights.mini.viewInsights")}
         >
           <span>{t("insights.mini.viewInsights")}</span>
-          <ChevronRight
-            className="w-3 h-3 group-hover:translate-x-0.5 transition-transform"
-            aria-hidden="true"
-            strokeWidth={2.5}
-          />
-        </button>
+          <ChevronRight className="w-3 h-3" aria-hidden="true" strokeWidth={2.5} />
+        </Button>
       </div>
 
       <div className="sr-only">

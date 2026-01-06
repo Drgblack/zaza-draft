@@ -882,12 +882,15 @@ Examples:
                 </Link>
                 {t("editor.welcome.learnMoreSuffix")}
               </p>
-              <button
+              <Button
                 onClick={handleWelcomeDismiss}
-                className="self-start rounded-full bg-white/20 px-3 py-1 text-xs font-semibold uppercase tracking-[0.1em] hover:bg-white/30 transition"
+                variant="tertiary"
+                size="md"
+                aria-label={t("editor.welcome.dismiss")}
+                className="self-start h-11 px-4 text-xs font-semibold uppercase tracking-[0.1em] rounded-full transition focus-visible:ring-2 focus-visible:ring-offset-2"
               >
                 {t("editor.welcome.dismiss")}
-              </button>
+              </Button>
               <label className="flex items-center gap-2 text-sm text-white/90 mt-2">
                 <input
                   type="checkbox"

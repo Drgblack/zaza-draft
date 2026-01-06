@@ -248,7 +248,7 @@ export default function InsightsPage() {
             {(["7", "30", "90"] as const).map((days) => (
               <Button
                 key={days}
-                variant={dateRange === days ? "default" : "outline"}
+                variant={dateRange === days ? "secondary" : "ghost"}
                 size="sm"
                 onClick={() => setDateRange(days)}
                 className={`rounded-lg px-4 py-2 text-sm font-semibold transition-all duration-200 ${
