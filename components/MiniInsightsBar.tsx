@@ -153,7 +153,11 @@ export function MiniInsightsBar() {
 
   const animationClass = prefersReducedMotion ? "" : "animate-fade-in"
   const badgeBase =
+<<<<fix/i18n-de-zara-textarea
     "flex items-center gap-2 px-3 py-2 rounded-2xl border shadow-[inset_0_1px_4px_rgba(255,255,255,0.7),0_6px_16px_rgba(0,0,0,0.08)] transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-purple-500/60 focus-visible:ring-offset-white/70 text-sm font-semibold whitespace-nowrap cursor-pointer motion-safe:transition-shadow motion-safe:transform hover:-translate-y-[1px] hover:shadow-[0_12px_35px_rgba(0,0,0,0.12)] active:translate-y-0 motion-reduce:transition-none motion-reduce:transform-none"
+====
+    "flex items-center gap-2 px-3 py-2 rounded-2xl border shadow-[inset_0_1px_4px_rgba(255,255,255,0.7),0_6px_16px_rgba(0,0,0,0.08)] transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-purple-500/60 focus-visible:ring-offset-white/70 text-sm font-semibold whitespace-nowrap"
+>>>> main
   const badgeStyles = {
     time: "border-purple-200 bg-white/90 text-purple-900 dark:border-purple-600 dark:bg-white/10 dark:text-purple-100",
     streak: "border-orange-200 bg-white/90 text-orange-900 dark:border-orange-500 dark:bg-white/10 dark:text-orange-100",
