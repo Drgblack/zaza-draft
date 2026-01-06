@@ -1,7 +1,7 @@
 "use client"
 
 export const REMINDER_BUTTON_CLASS =
-  "w-full bg-white/20 backdrop-blur-md border-purple-200 dark:border-purple-400/30 text-gray-900 dark:text-white hover:bg-white/30 dark:hover:bg-white/20 hover:text-gray-900 dark:hover:text-white focus-visible:border-purple-300 focus-visible:ring-2 focus-visible:ring-purple-200/60 transition-all duration-300 shadow-sm hover:!text-gray-900 dark:hover:!text-white"
+  "w-full rounded-lg border-2 border-purple-600 bg-white px-4 py-3 text-base font-semibold text-purple-600 shadow-sm transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-purple-400 hover:bg-purple-50 hover:text-gray-900 dark:hover:text-white hover:!text-gray-900 dark:hover:!text-white"
 
 interface RouterWithPush {
   push: (url: string) => void

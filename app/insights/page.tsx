@@ -467,7 +467,7 @@ export default function InsightsPage() {
         <div>
           <h2 className="text-2xl font-bold mb-6 text-gray-900 dark:text-white">{t("insights.suggestions.title")}</h2>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <Card className="p-6 hover:shadow-2xl hover:shadow-purple-500/20 transition-all duration-300 hover:-translate-y-1 bg-white/85 dark:bg-white/15 backdrop-blur-xl border-white/30 shadow-lg">
+            <Card className="p-6 rounded-2xl border border-gray-200 bg-white/95 text-gray-900 shadow-xl transition-all duration-300 hover:shadow-2xl">
               <span className="text-3xl mb-3 block filter drop-shadow-lg">💡</span>
               <h3 className="font-semibold mb-2 text-gray-900 dark:text-white">
                 {t("insights.suggestion.empathetic.title")}
@@ -479,13 +479,13 @@ export default function InsightsPage() {
                 size="sm"
                 type="button"
                 onClick={() => handleUpdatePreferences(router)}
-                className="w-full bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800 text-white shadow-lg shadow-purple-500/30"
+                className="w-full rounded-lg bg-gradient-to-r from-purple-600 to-purple-700 text-white shadow-lg"
               >
                 {t("insights.suggestion.empathetic.cta")}
               </Button>
             </Card>
 
-            <Card className="p-6 hover:shadow-2xl hover:shadow-purple-500/20 transition-all duration-300 hover:-translate-y-1 bg-white/85 dark:bg-white/15 backdrop-blur-xl border-white/30 shadow-lg">
+            <Card className="p-6 rounded-2xl border border-gray-200 bg-white/95 text-gray-900 shadow-xl transition-all duration-300 hover:shadow-2xl">
               <span className="text-3xl mb-3 block filter drop-shadow-lg">📅</span>
               <h3 className="font-semibold mb-2 text-gray-900 dark:text-white">
                 {t("insights.suggestion.wednesday.title")}
@@ -493,7 +493,6 @@ export default function InsightsPage() {
               <p className="text-sm text-gray-600 dark:text-white/80 mb-4">{t("insights.suggestion.wednesday.desc")}</p>
               <Button
                 variant="outline"
-                size="sm"
                 type="button"
                 onClick={() => setIsReminderDialogOpen(true)}
                 className={REMINDER_BUTTON_CLASS}
@@ -560,7 +559,7 @@ export default function InsightsPage() {
             </DialogDescription>
           </DialogHeader>
 
-          <div className="rounded-lg border border-gray-200 bg-purple-50/30 p-4 shadow-sm space-y-2">
+          <div className="rounded-lg border border-gray-200 bg-gray-50 p-4 shadow-sm space-y-2">
             <div className="flex items-center gap-2 text-gray-800">
               <CalendarDays className="h-5 w-5" />
               <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">
@@ -572,11 +571,10 @@ export default function InsightsPage() {
             <p className="text-sm leading-relaxed text-gray-600 dark:text-gray-300">{reminderInsight}</p>
           </div>
 
-          <DialogFooter className="flex flex-col gap-3 pt-4">
+          <DialogFooter className="flex flex-col items-center gap-3 pt-4 w-full">
             <Button
               asChild
-              size="sm"
-              className="w-full rounded-lg bg-purple-600 py-3 text-base font-semibold text-white hover:bg-purple-500"
+              className="w-full rounded-lg bg-purple-600 py-3 text-base font-semibold text-white transition-all duration-200 hover:bg-purple-500"
             >
               <a
                 href={calendarUrl}
@@ -589,8 +587,7 @@ export default function InsightsPage() {
             </Button>
             <Button
               variant="outline"
-              size="sm"
-              className="w-full rounded-lg border-2 border-purple-600 py-3 text-base font-semibold text-purple-600 hover:bg-purple-50 dark:hover:bg-purple-900/20"
+              className="w-full rounded-lg border-2 border-purple-600 py-3 text-base font-semibold text-purple-600 transition-all duration-200 hover:bg-purple-50 dark:hover:bg-purple-900/20"
               onClick={handleDownloadIcs}
             >
               {t("insights.suggestion.reminder.downloadIcs")}

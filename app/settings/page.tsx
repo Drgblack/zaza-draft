@@ -6,23 +6,21 @@ import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { useTeacherPrefs } from "@/hooks/use-teacher-prefs"
+import { backToDraftButtonClasses } from "@/lib/ui/back-to-draft"
 
 const LANGUAGE_LABELS: Record<string, string> = {
   en: "English",
   de: "Deutsch",
 }
 
-const TOP_BUTTON_CLASSES =
-  "flex items-center gap-2 rounded-full bg-purple-600 px-6 py-3 text-sm font-semibold text-white transition-all duration-300 hover:bg-purple-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-400"
-
-const LOCKED_CARD =
-  "relative min-h-[320px] rounded-2xl border-2 border-gray-200 bg-white/95 p-8 text-gray-900 shadow-xl shadow-purple-900/30 opacity-95 cursor-not-allowed transition-all duration-300 backdrop-blur-sm"
-
+const CARD_BASE =
+  "relative min-h-[320px] rounded-2xl border border-gray-200 bg-white/95 p-8 text-gray-900 shadow-2xl shadow-purple-900/40 transition-all duration-300 backdrop-blur-sm"
+const LOCKED_CARD = `${CARD_BASE} opacity-90 cursor-not-allowed`
 const INTERACTIVE_CARD =
-  "group relative min-h-[320px] rounded-2xl border-2 border-gray-200 bg-white/95 p-8 text-gray-900 shadow-xl shadow-purple-900/30 cursor-pointer transition-all duration-300 hover:scale-[1.02] hover:shadow-2xl hover:border-white/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-400 backdrop-blur-sm"
-
-const SAFEGUARD_CARD =
-  "min-h-[320px] rounded-2xl border-2 border-gray-200 bg-gray-50/90 p-8 text-gray-900 shadow-xl shadow-purple-900/30"
+  `${CARD_BASE} cursor-pointer hover:shadow-[0_25px_45px_rgba(99,102,241,0.35)] hover:scale-[1.01] hover:border-white/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-purple-400`
+const SAFEGUARD_CARD = "min-h-[320px] rounded-2xl border border-gray-200 bg-blue-50/30 p-8 text-gray-900 shadow-2xl shadow-purple-900/20"
+const LOCKED_BADGE =
+  "flex items-center gap-2 rounded-full border border-purple-300 bg-purple-100/90 px-3 py-1.5 text-xs font-semibold text-purple-700"
 
 export default function SettingsPage() {
   const { prefs } = useTeacherPrefs()
@@ -55,7 +53,7 @@ export default function SettingsPage() {
         </div>
 
         <div className="flex justify-start">
-          <Button onClick={handleReturn} className={TOP_BUTTON_CLASSES} disabled={isSaving}>
+          <Button onClick={handleReturn} className={backToDraftButtonClasses} disabled={isSaving}>
             <ArrowLeft className="h-4 w-4" />
             {isSaving ? "Saving…" : "Back to Draft"}
           </Button>
@@ -64,7 +62,7 @@ export default function SettingsPage() {
         <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
           <Card className={LOCKED_CARD}>
             <div className="absolute top-4 right-4">
-              <div className="flex items-center gap-2 rounded-full border border-purple-300 bg-purple-100/90 px-3 py-1.5 text-xs font-semibold text-purple-700">
+              <div className={LOCKED_BADGE}>
                 <LockKeyhole className="h-3 w-3" />
                 Locked
               </div>
@@ -101,7 +99,7 @@ export default function SettingsPage() {
 
           <Card className={LOCKED_CARD}>
             <div className="absolute top-4 right-4">
-              <div className="flex items-center gap-2 rounded-full border border-purple-300 bg-purple-100/90 px-3 py-1.5 text-xs font-semibold text-purple-700">
+              <div className={LOCKED_BADGE}>
                 <LockKeyhole className="h-3 w-3" />
                 Locked
               </div>
@@ -113,7 +111,7 @@ export default function SettingsPage() {
               </div>
               <PenTool className="h-5 w-5 text-gray-700" aria-hidden />
             </div>
-            <div className="border-2 border-gray-300 bg-white p-6 shadow-inner">
+            <div className="rounded-2xl border-2 border-dashed border-purple-300/50 bg-purple-50/60 p-6 shadow-inner">
               {signatureLines.length ? (
                 <div className="space-y-1 font-[cursive] text-lg font-semibold leading-relaxed text-purple-700">
                   {signatureLines.map((line, index) => (
@@ -142,9 +140,9 @@ export default function SettingsPage() {
               <Info className="h-5 w-5 text-gray-700" />
             </div>
             <ul className="mt-3 space-y-3 text-sm leading-relaxed text-gray-700">
-              <li>• We never store full student names or identifiers without explicit permission.</li>
-              <li>• Sensitive attachments, private addresses, and contact information remain off-limits.</li>
-              <li>• You can toggle anonymized data sharing from within the insights panel.</li>
+              <li>â€¢ We never store full student names or identifiers without explicit permission.</li>
+              <li>â€¢ Sensitive attachments, private addresses, and contact information remain off-limits.</li>
+              <li>â€¢ You can toggle anonymized data sharing from within the insights panel.</li>
             </ul>
             <p className="mt-3 text-xs leading-relaxed text-gray-500">
               These defaults are enforced automatically. If you need a tighter guardrail, reach out
@@ -155,11 +153,7 @@ export default function SettingsPage() {
 
       </div>
       <div className="fixed bottom-8 right-8 z-40">
-        <Button
-          onClick={handleReturn}
-          className={`${TOP_BUTTON_CLASSES} shadow-xl`}
-          disabled={isSaving}
-        >
+        <Button onClick={handleReturn} className={backToDraftButtonClasses} disabled={isSaving}>
           <ArrowLeft className="h-4 w-4" />
           {isSaving ? "Saving…" : "Back to Draft"}
         </Button>

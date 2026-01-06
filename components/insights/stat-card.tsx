@@ -89,7 +89,7 @@ export function StatCard({
 
       <div className="space-y-2">
         <div className="flex items-baseline gap-2">
-          <p className="text-4xl font-bold text-gray-900 dark:text-gray-100">
+          <p className="text-5xl font-bold text-gray-900 dark:text-gray-100">
             {numericValue !== undefined ? displayValue : value}
           </p>
           {icon}
@@ -117,12 +117,12 @@ export function StatCard({
           </div>
         )}
 
-        {trend && (
-          <div className={`flex items-center gap-1 text-sm font-medium ${trend.color}`}>
-            {trend.direction === "up" ? <TrendingUp className="h-4 w-4" /> : <TrendingDown className="h-4 w-4" />}
-            <span>{trend.value}</span>
-          </div>
-        )}
+      {trend && (
+        <div className={`flex items-center gap-1 text-lg font-medium ${trend.color}`}>
+          {trend.direction === "up" ? <TrendingUp className="h-5 w-5" /> : <TrendingDown className="h-5 w-5" />}
+          <span>{trend.value}</span>
+        </div>
+      )}
       </div>
     </Card>
   )

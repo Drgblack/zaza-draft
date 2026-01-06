@@ -2,13 +2,14 @@
 
 import { useEffect, useState } from "react"
 import Link from "next/link"
-import { Info, Save, CheckCircle2, Shield } from "lucide-react"
+import { ArrowLeft, Info, Save, CheckCircle2, Shield } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { Textarea } from "@/components/ui/textarea"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { useTeacherPrefs } from "@/hooks/use-teacher-prefs"
 import { useToast } from "@/hooks/use-toast"
+import { backToDraftButtonClasses } from "@/lib/ui/back-to-draft"
 
 const STORAGE_KEY = "classBrainContext"
 
@@ -63,12 +64,12 @@ export default function ClassBrainPage() {
               <TooltipContent className="max-w-xs text-xs leading-relaxed">{tooltipMessage}</TooltipContent>
             </Tooltip>
           </div>
-          <Link
-            href="/"
-            className="ml-auto rounded-full bg-purple-600 px-6 py-3 text-sm font-semibold text-white shadow-lg shadow-purple-900/40 transition-all duration-300 hover:bg-purple-500"
-          >
-            Back to Draft
-          </Link>
+          <Button asChild className={`${backToDraftButtonClasses} ml-auto`}>
+            <Link href="/">
+              <ArrowLeft className="h-4 w-4" />
+              Back to Draft
+            </Link>
+          </Button>
         </div>
 
         <p className="max-w-3xl text-sm leading-relaxed text-white/70">
@@ -110,8 +111,8 @@ export default function ClassBrainPage() {
           <Card className="rounded-2xl border border-white/20 bg-white/5 p-8 shadow-2xl shadow-black/20 transition-all duration-300 backdrop-blur-sm hover:shadow-3xl hover:scale-[1.01]">
             <div className="flex items-center justify-between">
               <h2 className="text-2xl font-bold text-white">Your saved context</h2>
-              <span className="flex items-center gap-2 rounded-full border border-purple-300/50 bg-purple-500/30 px-3 py-1 text-xs font-semibold text-purple-200">
-                <Shield className="h-4 w-4 text-purple-100" />
+              <span className="flex items-center gap-2 rounded-full border border-purple-300/50 bg-purple-500/30 px-4 py-1.5 text-xs font-semibold text-white/90">
+                <Shield className="h-4 w-4 text-white/80" />
                 Stored locally
               </span>
             </div>
@@ -131,11 +132,11 @@ export default function ClassBrainPage() {
                 Save a short reminder (no names) that sets up the next writing session.
               </p>
             </div>
-            <div className="mt-2 flex flex-wrap items-center gap-3 text-sm text-white/70">
-              <span className="rounded-full bg-white/10 px-3 py-1 font-semibold text-white/70">
+            <div className="mt-2 flex flex-wrap items-center gap-3 text-sm text-white/80">
+              <span className="rounded-full bg-white/10 px-3 py-1 text-sm font-semibold text-white/80">
                 {`${Math.min(characterCount, maxCharacters)}/${maxCharacters} characters`}
               </span>
-              <span className="rounded-full bg-white/10 px-3 py-1 font-semibold text-white/70">
+              <span className="rounded-full bg-white/10 px-3 py-1 text-sm font-semibold text-white/80">
                 {`${wordCount} words`}
               </span>
             </div>
@@ -168,7 +169,7 @@ export default function ClassBrainPage() {
           </Card>
         </div>
 
-        <div className="mt-8 rounded-2xl border border-white/20 bg-purple-900/30 p-4 text-sm leading-relaxed text-white/80 shadow-2xl shadow-black/30">
+        <div className="mt-8 rounded-lg border border-white/10 bg-purple-900/30 p-4 text-sm leading-relaxed text-white/80">
           <p>
             Saved context stays on this device unless you copy it to a shared document. The safe
             guidelines above keep sensitive details out of Class Brain.
