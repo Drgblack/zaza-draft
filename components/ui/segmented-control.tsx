@@ -65,11 +65,7 @@ export function SegmentedControl({
 
         const baseClasses = cn(
           "flex-1 min-h-[44px] items-center justify-center rounded-full px-4 text-sm font-semibold",
- fix/i18n-de-zara-textarea
           "flex gap-2 text-center border border-transparent",
-
-          "flex gap-2 text-center",
- main
           "focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-purple-400 focus-visible:ring-offset-2",
           prefersReduced
             ? "transition-none"
@@ -77,13 +73,8 @@ export function SegmentedControl({
         )
 
         const stateClasses = selected
- fix/i18n-de-zara-textarea
           ? "bg-[var(--color-primary)] text-[var(--color-primary-foreground)] border-[var(--color-primary-foreground)] shadow-[0_12px_24px_rgba(124,58,237,0.35)]"
           : "bg-transparent text-[var(--color-foreground)] hover:bg-white/10 hover:border-[var(--color-border)]"
-
-          ? "bg-[var(--color-primary)] text-[var(--color-primary-foreground)] shadow-[0_10px_25px_rgba(124,58,237,0.25)]"
-          : "bg-transparent text-[var(--color-foreground)] hover:bg-white/10"
- main
 
         return (
           <button
