@@ -45,19 +45,25 @@ export function ShareDialog({ open, onOpenChange, title }: ShareDialogProps) {
           <div className="flex flex-col gap-4">
             <div className="flex items-center gap-2">
               <Input value={shareUrl} readOnly className="flex-1" />
-              <Button size="icon" variant="outline" onClick={handleCopyLink} aria-label="Copy link">
+              <Button
+                size="icon"
+                variant="outline"
+                onClick={handleCopyLink}
+                aria-label="Copy link"
+                className="border-gray-200 text-gray-600 focus-visible:ring-purple-400"
+              >
                 <Copy className="h-4 w-4" />
               </Button>
             </div>
             <div className="flex flex-col gap-2">
-              <Button onClick={handleCopyLink} className="w-full">
+              <Button variant="primary" onClick={handleCopyLink} className="w-full">
                 <Copy className="h-4 w-4 mr-2" />
                 Copy link
               </Button>
               <Button
-                onClick={() => window.open(shareUrl, "_blank")}
                 variant="outline"
-                className="w-full bg-transparent"
+                onClick={() => window.open(shareUrl, "_blank")}
+                className="w-full"
               >
                 <ExternalLink className="h-4 w-4 mr-2" />
                 Open in new tab
@@ -65,7 +71,7 @@ export function ShareDialog({ open, onOpenChange, title }: ShareDialogProps) {
               <TooltipProvider>
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <Button variant="outline" className="w-full bg-transparent" disabled>
+                    <Button variant="ghost" className="w-full" disabled>
                       <Lock className="h-4 w-4 mr-2" />
                       Manage access
                     </Button>
