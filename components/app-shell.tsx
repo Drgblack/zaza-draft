@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 import { Header } from "./header"
 import { Editor } from "./editor"
 import { AiPanel } from "./ai-panel"
@@ -19,8 +19,13 @@ export function AppShell() {
   const [rightPanelVisible, setRightPanelVisible] = useState(false)
   const [isDarkMode, setIsDarkMode] = useState(false)
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false)
+
+  // keep these if other parts of the app rely on them being initialised here
   const { prefs } = useTeacherPrefs()
   const { locale } = useLocale()
+
+  // Avoid piling up timers if user types quickly
+  const saveTimerRef = useRef<number | null>(null)
 
   useEffect(() => {
     const isDesktop = window.innerWidth >= 1024
@@ -31,24 +36,40 @@ export function AppShell() {
     } else {
       setRightPanelVisible(isDesktop)
     }
+
+    return () => {
+      if (saveTimerRef.current !== null) {
+        window.clearTimeout(saveTimerRef.current)
+        saveTimerRef.current = null
+      }
+    }
   }, [])
 
-  const handleContentChange = (newContent: string) => {
+  const handleContentChange = useCallback((newContent: string) => {
     setContent(newContent)
     setSaveStatus("saving")
-    setTimeout(() => setSaveStatus("saved"), 1000)
-  }
 
-  const handleToggleDarkMode = () => {
-    setIsDarkMode(!isDarkMode)
+    if (saveTimerRef.current !== null) {
+      window.clearTimeout(saveTimerRef.current)
+    }
+    saveTimerRef.current = window.setTimeout(() => {
+      setSaveStatus("saved")
+      saveTimerRef.current = null
+    }, 1000)
+  }, [])
+
+  const handleToggleDarkMode = useCallback(() => {
+    setIsDarkMode((prev) => !prev)
     document.documentElement.classList.toggle("dark")
-  }
+  }, [])
 
-  const handleToggleRightPanel = () => {
-    const newState = !rightPanelVisible
-    setRightPanelVisible(newState)
-    localStorage.setItem("aiPanelVisible", newState.toString())
-  }
+  const handleToggleRightPanel = useCallback(() => {
+    setRightPanelVisible((prev) => {
+      const newState = !prev
+      localStorage.setItem("aiPanelVisible", newState.toString())
+      return newState
+    })
+  }, [])
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -61,11 +82,12 @@ export function AppShell() {
         setCommandPaletteOpen(true)
       }
     }
+
     document.addEventListener("keydown", handleKeyDown)
     return () => document.removeEventListener("keydown", handleKeyDown)
-  }, [rightPanelVisible])
+  }, [handleToggleRightPanel])
 
-  const fetchSuggestions = async () => {
+  const fetchSuggestions = useCallback(async () => {
     try {
       const response = await fetch("/api/suggestions", {
         method: "POST",
@@ -80,7 +102,7 @@ export function AppShell() {
     } catch (error) {
       console.error("[v0] Error fetching suggestions:", error)
     }
-  }
+  }, [content, locale])
 
   return (
     <div className="h-screen flex flex-col bg-background overflow-x-hidden">
@@ -107,7 +129,7 @@ export function AppShell() {
             suggestions={suggestions}
             onSuggestionAction={(id, action) => {
               if (action === "dismiss" || action === "accept") {
-                setSuggestions(suggestions.filter((s) => s.id !== id))
+                setSuggestions((prev) => prev.filter((s) => s.id !== id))
               }
             }}
             onCollapse={handleToggleRightPanel}
