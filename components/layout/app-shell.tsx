@@ -24,7 +24,7 @@ interface AppShellProps {
 }
 
 const APP_BACKGROUND_CLASSES =
-  "app-gradient bg-gradient-to-br from-[#ff4d94] via-[#b715f6] to-[#fb923c] dark:from-[#7c2dff] dark:via-[#3b82f6] dark:to-[#c026d3]"
+  "app-gradient bg-gradient-to-br from-[#f43f5e] via-[#9333ea] to-[#f97316] dark:from-[#581c87] dark:via-[#4c1d95] dark:to-[#111827]"
 const AUTH_BACKGROUND_CLASSES =
   "auth-gradient bg-gradient-to-br from-indigo-500 via-sky-600 to-purple-700 dark:from-[#04080f] dark:via-[#0c1a30] dark:to-[#140e26]"
 

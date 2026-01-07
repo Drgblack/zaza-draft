@@ -11,7 +11,7 @@ import { useLocale } from "@/hooks/use-locale"
 import { useAuth } from "@/hooks/use-auth"
 import Image from "next/image"
 import Link from "next/link"
-import { usePathname } from "next/navigation"
+import { usePathname, useRouter } from "next/navigation"
 import { LanguageDropdown } from "./language-dropdown"
 import { UserMenu } from "./user-menu"
 
@@ -38,6 +38,7 @@ export function Header({
   const { prefs } = useTeacherPrefs()
   const { t } = useLocale()
   const pathname = usePathname()
+  const router = useRouter()
   const { user, status } = useAuth()
   const hasAccess = status === "authenticated" && Boolean(user)
 
@@ -128,22 +129,27 @@ export function Header({
 
           <div className="flex flex-wrap items-center gap-2 justify-end">
             {hasAccess && (
-              <Link
-                href="/insights"
-                data-testid="header-insights-link"
-                aria-label={t("header.insightsButtonAria")}
-                className="inline-flex"
+              <Button
+                asChild
+                variant={pathname === "/insights" ? "secondary" : "ghost"}
+                size="sm"
+                className="gap-2"
+                type="button"
               >
-                <Button
-                  variant={pathname === "/insights" ? "secondary" : "ghost"}
-                  size="sm"
-                  className="gap-2"
-                  type="button"
+                <Link
+                  href="/insights"
+                  data-testid="header-insights-link"
+                  aria-label={t("header.insightsButtonAria")}
+                  className="inline-flex items-center gap-2"
+                  onClick={(event) => {
+                    event.preventDefault()
+                    router.push("/insights")
+                  }}
                 >
                   <BarChart3 className="h-4 w-4" aria-hidden="true" />
                   <span className="hidden sm:inline">{t("header.insightsButtonLabel")}</span>
-                </Button>
-              </Link>
+                </Link>
+              </Button>
             )}
 
             <LanguageDropdown />
