@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { shouldRequireAuth } from "@/middleware"
+import { buildLoginUrl, shouldRequireAuth } from "@/middleware"
 
 describe("middleware path protection", () => {
   it("guards the insights, account, and settings namespaces", () => {
@@ -17,5 +17,10 @@ describe("middleware path protection", () => {
     expect(shouldRequireAuth("/")).toBe(false)
     expect(shouldRequireAuth("/privacy")).toBe(false)
     expect(shouldRequireAuth("/terms")).toBe(false)
+  })
+
+  it("builds the login redirect with the next param", () => {
+    const loginUrl = buildLoginUrl("https://example.com", "/insights")
+    expect(loginUrl.href).toBe("https://example.com/auth/signin?next=/insights")
   })
 })

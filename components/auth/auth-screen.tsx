@@ -1,6 +1,7 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
+import { useRouter, useSearchParams } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -18,12 +19,22 @@ const GOOGLE_ERROR_MAP: Record<string, string> = {
 export function AuthScreen() {
   const { status, signInWithEmail, registerWithEmail, signInWithGoogle } = useAuth()
   const { t } = useLocale()
+  const router = useRouter()
+  const searchParams = useSearchParams()
   const [mode, setMode] = useState<"signin" | "signup">("signin")
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [showPassword, setShowPassword] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
+
+  const nextRoute = searchParams.get("next") ?? "/"
+
+  useEffect(() => {
+    if (status === "authenticated") {
+      router.replace(nextRoute)
+    }
+  }, [status, nextRoute, router])
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
