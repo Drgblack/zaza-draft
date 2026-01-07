@@ -1,15 +1,12 @@
 "use client"
 
 import { useState } from "react"
-import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { useAuth } from "@/hooks/use-auth"
 import { useLocale } from "@/hooks/use-locale"
 import { logClientEvent } from "@/lib/analytics"
-
-const SUPPORT_EMAIL = "greg@zazatechnologies.com"
 const GOOGLE_ERROR_MAP: Record<string, string> = {
   "auth/popup-closed-by-user": "You closed the Google window. Please try again.",
   "auth/cancelled-popup-request": "Only one Google window can be open at a time. Please refresh and try again.",
@@ -82,16 +79,7 @@ export function AuthScreen() {
       <div className="w-full max-w-lg space-y-8">
         <div>
           <h1 className="text-4xl font-bold">{t("auth.title")}</h1>
-          <p className="mt-2 text-sm text-white/80">
-            {t("auth.description")}{" "}
-            <Link
-              href={`mailto:${SUPPORT_EMAIL}`}
-              className="underline hover:text-white"
-              aria-label="Support email"
-            >
-              {SUPPORT_EMAIL}
-            </Link>
-          </p>
+          <p className="mt-2 text-sm text-white/80">{t("auth.description")}</p>
         </div>
 
         <form className="space-y-4 rounded-2xl bg-white/10 p-6 shadow-lg backdrop-blur" onSubmit={handleSubmit}>

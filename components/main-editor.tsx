@@ -792,7 +792,22 @@ Examples:
           </p>
           </section>
 
-          {showWellbeingInsights && <ContextualWellbeingTip />}
+          {outOfScopeNotice && (
+            <div className="mt-4 rounded-2xl border border-white/30 bg-white/10 p-4 shadow-lg text-sm text-white space-y-2">
+              <div className="flex items-start gap-3">
+                <Info className="text-white" size={20} />
+                <div className="space-y-1">
+                  <p className="font-semibold text-white text-sm">{t("editor.outOfScope.title")}</p>
+                  <p className="text-xs text-white/80">
+                    {outOfScopeMessage || t("editor.outOfScope.body")}
+                  </p>
+                  <p className="text-[11px] text-white/60">{t("editor.outOfScope.helper")}</p>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {!outOfScopeNotice && showWellbeingInsights && <ContextualWellbeingTip />}
 
           <section className="space-y-3">
             <SegmentedControl
@@ -907,22 +922,7 @@ Examples:
         )}
       </section>
 
-        {outOfScopeNotice && (
-          <div className="mt-4 rounded-2xl border border-white/30 bg-white/10 p-4 shadow-lg text-sm text-white space-y-2">
-            <div className="flex items-start gap-3">
-              <Info className="text-white" size={20} />
-              <div className="space-y-1">
-                <p className="font-semibold text-white text-sm">{t("editor.outOfScope.title")}</p>
-                <p className="text-xs text-white/80">
-                  {outOfScopeMessage || t("editor.outOfScope.body")}
-                </p>
-                <p className="text-[11px] text-white/60">{t("editor.outOfScope.helper")}</p>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {showWelcomeBox && (
+        {showWelcomeBox && !outOfScopeNotice && (
           <div className="rounded-xl border border-white/20 bg-white/10 p-4 shadow-lg text-sm text-white">
             <div className="flex flex-col gap-2">
               <p className="font-semibold">{t("editor.welcome.title")}</p>
@@ -961,7 +961,8 @@ Examples:
         )}
         </div>
 
-        <details className="mt-10 rounded-xl bg-white/10 p-4 backdrop-blur border border-white/20 text-white shadow-lg">
+        {!outOfScopeNotice && (
+          <details className="mt-10 rounded-xl bg-white/10 p-4 backdrop-blur border border-white/20 text-white shadow-lg">
           <summary className="text-lg font-semibold cursor-pointer flex items-center">
             {t("editor.history.title")}
             <span className="ml-1.5 px-2 py-0.5 bg-purple-100 dark:bg-purple-900/40 text-purple-700 dark:text-purple-300 text-xs font-semibold rounded-full">
@@ -1057,7 +1058,8 @@ Examples:
               {t("editor.history.loadMore")}
             </Button>
           )}
-        </details>
+          </details>
+        )}
 
         {isGenerating && (
           <div className="mt-4 rounded-xl bg-white/10 border border-white/20 p-4 text-sm text-white/90 shadow-lg space-y-3">
