@@ -1,3 +1,5 @@
+// @vitest-environment happy-dom
+
 import type { ReactNode } from "react"
 
 import { describe, expect, it, afterEach } from "vitest"
