@@ -1,6 +1,5 @@
 import Link from "next/link"
 import { ArrowLeft, FileText } from "lucide-react"
-import FooterSlim from "@/components/FooterSlim"
 
 export default function TermsPage() {
   return (
@@ -61,7 +60,6 @@ export default function TermsPage() {
         </div>
       </div>
 
-      <FooterSlim />
     </div>
   )
 }

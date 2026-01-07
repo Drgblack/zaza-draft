@@ -1,6 +1,5 @@
 import Link from "next/link"
 import { ArrowLeft } from "lucide-react"
-import FooterSlim from "@/components/FooterSlim"
 
 export default function AboutPage() {
   return (
@@ -51,7 +50,6 @@ export default function AboutPage() {
         </div>
       </div>
 
-      <FooterSlim />
     </div>
   )
 }

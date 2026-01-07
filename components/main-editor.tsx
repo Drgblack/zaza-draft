@@ -5,7 +5,6 @@ import { Button } from "@/components/ui/button"
 import { SegmentedControl } from "@/components/ui/segmented-control"
 import { useTeacherPrefs } from "@/hooks/use-teacher-prefs"
 import { useLocale } from "@/hooks/use-locale"
-import FooterSlim from "@/components/FooterSlim"
 import { ZaraAssistant } from "@/components/zara-assistant"
 import { DraftOutput } from "@/components/draft-output"
 import { DeescalationBanner } from "@/components/deescalation-banner"
@@ -1134,7 +1133,6 @@ Examples:
       </main>
 
       <div className="main-editor-footer">
-        <FooterSlim />
         {showBuildInfo && (
           <div className="mt-2 text-center text-[11px] text-white/60 uppercase tracking-[0.2em]">
             Build {buildSha} • {process.env.NODE_ENV ?? "dev"}

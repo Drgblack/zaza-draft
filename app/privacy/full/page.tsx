@@ -1,6 +1,5 @@
 import Link from "next/link"
 import { ArrowLeft, Shield } from "lucide-react"
-import FooterSlim from "@/components/FooterSlim"
 
 export default function PrivacyFullPage() {
   const today = new Date().toLocaleDateString("en-GB", {
@@ -152,7 +151,6 @@ export default function PrivacyFullPage() {
         </div>
       </div>
 
-      <FooterSlim />
     </div>
   )
 }

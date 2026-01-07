@@ -1,6 +1,5 @@
 import Link from "next/link"
 import { ArrowLeft, Shield } from "lucide-react"
-import FooterSlim from "@/components/FooterSlim"
 
 export default function PrivacyPage() {
   return (
@@ -62,7 +61,6 @@ export default function PrivacyPage() {
         </div>
       </div>
 
-      <FooterSlim />
     </div>
   )
 }

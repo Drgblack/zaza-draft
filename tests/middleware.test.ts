@@ -9,6 +9,8 @@ describe("middleware path protection", () => {
     expect(shouldRequireAuth("/account/data")).toBe(true)
     expect(shouldRequireAuth("/settings")).toBe(true)
     expect(shouldRequireAuth("/settings/privacy")).toBe(true)
+    expect(shouldRequireAuth("/support")).toBe(true)
+    expect(shouldRequireAuth("/support/guides")).toBe(true)
   })
 
   it("allows public routes to bypass the guard", () => {

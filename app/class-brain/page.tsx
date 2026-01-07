@@ -5,7 +5,6 @@ import Link from "next/link"
 import { ArrowLeft, Info, Save, CheckCircle2, Shield } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
-import FooterSlim from "@/components/FooterSlim"
 import { Textarea } from "@/components/ui/textarea"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { useTeacherPrefs } from "@/hooks/use-teacher-prefs"
@@ -175,7 +174,6 @@ export default function ClassBrainPage() {
           </div>
         </div>
       </main>
-      <FooterSlim />
     </div>
   )
 }

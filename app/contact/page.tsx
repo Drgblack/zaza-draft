@@ -8,7 +8,6 @@ import { ArrowLeft, Mail, Send } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
-import FooterSlim from "@/components/FooterSlim"
 
 export default function ContactPage() {
   const [state, setState] = useState<"idle" | "sending" | "sent" | "error">("idle")
@@ -160,7 +159,6 @@ export default function ContactPage() {
         </div>
       </div>
 
-      <FooterSlim />
     </div>
   )
 }

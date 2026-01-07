@@ -2,7 +2,7 @@ import { NextResponse } from "next/server"
 import type { NextRequest } from "next/server"
 import { AUTH_COOKIE_NAME, AUTH_COOKIE_VALUE } from "@/lib/auth/cookie"
 
-const PROTECTED_PREFIXES = ["/insights", "/account", "/settings"]
+const PROTECTED_PREFIXES = ["/insights", "/account", "/settings", "/support"]
 
 export function shouldRequireAuth(pathname: string) {
   return PROTECTED_PREFIXES.some(
@@ -28,5 +28,5 @@ export function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/insights/:path*", "/account/:path*", "/settings/:path*"],
+  matcher: ["/insights/:path*", "/account/:path*", "/settings/:path*", "/support/:path*"],
 }

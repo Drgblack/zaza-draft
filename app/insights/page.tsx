@@ -11,7 +11,6 @@ import { ToneDistribution } from "@/components/insights/tone-distribution"
 import { ConfidenceChart } from "@/components/insights/confidence-chart"
 import { BadgesGrid } from "@/components/insights/badges-grid"
 import DataControlsExplainer from "@/components/insights/data-controls-explainer"
-import FooterSlim from "@/components/FooterSlim"
 import Link from "next/link"
 import { useLocale } from "@/hooks/use-locale"
 import { useTeacherPrefs } from "@/hooks/use-teacher-prefs"
@@ -618,7 +617,6 @@ export default function InsightsPage() {
         </DialogPortal>
       </Dialog>
 
-      <FooterSlim />
     </div>
   )
 }

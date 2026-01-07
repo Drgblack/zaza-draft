@@ -5,7 +5,6 @@ import { ArrowLeft, ChevronRight, Info, LockKeyhole, PenTool, Shield } from "luc
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
-import FooterSlim from "@/components/FooterSlim"
 import { useTeacherPrefs } from "@/hooks/use-teacher-prefs"
 import { useLocale } from "@/hooks/use-locale"
 import type { Locale } from "@/hooks/use-locale"
@@ -168,7 +167,6 @@ export default function SettingsPage() {
           {isSaving ? t("saving") : t("settings.backToDraft")}
         </Button>
       </div>
-      <FooterSlim />
     </div>
   )
 }
