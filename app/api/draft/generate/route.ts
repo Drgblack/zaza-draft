@@ -38,7 +38,7 @@ import {
   resolveSignature,
   SignaturePayload,
 } from "@/lib/draft/signature"
-import { isOutOfScopeQuery, OUT_OF_SCOPE_REDIRECT_MESSAGE } from "./scope-guard"
+import { isOutOfScopeQuery, OUT_OF_SCOPE_REDIRECT_MESSAGE, isValidDraftRequest } from "./scope-guard"
 
 const TONE_DESCRIPTIONS: Record<ToneKey, string> = {
   warm: "Warm & Encouraging",
@@ -389,6 +389,18 @@ export async function POST(request: Request) {
   }
 
   let currentSituation = sanitizedSituation
+  if (!isValidDraftRequest(currentSituation)) {
+    return NextResponse.json(
+      {
+        success: false,
+        error: {
+          code: "OUT_OF_SCOPE",
+          message: OUT_OF_SCOPE_REDIRECT_MESSAGE,
+        },
+      },
+      { status: 422 },
+    )
+  }
   if (isOutOfScopeQuery(currentSituation)) {
     return NextResponse.json(
       {

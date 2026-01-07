@@ -59,3 +59,49 @@ export function isOutOfScopeQuery(text: string) {
 
   return OUT_OF_SCOPE_REGEX.some((regex) => regex.test(normalized))
 }
+
+const EXPLICIT_VERBS = ["write", "draft", "rewrite", "rephrase", "compose", "improve", "generate"]
+const SCHOOL_TARGETS = [
+  "parent",
+  "carer",
+  "report",
+  "comment",
+  "feedback",
+  "note",
+  "message",
+  "email",
+  "update",
+  "communication",
+]
+
+const IMPLICIT_SCHOOL_PHRASES = [
+  "parent message",
+  "report comment",
+  "student progress",
+  "behaviour note",
+  "behavior note",
+  "wellbeing concern",
+  "incident report",
+  "excursion note",
+  "school update",
+  "parent email",
+]
+
+function containsWord(text: string, word: string) {
+  return new RegExp(`\\b${word.replace(/[-/\\^$*+?.()|[\]{}]/g, "\\$&")}\\b`, "i").test(text)
+}
+
+function containsAnyWord(text: string, words: string[]) {
+  return words.some((word) => containsWord(text, word))
+}
+
+export function isValidDraftRequest(text: string) {
+  const normalized = normalizeQuery(text)
+  const hasExplicitVerb = containsAnyWord(normalized, EXPLICIT_VERBS)
+  const hasSchoolTarget = containsAnyWord(normalized, SCHOOL_TARGETS)
+
+  const explicitEligible = hasExplicitVerb && hasSchoolTarget
+  const implicitEligible = IMPLICIT_SCHOOL_PHRASES.some((phrase) => normalized.includes(phrase))
+
+  return explicitEligible || implicitEligible
+}

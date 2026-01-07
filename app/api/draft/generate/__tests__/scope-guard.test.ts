@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest"
-import { isOutOfScopeQuery, OUT_OF_SCOPE_REDIRECT_MESSAGE } from "@/app/api/draft/generate/scope-guard"
+import {
+  isOutOfScopeQuery,
+  isValidDraftRequest,
+  OUT_OF_SCOPE_REDIRECT_MESSAGE,
+} from "@/app/api/draft/generate/scope-guard"
 
 const OUT_OF_SCOPE_PROMPTS = [
   "how do I bake a chocolate cake?",
@@ -28,6 +32,29 @@ describe("out-of-scope redirect guard", () => {
     ]
     allowedPrompts.forEach((prompt) => {
       expect(isOutOfScopeQuery(prompt)).toBe(false)
+    })
+  })
+
+  it("rejects curiosity and general prompts via the eligibility gate", () => {
+    const generalPrompts = [
+      "What do monkeys in a zoo eat for breakfast?",
+      "How do I change the steering wheel on my bicycle?",
+      "How do I bake a cake?",
+      "What is the capital of France?",
+    ]
+    generalPrompts.forEach((prompt) => {
+      expect(isValidDraftRequest(prompt)).toBe(false)
+    })
+  })
+
+  it("accepts explicit school communication requests", () => {
+    const schoolPrompts = [
+      "Write a parent message about our class baking activity.",
+      "Draft a report comment on a student's reading progress.",
+      "Rewrite this to sound professional for a parent email.",
+    ]
+    schoolPrompts.forEach((prompt) => {
+      expect(isValidDraftRequest(prompt)).toBe(true)
     })
   })
 })
