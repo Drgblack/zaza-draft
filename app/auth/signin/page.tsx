@@ -5,7 +5,7 @@ export const metadata: Metadata = {
   title: "Sign in to Zaza Draft",
 }
 
-export default function AuthPage({ searchParams }: { searchParams?: { next?: string } }) {
-  const nextRoute = searchParams?.next ?? "/"
+export default function AuthPage(props: any) {
+  const nextRoute = props.searchParams?.next ?? "/"
   return <AuthScreen nextRoute={nextRoute} />
 }
