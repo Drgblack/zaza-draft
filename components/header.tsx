@@ -128,14 +128,19 @@ export function Header({
 
           <div className="flex flex-wrap items-center gap-2 justify-end">
             {hasAccess && (
-              <Link href="/insights">
+              <Link
+                href="/insights"
+                data-testid="header-insights-link"
+                aria-label={t("header.insightsButtonAria")}
+                className="inline-flex"
+              >
                 <Button
                   variant={pathname === "/insights" ? "secondary" : "ghost"}
                   size="sm"
-                  aria-label={t("header.insightsButtonAria")}
-                  leftIcon={<BarChart3 className="h-4 w-4" aria-hidden="true" />}
                   className="gap-2"
+                  type="button"
                 >
+                  <BarChart3 className="h-4 w-4" aria-hidden="true" />
                   <span className="hidden sm:inline">{t("header.insightsButtonLabel")}</span>
                 </Button>
               </Link>

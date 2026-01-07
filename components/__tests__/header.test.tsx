@@ -92,7 +92,11 @@ describe("Header gating", () => {
 
     render(<Header title="Test" saveStatus="saved" onTitleChange={() => {}} />)
 
-    expect(screen.getByText("My insights")).toBeTruthy()
+    const insightsLink = screen.getByRole("link", { name: "View my insights" })
+    expect(insightsLink).toBeTruthy()
+    const insightsLinkByTestId = screen.getByTestId("header-insights-link")
+    expect(insightsLinkByTestId).toBe(insightsLink)
+    expect(insightsLink.getAttribute("href")).toBe("/insights")
     expect(screen.getByLabelText("Account menu")).toBeTruthy()
     expect(screen.queryByRole("button", { name: "Sign in" })).toBeNull()
   })

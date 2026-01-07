@@ -24,9 +24,9 @@ interface AppShellProps {
 }
 
 const APP_BACKGROUND_CLASSES =
-  "app-gradient bg-[radial-gradient(circle_at_top,_rgba(236,72,153,0.4),_rgba(251,146,60,0.35),_rgba(99,102,241,0.25))] blur-2xl"
+  "app-gradient bg-gradient-to-br from-[#ff4d94] via-[#b715f6] to-[#fb923c] dark:from-[#7c2dff] dark:via-[#3b82f6] dark:to-[#c026d3]"
 const AUTH_BACKGROUND_CLASSES =
-  "auth-gradient bg-[radial-gradient(circle_at_center,_rgba(14,165,233,0.4),_rgba(99,102,241,0.35),_rgba(59,130,246,0.65))]"
+  "auth-gradient bg-gradient-to-br from-indigo-500 via-sky-600 to-purple-700 dark:from-[#04080f] dark:via-[#0c1a30] dark:to-[#140e26]"
 
 export function AppShell({ children }: AppShellProps) {
   const [isDarkMode, setIsDarkMode] = useState(false)
