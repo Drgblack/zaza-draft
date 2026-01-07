@@ -12,6 +12,18 @@ const OUT_OF_SCOPE_PROMPTS = [
   "what can I turn leftover chilli con carne into?",
 ]
 
+const GERMAN_ACCEPTED_PROMPTS = [
+  "Formuliere eine Elternnachricht zum Lernfortschritt im Lesen.",
+  "Erstelle einen sachlichen Zeugniskommentar zum Leseverständnis eines Schülers.",
+  "Schreibe eine Nachricht an die Eltern über den Ausflug der Klasse.",
+  "Schreibe einen Lernstandsbericht zur Mathematikleistung.",
+]
+
+const GERMAN_REJECTED_PROMPTS = [
+  "Schreibe ein Gedicht über den Sommer.",
+  "Wie backe ich einen Kaffee-Kuchen?",
+]
+
 describe("out-of-scope redirect guard", () => {
   it("matches known non-teaching queries", () => {
     OUT_OF_SCOPE_PROMPTS.forEach((prompt) => {
@@ -55,6 +67,20 @@ describe("out-of-scope redirect guard", () => {
     ]
     schoolPrompts.forEach((prompt) => {
       expect(isValidDraftRequest(prompt)).toBe(true)
+    })
+  })
+
+  it("accepts German prompts when mode indicates parent message or report comment", () => {
+    GERMAN_ACCEPTED_PROMPTS.forEach((prompt) => {
+      expect(isValidDraftRequest(prompt, "parent_message")).toBe(true)
+      expect(isValidDraftRequest(prompt, "report_comment")).toBe(true)
+    })
+  })
+
+  it("rejects German out-of-scope prompts regardless of mode", () => {
+    GERMAN_REJECTED_PROMPTS.forEach((prompt) => {
+      expect(isValidDraftRequest(prompt, "parent_message")).toBe(false)
+      expect(isOutOfScopeQuery(prompt)).toBe(true)
     })
   })
 })

@@ -12,6 +12,9 @@ const OUT_OF_SCOPE_PHRASES = [
   "best time to visit",
   "leftover chilli",
   "chilli con carne",
+  "gedicht",
+  "kaffee-kuchen",
+  "hauptstadt",
 ]
 
 const OUT_OF_SCOPE_REGEX = OUT_OF_SCOPE_PHRASES.map((phrase) =>
@@ -85,6 +88,11 @@ const IMPLICIT_SCHOOL_PHRASES = [
   "excursion note",
   "school update",
   "parent email",
+  "elternnachricht",
+  "berichtskommentar",
+  "lernstandsbericht",
+  "lernfortschritt",
+  "ausflug",
 ]
 
 function containsWord(text: string, word: string) {
@@ -95,7 +103,15 @@ function containsAnyWord(text: string, words: string[]) {
   return words.some((word) => containsWord(text, word))
 }
 
-export function isValidDraftRequest(text: string) {
+export function isValidDraftRequest(text: string, mode?: string) {
+  if (isOutOfScopeQuery(text)) {
+    return false
+  }
+
+  if (mode === "parent_message" || mode === "report_comment") {
+    return true
+  }
+
   const normalized = normalizeQuery(text)
   const hasExplicitVerb = containsAnyWord(normalized, EXPLICIT_VERBS)
   const hasSchoolTarget = containsAnyWord(normalized, SCHOOL_TARGETS)
