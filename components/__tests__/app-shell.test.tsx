@@ -3,28 +3,25 @@
 import { describe, expect, it, vi } from "vitest"
 import { render, screen } from "@testing-library/react"
 
+const useRouterMock = {
+  push: vi.fn(),
+  replace: vi.fn(),
+  prefetch: vi.fn(),
+  refresh: vi.fn(),
+  back: vi.fn(),
+  forward: vi.fn(),
+}
+
+const usePathnameMock = vi.fn()
+const useAuthMock = vi.fn()
+
 vi.mock("next/navigation", () => ({
-  useRouter: () => ({
-    push: vi.fn(),
-    replace: vi.fn(),
-    prefetch: vi.fn(),
-    refresh: vi.fn(),
-    back: vi.fn(),
-    forward: vi.fn(),
-  }),
-  usePathname: () => "/",
+  useRouter: () => useRouterMock,
+  usePathname: () => usePathnameMock(),
 }))
 
 vi.mock("@/hooks/use-auth", () => ({
-  useAuth: () => ({
-    user: { displayName: "Test User" },
-    status: "authenticated",
-    signOut: vi.fn(),
-    signInWithEmail: vi.fn(),
-    registerWithEmail: vi.fn(),
-    signInWithGoogle: vi.fn(),
-    getIdToken: vi.fn(),
-  }),
+  useAuth: () => useAuthMock(),
 }))
 
 vi.mock("@/hooks/use-teacher-prefs", () => ({
@@ -63,16 +60,53 @@ vi.mock("@/hooks/use-locale", () => ({
 import { AppShell } from "@/components/layout/app-shell"
 
 describe("AppShell layout", () => {
-  it("wraps content with header and footer", () => {
+  beforeEach(() => {
+    usePathnameMock.mockReturnValue("/")
+    useAuthMock.mockReturnValue({
+      user: { displayName: "Test User" },
+      status: "authenticated",
+      signOut: vi.fn(),
+      signInWithEmail: vi.fn(),
+      registerWithEmail: vi.fn(),
+      signInWithGoogle: vi.fn(),
+      getIdToken: vi.fn(),
+    })
+  })
+
+  it("applies the app theme on editor routes", () => {
     render(
       <AppShell>
         <div data-testid="child">Page content</div>
       </AppShell>,
     )
 
-    const headings = screen.getAllByRole("heading", { name: "Zaza Draft" })
-    expect(headings.length).toBeGreaterThan(0)
+    const shell = screen.getByTestId("app-shell")
+    expect(shell.className).toMatch(/from-pink-400/)
+    expect(shell.className).not.toMatch(/from-indigo-500/)
     expect(screen.getByTestId("footer-slim")).toBeTruthy()
     expect(screen.getByTestId("child").textContent).toBe("Page content")
+  })
+
+  it("applies the auth theme when unauthenticated", () => {
+    usePathnameMock.mockReturnValue("/auth/login")
+    useAuthMock.mockReturnValue({
+      user: null,
+      status: "unauthenticated",
+      signOut: vi.fn(),
+      signInWithEmail: vi.fn(),
+      registerWithEmail: vi.fn(),
+      signInWithGoogle: vi.fn(),
+      getIdToken: vi.fn(),
+    })
+
+    render(
+      <AppShell>
+        <div data-testid="child">Page content</div>
+      </AppShell>,
+    )
+
+    const shell = screen.getByTestId("app-shell")
+    expect(shell.className).toMatch(/from-indigo-500/)
+    expect(shell.className).not.toMatch(/from-pink-400/)
   })
 })
