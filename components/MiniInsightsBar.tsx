@@ -68,6 +68,10 @@ export function MiniInsightsBar() {
   const [showWellbeingInsights, setShowWellbeingInsights] = useState(true)
 
   useEffect(() => {
+    if (typeof window === "undefined") {
+      return
+    }
+
     const mediaQuery = window.matchMedia("(prefers-reduced-motion: reduce)")
     setPrefersReducedMotion(mediaQuery.matches)
 
@@ -77,6 +81,10 @@ export function MiniInsightsBar() {
   }, [])
 
   useEffect(() => {
+    if (typeof window === "undefined") {
+      return
+    }
+
     const showInsights = localStorage.getItem("show_wellbeing_insights")
     if (showInsights === "false") {
       setShowWellbeingInsights(false)

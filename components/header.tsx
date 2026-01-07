@@ -4,7 +4,7 @@ import type React from "react"
 
 import { useState } from "react"
 import { Share2, Moon, Sun, BarChart3 } from "lucide-react"
-import { Button } from "@/components/ui/button"
+import { Button, buttonVariants } from "@/components/ui/button"
 import { ShareDialog } from "./zaza/share-dialog"
 import { useTeacherPrefs } from "@/hooks/use-teacher-prefs"
 import { useLocale } from "@/hooks/use-locale"
@@ -14,6 +14,7 @@ import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { LanguageDropdown } from "./language-dropdown"
 import { UserMenu } from "./user-menu"
+import { cn } from "@/lib/utils"
 
 interface HeaderProps {
   title: string
@@ -128,23 +129,23 @@ export function Header({
 
           <div className="flex flex-wrap items-center gap-2 justify-end">
             {hasAccess && (
-              <Button
-                asChild
-                variant={pathname === "/insights" ? "secondary" : "ghost"}
-                size="sm"
-                className="gap-2"
-                type="button"
+              <Link
+                href="/insights"
+                data-testid="header-insights-link"
+                aria-label={t("header.insightsButtonAria")}
+                className={cn(
+                  buttonVariants({
+                    variant: pathname === "/insights" ? "secondary" : "ghost",
+                    size: "sm",
+                  }),
+                  "gap-2 inline-flex"
+                )}
               >
-                <Link
-                  href="/insights"
-                  data-testid="header-insights-link"
-                  aria-label={t("header.insightsButtonAria")}
-                  className="inline-flex items-center gap-2"
-                >
+                <span className="inline-flex items-center gap-2">
                   <BarChart3 className="h-4 w-4" aria-hidden="true" />
                   <span className="hidden sm:inline">{t("header.insightsButtonLabel")}</span>
-                </Link>
-              </Button>
+                </span>
+              </Link>
             )}
 
             <LanguageDropdown />

@@ -24,9 +24,11 @@ interface AppShellProps {
 }
 
 const APP_BACKGROUND_CLASSES =
-  "app-gradient bg-gradient-to-br from-rose-500 via-fuchsia-600 to-orange-500 saturate-125 contrast-110 dark:from-[#581c87] dark:via-[#4c1d95] dark:to-[#111827]"
+  "app-gradient pointer-events-none absolute inset-0 z-0 bg-gradient-to-br from-rose-500 via-fuchsia-600 to-orange-500 saturate-125 contrast-110"
 const AUTH_BACKGROUND_CLASSES =
-  "auth-gradient bg-gradient-to-br from-indigo-500 via-sky-600 to-purple-700 dark:from-[#04080f] dark:via-[#0c1a30] dark:to-[#140e26]"
+  "auth-gradient pointer-events-none absolute inset-0 z-0 bg-gradient-to-br from-indigo-500 via-sky-600 to-purple-700 dark:from-[#04080f] dark:via-[#0c1a30] dark:to-[#140e26]"
+const APP_ACCENT_CLASSES =
+  "app-gradient-accent pointer-events-none absolute inset-0 z-0 bg-[radial-gradient(circle_at_85%_85%,rgba(251,146,60,0.55),transparent_55%)]"
 
 export function AppShell({ children }: AppShellProps) {
   const [isDarkMode, setIsDarkMode] = useState(false)
@@ -58,14 +60,22 @@ export function AppShell({ children }: AppShellProps) {
   }, [pathname, status])
 
   return (
-    <div data-testid="app-shell-root" className="min-h-dvh text-foreground relative isolate overflow-x-hidden">
+    <div
+      data-testid="app-shell-root"
+      className="min-h-dvh text-foreground relative isolate overflow-x-hidden"
+    >
       <div
         data-testid="app-shell-bg"
         aria-hidden="true"
-        className={`pointer-events-none absolute inset-0 z-0 ${
-          shouldUseAppTheme ? APP_BACKGROUND_CLASSES : AUTH_BACKGROUND_CLASSES
-        }`}
+        className={shouldUseAppTheme ? APP_BACKGROUND_CLASSES : AUTH_BACKGROUND_CLASSES}
       />
+      {shouldUseAppTheme && (
+        <div
+          data-testid="app-shell-accent"
+          aria-hidden="true"
+          className={APP_ACCENT_CLASSES}
+        />
+      )}
       <div className="relative z-10 flex flex-col min-h-dvh">
         <Header
           title="Zaza Draft"
