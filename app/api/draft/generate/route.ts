@@ -100,6 +100,33 @@ function containsStrongEnglishSignals(text: string) {
   return STRONG_ENGLISH_PATTERNS.some((pattern) => pattern.test(snippet))
 }
 
+const OUT_OF_SCOPE_REDIRECT_MESSAGE = `This doesn't look like a school report or parent message.
+
+Zaza Draft is designed to help you write professional, school-appropriate communication for parents, students, and colleagues.
+
+If you'd like help with report comments, parent emails, behaviour or wellbeing notes, or sensitive school communication, paste that text here and I'll help you refine it.`
+
+const OUT_OF_SCOPE_PHRASES = [
+  "bake a chocolate cake",
+  "chocolate cake",
+  "cook",
+  "recipe",
+  "car battery",
+  "change a car battery",
+  "travel",
+  "vacation",
+  "trip",
+  "visit thailand",
+  "best time to visit",
+  "leftover chilli",
+  "chilli con carne",
+]
+
+function isOutOfScopeQuery(text: string) {
+  const normalized = text.toLowerCase()
+  return OUT_OF_SCOPE_PHRASES.some((phrase) => normalized.includes(phrase))
+}
+
 function countWords(text: string) {
   return text.split(/\s+/).filter(Boolean).length
 }
@@ -388,6 +415,18 @@ export async function POST(request: Request) {
   }
 
   let currentSituation = sanitizedSituation
+  if (isOutOfScopeQuery(currentSituation)) {
+    return NextResponse.json(
+      {
+        success: false,
+        error: {
+          code: "OUT_OF_SCOPE",
+          message: OUT_OF_SCOPE_REDIRECT_MESSAGE,
+        },
+      },
+      { status: 422 },
+    )
+  }
   let inputReframed = false
   let inputReframedTier: BlockedLanguageTier | null = null
 
