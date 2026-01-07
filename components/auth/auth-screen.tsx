@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { useRouter, useSearchParams } from "next/navigation"
+import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -16,19 +16,16 @@ const GOOGLE_ERROR_MAP: Record<string, string> = {
     "This domain isn't authorized for Google sign-in. Contact the admin for help.",
 }
 
-export function AuthScreen() {
+export function AuthScreen({ nextRoute = "/" }: { nextRoute?: string }) {
   const { status, signInWithEmail, registerWithEmail, signInWithGoogle } = useAuth()
   const { t } = useLocale()
   const router = useRouter()
-  const searchParams = useSearchParams()
   const [mode, setMode] = useState<"signin" | "signup">("signin")
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [showPassword, setShowPassword] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
-
-  const nextRoute = searchParams.get("next") ?? "/"
 
   useEffect(() => {
     if (status === "authenticated") {
