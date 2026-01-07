@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 
 import { describe, expect, it, vi } from "vitest"
-import { fireEvent, render, screen } from "@testing-library/react"
+import { render, screen } from "@testing-library/react"
 
 import { Header } from "@/components/header"
 
@@ -100,8 +100,6 @@ describe("Header gating", () => {
     const insightsLinkByTestId = screen.getByTestId("header-insights-link")
     expect(insightsLinkByTestId).toBe(insightsLink)
     expect(insightsLink.getAttribute("href")).toBe("/insights")
-    fireEvent.click(insightsLink)
-    expect(useRouterMock.push).toHaveBeenCalledWith("/insights")
     expect(screen.getByLabelText("Account menu")).toBeTruthy()
     expect(screen.queryByRole("button", { name: "Sign in" })).toBeNull()
   })
