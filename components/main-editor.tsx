@@ -21,7 +21,7 @@ import { resolveLanguageChoiceFromLocale } from "@/lib/draft/language"
 import type { DraftLanguage, DraftMode, PronounPreference } from "@/lib/types"
 import { MODE_LABEL_KEYS, DEFAULT_DRAFT_MODE } from "@/lib/draft-mode"
 import Link from "next/link"
-import { FileText, Mail, MessageCircle, Sun, Target, Users } from "lucide-react"
+import { FileText, Info, Mail, MessageCircle, Sun, Target, Users } from "lucide-react"
 import type { LucideIcon } from "lucide-react"
 
 const TONE_OPTIONS = [
@@ -228,6 +228,7 @@ export function MainEditor() {
     teacherNote: string
     safeAlternatives: string[]
   } | null>(null)
+  const [outOfScopeNotice, setOutOfScopeNotice] = useState<string | null>(null)
   const [loadingMessageIndex, setLoadingMessageIndex] = useState(0)
 
   const [showWellbeingInsights, setShowWellbeingInsights] = useState(true)
@@ -444,6 +445,7 @@ export function MainEditor() {
     setDeescalationSummary(null)
     setInputReframeTier(null)
     setBlockedLanguageContext(null)
+    setOutOfScopeNotice(null)
 
     const signaturePayload = {
       line1: prefs.signatureLine1?.trim() || prefs.firstName,
@@ -527,9 +529,18 @@ export function MainEditor() {
         return
       }
 
+      const responseCode: string | null = data?.error?.code ?? data?.code ?? null
+      const responseMessage: string | null = data?.error?.message ?? data?.message ?? null
+      if (responseCode === "OUT_OF_SCOPE") {
+        setOutOfScopeNotice(
+          responseMessage ?? t("editor.notice.scopeGuard.subtext"),
+        )
+        logClientEvent("draft_generate_out_of_scope", { code: responseCode })
+        return
+      }
+
       if (!response.ok || !data?.success) {
-        const code: string | null = data?.error?.code ?? null
-        const mapped = code ? GENERATION_ERROR_MAP[code] : null
+        const mapped = responseCode ? GENERATION_ERROR_MAP[responseCode] : null
         setGenerationError(
           mapped?.message || data?.error?.message || "We couldn't generate a draft right now.",
         )
@@ -544,12 +555,13 @@ export function MainEditor() {
           setSensitivePreview(data.data.redactedPreview)
         }
         logClientEvent("draft_generate_failed", {
-          code: code ?? "UNKNOWN_ERROR",
+          code: responseCode ?? "UNKNOWN_ERROR",
         })
 
         return
       }
       setBlockedLanguageContext(null)
+      setOutOfScopeNotice(null)
 
       logClientEvent("draft_generate_succeeded", {
         tone: selectedTone,
@@ -860,12 +872,27 @@ Examples:
                   <Button
                     className="bg-gradient-to-r from-[#a855f7] to-[#7c3aed] text-white border-transparent shadow-[0_8px_20px_rgba(124,58,237,0.35)] hover:shadow-[0_10px_28px_rgba(124,58,237,0.5)] hover:from-[#9333ea] hover:to-[#6b21a8]"
                   >
-                    {t("account.billing.upgrade")}
-                  </Button>
-                </Link>
+                {t("account.billing.upgrade")}
+              </Button>
+            </Link>
+          </div>
+        )}
+      </section>
+
+        {outOfScopeNotice && (
+          <div className="mt-4 rounded-2xl border border-white/30 bg-white/10 p-4 shadow-lg text-sm text-white space-y-2">
+            <div className="flex items-start gap-3">
+              <Info className="text-white" size={20} />
+              <div className="space-y-1">
+                <p className="font-semibold text-white text-sm">{t("editor.notice.scopeGuard.title")}</p>
+                <p className="text-xs text-white/80">{outOfScopeNotice}</p>
+                <p className="text-[11px] text-white/60">
+                  {t("editor.notice.scopeGuard.subtext")}
+                </p>
               </div>
-            )}
-          </section>
+            </div>
+          </div>
+        )}
 
         {showWelcomeBox && (
           <div className="rounded-xl border border-white/20 bg-white/10 p-4 shadow-lg text-sm text-white">

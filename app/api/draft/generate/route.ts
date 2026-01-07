@@ -393,6 +393,9 @@ export async function POST(request: Request) {
     return NextResponse.json(
       {
         success: false,
+        ok: false,
+        code: "OUT_OF_SCOPE",
+        message: OUT_OF_SCOPE_REDIRECT_MESSAGE,
         error: {
           code: "OUT_OF_SCOPE",
           message: OUT_OF_SCOPE_REDIRECT_MESSAGE,
@@ -405,6 +408,9 @@ export async function POST(request: Request) {
     return NextResponse.json(
       {
         success: false,
+        ok: false,
+        code: "OUT_OF_SCOPE",
+        message: OUT_OF_SCOPE_REDIRECT_MESSAGE,
         error: {
           code: "OUT_OF_SCOPE",
           message: OUT_OF_SCOPE_REDIRECT_MESSAGE,
