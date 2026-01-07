@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest"
-import { buildLoginUrl, shouldRequireAuth } from "@/middleware"
+import { NextRequest } from "next/server"
+import { middleware, buildLoginUrl, shouldRequireAuth } from "@/middleware"
+import { AUTH_COOKIE_VALUE } from "@/lib/auth/cookie"
 
 describe("middleware path protection", () => {
   it("guards the insights, account, and settings namespaces", () => {
@@ -22,5 +24,31 @@ describe("middleware path protection", () => {
   it("builds the login redirect with the next param", () => {
     const loginUrl = buildLoginUrl("https://example.com", "/insights")
     expect(loginUrl.href).toBe("https://example.com/auth/signin?next=/insights")
+  })
+
+  it("redirects unauthenticated insights requests to /auth/signin with next", () => {
+    const request = {
+      nextUrl: new URL("https://example.com/insights"),
+      cookies: {
+        get: () => undefined,
+      },
+      url: "https://example.com/insights",
+    } as unknown as NextRequest
+
+    const response = middleware(request)
+    expect(response.headers.get("location")).toBe("https://example.com/auth/signin?next=/insights")
+  })
+
+  it("allows authenticated requests through", () => {
+    const request = {
+      nextUrl: new URL("https://example.com/insights"),
+      cookies: {
+        get: () => ({ value: AUTH_COOKIE_VALUE }),
+      },
+      url: "https://example.com/insights",
+    } as unknown as NextRequest
+
+    const response = middleware(request)
+    expect(response.headers.get("location")).toBeNull()
   })
 })

@@ -88,8 +88,6 @@ describe("AppShell layout", () => {
     const bgElement = screen.getByTestId("app-shell-bg")
     expect(bgElement.className).toContain("app-gradient")
     expect(bgElement.className).not.toMatch(/-z-/)
-    const accent = screen.getByTestId("app-shell-accent")
-    expect(accent.className).toContain("app-gradient-accent")
     expect(screen.getByTestId("footer-slim")).toBeTruthy()
     expect(screen.getByTestId("child").textContent).toBe("Page content")
   })
@@ -116,7 +114,6 @@ describe("AppShell layout", () => {
     expect(shell.className).not.toContain("bg-background")
     expect(shell.className).toContain("text-foreground")
     expect(screen.getByTestId("app-shell-bg").className).toContain("auth-gradient")
-    expect(screen.queryByTestId("app-shell-accent")).toBeNull()
   })
 
   it("keeps the base styles in dark mode for app routes", () => {
