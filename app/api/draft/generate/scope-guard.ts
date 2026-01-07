@@ -1,4 +1,4 @@
-const OUT_OF_SCOPE_PHRASES = [
+ï»¿const OUT_OF_SCOPE_PHRASES = [
   "bake a chocolate cake",
   "chocolate cake",
   "cook",
@@ -108,7 +108,7 @@ const SCHOOL_INTENT_TERMS = [
   "homework",
   "assessment",
   "eltern",
-  "schüler",
+  "schÃ¼ler",
   "schueler",
   "klasse",
   "unterricht",
@@ -128,7 +128,7 @@ const SCHOOL_INTENT_PHRASES = [
   "lernfortschritt",
   "lernstandsbericht",
   "zeugniskommentar",
-  "schülers",
+  "schÃ¼lers",
 ]
 
 const REPORT_INTENT_TERMS = [
