@@ -15,6 +15,21 @@ const OUT_OF_SCOPE_PHRASES = [
   "gedicht",
   "kaffee-kuchen",
   "hauptstadt",
+  // additional common terms
+  "bake",
+  "baking",
+  "muffins",
+  "cake",
+  "cookies",
+  "capital of",
+  "capital",
+  "weather",
+  "backen",
+  "rezept",
+  "kuchen",
+  "kekse",
+  "wetter",
+  "reisen",
 ]
 
 const OUT_OF_SCOPE_REGEX = OUT_OF_SCOPE_PHRASES.map((phrase) =>
@@ -77,6 +92,63 @@ const SCHOOL_TARGETS = [
   "communication",
 ]
 
+const SCHOOL_INTENT_TERMS = [
+  "parent",
+  "carer",
+  "student",
+  "pupil",
+  "class",
+  "lesson",
+  "school",
+  "report",
+  "progress",
+  "behaviour",
+  "behavior",
+  "attendance",
+  "homework",
+  "assessment",
+  "eltern",
+  "schüler",
+  "schueler",
+  "klasse",
+  "unterricht",
+  "schule",
+  "zeugnis",
+  "kommentar",
+  "lernstand",
+  "fortschritt",
+  "verhalten",
+  "anwesenheit",
+  "hausaufgaben",
+  "bewertung",
+]
+
+const SCHOOL_INTENT_PHRASES = [
+  "elternnachricht",
+  "lernfortschritt",
+  "lernstandsbericht",
+  "zeugniskommentar",
+  "schülers",
+]
+
+const REPORT_INTENT_TERMS = [
+  "report",
+  "comment",
+  "progress",
+  "zeugnis",
+  "bericht",
+  "kommentar",
+  "lernstand",
+  "fortschritt",
+  "berichtskommentar",
+]
+
+const REPORT_INTENT_PHRASES = [
+  "zeugniskommentar",
+  "berichtskommentar",
+  "lernstandsbericht",
+]
+
 const IMPLICIT_SCHOOL_PHRASES = [
   "parent message",
   "report comment",
@@ -108,16 +180,25 @@ export function isValidDraftRequest(text: string, mode?: string) {
     return false
   }
 
-  if (mode === "parent_message" || mode === "report_comment") {
-    return true
-  }
-
   const normalized = normalizeQuery(text)
   const hasExplicitVerb = containsAnyWord(normalized, EXPLICIT_VERBS)
   const hasSchoolTarget = containsAnyWord(normalized, SCHOOL_TARGETS)
-
   const explicitEligible = hasExplicitVerb && hasSchoolTarget
   const implicitEligible = IMPLICIT_SCHOOL_PHRASES.some((phrase) => normalized.includes(phrase))
+  const hasSchoolIntent =
+    containsAnyWord(normalized, SCHOOL_INTENT_TERMS) ||
+    SCHOOL_INTENT_PHRASES.some((phrase) => normalized.includes(phrase))
+  const hasReportIntent =
+    containsAnyWord(normalized, REPORT_INTENT_TERMS) ||
+    REPORT_INTENT_PHRASES.some((phrase) => normalized.includes(phrase))
 
-  return explicitEligible || implicitEligible
+  if (mode === "parent_message") {
+    return hasSchoolIntent || explicitEligible || implicitEligible
+  }
+
+  if (mode === "report_comment") {
+    return hasReportIntent || explicitEligible || implicitEligible
+  }
+
+  return (explicitEligible || implicitEligible) && (hasSchoolIntent || hasReportIntent)
 }

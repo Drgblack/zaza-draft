@@ -228,7 +228,8 @@ export function MainEditor() {
     teacherNote: string
     safeAlternatives: string[]
   } | null>(null)
-  const [outOfScopeNotice, setOutOfScopeNotice] = useState<string | null>(null)
+  const [outOfScopeNotice, setOutOfScopeNotice] = useState(false)
+  const [outOfScopeMessage, setOutOfScopeMessage] = useState("")
   const [loadingMessageIndex, setLoadingMessageIndex] = useState(0)
 
   const [showWellbeingInsights, setShowWellbeingInsights] = useState(true)
@@ -445,7 +446,8 @@ export function MainEditor() {
     setDeescalationSummary(null)
     setInputReframeTier(null)
     setBlockedLanguageContext(null)
-    setOutOfScopeNotice(null)
+    setOutOfScopeNotice(false)
+    setOutOfScopeMessage("")
 
     const signaturePayload = {
       line1: prefs.signatureLine1?.trim() || prefs.firstName,
@@ -532,9 +534,15 @@ export function MainEditor() {
       const responseCode: string | null = data?.error?.code ?? data?.code ?? null
       const responseMessage: string | null = data?.error?.message ?? data?.message ?? null
       if (responseCode === "OUT_OF_SCOPE") {
-        setOutOfScopeNotice(
-          responseMessage ?? t("editor.notice.scopeGuard.subtext"),
-        )
+        const fallbackMessage = t("editor.outOfScope.body")
+        const noticeMessage =
+          locale === "de-DE" ? fallbackMessage : responseMessage ?? fallbackMessage
+        setOutOfScopeMessage(noticeMessage)
+        setOutOfScopeNotice(true)
+        setGeneratedDraft(null)
+        setDraftMetadata(null)
+        setDraftStructure(null)
+        setDeescalationSummary(null)
         logClientEvent("draft_generate_out_of_scope", { code: responseCode })
         return
       }
@@ -561,7 +569,8 @@ export function MainEditor() {
         return
       }
       setBlockedLanguageContext(null)
-      setOutOfScopeNotice(null)
+      setOutOfScopeNotice(false)
+      setOutOfScopeMessage("")
 
       logClientEvent("draft_generate_succeeded", {
         tone: selectedTone,
@@ -884,11 +893,11 @@ Examples:
             <div className="flex items-start gap-3">
               <Info className="text-white" size={20} />
               <div className="space-y-1">
-                <p className="font-semibold text-white text-sm">{t("editor.notice.scopeGuard.title")}</p>
-                <p className="text-xs text-white/80">{outOfScopeNotice}</p>
-                <p className="text-[11px] text-white/60">
-                  {t("editor.notice.scopeGuard.subtext")}
+                <p className="font-semibold text-white text-sm">{t("editor.outOfScope.title")}</p>
+                <p className="text-xs text-white/80">
+                  {outOfScopeMessage || t("editor.outOfScope.body")}
                 </p>
+                <p className="text-[11px] text-white/60">{t("editor.outOfScope.helper")}</p>
               </div>
             </div>
           </div>

@@ -916,6 +916,9 @@ export const localeMessages: Record<Locale, LocaleMessages> = {
       "editor.outOfScope.body":
         "This doesn’t look like a parent message or report comment. Zaza Draft is designed for professional school communication.",
       "editor.outOfScope.helper": "Adjust the text or add context and try again.",
+      "editor.notice.scopeGuard.title": "Not generated",
+      "editor.notice.scopeGuard.subtext":
+        "This doesn’t look like a parent message or report comment. Zaza Draft is designed for professional school communication.",
       "insights.badge.progress": "Progress",
     "insights.heatmap.tooltipText": "Activity heatmap showing your most productive drafting times",
     "insights.heatmap.mon": "Mon",
@@ -1564,6 +1567,9 @@ export const localeMessages: Record<Locale, LocaleMessages> = {
       "editor.outOfScope.body":
         "Das sieht nicht wie eine Elternnachricht oder ein Berichtskommentar aus. Zaza Draft hilft Ihnen bei professioneller schulischer Kommunikation.",
       "editor.outOfScope.helper": "Passen Sie den Text an oder fügen Sie Kontext hinzu und versuchen Sie es erneut.",
+      "editor.notice.scopeGuard.title": "Nicht generiert",
+      "editor.notice.scopeGuard.subtext":
+        "Das sieht nicht wie eine Elternnachricht oder ein Berichtskommentar aus. Zaza Draft hilft Ihnen bei professioneller schulischer Kommunikation.",
       "insights.badge.progress": "Fortschritt",
     "insights.heatmap.tooltipText": "Aktivitäts-Heatmap zeigt Ihre produktivsten Entwurfszeiten",
     "insights.heatmap.mon": "Mo",

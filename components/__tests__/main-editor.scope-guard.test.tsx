@@ -11,7 +11,21 @@ let mockLocale: Locale = "en-GB"
  * Mock useLocale so MainEditor can render without LanguageProvider.
  */
 vi.mock("@/hooks/use-locale", () => {
-  const t = (key: string) => key
+  const enStrings = {
+    "editor.outOfScope.title": "Not generated",
+    "editor.outOfScope.body": "This doesn't look like a school report or parent message.",
+    "editor.outOfScope.helper": "Adjust the text or add context and try again.",
+  }
+  const deStrings = {
+    "editor.outOfScope.title": "Nicht generiert",
+    "editor.outOfScope.body":
+      "Das sieht nicht wie eine Elternnachricht oder ein Berichtskommentar aus. Zaza Draft hilft Ihnen bei professioneller schulischer Kommunikation.",
+    "editor.outOfScope.helper": "Passen Sie den Text an oder fügen Sie Kontext hinzu und versuchen Sie es erneut.",
+  }
+  const t = (key: string) => {
+    const localeStrings = mockLocale === "de-DE" ? deStrings : enStrings
+    return localeStrings[key] ?? key
+  }
   return {
     useLocale: () => ({
       locale: mockLocale,
@@ -173,7 +187,7 @@ describe("MainEditor scope guard notice", () => {
     render(<MainEditor />)
 
     const prompt = getPromptTextarea()
-    fireEvent.change(prompt, { target: { value: "What is the capital of France?" } })
+    fireEvent.change(prompt, { target: { value: "How do I bake toffee muffins?" } })
 
     clickGenerateButton()
 
@@ -193,15 +207,17 @@ describe("MainEditor scope guard notice", () => {
     render(<MainEditor />)
 
     const prompt = getPromptTextarea()
-    fireEvent.change(prompt, { target: { value: "Was ist die Hauptstadt von Frankreich?" } })
+    fireEvent.change(prompt, { target: { value: "Wie backe ich Toffee-Muffins?" } })
 
     clickGenerateButton()
 
-    const expected = "Das sieht nicht wie eine Elternnachricht oder ein Zeugnis-Kommentar aus."
+    const expected = "Das sieht nicht wie eine Elternnachricht oder ein Berichtskommentar aus."
 
     await waitFor(() => {
       const text = document.body.textContent ?? ""
       expect(text).toContain(expected)
     })
+
+    expect(screen.queryByTestId("draft-output-body")).toBeNull()
   })
 })

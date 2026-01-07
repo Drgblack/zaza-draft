@@ -10,6 +10,8 @@ const OUT_OF_SCOPE_PROMPTS = [
   "how do I change my car battery?",
   "best time of year to visit Thailand?",
   "what can I turn leftover chilli con carne into?",
+  "how do I bake toffee muffins?",
+  "what is the capital of France?",
 ]
 
 const GERMAN_ACCEPTED_PROMPTS = [
@@ -56,6 +58,19 @@ describe("out-of-scope redirect guard", () => {
     ]
     generalPrompts.forEach((prompt) => {
       expect(isValidDraftRequest(prompt)).toBe(false)
+    })
+  })
+
+  it("rejects recipe/capital prompts even when reporting modes are requested", () => {
+    const prompts = [
+      "How do I bake toffee muffins?",
+      "What is the capital of France?",
+      "Wie backe ich Toffee-Muffins?",
+      "Was ist die Hauptstadt von Frankreich?",
+    ]
+    prompts.forEach((prompt) => {
+      expect(isValidDraftRequest(prompt, "parent_message")).toBe(false)
+      expect(isValidDraftRequest(prompt, "report_comment")).toBe(false)
     })
   })
 
