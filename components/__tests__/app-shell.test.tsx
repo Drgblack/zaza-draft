@@ -81,8 +81,10 @@ describe("AppShell layout", () => {
     )
 
     const shell = screen.getByTestId("app-shell")
-    expect(shell.className).toMatch(/from-pink-400/)
-    expect(shell.className).not.toMatch(/from-indigo-500/)
+    expect(shell.className).toContain("bg-background")
+    expect(shell.className).toContain("text-foreground")
+    expect(screen.queryByTestId("auth-overlay")).toBeNull()
+    expect(screen.getByTestId("app-overlay")).toBeTruthy()
     expect(screen.getByTestId("footer-slim")).toBeTruthy()
     expect(screen.getByTestId("child").textContent).toBe("Page content")
   })
@@ -106,7 +108,24 @@ describe("AppShell layout", () => {
     )
 
     const shell = screen.getByTestId("app-shell")
-    expect(shell.className).toMatch(/from-indigo-500/)
-    expect(shell.className).not.toMatch(/from-pink-400/)
+    expect(shell.className).toContain("bg-background")
+    expect(shell.className).toContain("text-foreground")
+    expect(screen.queryByTestId("app-overlay")).toBeNull()
+    expect(screen.getByTestId("auth-overlay")).toBeTruthy()
+  })
+
+  it("keeps the base styles in dark mode for app routes", () => {
+    document.documentElement.classList.add("dark")
+    render(
+      <AppShell>
+        <div data-testid="child">Page content</div>
+      </AppShell>,
+    )
+
+    const shell = screen.getByTestId("app-shell")
+    expect(shell.className).toContain("bg-background")
+    expect(shell.className).toContain("text-foreground")
+    expect(screen.getByTestId("app-overlay")).toBeTruthy()
+    document.documentElement.classList.remove("dark")
   })
 })

@@ -1,5 +1,7 @@
 "use client"
 
+"use client"
+
 import { useEffect, useMemo, useState, type ReactNode } from "react"
 import { usePathname } from "next/navigation"
 import { Header } from "@/components/header"
@@ -23,10 +25,12 @@ interface AppShellProps {
   children: ReactNode
 }
 
-const AUTH_THEME_CLASSES =
-  "bg-gradient-to-br from-indigo-500 via-sky-600 to-purple-700 dark:from-[#04080f] dark:via-[#0c1a30] dark:to-[#140e26] text-white"
-const APP_THEME_CLASSES =
-  "bg-gradient-to-br from-pink-400 via-purple-500 to-orange-400 dark:from-[#090226] dark:via-[#140b35] dark:to-[#12031a] text-white"
+const APP_OVERLAY =
+  "absolute inset-0 pointer-events-none -z-10"
+const APP_OVERLAY_INNER =
+  "absolute inset-0 opacity-20 blur-3xl bg-[radial-gradient(circle_at_top,_rgba(236,72,153,0.28),_rgba(234,179,8,0.15),_transparent_55%)]"
+const AUTH_OVERLAY =
+  "absolute inset-0 pointer-events-none -z-10 bg-[radial-gradient(circle_at_center,_rgba(59,130,246,0.7),_rgba(76,29,149,0.8),_transparent_65%)]"
 
 export function AppShell({ children }: AppShellProps) {
   const [isDarkMode, setIsDarkMode] = useState(false)
@@ -34,8 +38,7 @@ export function AppShell({ children }: AppShellProps) {
   const { status } = useAuth()
 
   useEffect(() => {
-    const isDark = document.documentElement.classList.contains("dark")
-    setIsDarkMode(isDark)
+    setIsDarkMode(document.documentElement.classList.contains("dark"))
   }, [])
 
   const handleToggleDarkMode = () => {
@@ -44,7 +47,7 @@ export function AppShell({ children }: AppShellProps) {
   }
 
   const shouldUseAppTheme = useMemo(() => {
-    if (status === "unauthenticated") {
+    if (status !== "authenticated") {
       return false
     }
     if (pathname.startsWith("/auth") || pathname.startsWith("/register") || pathname === "/login") {
@@ -58,13 +61,19 @@ export function AppShell({ children }: AppShellProps) {
     })
   }, [pathname, status])
 
-  const themeClasses = shouldUseAppTheme ? APP_THEME_CLASSES : AUTH_THEME_CLASSES
-
   return (
     <div
       data-testid="app-shell"
-      className={`min-h-screen flex flex-col transition-colors ${themeClasses}`}
+      className="min-h-dvh bg-background text-foreground relative overflow-x-hidden"
     >
+      {shouldUseAppTheme ? (
+        <div data-testid="app-overlay" className={APP_OVERLAY}>
+          <div className={APP_OVERLAY_INNER} />
+        </div>
+      ) : (
+        <div data-testid="auth-overlay" className={AUTH_OVERLAY} />
+      )}
+
       <Header
         title="Zaza Draft"
         saveStatus="saved"
