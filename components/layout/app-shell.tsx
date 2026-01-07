@@ -1,7 +1,5 @@
 "use client"
 
-"use client"
-
 import { useEffect, useMemo, useState, type ReactNode } from "react"
 import { usePathname } from "next/navigation"
 import { Header } from "@/components/header"

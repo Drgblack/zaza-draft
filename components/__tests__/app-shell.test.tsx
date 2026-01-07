@@ -83,6 +83,8 @@ describe("AppShell layout", () => {
     const shell = screen.getByTestId("app-shell")
     expect(shell.className).toContain("bg-background")
     expect(shell.className).toContain("text-foreground")
+    expect(shell.className).not.toMatch(/text-white/)
+    expect(shell.className).not.toMatch(/opacity-/)
     expect(screen.queryByTestId("auth-overlay")).toBeNull()
     expect(screen.getByTestId("app-overlay")).toBeTruthy()
     expect(screen.getByTestId("footer-slim")).toBeTruthy()
