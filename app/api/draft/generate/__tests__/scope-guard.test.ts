@@ -19,11 +19,13 @@ const GERMAN_ACCEPTED_PROMPTS = [
   "Erstelle einen sachlichen Zeugniskommentar zum Leseverständnis eines Schülers.",
   "Schreibe eine Nachricht an die Eltern über den Ausflug der Klasse.",
   "Schreibe einen Lernstandsbericht zur Mathematikleistung.",
+  "Schreiben Sie eine Nachricht an die Eltern über unsere Geographiestunde, in der wir die Hauptstadt Frankreichs kennengelernt haben.",
 ]
 
 const GERMAN_REJECTED_PROMPTS = [
   "Schreibe ein Gedicht über den Sommer.",
   "Wie backe ich einen Kaffee-Kuchen?",
+  "Was ist die Hauptstadt von Frankreich?",
 ]
 
 describe("out-of-scope redirect guard", () => {
@@ -79,6 +81,8 @@ describe("out-of-scope redirect guard", () => {
       "Write a parent message about our class baking activity.",
       "Draft a report comment on a student's reading progress.",
       "Rewrite this to sound professional for a parent email.",
+      "Write a message to parents about our geography lesson where we learned the capital of France.",
+      "Write a note to parents about our class bake sale and that we will be making muffins.",
     ]
     schoolPrompts.forEach((prompt) => {
       expect(isValidDraftRequest(prompt)).toBe(true)

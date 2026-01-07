@@ -6,6 +6,7 @@ import { MainEditor } from "@/components/main-editor"
 
 type Locale = "en-GB" | "de-DE"
 let mockLocale: Locale = "en-GB"
+let mockOnboardingDismissed = true
 
 /**
  * Mock useLocale so MainEditor can render without LanguageProvider.
@@ -15,12 +16,14 @@ vi.mock("@/hooks/use-locale", () => {
     "editor.outOfScope.title": "Not generated",
     "editor.outOfScope.body": "This doesn't look like a school report or parent message.",
     "editor.outOfScope.helper": "Adjust the text or add context and try again.",
+    "welcome.dontShowAgain": "Don't show this again",
   }
   const deStrings = {
     "editor.outOfScope.title": "Nicht generiert",
     "editor.outOfScope.body":
       "Das sieht nicht wie eine Elternnachricht oder ein Berichtskommentar aus. Zaza Draft hilft Ihnen bei professioneller schulischer Kommunikation.",
     "editor.outOfScope.helper": "Passen Sie den Text an oder fügen Sie Kontext hinzu und versuchen Sie es erneut.",
+    "welcome.dontShowAgain": "Nicht mehr anzeigen",
   }
   const t = (key: string) => {
     const localeStrings = mockLocale === "de-DE" ? deStrings : enStrings
@@ -106,7 +109,7 @@ const fetchMock = vi.fn(async (input: RequestInfo, init?: RequestInit) => {
     return {
       ok: true,
       status: 200,
-      json: async () => ({ success: true, data: { dismissed: true } }),
+      json: async () => ({ success: true, data: { dismissed: mockOnboardingDismissed } }),
     } as any
   }
 
@@ -126,9 +129,65 @@ const fetchMock = vi.fn(async (input: RequestInfo, init?: RequestInit) => {
    * So we return ok:true/status:200 but with a payload that clearly indicates OUT_OF_SCOPE.
    */
   if (full.includes("/api/draft/generate")) {
+    const body = init?.body ? JSON.parse(String(init.body)) : {}
+    const situation =
+      typeof body?.situation === "string" ? body.situation.toLowerCase() : ""
+    if (situation.includes("reading progress")) {
+      const success = {
+        success: true,
+        data: {
+          generatedDraft: "Dear parent, here's the latest reading progress update for Jamie.",
+          formattedDraft: {
+            subject: "Reading Update",
+            paragraphs: [
+              "Jamie has been participating well in guided reading sessions and is improving fluency.",
+              "Please encourage them to continue reading at home to reinforce comprehension skills.",
+            ],
+          },
+          metadata: {
+            wordCount: 78,
+            toneUsed: "warm",
+            modelUsed: "model-v1",
+            pronounPreference: "auto",
+            pronounResolution: {
+              resolvedPreference: "auto",
+              reason: null,
+              source: null,
+            },
+            generationTime: 520,
+            tokensUsed: 320,
+            safetyFlags: [],
+            generatedAt: new Date().toISOString(),
+            requestedAt: new Date().toISOString(),
+            contextUsed: {},
+            signatureBlock: null,
+          },
+          meta: {
+            inputReframed: false,
+            inputReframedTier: null,
+            latencyMs: 520,
+            usedFallback: false,
+            errorCode: null,
+          },
+          usage: {
+            plan: "free",
+            currentMonthUsage: 3,
+            limit: 10,
+            remaining: 7,
+          },
+          deescalationSummary: null,
+        },
+      }
+      return {
+        ok: true,
+        status: 200,
+        json: async () => success,
+      } as any
+    }
+
     const msg =
       mockLocale === "de-DE"
-        ? "Das sieht nicht wie eine Elternnachricht oder ein Zeugnis-Kommentar aus."
+        ? "Das sieht nicht wie eine Elternnachricht oder ein Berichtskommentar aus."
         : "This doesn't look like a school report or parent message."
     return {
       ok: true,
@@ -160,6 +219,7 @@ afterAll(() => {
 
 beforeEach(() => {
   vi.clearAllMocks()
+  mockOnboardingDismissed = true
 })
 
 function getPromptTextarea() {
@@ -194,9 +254,12 @@ describe("MainEditor scope guard notice", () => {
     const expected = "This doesn't look like a school report or parent message."
 
     await waitFor(() => {
-      const text = document.body.textContent ?? ""
-      expect(text).toContain(expected)
+      const noticeBody = screen.getByText(expected, { exact: false })
+      expect(noticeBody.textContent).toContain(expected)
     })
+
+    const noticeBody = screen.getByText(expected, { exact: false })
+    expect(noticeBody.textContent).not.toContain("editor.")
 
     expect(screen.queryByTestId("draft-output-body")).toBeNull()
   })
@@ -214,8 +277,51 @@ describe("MainEditor scope guard notice", () => {
     const expected = "Das sieht nicht wie eine Elternnachricht oder ein Berichtskommentar aus."
 
     await waitFor(() => {
-      const text = document.body.textContent ?? ""
-      expect(text).toContain(expected)
+      const noticeBody = screen.getByText(expected, { exact: false })
+      expect(noticeBody.textContent).toContain(expected)
+    })
+
+    const noticeBody = screen.getByText(expected, { exact: false })
+    expect(noticeBody.textContent).not.toContain("editor.")
+
+    expect(screen.queryByTestId("draft-output-body")).toBeNull()
+  })
+
+  it("renders welcome checkbox label in German", async () => {
+    mockLocale = "de-DE"
+    mockOnboardingDismissed = false
+
+    render(<MainEditor />)
+
+    await waitFor(() => {
+      expect(screen.queryByText("Nicht mehr anzeigen")).not.toBeNull()
+    })
+
+    expect(screen.queryByText("Don't show this again")).toBeNull()
+  })
+
+  it("removes a previously generated draft after an out-of-scope prompt", async () => {
+    mockLocale = "en-GB"
+
+    render(<MainEditor />)
+
+    const prompt = getPromptTextarea()
+    fireEvent.change(prompt, { target: { value: "Write a parent message about reading progress." } })
+
+    clickGenerateButton()
+
+    await waitFor(() => {
+      expect(screen.queryByTestId("draft-output-body")).not.toBeNull()
+    })
+
+    fireEvent.change(prompt, { target: { value: "What is the capital of France?" } })
+    clickGenerateButton()
+
+    const expected = "This doesn't look like a school report or parent message."
+    await waitFor(() => {
+      const noticeBody = screen.getByText(expected, { exact: false })
+      expect(noticeBody.textContent).toContain(expected)
+      expect(noticeBody.textContent).not.toContain("editor.")
     })
 
     expect(screen.queryByTestId("draft-output-body")).toBeNull()

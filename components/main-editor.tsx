@@ -20,6 +20,7 @@ import { cleanStudentName } from "@/lib/draft/student-name"
 import { resolveLanguageChoiceFromLocale } from "@/lib/draft/language"
 import type { DraftLanguage, DraftMode, PronounPreference } from "@/lib/types"
 import { MODE_LABEL_KEYS, DEFAULT_DRAFT_MODE } from "@/lib/draft-mode"
+import { isValidDraftRequest, OUT_OF_SCOPE_REDIRECT_MESSAGE } from "@/lib/draft/scope-guard"
 import Link from "next/link"
 import { FileText, Info, Mail, MessageCircle, Sun, Target, Users } from "lucide-react"
 import type { LucideIcon } from "lucide-react"
@@ -231,6 +232,21 @@ export function MainEditor() {
   const [outOfScopeNotice, setOutOfScopeNotice] = useState(false)
   const [outOfScopeMessage, setOutOfScopeMessage] = useState("")
   const [loadingMessageIndex, setLoadingMessageIndex] = useState(0)
+  const showOutOfScopeNotice = (message: string, code = "OUT_OF_SCOPE") => {
+    setOutOfScopeMessage(message)
+    setOutOfScopeNotice(true)
+    setGeneratedDraft(null)
+    setDraftMetadata(null)
+    setDraftStructure(null)
+    setDeescalationSummary(null)
+    setBlockedLanguageContext(null)
+    setSensitivePreview(null)
+    setGenerationError(null)
+    setGenerationAction(null)
+    setInputReframeTier(null)
+    setIsGenerating(false)
+    logClientEvent("draft_generate_out_of_scope", { code })
+  }
 
   const [showWellbeingInsights, setShowWellbeingInsights] = useState(true)
   const isDocumentDark = typeof document !== "undefined" && document.documentElement.classList.contains("dark")
@@ -432,7 +448,16 @@ export function MainEditor() {
   }, [isGenerating])
 
   const handleGenerate = async (options: { rewrite?: boolean; previousDraft?: string } = {}) => {
-    if (!content.trim() || isGenerating) {
+    const trimmedContent = content.trim()
+    if (!trimmedContent || isGenerating) {
+      return
+    }
+
+    const fallbackOutOfScopeMessage = t("editor.outOfScope.body")
+    if (!isValidDraftRequest(trimmedContent, mode)) {
+      const precheckMessage =
+        locale === "de-DE" ? fallbackOutOfScopeMessage : OUT_OF_SCOPE_REDIRECT_MESSAGE
+      showOutOfScopeNotice(precheckMessage, "CLIENT_PRECHECK")
       return
     }
 
@@ -458,7 +483,7 @@ export function MainEditor() {
     }
 
     const payload: Record<string, unknown> = {
-      situation: content.trim(),
+      situation: trimmedContent,
       tone: selectedTone,
       language: languageChoice,
       outputLanguage: languageChoice,
@@ -537,13 +562,7 @@ export function MainEditor() {
         const fallbackMessage = t("editor.outOfScope.body")
         const noticeMessage =
           locale === "de-DE" ? fallbackMessage : responseMessage ?? fallbackMessage
-        setOutOfScopeMessage(noticeMessage)
-        setOutOfScopeNotice(true)
-        setGeneratedDraft(null)
-        setDraftMetadata(null)
-        setDraftStructure(null)
-        setDeescalationSummary(null)
-        logClientEvent("draft_generate_out_of_scope", { code: responseCode })
+        showOutOfScopeNotice(noticeMessage, responseCode ?? "OUT_OF_SCOPE")
         return
       }
 
@@ -934,7 +953,7 @@ Examples:
                   onChange={handleDontShowAgain}
                   className="rounded"
                 />
-                Don't show this again
+                {t("welcome.dontShowAgain")}
               </label>
             </div>
             {onboardingError && <p className="text-xs text-rose-200 mt-2">{onboardingError}</p>}
