@@ -10,6 +10,11 @@ import {
   type User,
 } from "firebase/auth"
 import { auth, googleAuthProvider } from "@/lib/firebase/client"
+import {
+  AUTH_COOKIE_MAX_AGE,
+  AUTH_COOKIE_NAME,
+  AUTH_COOKIE_VALUE,
+} from "@/lib/auth/cookie"
 
 type AuthStatus = "loading" | "authenticated" | "unauthenticated"
 
@@ -24,6 +29,15 @@ interface AuthContextValue {
 }
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined)
+
+function writeAuthCookie(value: string, maxAge: number) {
+  if (typeof document === "undefined") {
+    return
+  }
+
+  const maxAgeDirective = maxAge >= 0 ? `max-age=${maxAge}; ` : ""
+  document.cookie = `${AUTH_COOKIE_NAME}=${value}; ${maxAgeDirective}path=/; sameSite=Lax`
+}
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
@@ -61,6 +75,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     return () => unsubscribe()
   }, [])
+
+  useEffect(() => {
+    if (status === "loading") {
+      return
+    }
+
+    if (status === "authenticated") {
+      writeAuthCookie(AUTH_COOKIE_VALUE, AUTH_COOKIE_MAX_AGE)
+    } else {
+      writeAuthCookie("", 0)
+    }
+  }, [status])
 
   const signInWithEmail = async (email: string, password: string) => {
     if (!auth) {

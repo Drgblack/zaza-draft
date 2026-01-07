@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button"
 import { ShareDialog } from "./zaza/share-dialog"
 import { useTeacherPrefs } from "@/hooks/use-teacher-prefs"
 import { useLocale } from "@/hooks/use-locale"
+import { useAuth } from "@/hooks/use-auth"
 import Image from "next/image"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
@@ -37,6 +38,8 @@ export function Header({
   const { prefs } = useTeacherPrefs()
   const { t } = useLocale()
   const pathname = usePathname()
+  const { user, status } = useAuth()
+  const hasAccess = status === "authenticated" && Boolean(user)
 
   const handleTitleSubmit = () => {
     onTitleChange(editedTitle)
@@ -102,37 +105,41 @@ export function Header({
         </div>
 
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-4">
-          <div
-            className="flex items-center gap-2 text-sm text-gray-800 dark:text-white font-semibold"
-            style={isDarkMode ? { color: "#ffffff" } : {}}
-            role="status"
-            aria-live="polite"
-          >
+          {hasAccess && (
             <div
-              className={`w-2 h-2 rounded-full ${
-                saveStatus === "saved"
-                  ? "bg-emerald-500"
-                  : saveStatus === "saving"
-                    ? "bg-orange-500 animate-pulse"
-                    : "bg-gray-500"
-              }`}
-              aria-hidden="true"
-            />
-            <span>{getSaveStatusText()}</span>
-          </div>
+              className="flex items-center gap-2 text-sm text-gray-800 dark:text-white font-semibold"
+              style={isDarkMode ? { color: "#ffffff" } : {}}
+              role="status"
+              aria-live="polite"
+            >
+              <div
+                className={`w-2 h-2 rounded-full ${
+                  saveStatus === "saved"
+                    ? "bg-emerald-500"
+                    : saveStatus === "saving"
+                      ? "bg-orange-500 animate-pulse"
+                      : "bg-gray-500"
+                }`}
+                aria-hidden="true"
+              />
+              <span>{getSaveStatusText()}</span>
+            </div>
+          )}
 
           <div className="flex flex-wrap items-center gap-2 justify-end">
-            <Link href="/insights">
-              <Button
-                variant={pathname === "/insights" ? "secondary" : "ghost"}
-                size="sm"
-                aria-label={t("header.insightsButtonAria")}
-                leftIcon={<BarChart3 className="h-4 w-4" aria-hidden="true" />}
-                className="gap-2"
-              >
-                <span className="hidden sm:inline">{t("header.insightsButtonLabel")}</span>
-              </Button>
-            </Link>
+            {hasAccess && (
+              <Link href="/insights">
+                <Button
+                  variant={pathname === "/insights" ? "secondary" : "ghost"}
+                  size="sm"
+                  aria-label={t("header.insightsButtonAria")}
+                  leftIcon={<BarChart3 className="h-4 w-4" aria-hidden="true" />}
+                  className="gap-2"
+                >
+                  <span className="hidden sm:inline">{t("header.insightsButtonLabel")}</span>
+                </Button>
+              </Link>
+            )}
 
             <LanguageDropdown />
 
@@ -146,18 +153,27 @@ export function Header({
               {isDarkMode ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
             </Button>
 
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setShareDialogOpen(true)}
-              aria-label={t("shareDocLabel")}
-              leftIcon={<Share2 className="h-4 w-4" aria-hidden="true" />}
-              className="rounded-[14px]"
-            >
-              {t("share")}
-            </Button>
-
-            <UserMenu />
+            {hasAccess ? (
+              <>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShareDialogOpen(true)}
+                  aria-label={t("shareDocLabel")}
+                  leftIcon={<Share2 className="h-4 w-4" aria-hidden="true" />}
+                  className="rounded-[14px]"
+                >
+                  {t("share")}
+                </Button>
+                <UserMenu />
+              </>
+            ) : (
+              <Link href="/">
+                <Button variant="secondary" size="sm">
+                  {t("auth.cta.signin")}
+                </Button>
+              </Link>
+            )}
           </div>
         </div>
       </div>
