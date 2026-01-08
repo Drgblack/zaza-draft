@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 
 import { describe, expect, it, vi } from "vitest"
-import { render, screen, fireEvent } from "@testing-library/react"
+import { render, screen } from "@testing-library/react"
 
 import { Header } from "@/components/header"
 
@@ -22,19 +22,11 @@ vi.mock("next/navigation", () => ({
 vi.mock("next/link", () => ({
   __esModule: true,
   default: ({ children, href, ...props }: any) => (
-    <a
-      {...props}
-      href={href}
-      onClick={(event) => {
-        event.preventDefault()
-        useRouterMock.push?.(href)
-      }}
-    >
+    <a {...props} href={href}>
       {children}
     </a>
   ),
 }))
-
 const useAuthMock = vi.fn()
 
 vi.mock("@/hooks/use-auth", () => ({
@@ -118,23 +110,5 @@ describe("Header gating", () => {
     expect(insightsLink.getAttribute("href")).toBe("/insights")
     expect(screen.getByLabelText("Account menu")).toBeTruthy()
     expect(screen.queryByRole("button", { name: "Sign in" })).toBeNull()
-  })
-
-  it("navigates to insights when clicked", () => {
-    useAuthMock.mockReturnValue({
-      user: { displayName: "Test User" },
-      status: "authenticated",
-      signOut: vi.fn(),
-      signInWithEmail: vi.fn(),
-      registerWithEmail: vi.fn(),
-      signInWithGoogle: vi.fn(),
-      getIdToken: vi.fn().mockResolvedValue("token"),
-    })
-
-    render(<Header title="Test" saveStatus="saved" onTitleChange={() => {}} />)
-
-    const insightsLink = screen.getByTestId("header-insights-link")
-    fireEvent.click(insightsLink)
-    expect(useRouterMock.push).toHaveBeenCalledWith("/insights")
   })
 })

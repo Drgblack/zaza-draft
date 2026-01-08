@@ -20,6 +20,15 @@ vi.mock("next/navigation", () => ({
   usePathname: () => usePathnameMock(),
 }))
 
+vi.mock("next/link", () => ({
+  __esModule: true,
+  default: ({ children, href, ...props }: any) => (
+    <a {...props} href={href}>
+      {children}
+    </a>
+  ),
+}))
+
 vi.mock("@/hooks/use-auth", () => ({
   useAuth: () => useAuthMock(),
 }))
