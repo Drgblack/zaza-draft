@@ -4,6 +4,7 @@ import { Clock, Flame, Heart, ChevronRight, TrendingUp, Sparkles } from "lucide-
 import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { useLocale } from "@/hooks/use-locale"
+import { useRouter } from "next/navigation"
 
 interface InsightsData {
   timeSaved: { current: number; previous: number } | null
@@ -194,7 +195,7 @@ export function MiniInsightsBar() {
               )}
               {timeText.text}
             </span>
-          </button>
+          </a>
 
           <a
             href="/insights#streak"
@@ -208,7 +209,7 @@ export function MiniInsightsBar() {
               strokeWidth={2}
             />
             <span className="font-semibold text-orange-900 dark:text-orange-100">{streakText}</span>
-          </button>
+          </a>
 
           <a
             href="/insights#wellbeing"
@@ -222,7 +223,7 @@ export function MiniInsightsBar() {
               strokeWidth={2}
             />
             <span className="font-semibold text-emerald-900 dark:text-emerald-100">{balanceText}</span>
-          </button>
+          </a>
         </div>
 
         <Button
