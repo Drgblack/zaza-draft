@@ -24,11 +24,11 @@ interface AppShellProps {
 }
 
 const APP_BACKGROUND_CLASSES =
-  "app-gradient pointer-events-none absolute inset-0 z-0 bg-gradient-to-br from-rose-500 via-fuchsia-600 to-orange-500 saturate-125 contrast-110"
+  "app-gradient pointer-events-none absolute inset-0 z-0 bg-[linear-gradient(135deg,#ec4899_0%,#a855f7_45%,#f97316_100%)]"
 const AUTH_BACKGROUND_CLASSES =
   "auth-gradient pointer-events-none absolute inset-0 z-0 bg-gradient-to-br from-indigo-500 via-sky-600 to-purple-700 dark:from-[#04080f] dark:via-[#0c1a30] dark:to-[#140e26]"
 const APP_ACCENT_CLASSES =
-  "app-gradient-accent pointer-events-none absolute inset-0 z-0 bg-[radial-gradient(circle_at_85%_85%,rgba(251,146,60,0.55),transparent_55%)]"
+  "app-gradient-accent pointer-events-none absolute inset-0 z-0 bg-[radial-gradient(circle_600px_at_85%_85%,rgba(249,115,22,0.35),transparent_60%)]"
 
 export function AppShell({ children }: AppShellProps) {
   const [isDarkMode, setIsDarkMode] = useState(false)

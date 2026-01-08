@@ -10,11 +10,11 @@ import { useTeacherPrefs } from "@/hooks/use-teacher-prefs"
 import { useLocale } from "@/hooks/use-locale"
 import { useAuth } from "@/hooks/use-auth"
 import Image from "next/image"
+import { cn } from "@/lib/utils"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { LanguageDropdown } from "./language-dropdown"
 import { UserMenu } from "./user-menu"
-import { cn } from "@/lib/utils"
 
 interface HeaderProps {
   title: string
@@ -129,7 +129,7 @@ export function Header({
 
           <div className="flex flex-wrap items-center gap-2 justify-end">
             {hasAccess && (
-              <Link
+              <a
                 href="/insights"
                 data-testid="header-insights-link"
                 aria-label={t("header.insightsButtonAria")}
@@ -138,14 +138,14 @@ export function Header({
                     variant: pathname === "/insights" ? "secondary" : "ghost",
                     size: "sm",
                   }),
-                  "gap-2 inline-flex"
+                  "gap-2"
                 )}
               >
                 <span className="inline-flex items-center gap-2">
                   <BarChart3 className="h-4 w-4" aria-hidden="true" />
                   <span className="hidden sm:inline">{t("header.insightsButtonLabel")}</span>
                 </span>
-              </Link>
+              </a>
             )}
 
             <LanguageDropdown />

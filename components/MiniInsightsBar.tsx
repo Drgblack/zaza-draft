@@ -1,7 +1,6 @@
 "use client"
 
 import { Clock, Flame, Heart, ChevronRight, TrendingUp, Sparkles } from "lucide-react"
-import { useRouter } from "next/navigation"
 import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { useLocale } from "@/hooks/use-locale"
@@ -140,16 +139,14 @@ export function MiniInsightsBar() {
             <Sparkles className="w-4 h-4 flex-shrink-0" />
             <span>{t("insights.mini.createFirstDraft")}</span>
           </div>
-          <Button
-            variant="secondary"
-            size="sm"
-            onClick={() => router.push("/insights")}
-            className="gap-2 px-3 py-1.5 rounded-full shadow-none text-xs"
+          <a
+            href="/insights"
+            className="gap-2 px-3 py-1.5 rounded-full shadow-none text-xs inline-flex items-center justify-center"
             aria-label={t("insights.mini.learnMore")}
           >
             <span>{t("insights.mini.learnMore")}</span>
             <ChevronRight className="w-3 h-3" />
-          </Button>
+          </a>
         </div>
       </div>
     )
@@ -176,8 +173,8 @@ export function MiniInsightsBar() {
     >
       <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
         <div className="flex flex-row flex-wrap items-center gap-3 flex-1 min-w-0 w-full lg:flex-nowrap">
-          <button
-            onClick={() => router.push("/insights#time-saved")}
+          <a
+            href="/insights#time-saved"
             className={`${badgeBase} ${badgeStyles.time}`}
             aria-label={t("insights.mini.viewTime")}
             title={t("insights.mini.viewTime")}
@@ -199,8 +196,8 @@ export function MiniInsightsBar() {
             </span>
           </button>
 
-          <button
-            onClick={() => router.push("/insights#streak")}
+          <a
+            href="/insights#streak"
             className={`${badgeBase} ${badgeStyles.streak}`}
             aria-label={t("insights.mini.viewStreak")}
             title={t("insights.mini.viewStreak")}
@@ -213,8 +210,8 @@ export function MiniInsightsBar() {
             <span className="font-semibold text-orange-900 dark:text-orange-100">{streakText}</span>
           </button>
 
-          <button
-            onClick={() => router.push("/insights#wellbeing")}
+          <a
+            href="/insights#wellbeing"
             className={`${badgeBase} ${badgeStyles.balance}`}
             aria-label={t("insights.mini.viewBalance")}
             title={t("insights.mini.viewBalance")}
