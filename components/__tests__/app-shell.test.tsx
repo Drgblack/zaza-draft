@@ -89,6 +89,7 @@ describe("AppShell layout", () => {
     expect(bgElement.className).toContain("app-gradient")
     expect(bgElement.className).toContain("app-gradient")
     expect(bgElement.className).toContain("linear-gradient")
+    expect(bgElement.className).not.toContain("auth-gradient")
     expect(bgElement.className).not.toMatch(/-z-/)
     expect(screen.getByTestId("app-shell-accent").className).toContain("app-gradient-accent")
     expect(screen.getByTestId("footer-slim")).toBeTruthy()

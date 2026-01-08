@@ -23,6 +23,7 @@ interface AppShellProps {
   children: ReactNode
 }
 
+// Approved baseline gradient for all app routes; adjust only one stop if absolutely necessary and avoid adding overlays/blurs/opacity layers.
 const APP_BACKGROUND_CLASSES =
   "app-gradient pointer-events-none absolute inset-0 z-0 bg-[linear-gradient(135deg,#ec4899_0%,#a855f7_45%,#f97316_100%)]"
 const AUTH_BACKGROUND_CLASSES =

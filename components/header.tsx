@@ -129,7 +129,7 @@ export function Header({
 
           <div className="flex flex-wrap items-center gap-2 justify-end">
             {hasAccess && (
-              <a
+              <Link
                 href="/insights"
                 data-testid="header-insights-link"
                 aria-label={t("header.insightsButtonAria")}
@@ -145,7 +145,7 @@ export function Header({
                   <BarChart3 className="h-4 w-4" aria-hidden="true" />
                   <span className="hidden sm:inline">{t("header.insightsButtonLabel")}</span>
                 </span>
-              </a>
+              </Link>
             )}
 
             <LanguageDropdown />
