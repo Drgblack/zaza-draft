@@ -16,14 +16,14 @@ const OUT_OF_SCOPE_PROMPTS = [
 
 const GERMAN_ACCEPTED_PROMPTS = [
   "Formuliere eine Elternnachricht zum Lernfortschritt im Lesen.",
-  "Erstelle einen sachlichen Zeugniskommentar zum Leseverständnis eines Schülers.",
-  "Schreibe eine Nachricht an die Eltern über den Ausflug der Klasse.",
+  "Erstelle einen sachlichen Zeugniskommentar zum Leseverst„ndnis eines Schlers.",
+  "Schreibe eine Nachricht an die Eltern ber den Ausflug der Klasse.",
   "Schreibe einen Lernstandsbericht zur Mathematikleistung.",
-  "Schreiben Sie eine Nachricht an die Eltern über unsere Geographiestunde, in der wir die Hauptstadt Frankreichs kennengelernt haben.",
+  "Schreiben Sie eine Nachricht an die Eltern ber unsere Geographiestunde, in der wir die Hauptstadt Frankreichs kennengelernt haben.",
 ]
 
 const GERMAN_REJECTED_PROMPTS = [
-  "Schreibe ein Gedicht über den Sommer.",
+  "Schreibe ein Gedicht ber den Sommer.",
   "Wie backe ich einen Kaffee-Kuchen?",
   "Was ist die Hauptstadt von Frankreich?",
 ]

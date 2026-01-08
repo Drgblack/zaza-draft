@@ -123,7 +123,7 @@ const fetchMock = vi.fn(async (input: RequestInfo, init?: RequestInit) => {
 
   /**
    * IMPORTANT:
-   * Many UIs treat non-2xx as “generic error”, and only display OUT_OF_SCOPE
+   * Many UIs treat non-2xx as "generic error", and only display OUT_OF_SCOPE
    * when the response is 200 with an error code in JSON.
    *
    * So we return ok:true/status:200 but with a payload that clearly indicates OUT_OF_SCOPE.
@@ -229,7 +229,6 @@ function getPromptTextarea() {
 }
 
 function clickGenerateButton() {
-  // Your DOM often contains the raw i18n key "button.generate" (as in the failure output).
   const btn =
     screen.queryByRole("button", { name: /button\.generate/i }) ??
     screen.queryByRole("button", { name: /generate/i }) ??
