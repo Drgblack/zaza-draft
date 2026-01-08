@@ -433,7 +433,7 @@ export const localeMessages: Record<Locale, LocaleMessages> = {
     "insights.dataControls.learnMore": "Learn more about our privacy practices",
     "editor.outOfScope.title": "Not generated",
     "editor.outOfScope.body":
-      "It looks like this request isn’t formatted as a parent message or report comment. Zaza Draft can help you shape professional school communication—add the context or audience and try again.",
+      "It looks like this request isn't formatted as a parent message or report comment. Zaza Draft can help you shape professional school communication-add the context or audience and try again.",
     "editor.outOfScope.helper": "Need help rephrasing? Clarify the audience or context and try again.",
       "insights.badge.progress": "Progress",
     "insights.heatmap.tooltipText": "Activity heatmap showing your most productive drafting times",
@@ -915,11 +915,11 @@ export const localeMessages: Record<Locale, LocaleMessages> = {
       "insights.dataControls.learnMore": "Learn more about our privacy practices",
       "editor.outOfScope.title": "Not generated",
       "editor.outOfScope.body":
-        "It looks like this request isn’t formatted as a parent message or report comment. Zaza Draft can help you shape professional school communication—add the context or audience and try again.",
+        "It looks like this request isn't formatted as a parent message or report comment. Zaza Draft can help you shape professional school communication-add the context or audience and try again.",
       "editor.outOfScope.helper": "Need help rephrasing? Clarify the audience or context and try again.",
       "editor.notice.scopeGuard.title": "Not generated",
       "editor.notice.scopeGuard.subtext":
-        "It looks like this request isn’t formatted as a parent message or report comment. Zaza Draft can help you shape professional school communication—add the context or audience and try again.",
+        "It looks like this request isn't formatted as a parent message or report comment. Zaza Draft can help you shape professional school communication-add the context or audience and try again.",
       "insights.badge.progress": "Progress",
     "insights.heatmap.tooltipText": "Activity heatmap showing your most productive drafting times",
     "insights.heatmap.mon": "Mon",
@@ -1568,11 +1568,11 @@ export const localeMessages: Record<Locale, LocaleMessages> = {
       "insights.dataControls.learnMore": "Erfahren Sie mehr über unsere Datenschutzpraktiken",
       "editor.outOfScope.title": "Nicht generiert",
       "editor.outOfScope.body":
-        "Es sieht so aus, als wäre deine Anfrage keine Elternnachricht oder ein Berichtskommentar. Zaza Draft hilft dir, professionelle schulische Kommunikation zu formulieren – gib Zielgruppe oder Kontext an und versuche es erneut.",
+        "Es sieht so aus, als wäre deine Anfrage keine Elternnachricht oder ein Berichtskommentar. Zaza Draft hilft dir, professionelle schulische Kommunikation zu formulieren - gib Zielgruppe oder Kontext an und versuche es erneut.",
       "editor.outOfScope.helper": "Braucht du Unterstützung? Gib Zielgruppe oder Kontext an und versuche es erneut.",
       "editor.notice.scopeGuard.title": "Nicht generiert",
       "editor.notice.scopeGuard.subtext":
-        "Es sieht so aus, als wäre deine Anfrage keine Elternnachricht oder ein Berichtskommentar. Zaza Draft hilft dir, professionelle schulische Kommunikation zu formulieren – gib Zielgruppe oder Kontext an und versuche es erneut.",
+        "Es sieht so aus, als wäre deine Anfrage keine Elternnachricht oder ein Berichtskommentar. Zaza Draft hilft dir, professionelle schulische Kommunikation zu formulieren - gib Zielgruppe oder Kontext an und versuche es erneut.",
       "insights.badge.progress": "Fortschritt",
     "insights.heatmap.tooltipText": "Aktivitäts-Heatmap zeigt Ihre produktivsten Entwurfszeiten",
     "insights.heatmap.mon": "Mo",

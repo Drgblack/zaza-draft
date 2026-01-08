@@ -22,7 +22,7 @@ vi.mock("@/hooks/use-locale", () => {
     "editor.outOfScope.title": "Nicht generiert",
     "editor.outOfScope.body":
       "Das sieht nicht wie eine Elternnachricht oder ein Berichtskommentar aus. Zaza Draft hilft Ihnen bei professioneller schulischer Kommunikation.",
-    "editor.outOfScope.helper": "Passen Sie den Text an oder fügen Sie Kontext hinzu und versuchen Sie es erneut.",
+    "editor.outOfScope.helper": "Passen Sie den Text an oder f├╝gen Sie Kontext hinzu und versuchen Sie es erneut.",
     "welcome.dontShowAgain": "Nicht mehr anzeigen",
   }
   const t = (key: string) => {
@@ -123,7 +123,7 @@ const fetchMock = vi.fn(async (input: RequestInfo, init?: RequestInit) => {
 
   /**
    * IMPORTANT:
-   * Many UIs treat non-2xx as “generic error”, and only display OUT_OF_SCOPE
+   * Many UIs treat non-2xx as ÔÇ£generic errorÔÇØ, and only display OUT_OF_SCOPE
    * when the response is 200 with an error code in JSON.
    *
    * So we return ok:true/status:200 but with a payload that clearly indicates OUT_OF_SCOPE.
