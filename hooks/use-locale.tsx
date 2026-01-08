@@ -1,4 +1,4 @@
-﻿"use client"
+"use client"
 
 import type React from "react"
 
@@ -227,7 +227,7 @@ export const localeMessages: Record<Locale, LocaleMessages> = {
     "panel.helper.high": "Let's tighten this up",
     "panel.helper.medium": "Worth a small tweak",
     "panel.helper.low": "Just a thought",
-    "panel.progress.polishing": "You're polishing like a pro ✨",
+    "panel.progress.polishing": "You're polishing like a pro ?",
     "panel.progress.draftsUsed": "{used} of {limit} drafts",
     "panel.examples.toggle": "See examples",
     "panel.examples.hide": "Hide examples",
@@ -438,9 +438,6 @@ export const localeMessages: Record<Locale, LocaleMessages> = {
       "editor.notice.scopeGuard.title": "Not generated",
       "editor.notice.scopeGuard.subtext":
         "This doesn't look like a parent message or report comment. Zaza Draft is designed for professional school communication.",
-    "editor.notice.scopeGuard.title": "Not generated",
-    "editor.notice.scopeGuard.subtext":
-      "This doesn't look like a parent message or report comment. Zaza Draft is designed for professional school communication.",
       "insights.badge.progress": "Progress",
     "insights.heatmap.tooltipText": "Activity heatmap showing your most productive drafting times",
     "insights.heatmap.mon": "Mon",
@@ -783,7 +780,7 @@ export const localeMessages: Record<Locale, LocaleMessages> = {
     "panel.helper.high": "Let's tighten this up",
     "panel.helper.medium": "Worth a small tweak",
     "panel.helper.low": "Just a thought",
-    "panel.progress.polishing": "You're polishing like a pro ✨",
+    "panel.progress.polishing": "You're polishing like a pro ?",
     "panel.progress.draftsUsed": "{used} of {limit} drafts",
     "panel.examples.toggle": "See examples",
     "panel.examples.hide": "Hide examples",
@@ -1282,7 +1279,7 @@ export const localeMessages: Record<Locale, LocaleMessages> = {
     "panel.helper.high": "Lass uns das straffen",
     "panel.helper.medium": "Eine kleine Anpassung wert",
     "panel.helper.low": "Nur ein Gedanke",
-    "panel.progress.polishing": "Du polierst wie ein Profi ✨",
+    "panel.progress.polishing": "Du polierst wie ein Profi ?",
     "panel.progress.draftsUsed": "{used} von {limit} Entwürfen",
     "panel.examples.toggle": "Beispiele ansehen",
     "panel.examples.hide": "Beispiele ausblenden",
@@ -1524,7 +1521,7 @@ export const localeMessages: Record<Locale, LocaleMessages> = {
     "classBrain.sections.whatToAdd.title": "Was du hinzufügen kannst",
     "classBrain.add.grade": "Klassenstufe oder Kurs, für den du schreibst.",
     "classBrain.add.mood": "Stimmung, Tempo oder wiederkehrende Themen deiner Klasse.",
-    "classBrain.add.goals": "Ziele der Schüler:innen (z. B. einen Standard meistern oder Selbstvertrauen stärken).",
+    "classBrain.add.goals": "Ziele der Schüler:innen (z.?B. einen Standard meistern oder Selbstvertrauen stärken).",
     "classBrain.sections.whatNotToAdd.title": "Was du nicht hinzufügen solltest",
     "classBrain.notAdd.noNames": "Keine vollständigen Schülernamen, IDs oder Kontaktdaten.",
     "classBrain.notAdd.noSensitive": "Vermeide medizinische Details, Disziplinarberichte oder sensible Daten.",
@@ -1533,7 +1530,7 @@ export const localeMessages: Record<Locale, LocaleMessages> = {
     "classBrain.savedContext.storedLocally": "Lokal gespeichert",
     "classBrain.savedContext.tagline": "Sicher, bearbeitbar und lokal gespeichert",
     "classBrain.textarea.placeholder":
-      "z. B. „Bio-Kurs zur Zellatmung. Die Klasse bereitet sich im Mai auf die Abschlussprüfung vor und ist engagiert, aber leicht angespannt.“",
+      "z.?B. „Bio-Kurs zur Zellatmung. Die Klasse bereitet sich im Mai auf die Abschlussprüfung vor und ist engagiert, aber leicht angespannt.“",
     "classBrain.textarea.helper": "Speichere eine kurze Erinnerung (keine Namen), die die nächste Schreibsession vorbereitet.",
     "classBrain.stats.characters": "{count}/{max} Zeichen",
     "classBrain.stats.words": "{count} Wörter",
