@@ -7,22 +7,31 @@ import { ArrowLeft } from "lucide-react"
 
 const GUIDE_COLLECTION = [
   {
-    title: "Parent communication templates",
-    description:
-      "Start with proven introductory, progress, and celebration notes that keep families informed without extra effort.",
-    steps: ["Open the parent newsletter kit", "Pick the tone that matches your classroom culture", "Tailor the template to the current topic"],
+    titleKey: "support.guides.guide1.title",
+    descriptionKey: "support.guides.guide1.description",
+    steps: [
+      "support.guides.guide1.step1",
+      "support.guides.guide1.step2",
+      "support.guides.guide1.step3",
+    ],
   },
   {
-    title: "Classroom routines & wellbeing",
-    description:
-      "Handle behaviour observations, wellbeing check-ins, and attendance reflections with gentle, relational language that keeps students safe.",
-    steps: ["Review the wellbeing sentence bank", "Add student names and context", "Share with families or colleagues"],
+    titleKey: "support.guides.guide2.title",
+    descriptionKey: "support.guides.guide2.description",
+    steps: [
+      "support.guides.guide2.step1",
+      "support.guides.guide2.step2",
+      "support.guides.guide2.step3",
+    ],
   },
   {
-    title: "Lesson reflections & cross-class notes",
-    description:
-      "Document highlights from literacy, maths, or science units using structured prompts so you can pass insights to colleagues or leadership.",
-    steps: ["Use the lesson summary outline", "Call out next steps or support needs", "Save or share the note"],
+    titleKey: "support.guides.guide3.title",
+    descriptionKey: "support.guides.guide3.description",
+    steps: [
+      "support.guides.guide3.step1",
+      "support.guides.guide3.step2",
+      "support.guides.guide3.step3",
+    ],
   },
 ]
 
@@ -46,14 +55,14 @@ export default function SupportGuidesPage() {
         <div className="grid gap-6">
           {GUIDE_COLLECTION.map((guide) => (
             <article
-              key={guide.title}
+              key={guide.titleKey}
               className="bg-white/90 dark:bg-white/10 backdrop-blur-xl border border-white/40 dark:border-white/20 rounded-2xl p-8 shadow-sm"
             >
-              <h2 className="text-2xl font-semibold text-gray-900 dark:text-white mb-3">{guide.title}</h2>
-              <p className="text-gray-700 dark:text-gray-300 mb-4">{guide.description}</p>
+              <h2 className="text-2xl font-semibold text-gray-900 dark:text-white mb-3">{t(guide.titleKey)}</h2>
+              <p className="text-gray-700 dark:text-gray-300 mb-4">{t(guide.descriptionKey)}</p>
               <ul className="list-disc list-inside text-gray-600 dark:text-gray-200 space-y-1">
                 {guide.steps.map((step) => (
-                  <li key={step}>{step}</li>
+                  <li key={step}>{t(step)}</li>
                 ))}
               </ul>
             </article>

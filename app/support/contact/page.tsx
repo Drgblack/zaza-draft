@@ -29,8 +29,8 @@ export default function SupportContactPage() {
 
   const helperText =
     status === "submitted"
-      ? "Thanks! Our team will follow up inside the app within one working day."
-      : "Tell us how Zaza Draft can help you and the grade level or workflow it impacts."
+      ? t("support.contact.submitted")
+      : t("support.contact.helper")
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-pink-400 via-purple-500 to-orange-400 dark:from-purple-900 dark:via-purple-800 dark:to-pink-900">
@@ -51,9 +51,11 @@ export default function SupportContactPage() {
 
           <form className="space-y-4" onSubmit={handleSubmit}>
             <div>
-              <label className="text-sm font-semibold text-gray-700 dark:text-gray-200">Subject</label>
+              <label className="text-sm font-semibold text-gray-700 dark:text-gray-200">
+                {t("support.contact.subjectLabel")}
+              </label>
               <Input
-                placeholder="Short summary (e.g. 'Draft scope question')"
+                placeholder={t("support.contact.subjectPlaceholder")}
                 value={subject}
                 onChange={(event) => setSubject(event.target.value)}
                 className="mt-2"
@@ -61,9 +63,11 @@ export default function SupportContactPage() {
             </div>
 
             <div>
-              <label className="text-sm font-semibold text-gray-700 dark:text-gray-200">Details</label>
+              <label className="text-sm font-semibold text-gray-700 dark:text-gray-200">
+                {t("support.contact.detailsLabel")}
+              </label>
               <Textarea
-                placeholder="Share the classroom context, timeline, or policy question you need help with."
+                placeholder={t("support.contact.detailsPlaceholder")}
                 value={details}
                 onChange={(event) => setDetails(event.target.value)}
                 rows={5}
@@ -80,7 +84,7 @@ export default function SupportContactPage() {
 
           {status === "submitted" && (
             <div className="mt-4 rounded-2xl bg-emerald-50 dark:bg-emerald-900/30 border border-emerald-200 dark:border-emerald-700 text-emerald-900 dark:text-emerald-200 px-4 py-3 text-sm">
-              We heard you! You can close this tab or head back to the help overview.
+              {t("support.contact.submittedMessage")}
             </div>
           )}
         </div>

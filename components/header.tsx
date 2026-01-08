@@ -11,6 +11,7 @@ import { useLocale } from "@/hooks/use-locale"
 import { useAuth } from "@/hooks/use-auth"
 import Image from "next/image"
 import { cn } from "@/lib/utils"
+import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { LanguageDropdown } from "./language-dropdown"
 import { UserMenu } from "./user-menu"
@@ -172,11 +173,11 @@ export function Header({
                 <UserMenu />
               </>
             ) : (
-              <a href="/">
+              <Link href="/">
                 <Button variant="secondary" size="sm">
                   {t("auth.cta.signin")}
                 </Button>
-              </a>
+              </Link>
             )}
           </div>
         </div>
