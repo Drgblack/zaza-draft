@@ -20,6 +20,7 @@ import { cleanStudentName } from "@/lib/draft/student-name"
 import { resolveLanguageChoiceFromLocale } from "@/lib/draft/language"
 import type { DraftLanguage, DraftMode, PronounPreference } from "@/lib/types"
 import { MODE_LABEL_KEYS, DEFAULT_DRAFT_MODE } from "@/lib/draft-mode"
+import { isValidDraftRequest, OUT_OF_SCOPE_REDIRECT_MESSAGE } from "@/lib/draft/scope-guard"
 import Link from "next/link"
 import { FileText, Info, Mail, MessageCircle, Sun, Target, Users } from "lucide-react"
 import type { LucideIcon } from "lucide-react"
@@ -228,8 +229,24 @@ export function MainEditor() {
     teacherNote: string
     safeAlternatives: string[]
   } | null>(null)
-  const [outOfScopeNotice, setOutOfScopeNotice] = useState<string | null>(null)
+  const [outOfScopeNotice, setOutOfScopeNotice] = useState(false)
+  const [outOfScopeMessage, setOutOfScopeMessage] = useState("")
   const [loadingMessageIndex, setLoadingMessageIndex] = useState(0)
+  const showOutOfScopeNotice = (message: string, code = "OUT_OF_SCOPE") => {
+    setOutOfScopeMessage(message)
+    setOutOfScopeNotice(true)
+    setGeneratedDraft(null)
+    setDraftMetadata(null)
+    setDraftStructure(null)
+    setDeescalationSummary(null)
+    setBlockedLanguageContext(null)
+    setSensitivePreview(null)
+    setGenerationError(null)
+    setGenerationAction(null)
+    setInputReframeTier(null)
+    setIsGenerating(false)
+    logClientEvent("draft_generate_out_of_scope", { code })
+  }
 
   const [showWellbeingInsights, setShowWellbeingInsights] = useState(true)
   const isDocumentDark = typeof document !== "undefined" && document.documentElement.classList.contains("dark")
@@ -431,7 +448,16 @@ export function MainEditor() {
   }, [isGenerating])
 
   const handleGenerate = async (options: { rewrite?: boolean; previousDraft?: string } = {}) => {
-    if (!content.trim() || isGenerating) {
+    const trimmedContent = content.trim()
+    if (!trimmedContent || isGenerating) {
+      return
+    }
+
+    const fallbackOutOfScopeMessage = t("editor.outOfScope.body")
+    if (!isValidDraftRequest(trimmedContent, mode)) {
+      const precheckMessage =
+        locale === "de-DE" ? fallbackOutOfScopeMessage : OUT_OF_SCOPE_REDIRECT_MESSAGE
+      showOutOfScopeNotice(precheckMessage, "CLIENT_PRECHECK")
       return
     }
 
@@ -445,7 +471,8 @@ export function MainEditor() {
     setDeescalationSummary(null)
     setInputReframeTier(null)
     setBlockedLanguageContext(null)
-    setOutOfScopeNotice(null)
+    setOutOfScopeNotice(false)
+    setOutOfScopeMessage("")
 
     const signaturePayload = {
       line1: prefs.signatureLine1?.trim() || prefs.firstName,
@@ -456,7 +483,7 @@ export function MainEditor() {
     }
 
     const payload: Record<string, unknown> = {
-      situation: content.trim(),
+      situation: trimmedContent,
       tone: selectedTone,
       language: languageChoice,
       outputLanguage: languageChoice,
@@ -532,10 +559,10 @@ export function MainEditor() {
       const responseCode: string | null = data?.error?.code ?? data?.code ?? null
       const responseMessage: string | null = data?.error?.message ?? data?.message ?? null
       if (responseCode === "OUT_OF_SCOPE") {
-        setOutOfScopeNotice(
-          responseMessage ?? t("editor.notice.scopeGuard.subtext"),
-        )
-        logClientEvent("draft_generate_out_of_scope", { code: responseCode })
+        const fallbackMessage = t("editor.outOfScope.body")
+        const noticeMessage =
+          locale === "de-DE" ? fallbackMessage : responseMessage ?? fallbackMessage
+        showOutOfScopeNotice(noticeMessage, responseCode ?? "OUT_OF_SCOPE")
         return
       }
 
@@ -561,7 +588,8 @@ export function MainEditor() {
         return
       }
       setBlockedLanguageContext(null)
-      setOutOfScopeNotice(null)
+      setOutOfScopeNotice(false)
+      setOutOfScopeMessage("")
 
       logClientEvent("draft_generate_succeeded", {
         tone: selectedTone,
@@ -764,7 +792,22 @@ Examples:
           </p>
           </section>
 
-          {showWellbeingInsights && <ContextualWellbeingTip />}
+          {outOfScopeNotice && (
+            <div className="mt-4 rounded-2xl border border-white/30 bg-white/10 p-4 shadow-lg text-sm text-white space-y-2">
+              <div className="flex items-start gap-3">
+                <Info className="text-white" size={20} />
+                <div className="space-y-1">
+                  <p className="font-semibold text-white text-sm">{t("editor.outOfScope.title")}</p>
+                  <p className="text-xs text-white/80">
+                    {outOfScopeMessage || t("editor.outOfScope.body")}
+                  </p>
+                  <p className="text-[11px] text-white/60">{t("editor.outOfScope.helper")}</p>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {!outOfScopeNotice && showWellbeingInsights && <ContextualWellbeingTip />}
 
           <section className="space-y-3">
             <SegmentedControl
@@ -879,22 +922,7 @@ Examples:
         )}
       </section>
 
-        {outOfScopeNotice && (
-          <div className="mt-4 rounded-2xl border border-white/30 bg-white/10 p-4 shadow-lg text-sm text-white space-y-2">
-            <div className="flex items-start gap-3">
-              <Info className="text-white" size={20} />
-              <div className="space-y-1">
-                <p className="font-semibold text-white text-sm">{t("editor.notice.scopeGuard.title")}</p>
-                <p className="text-xs text-white/80">{outOfScopeNotice}</p>
-                <p className="text-[11px] text-white/60">
-                  {t("editor.notice.scopeGuard.subtext")}
-                </p>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {showWelcomeBox && (
+        {showWelcomeBox && !outOfScopeNotice && (
           <div className="rounded-xl border border-white/20 bg-white/10 p-4 shadow-lg text-sm text-white">
             <div className="flex flex-col gap-2">
               <p className="font-semibold">{t("editor.welcome.title")}</p>
@@ -925,7 +953,7 @@ Examples:
                   onChange={handleDontShowAgain}
                   className="rounded"
                 />
-                Don't show this again
+                {t("welcome.dontShowAgain")}
               </label>
             </div>
             {onboardingError && <p className="text-xs text-rose-200 mt-2">{onboardingError}</p>}
@@ -933,7 +961,8 @@ Examples:
         )}
         </div>
 
-        <details className="mt-10 rounded-xl bg-white/10 p-4 backdrop-blur border border-white/20 text-white shadow-lg">
+        {!outOfScopeNotice && (
+          <details className="mt-10 rounded-xl bg-white/10 p-4 backdrop-blur border border-white/20 text-white shadow-lg">
           <summary className="text-lg font-semibold cursor-pointer flex items-center">
             {t("editor.history.title")}
             <span className="ml-1.5 px-2 py-0.5 bg-purple-100 dark:bg-purple-900/40 text-purple-700 dark:text-purple-300 text-xs font-semibold rounded-full">
@@ -1029,7 +1058,8 @@ Examples:
               {t("editor.history.loadMore")}
             </Button>
           )}
-        </details>
+          </details>
+        )}
 
         {isGenerating && (
           <div className="mt-4 rounded-xl bg-white/10 border border-white/20 p-4 text-sm text-white/90 shadow-lg space-y-3">

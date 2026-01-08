@@ -10,6 +10,8 @@ const OUT_OF_SCOPE_PROMPTS = [
   "how do I change my car battery?",
   "best time of year to visit Thailand?",
   "what can I turn leftover chilli con carne into?",
+  "how do I bake toffee muffins?",
+  "what is the capital of France?",
 ]
 
 const GERMAN_ACCEPTED_PROMPTS = [
@@ -17,11 +19,13 @@ const GERMAN_ACCEPTED_PROMPTS = [
   "Erstelle einen sachlichen Zeugniskommentar zum Leseverständnis eines Schülers.",
   "Schreibe eine Nachricht an die Eltern über den Ausflug der Klasse.",
   "Schreibe einen Lernstandsbericht zur Mathematikleistung.",
+  "Schreiben Sie eine Nachricht an die Eltern über unsere Geographiestunde, in der wir die Hauptstadt Frankreichs kennengelernt haben.",
 ]
 
 const GERMAN_REJECTED_PROMPTS = [
   "Schreibe ein Gedicht über den Sommer.",
   "Wie backe ich einen Kaffee-Kuchen?",
+  "Was ist die Hauptstadt von Frankreich?",
 ]
 
 describe("out-of-scope redirect guard", () => {
@@ -59,11 +63,26 @@ describe("out-of-scope redirect guard", () => {
     })
   })
 
+  it("rejects recipe/capital prompts even when reporting modes are requested", () => {
+    const prompts = [
+      "How do I bake toffee muffins?",
+      "What is the capital of France?",
+      "Wie backe ich Toffee-Muffins?",
+      "Was ist die Hauptstadt von Frankreich?",
+    ]
+    prompts.forEach((prompt) => {
+      expect(isValidDraftRequest(prompt, "parent_message")).toBe(false)
+      expect(isValidDraftRequest(prompt, "report_comment")).toBe(false)
+    })
+  })
+
   it("accepts explicit school communication requests", () => {
     const schoolPrompts = [
       "Write a parent message about our class baking activity.",
       "Draft a report comment on a student's reading progress.",
       "Rewrite this to sound professional for a parent email.",
+      "Write a message to parents about our geography lesson where we learned the capital of France.",
+      "Write a note to parents about our class bake sale and that we will be making muffins.",
     ]
     schoolPrompts.forEach((prompt) => {
       expect(isValidDraftRequest(prompt)).toBe(true)

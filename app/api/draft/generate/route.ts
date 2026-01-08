@@ -38,7 +38,7 @@ import {
   resolveSignature,
   SignaturePayload,
 } from "@/lib/draft/signature"
-import { isValidDraftRequest } from "./scope-guard"
+import { isValidDraftRequest, OUT_OF_SCOPE_REDIRECT_MESSAGE } from "./scope-guard"
 
 const TONE_DESCRIPTIONS: Record<ToneKey, string> = {
   warm: "Warm & Encouraging",
@@ -393,7 +393,13 @@ export async function POST(request: Request) {
     return NextResponse.json(
       {
         ok: false,
+        success: false,
         code: "OUT_OF_SCOPE",
+        message: OUT_OF_SCOPE_REDIRECT_MESSAGE,
+        error: {
+          code: "OUT_OF_SCOPE",
+          message: OUT_OF_SCOPE_REDIRECT_MESSAGE,
+        },
       },
       { status: 422 },
     )
