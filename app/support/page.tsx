@@ -28,11 +28,11 @@ export default function SupportPage() {
               <CardTitle className="text-gray-900 dark:text-white">{t("support.guides.title")}</CardTitle>
               <CardDescription className="dark:text-gray-300">{t("support.guides.description")}</CardDescription>
             </CardHeader>
-            <CardContent>
-              <Button className="bg-purple-600 hover:bg-purple-700 text-white w-full">
-                {t("support.guides.button")}
-              </Button>
-            </CardContent>
+          <CardContent>
+            <Button className="w-full" variant="secondary" asChild>
+              <Link href="/support/guides">{t("support.guides.button")}</Link>
+            </Button>
+          </CardContent>
           </Card>
 
           <Card className="bg-white/80 dark:bg-white/10 backdrop-blur-xl border border-white/40 dark:border-white/20">
@@ -41,11 +41,11 @@ export default function SupportPage() {
               <CardTitle className="text-gray-900 dark:text-white">{t("support.community.title")}</CardTitle>
               <CardDescription className="dark:text-gray-300">{t("support.community.description")}</CardDescription>
             </CardHeader>
-            <CardContent>
-              <Button variant="outline" className="w-full bg-transparent">
-                {t("support.community.button")}
-              </Button>
-            </CardContent>
+          <CardContent>
+            <Button className="w-full" variant="ghost" asChild>
+              <Link href="/support/community">{t("support.community.button")}</Link>
+            </Button>
+          </CardContent>
           </Card>
 
           <Card className="bg-white/80 dark:bg-white/10 backdrop-blur-xl border border-white/40 dark:border-white/20 md:col-span-2">
@@ -54,11 +54,11 @@ export default function SupportPage() {
               <CardTitle className="text-gray-900 dark:text-white">{t("support.contact.title")}</CardTitle>
               <CardDescription className="dark:text-gray-300">{t("support.contact.description")}</CardDescription>
             </CardHeader>
-            <CardContent>
-              <Button variant="outline" className="w-full bg-transparent">
-                {t("support.contact.button")}
-              </Button>
-            </CardContent>
+          <CardContent>
+            <Button className="w-full" variant="outline" asChild>
+              <Link href="/support/contact">{t("support.contact.button")}</Link>
+            </Button>
+          </CardContent>
           </Card>
         </div>
       </div>
