@@ -1,6 +1,6 @@
-"use client"
+﻿"use client"
 
-import { useMemo, useState } from "react"
+import { useMemo, useState, useEffect } from "react"
 import { ArrowLeft, CalendarDays, Download, Shield } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
@@ -37,12 +37,24 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 
-// Mock data
-const mockMetrics = {
-  timeSaved: { hours: 4.2, trend: 15, trendDirection: "up" as const },
-  draftsCreated: { total: 18, usedWithoutEdits: 8, percentage: 80 },
-  currentStreak: { days: 5 },
-  qualityScore: { score: 92, trend: 5 },
+type InsightsSummary = {
+  timeSaved?: {
+    hours?: number
+    trend?: number
+    trendDirection?: "up" | "down"
+  }
+  draftsCreated?: {
+    total?: number
+    usedWithoutEdits?: number
+    percentage?: number
+  }
+  currentStreak?: {
+    days?: number
+  }
+  qualityScore?: {
+    score?: number
+    trend?: number
+  }
 }
 
 const mockHeatmapData = Array.from({ length: 7 * 24 }, (_, i) => ({
@@ -70,21 +82,21 @@ const mockBadges = [
     id: "1",
     name: "Time Reclaimed - Bronze",
     description: "Saved 2+ hours with AI assistance",
-    icon: "🏆",
+    icon: "??",
     status: "earned" as const,
   },
   {
     id: "2",
     name: "5-Week Streak",
     description: "Used Zaza Draft for 5 consecutive weeks",
-    icon: "🔥",
+    icon: "??",
     status: "earned" as const,
   },
   {
     id: "3",
     name: "Tone Master",
     description: "Used all 4 communication tones",
-    icon: "🎭",
+    icon: "??",
     status: "in-progress" as const,
     progress: 3,
     total: 4,
@@ -93,14 +105,14 @@ const mockBadges = [
     id: "4",
     name: "Multilingual Champion",
     description: "Created drafts in 3+ languages",
-    icon: "🌍",
+    icon: "??",
     status: "locked" as const,
   },
   {
     id: "5",
     name: "One-Shot Wonder",
     description: "90% first-draft success rate",
-    icon: "🎯",
+    icon: "??",
     status: "in-progress" as const,
     progress: 72,
     total: 90,
@@ -109,7 +121,7 @@ const mockBadges = [
     id: "6",
     name: "Weekend Warrior Retired",
     description: "Zero weekend drafts for 4 weeks",
-    icon: "🌴",
+    icon: "??",
     status: "locked" as const,
   },
 ]
@@ -121,10 +133,90 @@ export default function InsightsPage() {
   const [showWellbeing, setShowWellbeing] = useState(false)
   const [shareData, setShareData] = useState(true)
   const [isReminderDialogOpen, setIsReminderDialogOpen] = useState(false)
+  const [insightsSummary, setInsightsSummary] = useState<InsightsSummary | null>(null)
+  const [summaryLoading, setSummaryLoading] = useState(true)
+  const [summaryError, setSummaryError] = useState<string | null>(null)
   const { locale, t } = useLocale()
   const { prefs } = useTeacherPrefs()
-  const { user } = useAuth()
+  const { user, status } = useAuth()
   const router = useRouter()
+  const isAuthenticated = status === "authenticated" && Boolean(user?.uid)
+
+  useEffect(() => {
+    let active = true
+    if (!isAuthenticated || !user) {
+      setInsightsSummary(null)
+      setSummaryLoading(false)
+      setSummaryError(null)
+      return
+    }
+
+    const fetchSummary = async () => {
+      setSummaryLoading(true)
+      try {
+        const token = await user.getIdToken()
+        if (!token) {
+          throw new Error("Missing auth token")
+        }
+        const response = await fetch("/api/insights/summary", {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        })
+        const payload = await response.json()
+        if (!active) return
+        if (response.ok && payload?.success) {
+          setInsightsSummary(payload.data ?? null)
+          setSummaryError(null)
+        } else {
+          setInsightsSummary(null)
+          setSummaryError(payload?.error?.message || "Unable to load insights.")
+        }
+      } catch (error) {
+        console.error("[insights] failed to load summary", error)
+        if (!active) return
+        setInsightsSummary(null)
+        setSummaryError("Unable to load insights.")
+      } finally {
+        if (active) {
+          setSummaryLoading(false)
+        }
+      }
+    }
+
+    fetchSummary()
+
+    return () => {
+      active = false
+    }
+    }, [isAuthenticated, user])
+
+  const teacherName = user?.displayName ?? prefs.firstName
+  const hasTeacherName = Boolean(teacherName?.trim())
+  const insightsHeading = hasTeacherName
+    ? t("insights.title", { name: teacherName })
+    : t("insights.titleNoName")
+  const summaryTimeSaved = insightsSummary?.timeSaved
+  const summaryDrafts = insightsSummary?.draftsCreated
+  const summaryStreak = insightsSummary?.currentStreak
+  const summaryQuality = insightsSummary?.qualityScore
+  const hasMetrics =
+    Boolean(insightsSummary) &&
+    Boolean(
+      summaryTimeSaved?.hours ||
+        summaryDrafts?.total ||
+        summaryStreak?.days ||
+        summaryQuality?.score,
+    )
+  const downloadDisabled = !hasMetrics
+  const timeSavedHours = summaryTimeSaved?.hours ?? 0
+  const timeSavedTrend = summaryTimeSaved?.trend ?? 0
+  const timeSavedContextCount = Math.round(summaryDrafts?.percentage ?? 0)
+  const draftsTotal = summaryDrafts?.total ?? 0
+  const draftsUsed = summaryDrafts?.usedWithoutEdits ?? 0
+  const streakDays = summaryStreak?.days ?? 0
+  const qualityScoreValue = summaryQuality?.score ?? 0
+  const qualityTrendValue = summaryQuality?.trend ?? 0
   const reminderInsight = t("insights.suggestion.wednesday.desc")
   const reminderHint = t("insights.suggestion.reminder.modalHint")
   const reminderFootnote = t("insights.suggestion.reminder.modalFootnote")
@@ -187,40 +279,55 @@ export default function InsightsPage() {
   }
 
   const getFireIntensity = (days: number) => {
-    if (days >= 15) return "🔥🔥🔥"
-    if (days >= 10) return "🔥🔥"
-    return "🔥"
+    if (days >= 15) return "ðŸ”¥ðŸ”¥ðŸ”¥"
+    if (days >= 10) return "ðŸ”¥ðŸ”¥"
+    return "ðŸ”¥"
   }
 
   const handleDownloadReport = () => {
+    if (downloadDisabled || !insightsSummary) {
+      return
+    }
+
+    const timeSavedLine =
+      summaryTimeSaved?.hours != null
+        ? "Time saved: " + (summaryTimeSaved?.hours ?? 0) + "h"
+        : "Time saved: not enough data"
+    const draftsLine =
+      summaryDrafts?.total != null
+        ? "Drafts created: " + (summaryDrafts?.total ?? 0) + " (" + ((summaryDrafts?.percentage ?? 0) * 100) + "% used without edits)"
+        : "Drafts created: not enough data"
+    const streakLine =
+      summaryStreak?.days != null
+        ? "Current streak: " + (summaryStreak?.days ?? 0) + " days"
+        : "Current streak: not enough data"
+    const qualityLine =
+      summaryQuality?.score != null
+        ? "Quality score: " + (summaryQuality?.score ?? 0) + " (" + (summaryQuality?.trend ?? 0) + "% change)"
+        : "Quality score: not enough data"
+
     const reportLines = [
-      `Zaza Draft insights (${new Date().toLocaleDateString(locale)})`,
+      "Zaza Draft insights",
       "",
-      `Time saved: ${mockMetrics.timeSaved.hours}h (${mockMetrics.timeSaved.trend}% ↑)`,
-      `Drafts created: ${mockMetrics.draftsCreated.total} (${mockMetrics.draftsCreated.usedWithoutEdits} used without edits)`,
-      `Current streak: ${mockMetrics.currentStreak.days} days`,
-      `Quality score: ${mockMetrics.qualityScore.score} (${mockMetrics.qualityScore.trend}% ↑)`,
+      timeSavedLine,
+      draftsLine,
+      streakLine,
+      qualityLine,
       "",
-      "Tone distribution:",
-      ...mockToneData.map((item) => `${item.tone}: ${item.percentage}%`),
-      "",
-      `Confidence trend: ${mockConfidenceData.map((row) => `${row.week} ${row.editRate}%`).join(" | ")}`,
-      "",
-      `Wellbeing insights sharing: ${shareData ? "enabled" : "disabled"}`,
-      `Date range: Last ${dateRange} days`,
+      "Wellbeing insights sharing: " + (shareData ? "On" : "Off"),
+      "Date range: Last " + dateRange + " days",
     ]
 
     const blob = new Blob([reportLines.join("\n")], { type: "text/plain" })
     const url = URL.createObjectURL(blob)
     const link = document.createElement("a")
     link.href = url
-    link.download = `zaza-insights-${new Date().toISOString().slice(0, 10)}.txt`
+    link.download = `zaza-insights-${user?.uid ?? "unknown"}-${dateRange}d.txt`
     document.body.appendChild(link)
     link.click()
     document.body.removeChild(link)
     URL.revokeObjectURL(url)
   }
-
   return (
     <div className="min-h-screen flex flex-col">
       <div className="absolute inset-0 bg-gradient-to-br from-pink-500 via-purple-600 to-orange-500 -z-10" />
@@ -238,7 +345,7 @@ export default function InsightsPage() {
                 {t("insights.backToEditor")}
               </Link>
               <h1 className="text-3xl font-bold text-white drop-shadow-lg">
-                {t("insights.title", { name: user?.displayName ?? prefs.firstName })}
+                {insightsHeading}
               </h1>
               <p className="text-white/90 mt-1">{t("insights.subtitle")}</p>
             </div>
@@ -281,25 +388,55 @@ export default function InsightsPage() {
 
       <main className="flex-1 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 w-full">
         <div className="space-y-10">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-10">
+          {summaryError && (
+            <Card className="rounded-3xl border border-destructive/30 bg-destructive/10 p-6 text-sm text-destructive-900 dark:border-destructive/30 dark:bg-destructive-900/10 dark:text-destructive-100">
+              <p className="text-base font-semibold">{summaryError}</p>
+            </Card>
+          )}
+          {summaryLoading && (
+            <Card className="rounded-3xl border border-white/30 bg-white/90 p-6 text-center text-sm text-gray-600 dark:border-white/20 dark:bg-white/10 dark:text-gray-300">
+              <p className="text-base font-semibold text-gray-900 dark:text-white">
+                {t("insights.empty.loading")}
+              </p>
+              <p className="text-sm text-gray-600 dark:text-gray-400">
+                {t("insights.empty.loadingSubtitle")}
+              </p>
+            </Card>
+          )}
+          {!summaryLoading && !hasMetrics && (
+            <Card className="rounded-3xl border border-dashed border-gray-300 bg-white/80 dark:border-gray-700 dark:bg-white/5 p-8 text-center">
+              <p className="text-xl font-semibold text-gray-900 dark:text-white">
+                {t("insights.empty.title")}
+              </p>
+              <p className="text-sm text-gray-600 dark:text-gray-300 mt-2">
+                {t("insights.empty.subtitle")}
+              </p>
+              <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                {t("insights.empty.cta")}
+              </p>
+            </Card>
+          )}
+          {hasMetrics && (
+            <>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-10">
           <StatCard
             title={t("insights.timeSaved.title")}
-            value={t("insights.timeSaved.hours", { hours: "4.2" })}
-            numericValue={4.2}
+            value={t("insights.timeSaved.hours", { hours: timeSavedHours.toFixed(1) })}
+            numericValue={timeSavedHours}
             subtitle={t("insights.timeSaved.thisWeek")}
             trend={{
-              value: t("insights.timeSaved.trend", { percent: "15" }),
-              direction: "up",
+              value: t("insights.timeSaved.trend", { percent: `${timeSavedTrend}` }),
+              direction: summaryTimeSaved?.trendDirection ?? "up",
               color: "text-green-600 dark:text-green-400",
             }}
             tooltip={t("insights.timeSaved.tooltip")}
-            contextMessage={t("insights.timeSaved.context", { count: "3" })}
+            contextMessage={t("insights.timeSaved.context", { count: `${timeSavedContextCount}` })}
           />
           <StatCard
             title={t("insights.draftsCreated.title")}
-            value={t("insights.draftsCreated.value", { count: "18" })}
-            numericValue={18}
-            subtitle={t("insights.draftsCreated.subtitle", { used: "8", total: "10" })}
+            value={t("insights.draftsCreated.value", { count: draftsTotal })}
+            numericValue={draftsTotal}
+            subtitle={t("insights.draftsCreated.subtitle", { used: draftsUsed, total: draftsTotal })}
             icon={
               <div className="relative w-12 h-12">
                 <svg className="w-12 h-12 transform -rotate-90">
@@ -326,29 +463,29 @@ export default function InsightsPage() {
                 </svg>
               </div>
             }
-            celebration="🎯"
+            celebration="ðŸŽ¯"
             tooltip={t("insights.draftsCreated.tooltip")}
           />
           <StatCard
             title={t("insights.currentStreak.title")}
-            value={t("insights.currentStreak.days", { count: "5" })}
-            numericValue={5}
+            value={t("insights.currentStreak.days", { count: streakDays })}
+            numericValue={streakDays}
             subtitle={t("insights.currentStreak.subtitle")}
-            icon={<span className="text-3xl">{getFireIntensity(5)}</span>}
+            icon={<span className="text-3xl">{getFireIntensity(streakDays)}</span>}
             gradient="bg-gradient-to-br from-orange-50 to-yellow-50 dark:from-orange-950/20 dark:to-yellow-950/20"
             tooltip={t("insights.currentStreak.tooltip")}
           />
           <StatCard
             title={t("insights.qualityScore.title")}
-            value={t("insights.qualityScore.value", { score: "92" })}
-            numericValue={92}
+            value={t("insights.qualityScore.value", { score: qualityScoreValue })}
+            numericValue={qualityScoreValue}
             subtitle={t("insights.qualityScore.subtitle")}
             trend={{
-              value: t("insights.qualityScore.trend", { points: "5" }),
+              value: t("insights.qualityScore.trend", { points: qualityTrendValue }),
               direction: "up",
               color: "text-green-600 dark:text-green-400",
             }}
-            icon={<span className="text-2xl">✨</span>}
+            icon={<span className="text-2xl">âœ¨</span>}
             tooltip={t("insights.qualityScore.tooltip")}
             sparklineData={[85, 87, 89, 90, 91, 91, 92]}
           />
@@ -381,7 +518,7 @@ export default function InsightsPage() {
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2">
               <h2 className="text-xl font-semibold text-gray-900 dark:text-white">{t("insights.wellbeing.title")}</h2>
-              <span className="text-2xl">💚</span>
+              <span className="text-2xl">ðŸ’š</span>
             </div>
             <div className="flex items-center gap-2">
               <span className="text-sm text-gray-600 dark:text-white/80">{t("insights.wellbeing.toggle")}</span>
@@ -394,7 +531,7 @@ export default function InsightsPage() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <Card className="p-5 border-2 border-purple-200 dark:border-purple-400/40 bg-white/90 dark:bg-white/15 backdrop-blur-xl shadow-lg shadow-purple-500/10">
                   <div className="flex items-start gap-3">
-                    <span className="text-2xl">🌙</span>
+                    <span className="text-2xl">ðŸŒ™</span>
                     <div className="flex-1">
                       <h3 className="font-semibold mb-1 text-gray-900 dark:text-white">
                         {t("insights.wellbeing.afterHours", { percent: "18" })}
@@ -479,11 +616,14 @@ export default function InsightsPage() {
           )}
         </Card>
 
+            </>
+          )}
+
         <div>
           <h2 className="text-2xl font-bold mb-6 text-gray-900 dark:text-white">{t("insights.suggestions.title")}</h2>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <Card className="p-6 rounded-2xl border border-gray-200 bg-white/95 text-gray-900 shadow-xl transition-all duration-300 hover:shadow-2xl">
-              <span className="text-3xl mb-3 block filter drop-shadow-lg">💡</span>
+              <span className="text-3xl mb-3 block filter drop-shadow-lg">ðŸ’¡</span>
               <h3 className="font-semibold mb-2 text-gray-900 dark:text-white">
                 {t("insights.suggestion.empathetic.title")}
               </h3>
@@ -501,7 +641,7 @@ export default function InsightsPage() {
             </Card>
 
             <Card className="p-6 rounded-2xl border border-gray-200 bg-white/95 text-gray-900 shadow-xl transition-all duration-300 hover:shadow-2xl">
-              <span className="text-3xl mb-3 block filter drop-shadow-lg">📅</span>
+              <span className="text-3xl mb-3 block filter drop-shadow-lg">ðŸ“…</span>
               <h3 className="font-semibold mb-2 text-gray-900 dark:text-white">
                 {t("insights.suggestion.wednesday.title")}
               </h3>
@@ -518,7 +658,7 @@ export default function InsightsPage() {
 
             <Card className="p-6 hover:shadow-2xl hover:shadow-purple-500/30 transition-all duration-300 hover:-translate-y-1 border-2 border-purple-300 dark:border-purple-400/40 bg-white/85 dark:bg-white/15 backdrop-blur-xl shadow-xl shadow-purple-500/20">
               <div className="flex items-center gap-2 mb-3">
-                <span className="text-3xl filter drop-shadow-lg">⭐</span>
+                <span className="text-3xl filter drop-shadow-lg">â­</span>
                 <span
                   className="text-xs font-bold text-white bg-gradient-to-r from-yellow-500 to-orange-500 px-3 py-1 rounded-full shadow-lg animate-pulse"
                   aria-hidden="true"
@@ -622,3 +762,13 @@ export default function InsightsPage() {
     </div>
   )
 }
+
+
+
+
+
+
+
+
+
+

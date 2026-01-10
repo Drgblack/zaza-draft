@@ -1,6 +1,8 @@
-"use client"
+﻿"use client"
 
 import { useState, useEffect } from "react"
+
+import { useAuth } from "@/hooks/use-auth"
 
 export interface TeacherPrefs {
   firstName: string
@@ -17,46 +19,90 @@ export interface TeacherPrefs {
   autoAppendSignatureReportComment?: boolean
 }
 
-const DEFAULT_PREFS: TeacherPrefs = {
-  firstName: "Sarah",
+const STORAGE_KEY_PREFIX = "teacher_prefs"
+
+const LEGACY_STORAGE_KEY = STORAGE_KEY_PREFIX
+
+function getPrefsStorageKey(uid: string | undefined | null) {
+  if (!uid) return null
+  return `${STORAGE_KEY_PREFIX}:${uid}`
+}
+
+function migrateLegacyPrefs(uid: string, newKey: string) {
+  const legacy = localStorage.getItem(LEGACY_STORAGE_KEY)
+  if (legacy) {
+    localStorage.setItem(newKey, legacy)
+    localStorage.removeItem(LEGACY_STORAGE_KEY)
+    return legacy
+  }
+  return null
+}
+
+const createDefaultPrefs = (): TeacherPrefs => ({
+  firstName: "",
   profilePhoto: null,
   preferredTone: "Professional",
   preferredLanguage: "en",
   lastDocType: "lesson-plan",
-  streakCount: 3,
+  streakCount: 0,
   lastActiveAt: new Date().toISOString(),
-  signatureLine1: "Sarah",
+  signatureLine1: "",
   signatureLine2: undefined,
   signatureLine3: undefined,
-  autoAppendSignatureParentMessage: true,
+  autoAppendSignatureParentMessage: false,
   autoAppendSignatureReportComment: false,
-}
+})
+
+const DEFAULT_PREFS: TeacherPrefs = createDefaultPrefs()
+
+
 
 export function useTeacherPrefs() {
   const [prefs, setPrefs] = useState<TeacherPrefs>(DEFAULT_PREFS)
   const [toneChangeCount, setToneChangeCount] = useState<Record<string, number>>({})
+  const { user } = useAuth()
 
   useEffect(() => {
+    if (typeof window === "undefined") {
+      return
+    }
+
     const loadStoredPrefs = () => {
-      const stored = localStorage.getItem("teacherPrefs")
-      if (stored) {
-        try {
-          setPrefs(JSON.parse(stored))
-        } catch (e) {
-          console.error("Failed to parse teacher prefs", e)
-        }
+      const key = getPrefsStorageKey(user?.uid)
+    if (!key) { return }
+ if (!key) { setPrefs(createDefaultPrefs()); return }
+ if (!key) {
+        setPrefs(createDefaultPrefs())
+        return
+      }
+
+      const stored = localStorage.getItem(key)
+      if (!stored) {
+        setPrefs(createDefaultPrefs())
+        return
+      }
+
+      try {
+        setPrefs(JSON.parse(stored))
+      } catch (error) {
+        console.error("Failed to parse teacher prefs", error)
+        setPrefs(createDefaultPrefs())
       }
     }
 
     loadStoredPrefs()
 
     const handleStorageUpdate = () => {
-      const latest = localStorage.getItem("teacherPrefs")
+      const key = getPrefsStorageKey(user?.uid)
+    if (!key) { return }
+ if (!key) { setPrefs(createDefaultPrefs()); return }
+ if (!key) return
+      const latest = localStorage.getItem(key)
       if (latest) {
         try {
           setPrefs(JSON.parse(latest))
-        } catch (e) {
-          console.error("Failed to parse updated teacher prefs", e)
+        } catch (error) {
+          console.error("Failed to parse updated teacher prefs", error)
         }
       }
     }
@@ -66,23 +112,27 @@ export function useTeacherPrefs() {
     return () => {
       window.removeEventListener("teacherPrefsUpdated", handleStorageUpdate)
     }
-  }, [])
+  }, [user?.uid])
 
   const updatePrefs = (updates: Partial<TeacherPrefs>) => {
     const newPrefs = { ...prefs, ...updates }
     setPrefs(newPrefs)
-    localStorage.setItem("teacherPrefs", JSON.stringify(newPrefs))
+    const key = getPrefsStorageKey(user?.uid)
+   if (!key) { return }
+ if (!key) { setPrefs(createDefaultPrefs()); return }
+if (key) {
+      localStorage.setItem(key, JSON.stringify(newPrefs))
+    }
     window.dispatchEvent(new CustomEvent("teacherPrefsUpdated"))
   }
 
   const setPreferredTone = (tone: TeacherPrefs["preferredTone"]) => {
-    // Track tone changes for nudge
     const count = (toneChangeCount[tone] || 0) + 1
     setToneChangeCount({ ...toneChangeCount, [tone]: count })
 
     updatePrefs({ preferredTone: tone })
 
-    return count >= 2 // Return true if should show nudge
+    return count >= 2
   }
 
   const setPreferredLanguage = (language: TeacherPrefs["preferredLanguage"]) => {
@@ -106,3 +156,5 @@ export function useTeacherPrefs() {
     updatePrefs,
   }
 }
+
+
