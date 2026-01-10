@@ -45,11 +45,11 @@ export function GreetingBar({ name, subtitle, onToggleAIPanel, aiPanelVisible }:
                 className="focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 rounded-full"
                 aria-label="Personalization settings"
               >
-                <Avatar className="h-8 w-8 cursor-pointer hover:opacity-80 transition-opacity">
-                  <AvatarFallback className="bg-primary text-primary-foreground text-sm">
-                    {name.charAt(0)}
-                  </AvatarFallback>
-                </Avatar>
+            <Avatar className="h-8 w-8 cursor-pointer hover:opacity-80 transition-opacity">
+              <AvatarFallback className="bg-primary text-primary-foreground text-sm">
+                {(name && name.charAt(0)) || "?"}
+              </AvatarFallback>
+            </Avatar>
               </button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="start" className="w-56 rounded-[14px]">
