@@ -33,3 +33,9 @@ data/names/*.zip
 # Local name datasets (do not commit)
 data/names/yob*.txt
 data/names/*.zip
+
+# local safety backups
+*.bak
+*.bak2
+*.fix*.bak
+
