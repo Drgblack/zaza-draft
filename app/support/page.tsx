@@ -10,7 +10,7 @@ export default function SupportPage() {
   const { t } = useLocale()
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-pink-400 via-purple-500 to-orange-400 dark:from-purple-900 dark:via-purple-800 dark:to-pink-900">
+    <div className="bg-gradient-to-br from-pink-400 via-purple-500 to-orange-400 dark:from-purple-900 dark:via-purple-800 dark:to-pink-900 min-h-full">
       <div className="container mx-auto px-4 py-8 max-w-4xl">
         <Link href="/">
           <Button variant="ghost" className="mb-6 text-white hover:bg-white/20">
@@ -29,9 +29,14 @@ export default function SupportPage() {
               <CardDescription className="dark:text-gray-300">{t("support.guides.description")}</CardDescription>
             </CardHeader>
             <CardContent>
-              <Button className="bg-purple-600 hover:bg-purple-700 text-white w-full">
-                {t("support.guides.button")}
-              </Button>
+              <Link href="/guides" className="w-full">
+                <Button
+                  data-testid="support-guides-link"
+                  className="bg-purple-600 hover:bg-purple-700 text-white w-full"
+                >
+                  {t("support.guides.button")}
+                </Button>
+              </Link>
             </CardContent>
           </Card>
 
@@ -42,9 +47,15 @@ export default function SupportPage() {
               <CardDescription className="dark:text-gray-300">{t("support.community.description")}</CardDescription>
             </CardHeader>
             <CardContent>
-              <Button variant="outline" className="w-full bg-transparent">
-                {t("support.community.button")}
-              </Button>
+              <Link href="/community" className="w-full">
+                <Button
+                  data-testid="support-community-link"
+                  variant="outline"
+                  className="w-full"
+                >
+                  {t("support.community.button")}
+                </Button>
+              </Link>
             </CardContent>
           </Card>
 
@@ -55,9 +66,15 @@ export default function SupportPage() {
               <CardDescription className="dark:text-gray-300">{t("support.contact.description")}</CardDescription>
             </CardHeader>
             <CardContent>
-              <Button variant="outline" className="w-full bg-transparent">
-                {t("support.contact.button")}
-              </Button>
+              <Link href="/support/contact" className="w-full">
+                <Button
+                  data-testid="support-contact-link"
+                  variant="outline"
+                  className="w-full"
+                >
+                  {t("support.contact.button")}
+                </Button>
+              </Link>
             </CardContent>
           </Card>
         </div>
