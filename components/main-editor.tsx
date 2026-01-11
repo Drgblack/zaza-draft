@@ -24,6 +24,7 @@ import { isValidDraftRequest, OUT_OF_SCOPE_REDIRECT_MESSAGE } from "@/lib/draft/
 import Link from "next/link"
 import { FileText, Info, Mail, MessageCircle, Sun, Target, Users } from "lucide-react"
 import type { LucideIcon } from "lucide-react"
+import { formatGreetingDisplay } from "@/lib/text/greeting-display"
 
 const TONE_OPTIONS = [
   { id: "warm", key: "tone.warm" },
@@ -732,9 +733,9 @@ export function MainEditor() {
       <main className="flex-1 max-w-3xl mx-auto px-4 sm:px-6 py-8 sm:py-12 w-full">
         {/* Main Content Area */}
         <div className="mb-6 sm:mb-8 animate-fade-in">
-          <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold text-white mb-3 tracking-tight leading-tight drop-shadow-[0_2px_8px_rgba(0,0,0,0.3)]">
-            {greeting}, {userName || (locale === "de-DE" ? "da" : "there")}
-          </h1>
+            <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold text-white mb-3 tracking-tight leading-tight drop-shadow-[0_2px_8px_rgba(0,0,0,0.3)]">
+              {formatGreetingDisplay(greeting, userName)}
+            </h1>
           <p className="text-base sm:text-lg text-white/95 leading-relaxed drop-shadow-[0_1px_4px_rgba(0,0,0,0.25)]">
             {locale === "de-DE"
               ? "Lassen Sie uns präzise und professionell bleiben."
