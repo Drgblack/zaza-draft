@@ -279,9 +279,9 @@ export default function InsightsPage() {
   }
 
   const getFireIntensity = (days: number) => {
-    if (days >= 15) return "ðŸ”¥ðŸ”¥ðŸ”¥"
-    if (days >= 10) return "ðŸ”¥ðŸ”¥"
-    return "ðŸ”¥"
+    if (days >= 15) return "🔥🔥🔥"
+    if (days >= 10) return "🔥🔥"
+    return "🔥"
   }
 
   const handleDownloadReport = () => {
@@ -291,38 +291,43 @@ export default function InsightsPage() {
 
     const timeSavedLine =
       summaryTimeSaved?.hours != null
-        ? "Time saved: " + (summaryTimeSaved?.hours ?? 0) + "h"
+        ? `Time saved: ${summaryTimeSaved.hours.toFixed(1)}h`
         : "Time saved: not enough data"
+    const draftsPercentage = Math.round((summaryDrafts?.percentage ?? 0) * 100)
     const draftsLine =
       summaryDrafts?.total != null
-        ? "Drafts created: " + (summaryDrafts?.total ?? 0) + " (" + ((summaryDrafts?.percentage ?? 0) * 100) + "% used without edits)"
+        ? `Drafts created: ${summaryDrafts.total} (${draftsPercentage}% used without edits)`
         : "Drafts created: not enough data"
     const streakLine =
       summaryStreak?.days != null
-        ? "Current streak: " + (summaryStreak?.days ?? 0) + " days"
+        ? `Current streak: ${summaryStreak.days} days`
         : "Current streak: not enough data"
     const qualityLine =
       summaryQuality?.score != null
-        ? "Quality score: " + (summaryQuality?.score ?? 0) + " (" + (summaryQuality?.trend ?? 0) + "% change)"
+        ? `Quality score: ${summaryQuality.score} (${summaryQuality.trend ?? 0}% change)`
         : "Quality score: not enough data"
+    const ownerLine = teacherName ? `Name: ${teacherName}` : "Name: N/A"
 
     const reportLines = [
       "Zaza Draft insights",
+      ownerLine,
       "",
       timeSavedLine,
       draftsLine,
       streakLine,
       qualityLine,
       "",
-      "Wellbeing insights sharing: " + (shareData ? "On" : "Off"),
-      "Date range: Last " + dateRange + " days",
+      `Wellbeing insights sharing: ${shareData ? "On" : "Off"}`,
+      `Date range: Last ${dateRange} days`,
     ]
 
-    const blob = new Blob([reportLines.join("\n")], { type: "text/plain" })
+    const blob = new Blob([reportLines.join("\n")], {
+      type: "text/plain;charset=utf-8",
+    })
     const url = URL.createObjectURL(blob)
     const link = document.createElement("a")
     link.href = url
-    link.download = `zaza-insights-${user?.uid ?? "unknown"}-${dateRange}d.txt`
+    link.download = "zaza-draft-insights.txt"
     document.body.appendChild(link)
     link.click()
     document.body.removeChild(link)
@@ -355,10 +360,12 @@ export default function InsightsPage() {
                 <span>{t("insights.dataControl")}</span>
               </div>
                <Button
+                 type="button"
                  variant="outline"
                  size="sm"
                  className="gap-2 bg-white/10 backdrop-blur-md border-white/20 text-white hover:bg-white/20"
                  onClick={handleDownloadReport}
+                 disabled={downloadDisabled}
                >
                  <Download className="h-4 w-4" />
                  {t("insights.downloadReport")}
@@ -463,7 +470,7 @@ export default function InsightsPage() {
                 </svg>
               </div>
             }
-            celebration="ðŸŽ¯"
+          celebration="🎯"
             tooltip={t("insights.draftsCreated.tooltip")}
           />
           <StatCard
@@ -518,7 +525,7 @@ export default function InsightsPage() {
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2">
               <h2 className="text-xl font-semibold text-gray-900 dark:text-white">{t("insights.wellbeing.title")}</h2>
-              <span className="text-2xl">ðŸ’š</span>
+              <span className="text-2xl">💚</span>
             </div>
             <div className="flex items-center gap-2">
               <span className="text-sm text-gray-600 dark:text-white/80">{t("insights.wellbeing.toggle")}</span>
@@ -531,7 +538,7 @@ export default function InsightsPage() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <Card className="p-5 border-2 border-purple-200 dark:border-purple-400/40 bg-white/90 dark:bg-white/15 backdrop-blur-xl shadow-lg shadow-purple-500/10">
                   <div className="flex items-start gap-3">
-                    <span className="text-2xl">ðŸŒ™</span>
+                    <span className="text-2xl">🌙</span>
                     <div className="flex-1">
                       <h3 className="font-semibold mb-1 text-gray-900 dark:text-white">
                         {t("insights.wellbeing.afterHours", { percent: "18" })}
@@ -623,7 +630,7 @@ export default function InsightsPage() {
           <h2 className="text-2xl font-bold mb-6 text-gray-900 dark:text-white">{t("insights.suggestions.title")}</h2>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <Card className="p-6 rounded-2xl border border-gray-200 bg-white/95 text-gray-900 shadow-xl transition-all duration-300 hover:shadow-2xl">
-              <span className="text-3xl mb-3 block filter drop-shadow-lg">ðŸ’¡</span>
+              <span className="text-3xl mb-3 block filter drop-shadow-lg">💡</span>
               <h3 className="font-semibold mb-2 text-gray-900 dark:text-white">
                 {t("insights.suggestion.empathetic.title")}
               </h3>
@@ -641,7 +648,7 @@ export default function InsightsPage() {
             </Card>
 
             <Card className="p-6 rounded-2xl border border-gray-200 bg-white/95 text-gray-900 shadow-xl transition-all duration-300 hover:shadow-2xl">
-              <span className="text-3xl mb-3 block filter drop-shadow-lg">ðŸ“…</span>
+              <span className="text-3xl mb-3 block filter drop-shadow-lg">📅</span>
               <h3 className="font-semibold mb-2 text-gray-900 dark:text-white">
                 {t("insights.suggestion.wednesday.title")}
               </h3>
