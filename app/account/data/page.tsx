@@ -130,7 +130,10 @@ export default function DataPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-pink-400 via-purple-500 to-orange-400 dark:from-purple-900 dark:via-purple-800 dark:to-pink-900">
-      <div className="container mx-auto px-4 py-8 max-w-4xl">
+      <div
+        className="container mx-auto px-4 py-6 max-w-4xl"
+        data-testid="account-data-container"
+      >
         <Link href="/account">
           <Button variant="ghost" className="mb-6 text-white hover:bg-white/20">
             <ArrowLeft className="mr-2 h-4 w-4" />

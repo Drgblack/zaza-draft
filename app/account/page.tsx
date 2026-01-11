@@ -6,6 +6,7 @@ import { useEffect, useState } from "react"
 import { useLocale } from "@/hooks/use-locale"
 import { useTeacherPrefs } from "@/hooks/use-teacher-prefs"
 import { useAuth } from "@/hooks/use-auth"
+import { formatDiagnosticsLastRun } from "@/lib/text/format-last-run"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -17,7 +18,7 @@ import { logClientEvent } from "@/lib/analytics"
 import { canShowDevUid } from "@/lib/dev/feature-flags"
 
 export default function AccountPage() {
-  const { t } = useLocale()
+  const { t, formatDate } = useLocale()
   const { prefs, updatePrefs } = useTeacherPrefs()
   const { user, signOut, getIdToken } = useAuth()
   const displayName = user?.displayName ?? prefs.firstName
@@ -492,12 +493,14 @@ export default function AccountPage() {
           </Card>
 
           <Card className="bg-white/80 dark:bg-white/10 backdrop-blur-xl border border-white/40 dark:border-white/20">
-            <CardHeader>
-              <CardTitle className="text-gray-900 dark:text-white">Diagnostics</CardTitle>
-              <CardDescription className="dark:text-gray-300">
-                Live production diagnostics (no secrets shown)
-              </CardDescription>
-            </CardHeader>
+              <CardHeader>
+                <CardTitle className="text-gray-900 dark:text-white">
+                  {t("account.diagnostics.title")}
+                </CardTitle>
+                <CardDescription className="dark:text-gray-300">
+                  {t("account.diagnostics.description")}
+                </CardDescription>
+              </CardHeader>
             <CardContent className="space-y-3">
               {diagnosticsError && (
                 <p className="text-sm text-red-600 dark:text-red-300">{diagnosticsError}</p>
@@ -508,41 +511,53 @@ export default function AccountPage() {
               {diagnostics && (
                 <div className="grid grid-cols-2 gap-4 text-sm text-gray-700 dark:text-gray-200">
                   <div>
-                    <p className="text-xs text-gray-500 dark:text-gray-400">Primary model</p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">
+                      {t("account.diagnostics.primaryModel")}
+                    </p>
                     <p className="font-semibold">{diagnostics.models.primary ?? "not configured"}</p>
                   </div>
                   <div>
-                    <p className="text-xs text-gray-500 dark:text-gray-400">Fallback model</p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">
+                      {t("account.diagnostics.fallbackModel")}
+                    </p>
                     <p className="font-semibold">{diagnostics.models.fallback ?? "none"}</p>
                   </div>
                   <div>
-                    <p className="text-xs text-gray-500 dark:text-gray-400">Plan</p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">
+                      {t("account.diagnostics.planLabel")}
+                    </p>
                     <p className="font-semibold capitalize">{diagnostics.plan}</p>
                   </div>
                   <div>
-                    <p className="text-xs text-gray-500 dark:text-gray-400">Usage (current/limit)</p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">
+                      {t("account.diagnostics.usageLabel")}
+                    </p>
                     <p className="font-semibold">
                       {diagnostics.usage.currentMonthUsage}/
                       {diagnostics.usage.limit ?? diagnostics.usage.currentMonthUsage}
                     </p>
                   </div>
                   <div>
-                    <p className="text-xs text-gray-500 dark:text-gray-400">Last model used</p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">
+                      {t("account.diagnostics.lastModelLabel")}
+                    </p>
                     <p className="font-semibold">{diagnostics.diagnostics?.lastModelUsed ?? "n/a"}</p>
                   </div>
                   <div>
-                    <p className="text-xs text-gray-500 dark:text-gray-400">Last error code</p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">
+                      {t("account.diagnostics.lastErrorLabel")}
+                    </p>
                     <p className="font-semibold">{diagnostics.diagnostics?.lastErrorCode ?? "none"}</p>
                   </div>
                   <div className="col-span-2">
-                    <p className="text-xs text-gray-500 dark:text-gray-400">Last run</p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">
+                      {t("diagnostics.lastRunLabel")}
+                    </p>
                     <p className="font-semibold">
-                      {diagnostics.diagnostics?.lastRunAt
-                        ? new Date(
-                            (diagnostics.diagnostics.lastRunAt.seconds ?? 0) * 1000 +
-                              ((diagnostics.diagnostics.lastRunAt.nanoseconds ?? 0) / 1_000_000),
-                          ).toLocaleString()
-                        : "—"}
+                      {formatDiagnosticsLastRun(
+                        diagnostics.diagnostics?.lastRunAt,
+                        formatDate,
+                      ) ?? t("diagnostics.lastRunNever")}
                     </p>
                   </div>
                 </div>

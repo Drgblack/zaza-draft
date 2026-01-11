@@ -50,8 +50,7 @@ export default function SupportPage() {
               <Link href="/community" className="w-full">
                 <Button
                   data-testid="support-community-link"
-                  variant="outline"
-                  className="w-full"
+                  className="bg-purple-600 hover:bg-purple-700 text-white w-full"
                 >
                   {t("support.community.button")}
                 </Button>
@@ -69,8 +68,7 @@ export default function SupportPage() {
               <Link href="/support/contact" className="w-full">
                 <Button
                   data-testid="support-contact-link"
-                  variant="outline"
-                  className="w-full"
+                  className="bg-purple-600 hover:bg-purple-700 text-white w-full"
                 >
                   {t("support.contact.button")}
                 </Button>

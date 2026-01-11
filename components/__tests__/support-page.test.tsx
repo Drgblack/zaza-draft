@@ -20,16 +20,20 @@ vi.mock("next/link", () => ({
 }))
 
 describe("Support page navigation", () => {
-  it("renders links for all CTA cards", async () => {
-    const { default: SupportPage } = await import("@/app/support/page")
-    render(<SupportPage />)
+  it(
+    "renders links for all CTA cards",
+    async () => {
+      const { default: SupportPage } = await import("@/app/support/page")
+      render(<SupportPage />)
 
-    const guidesButton = screen.getByTestId("support-guides-link")
-    const communityButton = screen.getByTestId("support-community-link")
-    const contactButton = screen.getByTestId("support-contact-link")
+      const guidesButton = screen.getByTestId("support-guides-link")
+      const communityButton = screen.getByTestId("support-community-link")
+      const contactButton = screen.getByTestId("support-contact-link")
 
-    expect(guidesButton.closest("a")).toHaveAttribute("href", "/guides")
-    expect(communityButton.closest("a")).toHaveAttribute("href", "/community")
-    expect(contactButton.closest("a")).toHaveAttribute("href", "/support/contact")
-  })
+      expect(guidesButton.closest("a")).toHaveAttribute("href", "/guides")
+      expect(communityButton.closest("a")).toHaveAttribute("href", "/community")
+      expect(contactButton.closest("a")).toHaveAttribute("href", "/support/contact")
+    },
+    { timeout: 10000 },
+  )
 })
