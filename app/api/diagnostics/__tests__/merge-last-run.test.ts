@@ -24,4 +24,11 @@ describe("mergeDiagnosticsWithLastRun", () => {
     const merged = mergeDiagnosticsWithLastRun(document, timestamp)
     expect(merged).toEqual({ other: "data", lastRunAt: timestamp })
   })
+
+  it("uses user data lastDiagnosticsRunAt when diagnostics doc lacks lastRunAt", () => {
+    const document = { settings: "answer" }
+    const userData = { lastDiagnosticsRunAt: timestamp }
+    const merged = mergeDiagnosticsWithLastRun(document, userData.lastDiagnosticsRunAt)
+    expect(merged).toEqual({ settings: "answer", lastRunAt: timestamp })
+  })
 })

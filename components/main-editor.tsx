@@ -25,6 +25,7 @@ import Link from "next/link"
 import { FileText, Info, Mail, MessageCircle, Sun, Target, Users } from "lucide-react"
 import type { LucideIcon } from "lucide-react"
 import { formatGreetingDisplay } from "@/lib/text/greeting-display"
+import { saveLastRunTimestamp } from "@/lib/diagnostics/local-storage"
 
 const TONE_OPTIONS = [
   { id: "warm", key: "tone.warm" },
@@ -613,6 +614,7 @@ export function MainEditor() {
       setDraftStructure(data.data.formattedDraft ?? null)
       setDeescalationSummary(data.data.deescalationSummary ?? null)
       setUsage(data.data.usage)
+      saveLastRunTimestamp(new Date())
       setGenerationAction(null)
     } catch (error) {
       console.error("[v1] Draft generation failed", error)

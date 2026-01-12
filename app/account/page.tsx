@@ -16,6 +16,24 @@ import { ArrowLeft, LogOut, Upload, Trash2 } from "lucide-react"
 import Link from "next/link"
 import { logClientEvent } from "@/lib/analytics"
 import { canShowDevUid } from "@/lib/dev/feature-flags"
+import type { FirestoreTimestamp } from "@/lib/diagnostics/merge-last-run"
+import { getLastRunFromStorage } from "@/lib/diagnostics/local-storage"
+
+const mergeDiagnosticsWithLocalFallback = (
+  diagnostics: { lastRunAt?: FirestoreTimestamp } | null,
+) => {
+  if (diagnostics?.lastRunAt) {
+    return diagnostics
+  }
+  const fallback = getLastRunFromStorage()
+  if (!fallback) {
+    return diagnostics
+  }
+  return {
+    ...(diagnostics ?? {}),
+    lastRunAt: fallback,
+  }
+}
 
 export default function AccountPage() {
   const { t, formatDate } = useLocale()
@@ -152,7 +170,12 @@ export default function AccountPage() {
         })
         const payload = await response.json()
         if (response.ok && payload?.success && payload?.data && isMounted) {
-          setDiagnostics(payload.data)
+          const diagnosticsData = payload.data
+          const mergedDiagnostics = mergeDiagnosticsWithLocalFallback(diagnosticsData.diagnostics ?? null)
+          setDiagnostics({
+            ...diagnosticsData,
+            diagnostics: mergedDiagnostics,
+          })
           setDiagnosticsError(null)
         } else if (isMounted) {
           setDiagnosticsError(payload?.error?.message || "Diagnostics unavailable.")
@@ -391,7 +414,7 @@ export default function AccountPage() {
                 {showDevUid && (
                   <div className="flex items-center justify-between gap-2 rounded-lg border border-dashed border-gray-300 bg-gray-50 dark:border-gray-700 dark:bg-white/5 p-2">
                     <span className="text-xs text-gray-600 dark:text-gray-300">
-                      UID:{" "}
+                      {t("account.profile.uidLabel")}:{" "}
                       <span className="font-mono text-xs text-gray-900 dark:text-white">
                         {user?.uid}
                       </span>
@@ -402,7 +425,7 @@ export default function AccountPage() {
                       className="text-xs"
                       onClick={handleCopyUid}
                     >
-                      {uidCopied ? "Copied!" : "Copy UID"}
+                      {uidCopied ? t("account.profile.uidCopied") : t("account.profile.copyUid")}
                     </Button>
                   </div>
                 )}

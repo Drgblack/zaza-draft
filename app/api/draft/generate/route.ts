@@ -322,13 +322,6 @@ export async function POST(request: Request) {
     } catch (error) {
       console.error("[draft] Failed to update diagnostics doc", error)
     }
-    if (Object.prototype.hasOwnProperty.call(fields, "lastRunAt")) {
-      try {
-        await userRef.set({ lastDiagnosticsRunAt: FieldValue.serverTimestamp() }, { merge: true })
-      } catch (error) {
-        console.error("[draft] Failed to update diagnostics timestamp on user doc", error)
-      }
-    }
   }
 
   if (enforceUsageLimits && plan === "free" && initialUsage.remaining !== null && initialUsage.remaining <= 0) {
@@ -698,6 +691,11 @@ export async function POST(request: Request) {
     lastUsage: usageAfterGeneration,
     lastRunAt: FieldValue.serverTimestamp(),
   })
+  try {
+    await userRef.set({ lastDiagnosticsRunAt: FieldValue.serverTimestamp() }, { merge: true })
+  } catch (error) {
+    console.error("[draft] Failed to update diagnostics timestamp on user doc", error)
+  }
   logDraftOutcome("SUCCESS", {
     latencyMs: generationTime,
     modelUsed: metadata.modelUsed,
