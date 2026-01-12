@@ -4,6 +4,7 @@ import Link from "next/link"
 
 import { Button } from "@/components/ui/button"
 import { useLocale } from "@/hooks/use-locale"
+import FooterSlim from "@/components/FooterSlim"
 
 export default function InsightsReviewGuide() {
   const { t } = useLocale()
@@ -13,7 +14,7 @@ export default function InsightsReviewGuide() {
       <main className="flex-1 container mx-auto px-4 py-8 max-w-4xl space-y-6">
         <Link href="/guides" className="inline-flex">
           <Button variant="ghost" className="text-white hover:bg-white/20">
-            {t("guides.back")}
+            {t("guides.common.backLabel")}
           </Button>
         </Link>
         <div className="space-y-4">
@@ -31,6 +32,7 @@ export default function InsightsReviewGuide() {
           </div>
         </div>
       </main>
+      <FooterSlim />
     </div>
   )
 }
