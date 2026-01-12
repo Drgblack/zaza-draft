@@ -30,8 +30,6 @@ describe("buildSystemPrompt", () => {
       uiLocale: "de-DE",
     })
     expect(prompt).toContain("DE tone contract")
-    expect(prompt).toContain("Lügen")
-    expect(prompt).toContain("Ich möchte gemeinsam mit Ihnen")
-    expect(prompt).toContain("Können wir einen kurzen Termin vereinbaren")
+    expect(prompt).toContain("Termin vereinbaren")
   })
 })

@@ -2,6 +2,11 @@ import { NextResponse } from "next/server"
 import { authorizeFirebaseRequest, FirebaseAuthorizationError } from "@/lib/firebase/server"
 import { getUserEntitlements } from "@/lib/entitlements"
 import { getConfiguredModelNames } from "@/lib/ai/provider"
+import {
+  FirestoreTimestamp,
+  DiagnosticsDocument,
+  mergeDiagnosticsWithLastRun,
+} from "@/lib/diagnostics/merge-last-run"
 
 export async function GET(request: Request) {
   let authContext
@@ -38,12 +43,14 @@ export async function GET(request: Request) {
 
   try {
     const entitlements = await getUserEntitlements(uid, firestore)
-    const diagDoc = await firestore
-      .collection("users")
-      .doc(uid)
-      .collection("diagnostics")
-      .doc("status")
-      .get()
+    const userRef = firestore.collection("users").doc(uid)
+    const diagDoc = await userRef.collection("diagnostics").doc("status").get()
+    const userSnapshot = await userRef.get()
+    const userData = userSnapshot.data() ?? {}
+    const diagnosticsPayload = mergeDiagnosticsWithLastRun(
+      diagDoc.exists ? (diagDoc.data() as DiagnosticsDocument) : null,
+      userData.lastDiagnosticsRunAt as FirestoreTimestamp | undefined,
+    )
 
     return NextResponse.json({
       success: true,
@@ -51,7 +58,7 @@ export async function GET(request: Request) {
         models: getConfiguredModelNames(),
         plan: entitlements.plan,
         usage: entitlements.usage,
-        diagnostics: diagDoc.exists ? diagDoc.data() : null,
+        diagnostics: diagnosticsPayload,
       },
     })
   } catch (error) {

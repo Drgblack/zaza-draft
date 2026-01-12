@@ -314,16 +314,20 @@ export async function POST(request: Request) {
   const { plan, usage: initialUsage, usageRecord, isProSubscriber } = entitlements
   const enforceUsageLimits = shouldRespectUsageLimit(uid)
 
-  const diagnosticsRef = firestore
-    .collection("users")
-    .doc(uid)
-    .collection("diagnostics")
-    .doc("status")
+  const userRef = firestore.collection("users").doc(uid)
+  const diagnosticsRef = userRef.collection("diagnostics").doc("status")
   const recordDiagnostic = async (fields: Record<string, unknown>) => {
     try {
       await diagnosticsRef.set({ ...fields, updatedAt: FieldValue.serverTimestamp() }, { merge: true })
     } catch (error) {
       console.error("[draft] Failed to update diagnostics doc", error)
+    }
+    if (Object.prototype.hasOwnProperty.call(fields, "lastRunAt")) {
+      try {
+        await userRef.set({ lastDiagnosticsRunAt: FieldValue.serverTimestamp() }, { merge: true })
+      } catch (error) {
+        console.error("[draft] Failed to update diagnostics timestamp on user doc", error)
+      }
     }
   }
 

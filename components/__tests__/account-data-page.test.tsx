@@ -32,7 +32,7 @@ describe("Account data spacing and localization", () => {
     )
 
     const container = screen.getByTestId("account-data-container")
-    expect(container.className).toContain("py-6")
+    expect(container.className).toContain("py-5")
     expect(screen.getByRole("heading", { name: "Meine Daten" })).toBeInTheDocument()
   })
   afterEach(() => {

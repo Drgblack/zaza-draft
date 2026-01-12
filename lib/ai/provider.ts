@@ -66,7 +66,7 @@ const PRONOUN_INSTRUCTIONS: Record<PronounPreference, string> = {
   avoid: "Avoid gendered pronouns entirely and rely on neutral constructions such as 'the student' or 'this learner'.",
 }
 
-function buildSystemPrompt(input: ProviderInput) {
+export function buildSystemPrompt(input: ProviderInput) {
   const systemLines = [
     "You are Zara Draft, an assistant for K-12 teachers who writes professional, concise communications for parents and colleagues.",
     "Always stay factual: do not invent facts that were not provided in the prompt. When details are missing, keep the response neutral and ask for clarification.",
@@ -106,19 +106,21 @@ function buildSystemPrompt(input: ProviderInput) {
 
   if (input.language === "de") {
     systemLines.push(
-      "When writing in German, keep the sentences warm, calm, and still professional; favour the Sie form and avoid bureaucratic labels such as 'Fach:' unless they were already part of the request.",
+      "When writing in German, keep the sentences warm, calm, and professional; favour the Sie form and avoid bureaucratic labels such as 'Fach:' unless they are explicitly part of the request.",
     )
-    systemLines.push("Avoid placeholders like [Name des Schülers], [Parent Name], or [Student Name].")
-    systemLines.push("If no student name was supplied, refer to the child as 'Ihr Kind' (use 'Ihr Sohn' or 'Ihre Tochter' only when the teacher explicitly provides gender).")
+    systemLines.push("Avoid placeholders like [Name des Sch�lers], [Parent Name], or [Student Name].")
+    systemLines.push(
+      "If no student name was supplied, refer to the child as 'Ihr Kind' (use 'Ihr Sohn' or 'Ihre Tochter' only when the teacher explicitly provides gender).",
+    )
     if (input.mode === "parent_message") {
       systemLines.push(
-        "German parent messages should stay between 90 and 140 words, include a subject line prefixed with 'Betreff:', begin with a polite greeting, deliver 2-4 short paragraphs separated by blank lines, and close with a collaborative note to work together.",
+        "German parent messages must mimic a concise professional email: start with 'Betreff: <short subject>' on the first line, add a blank line, and begin with a polite greeting such as 'Liebe Eltern,' or 'Liebe Erziehungsberechtigte,'.",
       )
       systemLines.push(
-        "Structure the output exactly like a brief German email: 'Betreff: <short subject>' on the first line, followed by a blank line, a greeting on its own line (e.g., 'Liebe Eltern,'), the body paragraphs separated by blank lines, another blank line, 'Freundliche Grüße,' or 'Herzliche Grüße,' on its own line, and the teacher name on the final line.",
+        "Write 2-4 short paragraphs separated by blank lines; each paragraph should focus on calm observations, progress updates, and a collaborative next step (for example, 'K�nnen wir einen kurzen Termin vereinbaren?').",
       )
       systemLines.push(
-        "Avoid judgment words such as 'Ausreden', 'Lügen', or 'faul'; describe the behaviour with neutral observations, keep the tone calm and supportive, and add a collaborative next step (e.g., 'Können wir einen kurzen Termin vereinbaren?').",
+        "End with a blank line, then 'Freundliche Gr��e,' or 'Herzliche Gr��e,' on its own line, followed by the teacher's name on the final line; include a reassuring statement before the closing.",
       )
     } else {
       systemLines.push(
@@ -130,13 +132,8 @@ function buildSystemPrompt(input: ProviderInput) {
 
   if (input.uiLocale?.toLowerCase().startsWith("de")) {
     systemLines.push(
-      "DE tone contract: avoid moral judgement words such as 'Lügen', 'Ausreden', 'faul', or 'schlecht'; describe behaviour with neutral observations (for example, 'Es gab einige Situationen, in denen...'); frame collaboration with phrases like 'Ich möchte gemeinsam mit Ihnen' and offer a clear next step such as 'Können wir einen kurzen Termin vereinbaren?'; keep the tone calm, professional, and supportive without sounding accusatory.",
+      "DE tone contract: avoid moral judgement words such as 'L�gen', 'Ausreden', 'faul', or 'schlecht'; describe behaviour with neutral observations (for example, 'Es gab einige Situationen, in denen...'); frame collaboration with phrases like 'Ich m�chte gemeinsam mit Ihnen' and offer a clear next step such as 'K�nnen wir einen kurzen Termin vereinbaren?'; keep the tone calm, professional, and supportive without sounding accusatory.",
     )
-    if (input.mode === "parent_message") {
-      systemLines.push(
-        "German parent messages must follow a concise email template: start with 'Betreff: <short subject>', add a blank line, include 'Liebe Eltern,' or 'Liebe Erziehungsberechtigte,' followed by 2-4 short paragraphs separated by blank lines, and finish with 'Freundliche Grüße,' or 'Herzliche Grüße,' plus the teacher name on the last line.",
-      )
-    }
   }
 
   if (input.rewrite) {
@@ -378,4 +375,8 @@ export async function generateDraft(input: ProviderInput): Promise<ProviderResul
   }
 }
 
-export { buildSystemPrompt }
+
+
+
+
+

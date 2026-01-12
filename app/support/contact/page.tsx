@@ -4,7 +4,6 @@ import Link from "next/link"
 
 import { ArrowLeft, Mail } from "lucide-react"
 
-import FooterSlim from "@/components/FooterSlim"
 import { Button } from "@/components/ui/button"
 import { useLocale } from "@/hooks/use-locale"
 
@@ -58,7 +57,6 @@ export default function SupportContactPage() {
           </div>
         </div>
       </main>
-      <FooterSlim />
     </div>
   )
 }

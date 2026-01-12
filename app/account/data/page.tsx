@@ -129,9 +129,9 @@ export default function DataPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-pink-400 via-purple-500 to-orange-400 dark:from-purple-900 dark:via-purple-800 dark:to-pink-900">
+    <div className="min-h-screen flex flex-col bg-gradient-to-br from-pink-400 via-purple-500 to-orange-400 dark:from-purple-900 dark:via-purple-800 dark:to-pink-900">
       <div
-        className="container mx-auto px-4 py-6 max-w-4xl"
+        className="flex-1 flex flex-col gap-6 container mx-auto px-4 py-5 max-w-4xl"
         data-testid="account-data-container"
       >
         <Link href="/account">
@@ -143,7 +143,7 @@ export default function DataPage() {
 
         <h1 className="text-4xl font-bold text-white mb-8">{t("account.data.title")}</h1>
 
-        <div className="space-y-6">
+        <div className="flex flex-col gap-6">
           <Card className="bg-white/80 dark:bg-white/10 backdrop-blur-xl border border-white/40 dark:border-white/20">
             <CardHeader>
               <CardTitle className="text-gray-900 dark:text-white">{t("account.data.export.title")}</CardTitle>
