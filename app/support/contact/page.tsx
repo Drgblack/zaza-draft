@@ -11,9 +11,9 @@ export default function SupportContactPage() {
   const { t } = useLocale()
 
   return (
-    <div className="min-h-screen flex flex-col bg-gradient-to-br from-pink-400 via-purple-500 to-orange-400 dark:from-purple-900 dark:via-purple-800 dark:to-pink-900 text-white">
+    <div className="flex-1 px-4 py-8 bg-gradient-to-br from-pink-400 via-purple-500 to-orange-400 dark:from-purple-900 dark:via-purple-800 dark:to-pink-900 text-white">
       <main
-        className="flex-1 container mx-auto px-4 py-8 max-w-4xl space-y-6"
+        className="flex-1 container mx-auto max-w-4xl space-y-6"
         data-testid="support-contact-main"
       >
         <Link href="/support" className="inline-flex">
@@ -50,8 +50,12 @@ export default function SupportContactPage() {
               className="border-white/80 text-white hover:bg-white/10"
               data-testid="support-contact-secondary"
             >
-              <a href="mailto:support@zazatechnologies.com">
-                {t("support.contact.secondaryAction")}
+              <a
+                data-testid="support-contact-email-link"
+                href="mailto:support@zazatechnologies.com"
+                className="flex-1"
+              >
+                {t("support.emailCta")}
               </a>
             </Button>
           </div>

@@ -31,6 +31,7 @@ describe("Support contact page", () => {
           "support.title": "Help & Support",
           "support.contact.primaryAction": "Go to contact form",
           "support.contact.secondaryAction": "Email support",
+          "support.emailCta": "Email support",
         }[key] ?? key),
       }),
     }))
@@ -41,6 +42,11 @@ describe("Support contact page", () => {
     expect(screen.getByTestId("support-contact-heading")).toHaveTextContent(
       "Contact Support",
     )
+    expect(screen.getByTestId("support-contact-email-link")).toHaveAttribute(
+      "href",
+      "mailto:support@zazatechnologies.com",
+    )
+    expect(screen.getByTestId("support-contact-email-link")).toHaveTextContent("Email support")
   })
 
   it("renders localized heading (DE)", async () => {
@@ -53,6 +59,7 @@ describe("Support contact page", () => {
           "support.title": "Hilfe & Support",
           "support.contact.primaryAction": "Zum Kontaktformular",
           "support.contact.secondaryAction": "Support per E-Mail",
+          "support.emailCta": "Support per E-Mail",
         }[key] ?? key),
       }),
     }))
@@ -62,6 +69,13 @@ describe("Support contact page", () => {
 
     expect(screen.getByTestId("support-contact-heading")).toHaveTextContent(
       "Support kontaktieren",
+    )
+    expect(screen.getByTestId("support-contact-email-link")).toHaveAttribute(
+      "href",
+      "mailto:support@zazatechnologies.com",
+    )
+    expect(screen.getByTestId("support-contact-email-link")).toHaveTextContent(
+      "Support per E-Mail",
     )
   })
 })

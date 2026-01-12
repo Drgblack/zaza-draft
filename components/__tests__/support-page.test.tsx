@@ -30,9 +30,10 @@ describe("Support page navigation", () => {
       const communityButton = screen.getByTestId("support-community-link")
       const contactButton = screen.getByTestId("support-contact-link")
 
-      expect(guidesButton.closest("a")).toHaveAttribute("href", "/guides")
-      expect(communityButton.closest("a")).toHaveAttribute("href", "/community")
-      expect(contactButton.closest("a")).toHaveAttribute("href", "/support/contact")
+    expect(guidesButton.closest("a")).toHaveAttribute("href", "/guides")
+    expect(communityButton.closest("a")).toHaveAttribute("href", "/community")
+    expect(contactButton.closest("a")).toHaveAttribute("href", "/support/contact")
+
     },
     { timeout: 10000 },
   )

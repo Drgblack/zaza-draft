@@ -15,22 +15,26 @@ export default function GuidesPage() {
     {
       title: t("guides.card1.title"),
       description: t("guides.card1.description"),
-      href: "/",
+      href: "/guides",
+      testId: "guides-card-1",
     },
     {
       title: t("guides.card2.title"),
       description: t("guides.card2.description"),
       href: "/insights",
+      testId: "guides-card-2",
     },
     {
       title: t("guides.card3.title"),
       description: t("guides.card3.description"),
-      href: "/privacy",
+      href: "/support/contact",
+      testId: "guides-card-3",
     },
     {
       title: t("guides.card4.title"),
       description: t("guides.card4.description"),
       href: "/support/contact",
+      testId: "guides-card-4",
     },
   ]
 
@@ -59,7 +63,7 @@ export default function GuidesPage() {
               <CardContent>
                 <CardDescription>{guide.description}</CardDescription>
                 <div className="mt-4">
-                  <Link href={guide.href}>
+          <Link href={guide.href} data-testid={guide.testId}>
                     <Button className="bg-purple-600 hover:bg-purple-700 text-white">
                       {t("support.guides.button")}
                     </Button>

@@ -129,7 +129,7 @@ export default function DataPage() {
   }
 
   return (
-    <div className="min-h-screen flex flex-col bg-gradient-to-br from-pink-400 via-purple-500 to-orange-400 dark:from-purple-900 dark:via-purple-800 dark:to-pink-900">
+    <div className="flex-1 bg-gradient-to-br from-pink-400 via-purple-500 to-orange-400 dark:from-purple-900 dark:via-purple-800 dark:to-pink-900">
       <div
         className="flex-1 flex flex-col gap-6 container mx-auto px-4 py-5 max-w-4xl"
         data-testid="account-data-container"
