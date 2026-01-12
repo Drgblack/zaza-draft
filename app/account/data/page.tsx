@@ -176,7 +176,7 @@ export default function DataPage() {
                   onChange={(event) => setDeleteCheckbox(event.target.checked)}
                   disabled={isDeleting || deleteStage === "done"}
                 />
-                <span>I understand this permanently deletes my saved drafts and settings.</span>
+                <span>{t("account.data.delete.confirmationLabel")}</span>
               </label>
               <div className="flex flex-col gap-2">
                 {deleteStage !== "done" && (

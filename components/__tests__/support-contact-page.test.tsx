@@ -32,6 +32,7 @@ describe("Support contact page", () => {
           "support.contact.primaryAction": "Go to contact form",
           "support.contact.secondaryAction": "Email support",
           "support.emailCta": "Email support",
+          "support.contact.description": "Talk to our team.",
         }[key] ?? key),
       }),
     }))
@@ -60,6 +61,7 @@ describe("Support contact page", () => {
           "support.contact.primaryAction": "Zum Kontaktformular",
           "support.contact.secondaryAction": "Support per E-Mail",
           "support.emailCta": "Support per E-Mail",
+          "support.contact.description": "Sprechen Sie mit uns.",
         }[key] ?? key),
       }),
     }))

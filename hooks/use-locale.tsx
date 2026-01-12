@@ -495,6 +495,8 @@ export const localeMessages: Record<Locale, LocaleMessages> = {
     "account.data.export.allDataButton": "Download all data",
     "account.data.delete.title": "Delete Account",
     "account.data.delete.description": "Permanently delete your account and all associated data",
+    "account.data.delete.confirmationLabel":
+      "I understand this permanently deletes my saved drafts and settings.",
     "account.data.delete.button": "Delete my account",
     "account.data.delete.comingSoon": "Coming soon",
     "account.privacy.title": "Privacy & Safety",
@@ -1673,6 +1675,8 @@ export const localeMessages: Record<Locale, LocaleMessages> = {
     "account.data.export.allDataButton": "Alle Daten herunterladen",
     "account.data.delete.title": "Account löschen",
     "account.data.delete.description": "Lösche deinen Account und alle gespeicherten Daten endgültig",
+    "account.data.delete.confirmationLabel":
+      "Ich verstehe, dass dadurch meine gespeicherten Entwürfe und Einstellungen dauerhaft gelöscht werden.",
     "account.data.delete.button": "Account löschen",
     "account.data.delete.comingSoon": "Demnächst verfügbar",
     "account.privacy.title": "Datenschutz & Sicherheit",
