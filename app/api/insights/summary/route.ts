@@ -6,10 +6,13 @@ export async function GET(req: Request) {
   try {
     const { uid } = await authorizeFirebaseRequest(req)
 
-    const admin = getFirebaseAdmin()
-    const db = admin.firestore()
+    const { firestore } = getFirebaseAdmin()
 
-    const userSnap = await db.collection("users").doc(uid).get()
+    if (!firestore) {
+      throw new FirebaseAuthorizationError("Firebase admin is not configured", 500)
+    }
+
+    const userSnap = await firestore.collection("users").doc(uid).get()
     const userData = userSnap.exists ? userSnap.data() : null
 
     const generationCount = Number(userData?.monthlyUsage?.generationCount ?? 0)
