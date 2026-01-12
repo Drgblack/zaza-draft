@@ -38,7 +38,7 @@ const mergeDiagnosticsWithLocalFallback = (
 export default function AccountPage() {
   const { t, formatDate } = useLocale()
   const { prefs, updatePrefs } = useTeacherPrefs()
-  const { user, signOut, getIdToken } = useAuth()
+  const { user, status, signOut, getIdToken } = useAuth()
   const displayName = user?.displayName ?? prefs.firstName
   const [name, setName] = useState(displayName)
   const [profilePhoto, setProfilePhoto] = useState<string | null>(prefs.profilePhoto)
@@ -80,6 +80,7 @@ export default function AccountPage() {
   const showDevUid = Boolean(user?.uid && canShowDevUid)
   const accountLimited =
     Boolean(accountInfo && accountInfo.usage.plan === "free" && !accountInfo.isQaUser)
+
 
   const handleSave = () => {
     const trimmedName = name.trim()
@@ -156,6 +157,11 @@ export default function AccountPage() {
   }, [uidCopied])
 
   useEffect(() => {
+    if (status !== "authenticated" || !user) {
+      setDiagnostics(null)
+      setDiagnosticsError(null)
+      return
+    }
     let isMounted = true
     const loadDiagnostics = async () => {
       try {
@@ -171,18 +177,19 @@ export default function AccountPage() {
         const payload = await response.json()
         if (response.ok && payload?.success && payload?.data && isMounted) {
           const diagnosticsData = payload.data
-          const mergedDiagnostics = mergeDiagnosticsWithLocalFallback(diagnosticsData.diagnostics ?? null)
+          const diagnosticsDoc = diagnosticsData?.diagnostics ?? diagnosticsData ?? null
+          const mergedDiagnostics = mergeDiagnosticsWithLocalFallback(diagnosticsDoc)
           setDiagnostics({
             ...diagnosticsData,
             diagnostics: mergedDiagnostics,
           })
           setDiagnosticsError(null)
         } else if (isMounted) {
-          setDiagnosticsError(payload?.error?.message || "Diagnostics unavailable.")
+          setDiagnosticsError(payload?.error?.message || t("account.diagnostics.unavailable"))
         }
       } catch (error) {
         if (isMounted) {
-          setDiagnosticsError("Unable to load diagnostics.")
+          setDiagnosticsError(t("account.diagnostics.loadFailed"))
         }
       }
     }
@@ -192,7 +199,7 @@ export default function AccountPage() {
     return () => {
       isMounted = false
     }
-  }, [getIdToken])
+  }, [getIdToken, status, user, t])
 
   const hasNameChanged = name.trim() !== "" && name.trim() !== prefs.firstName
 
@@ -318,6 +325,32 @@ export default function AccountPage() {
     } catch {
       // ignore copy failures
     }
+  }
+
+  if (status !== "authenticated" || !user) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-pink-400 via-purple-500 to-orange-400 dark:from-purple-900 dark:via-purple-800 dark:to-pink-900">
+        <div className="container mx-auto px-4 py-12 max-w-xl">
+          <Card className="rounded-3xl border border-white/30 bg-white/80 dark:bg-white/10 backdrop-blur-xl text-center">
+            <CardHeader>
+              <CardTitle className="text-2xl font-semibold text-gray-900 dark:text-white">
+                {t("account.signInRequired.title")}
+              </CardTitle>
+              <CardDescription className="text-gray-600 dark:text-gray-300">
+                {t("account.signInRequired.description")}
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <Link href="/auth/signin?next=/account" className="inline-flex w-full justify-center">
+                <Button variant="secondary" className="w-full sm:w-auto">
+                  {t("account.signInRequired.action")}
+                </Button>
+              </Link>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    )
   }
 
   return (

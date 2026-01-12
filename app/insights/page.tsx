@@ -145,7 +145,7 @@ export default function InsightsPage() {
   useEffect(() => {
     let active = true
     if (!isAuthenticated || !user) {
-      setInsightsSummary(null)
+      setInsightsSummary(payload?.summary ?? null)
       setSummaryLoading(false)
       setSummaryError(null)
       return
@@ -166,16 +166,21 @@ export default function InsightsPage() {
         const payload = await response.json()
         if (!active) return
         if (response.ok && payload?.success) {
-          setInsightsSummary(payload.data ?? null)
+          setInsightsSummary(payload?.summary ?? null)
+          setSummaryError(null)
+        } else if (response.status === 404 || payload?.error?.code === "INSIGHTS_NOT_FOUND") {
+          console.info("[insights] empty summary", response.status, payload?.error)
+          setInsightsSummary(payload?.summary ?? null)
           setSummaryError(null)
         } else {
-          setInsightsSummary(null)
+          console.warn("[insights] summary error", response.status, payload?.error)
+          setInsightsSummary(payload?.summary ?? null)
           setSummaryError(payload?.error?.message || "Unable to load insights.")
         }
       } catch (error) {
         console.error("[insights] failed to load summary", error)
         if (!active) return
-        setInsightsSummary(null)
+        setInsightsSummary(payload?.summary ?? null)
         setSummaryError("Unable to load insights.")
       } finally {
         if (active) {
@@ -769,6 +774,8 @@ export default function InsightsPage() {
     </div>
   )
 }
+
+
 
 
 

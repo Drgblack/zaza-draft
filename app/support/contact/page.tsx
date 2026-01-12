@@ -1,4 +1,4 @@
-"use client"
+﻿"use client"
 
 import Link from "next/link"
 
@@ -11,11 +11,8 @@ export default function SupportContactPage() {
   const { t } = useLocale()
 
   return (
-    <div className="flex-1 px-4 py-8 bg-gradient-to-br from-pink-400 via-purple-500 to-orange-400 dark:from-purple-900 dark:via-purple-800 dark:to-pink-900 text-white">
-      <main
-        className="flex-1 container mx-auto max-w-4xl space-y-6"
-        data-testid="support-contact-main"
-      >
+    <div className="px-4 py-8 bg-gradient-to-br from-pink-400 via-purple-500 to-orange-400 dark:from-purple-900 dark:via-purple-800 dark:to-pink-900 text-white">
+      <main className="container mx-auto max-w-4xl space-y-6" data-testid="support-contact-main">
         <Link href="/support" className="inline-flex">
           <Button variant="ghost" className="text-white hover:bg-white/20">
             <ArrowLeft className="mr-2 h-4 w-4" />
@@ -39,7 +36,7 @@ export default function SupportContactPage() {
             <Link href="/contact">
               <Button
                 data-testid="support-contact-primary"
-                className="bg-purple-600 hover:bg-purple-700 text-white"
+                className="bg-purple-600 text-white hover:bg-purple-700"
               >
                 {t("support.contact.primaryAction")}
               </Button>
@@ -47,13 +44,12 @@ export default function SupportContactPage() {
             <Button
               asChild
               variant="outline"
-              className="border-white/80 text-white hover:bg-white/10"
+              className="border-white/80 !bg-white/90 !text-gray-900 hover:!bg-white dark:!bg-white/10 dark:!text-white dark:hover:!bg-white/20"
               data-testid="support-contact-secondary"
             >
               <a
                 data-testid="support-contact-email-link"
                 href="mailto:support@zazatechnologies.com"
-                className="flex-1"
               >
                 {t("support.emailCta")}
               </a>
@@ -64,3 +60,6 @@ export default function SupportContactPage() {
     </div>
   )
 }
+
+
+

@@ -316,6 +316,7 @@ export async function POST(request: Request) {
 
   const userRef = firestore.collection("users").doc(uid)
   const diagnosticsRef = userRef.collection("diagnostics").doc("status")
+  const insightsSummaryRef = userRef.collection("insights").doc("summary")
   const recordDiagnostic = async (fields: Record<string, unknown>) => {
     try {
       await diagnosticsRef.set({ ...fields, updatedAt: FieldValue.serverTimestamp() }, { merge: true })
@@ -695,6 +696,17 @@ export async function POST(request: Request) {
     await userRef.set({ lastDiagnosticsRunAt: FieldValue.serverTimestamp() }, { merge: true })
   } catch (error) {
     console.error("[draft] Failed to update diagnostics timestamp on user doc", error)
+  }
+  try {
+    await insightsSummaryRef.set(
+      {
+        draftsCreated: FieldValue.increment(1),
+        lastDraftAt: FieldValue.serverTimestamp(),
+      },
+      { merge: true },
+    )
+  } catch (error) {
+    console.error("[draft] Failed to update insights summary", error)
   }
   logDraftOutcome("SUCCESS", {
     latencyMs: generationTime,
