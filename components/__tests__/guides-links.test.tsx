@@ -26,9 +26,9 @@ describe("Guides page links", () => {
     const { default: GuidesPage } = await import("@/app/guides/page")
     render(<GuidesPage />)
 
-    expect(screen.getByTestId("guides-card-1")).toHaveAttribute("href", "/guides")
-    expect(screen.getByTestId("guides-card-2")).toHaveAttribute("href", "/insights")
-    expect(screen.getByTestId("guides-card-3")).toHaveAttribute("href", "/support/contact")
-    expect(screen.getByTestId("guides-card-4")).toHaveAttribute("href", "/support/contact")
+    expect(screen.getByTestId("guides-card-1")).toHaveAttribute("href", "/guides/drafting-tips")
+    expect(screen.getByTestId("guides-card-2")).toHaveAttribute("href", "/guides/insights-review")
+    expect(screen.getByTestId("guides-card-3")).toHaveAttribute("href", "/guides/privacy-checklist")
+    expect(screen.getByTestId("guides-card-4")).toHaveAttribute("href", "/guides/feedback-tone")
   })
 })

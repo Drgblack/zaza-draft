@@ -15,25 +15,25 @@ export default function GuidesPage() {
     {
       title: t("guides.card1.title"),
       description: t("guides.card1.description"),
-      href: "/guides",
+      href: "/guides/drafting-tips",
       testId: "guides-card-1",
     },
     {
       title: t("guides.card2.title"),
       description: t("guides.card2.description"),
-      href: "/insights",
+      href: "/guides/insights-review",
       testId: "guides-card-2",
     },
     {
       title: t("guides.card3.title"),
       description: t("guides.card3.description"),
-      href: "/support/contact",
+      href: "/guides/privacy-checklist",
       testId: "guides-card-3",
     },
     {
       title: t("guides.card4.title"),
       description: t("guides.card4.description"),
-      href: "/support/contact",
+      href: "/guides/feedback-tone",
       testId: "guides-card-4",
     },
   ]
