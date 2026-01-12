@@ -234,3 +234,5 @@ curl -X POST http://localhost:3000/api/draft/generate \
 - **Delete your data**: `POST /api/account/delete` requires `{ confirm: true }`. The route removes `users/{uid}/snippets`, `users/{uid}/diagnostics`, `users/{uid}/rateLimits`, and finally the `users/{uid}` doc itself; Firebase Auth records and other collections stay untouched. This action is also exposed on `/account/data` next to the export flow so teachers can cleanly reset their workspace.
 
 
+
+
