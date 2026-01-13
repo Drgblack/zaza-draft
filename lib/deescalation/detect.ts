@@ -17,6 +17,13 @@ const NEGATIVE_JUDGEMENT_TERMS = [
   "defiant",
   "difficult",
   "misbehaving",
+  "lüge",
+  "lügen",
+  "dumm",
+  "idiot",
+  "faul",
+  "schwach",
+  "langsam",
 ]
 
 const TIME_BOUND_PHRASES = [
@@ -69,6 +76,8 @@ const CATEGORY_RULES: {
       /\bif you (?:do not|don't|will not|won't)\b/gi,
       /\bI will (?:not )?tolerate\b/gi,
       /\bI'll (?:not )?tolerate\b/gi,
+      /\boder sonst\b/gi,
+      /\bwenn (?:du|ihr|Sie) (?:nicht|nichts?)\b/gi,
     ],
   },
   {
@@ -80,6 +89,11 @@ const CATEGORY_RULES: {
       /\bstupid\b/gi,
       /\bidiot(?:ic)?\b/gi,
       /\bworthless\b/gi,
+      /\bdumm(?:e|er|en)?\b/gi,
+      /\bidiot(?:in|isch)?\b/gi,
+      /\bfaul(?:es|e|er)?\b/gi,
+      /\bschwach\b/gi,
+      /\blangsam\b/gi,
     ],
   },
   {
@@ -90,6 +104,8 @@ const CATEGORY_RULES: {
       /\bmanipulative\b/gi,
       /\bpsycho\b/gi,
       /\bmanipulating\b/gi,
+      /\bmanipulierend\b/gi,
+      /\bmanipulativ\b/gi,
     ],
   },
   {
@@ -99,6 +115,8 @@ const CATEGORY_RULES: {
       /\byeah right\b/gi,
       /\bas if\b/gi,
       /\b(yeah|sure|right|whatever) (?:right|whatever|sure)\b/gi,
+      /\bja klar\b/gi,
+      /\bals ob\b/gi,
     ],
   },
   {
@@ -110,6 +128,10 @@ const CATEGORY_RULES: {
       /\bevery time\b/gi,
       /\bconstantly\b/gi,
       /\bat all times\b/gi,
+      /\bimmer\b/gi,
+      /\bnie\b/gi,
+      /\bständig\b/gi,
+      /\bjederzeit\b/gi,
     ],
   },
   {
@@ -121,6 +143,13 @@ const CATEGORY_RULES: {
       /\bhell\b/gi,
       /\bbitch\b/gi,
       /\b(piss|pissed)\b/gi,
+      /\bverdammt\b/gi,
+      /\bscheiße\b/gi,
+      /\bscheiß\b/gi,
+      /\bmist\b/gi,
+      /\barschloch\b/gi,
+      /\bverflucht\b/gi,
+      /\bkacke\b/gi,
     ],
   },
 ]

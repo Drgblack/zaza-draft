@@ -44,4 +44,18 @@ describe("de-escalation detection and rewrite", () => {
 
     expect(detection.flaggedPhrases.some((phrase) => phrase.category === "absolute")).toBe(true)
   })
+
+  it("flags german high-emotion words and rewrites them", () => {
+    const input = "Ich bin es leid, dass Lukas faul ist und immer manipulativ wirkt."
+    const detection = detectHighEmotionPhrases(input)
+
+    expect(detection.wasDeescalated).toBe(true)
+    expect(detection.flaggedPhrases.some((phrase) => phrase.snippet.toLowerCase().includes("faul"))).toBe(true)
+    expect(detection.flaggedPhrases.some((phrase) => phrase.snippet.toLowerCase().includes("manipul"))).toBe(true)
+
+    const outcome = rewriteHighEmotionText(input, detection)
+    expect(outcome.cleanedText.toLowerCase()).not.toMatch(/faul|manipulativ|immer/)
+    expect(outcome.summary.flaggedPhrases.length).toBeGreaterThan(0)
+    expect(outcome.summary.coachingLine).toContain("I kept your intent")
+  })
 })

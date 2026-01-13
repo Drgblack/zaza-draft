@@ -49,4 +49,15 @@ describe("API route de-escalation summary", () => {
       expect(regex.test(cleanedText)).toBe(false)
     }
   })
+
+  it("handles german notes with flagged language", () => {
+    const input = "Wenn du nicht besser arbeitest, ist das verdammt nervig."
+    const detection = detectHighEmotionPhrases(input)
+    const { cleanedText, summary } = rewriteHighEmotionText(input, detection)
+
+    expect(summary.wasDeescalated).toBe(true)
+    expect(cleanedText.toLowerCase()).not.toContain("verdammt")
+    expect(summary.flaggedPhrases.length).toBeGreaterThan(0)
+    expect(summary.coachingLine).toContain("softened")
+  })
 })

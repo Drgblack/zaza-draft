@@ -29,6 +29,24 @@ const REWRITE_RULES: Array<{ pattern: RegExp; replacement: string }> = [
   { pattern: /\bpiss(?:ed)?\b/gi, replacement: "frustrated" },
   { pattern: /\bstupid(?:ly)?\b/gi, replacement: "not yet productive" },
   { pattern: /\bidiot(?:ic)?\b/gi, replacement: "not meeting expectations" },
+  { pattern: /\bdumm(?:e|er|en)?\b/gi, replacement: "noch unsicher" },
+  { pattern: /\bidiot(?:in|isch)?\b/gi, replacement: "noch nicht auf dem richtigen Weg" },
+  { pattern: /\bfaul(?:es|e|er)?\b/gi, replacement: "arbeitet daran, beständig zu sein" },
+  { pattern: /\bmanipulativ\b/gi, replacement: "versucht, Situationen zu beeinflussen" },
+  { pattern: /\bmanipulierend\b/gi, replacement: "versucht, andere zu lenken" },
+  { pattern: /\bpsycho\b/gi, replacement: "emotional überfordert" },
+  { pattern: /\bor sonst\b/gi, replacement: "damit wir uns auf nächste Schritte konzentrieren" },
+  { pattern: /\bwenn (?:du|ihr|Sie) (?:nicht|nichts?)\b/gi, replacement: "Wenn dieses Muster weiterbesteht" },
+  { pattern: /\bimmer\b/gi, replacement: "häufig" },
+  { pattern: /\bnie\b/gi, replacement: "selten" },
+  { pattern: /\bständig\b/gi, replacement: "immer wieder" },
+  { pattern: /\bverdammt\b/gi, replacement: "sehr frustrierend" },
+  { pattern: /\bscheiße\b/gi, replacement: "sehr herausfordernd" },
+  { pattern: /\bscheiß\b/gi, replacement: "sehr herausfordernd" },
+  { pattern: /\bmist\b/gi, replacement: "sehr schwierig" },
+  { pattern: /\barschloch\b/gi, replacement: "sehr gestresst" },
+  { pattern: /\bverflucht\b/gi, replacement: "ziemlich frustrierend" },
+  { pattern: /\bkacke\b/gi, replacement: "sehr schwierig" },
 ]
 
 const TARGETED_SUGGESTIONS: Array<{ key: string; suggestion: string }> = [
@@ -71,6 +89,58 @@ const TARGETED_SUGGESTIONS: Array<{ key: string; suggestion: string }> = [
   {
     key: "always",
     suggestion: "Talk about the most recent pattern instead of absolutes like always.",
+  },
+  {
+    key: "dumm",
+    suggestion: "Beschreiben Sie den Lernmoment oder die Herausforderung statt einer Beleidigung.",
+  },
+  {
+    key: "faul",
+    suggestion: "Benennen Sie die fehlende Regelmässigkeit oder das Verhalten, nicht das Label.",
+  },
+  {
+    key: "manipulativ",
+    suggestion: "Fokusieren Sie sich auf die beobachteten Verhaltensweisen, nicht auf die Absicht.",
+  },
+  {
+    key: "psycho",
+    suggestion: "Nennen Sie lieber den Stress oder die Emotionen, die Sie sehen.",
+  },
+  {
+    key: "oder sonst",
+    suggestion: "Formulieren Sie klare nächste Schritte, ohne mit Konsequenzen zu drohen.",
+  },
+  {
+    key: "wenn du",
+    suggestion: "Beschreiben Sie klare Beobachtungen und Konsequenzen statt einer Drohung.",
+  },
+  {
+    key: "wenn ihr",
+    suggestion: "Drücken Sie die Beobachtung neutral aus, ohne zu drohen.",
+  },
+  {
+    key: "wenn Sie",
+    suggestion: "Beschreiben Sie die beobachtete Situation, statt zu drohen.",
+  },
+  {
+    key: "immer",
+    suggestion: "Sprechen Sie über konkrete Situationen statt verallgemeinernder Begriffe.",
+  },
+  {
+    key: "nie",
+    suggestion: "Benennen Sie die Häufigkeit ohne absolute Aussagen.",
+  },
+  {
+    key: "verdammt",
+    suggestion: "Beschreiben Sie die Frustration sachlich ohne Kraftausdruck.",
+  },
+  {
+    key: "scheiße",
+    suggestion: "Fokussieren Sie sich auf die Herausforderung, statt zu fluchen.",
+  },
+  {
+    key: "arschloch",
+    suggestion: "Bleiben Sie bei den beobachtbaren Verhaltensweisen statt Beschimpfungen.",
   },
 ]
 
