@@ -5,7 +5,7 @@ import { normalizeGermanParentMessage } from "./german-normalizer"
 describe("normalizeGermanParentMessage", () => {
   it("enforces the Betreff template with greeting, paragraph breaks, and closing", () => {
     const input =
-      "Betreff: Wochenupdate Liebe Eltern, ich möchte über die jüngsten Beobachtungen berichten. Die Klasse zeigte Engagement, das sich durch ruhigeres Arbeiten gezeigt hat. Es gab ein paar Momente, in denen einige Kinder faul wirkten, aber wir haben gemeinsam Strategien ausprobiert. Herzliche Grüße, Frau Müller"
+      "Betreff: Wochenupdate Liebe Eltern, ich möchte über die jüngsten Beobachtungen berichten. Die Klasse zeigte Engagement, das sich durch ruhigeres Arbeiten gezeigt hat. Es gab ein paar Momente, in denen einige Kinder faules und dummes Verhalten zeigten, aber wir haben gemeinsam Strategien ausprobiert. Herzliche Grüße, Frau Müller"
     const output = normalizeGermanParentMessage(input)
 
     expect(output.text).toContain("Betreff: Wochenupdate")
@@ -14,7 +14,7 @@ describe("normalizeGermanParentMessage", () => {
     expect(output.text.trim().endsWith("Frau Müller")).toBe(true)
     expect((output.text.match(/Betreff:/g) ?? []).length).toBe(1)
     expect(output.text).toContain("\n\nLiebe Eltern,\n\n")
-    expect(output.text).not.toMatch(/Ausreden|Lügen|faul/i)
+    expect(output.text).not.toMatch(/Ausreden|Lügen|dumm|faul/i)
     expect(output.neutralized).toBe(true)
   })
 

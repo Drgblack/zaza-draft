@@ -61,7 +61,8 @@ function neutralizeJudgementalTerms(text: string) {
   const replacements: Array<[RegExp, string]> = [
     [/\bAusreden\b/gi, "Herausforderungen"],
     [/\bL“en\b/gi, "abweichende Informationen"],
-    [/\bfaul\b/gi, "nicht konsequent genug"],
+    [/\bfaul(?:es|e)?\b/gi, "nicht konsequent genug"],
+    [/\bdumm(?:es|e|er)?\b/gi, "unsicher"],
   ]
 
   replacements.forEach(([pattern, replacement]) => {
