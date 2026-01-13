@@ -11,6 +11,7 @@ import { DraftOutput } from "@/components/draft-output"
 import { DeescalationBanner } from "@/components/deescalation-banner"
 import { MiniInsightsBar } from "@/components/MiniInsightsBar"
 import { ContextualWellbeingTip } from "@/components/ContextualWellbeingTip"
+import { ReframeExplanation } from "@/components/reframe-explanation"
 import { useAuth } from "@/hooks/use-auth"
 import { logClientEvent } from "@/lib/analytics"
 import type { PlanType } from "@/lib/usage"
@@ -162,9 +163,6 @@ export function MainEditor() {
   const isLimitedUser = usage.plan === "free" && !isQaUser
   const { prefs } = useTeacherPrefs()
   const { t, locale } = useLocale()
-  const reframeNotice = t("editor.reframeNotice")
-  const reframeNoticeSummary = t("editor.reframeNoticeSummary")
-  const reframeNoticeDetails = t("editor.reframeNoticeDetails")
   const { user, getIdToken, signOut } = useAuth()
   const toneControlOptions = useMemo(
     () =>
@@ -739,9 +737,6 @@ export function MainEditor() {
     process.env.NEXT_PUBLIC_VERCEL_GIT_COMMIT_SHA ??
     "local"
   const showBuildInfo = process.env.NODE_ENV !== "production"
-  const reframeTierLabel = inputReframeTier
-    ? t(`editor.reframeTier.${inputReframeTier}`)
-    : null
 
   return (
     <div className="min-h-screen flex flex-col transition-colors">
@@ -1143,20 +1138,7 @@ Examples:
           </div>
         )}
         {generatedDraft && draftMetadata && inputReframeTier && (
-          <details className="mt-4 rounded-2xl bg-blue-50/80 dark:bg-slate-900/60 border border-blue-200 dark:border-blue-500/40 p-4 text-sm text-blue-900 dark:text-blue-200 shadow-inner">
-            <summary className="flex cursor-pointer items-center justify-between gap-3 text-left">
-              <span className="text-xs font-semibold uppercase tracking-wide text-blue-600 dark:text-blue-300">
-                {reframeTierLabel ?? reframeNoticeSummary}
-              </span>
-              <span className="text-sm text-blue-900 dark:text-blue-100">{reframeNoticeSummary}</span>
-            </summary>
-            <div className="mt-3 space-y-2 text-sm text-blue-900 dark:text-blue-200">
-              <p>{reframeNotice}</p>
-              <p className="text-xs font-medium text-blue-700 dark:text-blue-300">
-                {reframeNoticeDetails}
-              </p>
-            </div>
-          </details>
+          <ReframeExplanation tier={inputReframeTier} />
         )}
       </main>
 

@@ -6,8 +6,10 @@ import { vi } from "vitest"
 import { DraftOutput } from "@/components/draft-output"
 import type { DraftStructure } from "@/lib/draft/format"
 
-vi.mock("@/hooks/use-locale", () => {
-  const translations: Record<string, string> = {
+type LocaleKey = "en-GB" | "de-DE"
+
+const localeMessages: Record<LocaleKey, Record<string, string>> = {
+  "en-GB": {
     "draft.generatedTitle": "Draft Generated",
     "editor.history.subjectLabel": "Subject",
     "draft.button.copy": "Copy to Clipboard",
@@ -24,24 +26,55 @@ vi.mock("@/hooks/use-locale", () => {
     "tone.empathetic": "Empathetic & Supportive",
     "editor.mode.parentMessage": "Parent message",
     "editor.mode.reportComment": "Report comment",
-  }
+  },
+  "de-DE": {
+    "draft.generatedTitle": "Entwurf erstellt",
+    "editor.history.subjectLabel": "Betreff",
+    "draft.button.copy": "In die Zwischenablage kopieren",
+    "draft.button.copyShort": "Kopieren",
+    "draft.button.edit": "Bearbeiten",
+    "draft.button.moreActions": "Weitere Aktionen",
+    "draft.button.more": "Mehr",
+    "draft.action.load": "Laden",
+    "draft.action.delete": "Löschen",
+    "draft.actions.loadMore": "Mehr laden",
+    "tone.warm": "Warm & ermutigend",
+    "tone.professional": "Professionell & neutral",
+    "tone.direct": "Direkt & klar",
+    "tone.empathetic": "Einfühlsam & unterstützend",
+    "editor.mode.parentMessage": "Elternnachricht",
+    "editor.mode.reportComment": "Berichtskommentar",
+  },
+}
 
-  const t = (key: string, vars?: Record<string, string | number>) => {
-    if (key === "draft.modeLabel") {
-      return `Mode: ${vars?.mode ?? ""}`
-    }
-    if (key === "draft.generatedDetails") {
-      return `Generated in ${vars?.seconds ?? "0"}s`
-    }
-    if (key === "statusBar.words") {
-      return `${vars?.count ?? 0} words`
-    }
-    return translations[key] ?? key
-  }
+let currentLocale: LocaleKey = "en-GB"
 
+const setMockLocale = (locale: LocaleKey) => {
+  currentLocale = locale
+}
+
+const getTranslation = (key: string) =>
+  localeMessages[currentLocale][key] ??
+  localeMessages["en-GB"][key] ??
+  key
+
+const t = (key: string, vars?: Record<string, string | number>) => {
+  if (key === "draft.modeLabel") {
+    return `Mode: ${vars?.mode ?? ""}`
+  }
+  if (key === "draft.generatedDetails") {
+    return `Generated in ${vars?.seconds ?? "0"}s`
+  }
+  if (key === "statusBar.words") {
+    return `${vars?.count ?? 0} words`
+  }
+  return getTranslation(key)
+}
+
+vi.mock("@/hooks/use-locale", () => {
   return {
     useLocale: () => ({
-      locale: "en-GB",
+      locale: currentLocale,
       t,
     }),
   }
@@ -74,6 +107,10 @@ const baseProps = {
   showUsageLimit: false,
 }
 
+afterEach(() => {
+  setMockLocale("en-GB")
+})
+
 describe("DraftOutput formatting", () => {
   it("renders the subject, structured paragraphs, and signature once", () => {
     render(<DraftOutput {...baseProps} structure={mockStructure} />)
@@ -105,5 +142,26 @@ describe("DraftOutput formatting", () => {
   it("matches the snapshot for structured output", () => {
     const { container } = render(<DraftOutput {...baseProps} structure={mockStructure} />)
     expect(container).toMatchSnapshot()
+  })
+
+  it("renders German subject label and distinct paragraphs", () => {
+    setMockLocale("de-DE")
+    const germanStructure: DraftStructure = {
+      subject: "Wochenbericht Mathematik",
+      paragraphs: [
+        "Liebe Eltern,",
+        "Wir beobachten Fortschritte beim Lesen.",
+        "Mit freundlichen Grüßen,\nFrau Müller",
+      ],
+    }
+
+    render(<DraftOutput {...baseProps} structure={germanStructure} />)
+    const body = screen.getByTestId("draft-output-body")
+    expect(within(body).getByText("Betreff: Wochenbericht Mathematik")).toBeInTheDocument()
+    expect(within(body).getByText("Liebe Eltern,")).toBeInTheDocument()
+    expect(within(body).getByText("Wir beobachten Fortschritte beim Lesen.")).toBeInTheDocument()
+    expect(
+      within(body).getByText((text) => text.includes("Mit freundlichen Grüßen")),
+    ).toBeInTheDocument()
   })
 })
