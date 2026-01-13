@@ -6,8 +6,11 @@ export interface DraftStructure {
 const GREETING_REGEX = /^\s*(Dear|Hi|Hello|Parents|Family|Team|Good (?:morning|afternoon|evening))\b/i
 export const CLOSING_REGEX =
   /\b(?:Kind|Warm|Best|Many)\s+regards,|Sincerely,|Yours sincerely,|Best wishes,|With thanks,|Thanks,/i
-const SUBJECT_REGEX =
-  /^\s*(?:Subject|Betreff)\s*[:\-–—：]\s*(.+?)(?=(?:\n|Dear\b|Hi\b|Hello\b|Parents\b|Family\b|Team\b|Good\b|$))/i
+const SUBJECT_LABELS = ["Subject", "Betreff"] as const
+const SUBJECT_REGEX = new RegExp(
+  `^\\s*(?:${SUBJECT_LABELS.join("|")})\\s*[:\\-–—：]\\s*(.+?)(?=(?:\\n|Dear\\b|Hi\\b|Hello\\b|Parents\\b|Family\\b|Team\\b|Good\\b|$))`,
+  "i",
+)
 const PARAGRAPH_BREAK_REGEX = /\n\s*\n+/
 const SINGLELINE_BREAK_REGEX = /\n+/
 

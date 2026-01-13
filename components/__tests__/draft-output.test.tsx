@@ -164,4 +164,24 @@ describe("DraftOutput formatting", () => {
       within(body).getByText((text) => text.includes("Mit freundlichen Grüßen")),
     ).toBeInTheDocument()
   })
+
+  it("parses German draft text with Betreff: and renders split paragraphs", () => {
+    setMockLocale("de-DE")
+    const germanDraftText = `Betreff: Wochenbericht Mathematik
+
+Liebe Eltern,
+
+Wir beobachten Fortschritte beim Lesen.
+
+Mit freundlichen Gruessen,
+Frau Mueller`
+
+    render(<DraftOutput {...baseProps} draftText={germanDraftText} />)
+    const body = screen.getByTestId("draft-output-body")
+    const paragraphNodes = Array.from(body.querySelectorAll("p"))
+    expect(paragraphNodes[0].textContent?.trim()).toBe("Betreff: Wochenbericht Mathematik")
+    expect(paragraphNodes[1].textContent?.trim()).toBe("Liebe Eltern,")
+    expect(paragraphNodes[2].textContent?.trim()).toBe("Wir beobachten Fortschritte beim Lesen.")
+    expect(paragraphNodes.length).toBeGreaterThanOrEqual(4)
+  })
 })

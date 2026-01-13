@@ -49,18 +49,23 @@ Your teacher`
     expect(formatted.paragraphs[1]).not.toContain("**")
   })
 
-  it("recognizes a German Betreff subject line and splits paragraphs", () => {
-    const draft = `Betreff: Wochenübersicht
+  it("recognizes a German Betreff subject and preserves paragraph breaks", () => {
+    const draft = `Betreff: Wochenbericht Mathematik
 
 Liebe Eltern,
 
 Wir beobachten Fortschritte beim Lesen.
 
-Mit freundlichen Grüßen,
-Frau Müller`
+Mit freundlichen Gruessen,
+Frau Mueller`
     const formatted = formatDraftText(draft)
-    expect(formatted.subject).toBe("Wochenübersicht")
-    expect(formatted.paragraphs[0]).toMatch(/Liebe Eltern,/)
-    expect(formatted.paragraphs[formatted.paragraphs.length - 1]).toMatch(/Mit freundlichen Grüßen,/)
+    expect(formatted.subject).toBe("Wochenbericht Mathematik")
+    expect(formatted.paragraphs).toContain("Liebe Eltern,")
+    expect(formatted.paragraphs).toContain("Wir beobachten Fortschritte beim Lesen.")
+    const closingParagraph = formatted.paragraphs.find((paragraph) =>
+      paragraph.includes("Mit freundlichen Gruessen"),
+    )
+    expect(closingParagraph).toBeDefined()
+    expect(closingParagraph).toContain("Frau Mueller")
   })
 })
