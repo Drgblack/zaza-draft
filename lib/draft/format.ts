@@ -7,7 +7,9 @@ const GREETING_REGEX = /^\s*(Dear|Hi|Hello|Parents|Family|Team|Good (?:morning|a
 export const CLOSING_REGEX =
   /\b(?:Kind|Warm|Best|Many)\s+regards,|Sincerely,|Yours sincerely,|Best wishes,|With thanks,|Thanks,/i
 const SUBJECT_REGEX =
-  /^\s*(?:Subject|Betreff)\s*[:\-]\s*(.+?)(?=(?:\n|Dear\b|Hi\b|Hello\b|Parents\b|Family\b|Team\b|Good\b|$))/i
+  /^\s*(?:Subject|Betreff)\s*[:\-–—：]\s*(.+?)(?=(?:\n|Dear\b|Hi\b|Hello\b|Parents\b|Family\b|Team\b|Good\b|$))/i
+const PARAGRAPH_BREAK_REGEX = /\n\s*\n+/
+const SINGLELINE_BREAK_REGEX = /\n+/
 
 function stripMarkdown(value: string) {
   return value.replace(/\*\*([\s\S]*?)\*\*/g, "$1").replace(/__([\s\S]*?)__/g, "$1")
@@ -35,21 +37,33 @@ function buildParagraphs(body: string): string[] {
   }
 
   const newlineParagraphs = trimmedBody
-    .split(/\n\s*\n+/)
+    .split(PARAGRAPH_BREAK_REGEX)
     .map((paragraph) => paragraph.trim())
     .filter(Boolean)
 
   if (newlineParagraphs.length > 1) {
-    return newlineParagraphs.flatMap((paragraph) => {
-      const closingMatch = paragraph.match(CLOSING_REGEX)
-      if (closingMatch && !CLOSING_REGEX.test(paragraph.trimEnd())) {
-        const index = paragraph.search(CLOSING_REGEX)
-        if (index > 0) {
-          return [paragraph.slice(0, index).trim(), paragraph.slice(index).trim()]
+    return newlineParagraphs
+      .flatMap((paragraph) => {
+        const closingMatch = paragraph.match(CLOSING_REGEX)
+        if (closingMatch && !CLOSING_REGEX.test(paragraph.trimEnd())) {
+          const index = paragraph.search(CLOSING_REGEX)
+          if (index > 0) {
+            return [paragraph.slice(0, index).trim(), paragraph.slice(index).trim()]
+          }
         }
-      }
-      return [paragraph]
-    }).filter(Boolean)
+        return [paragraph]
+      })
+      .filter(Boolean)
+  }
+
+  if (newlineParagraphs.length === 1 && SINGLELINE_BREAK_REGEX.test(trimmedBody)) {
+    const singleLineParagraphs = trimmedBody
+      .split(SINGLELINE_BREAK_REGEX)
+      .map((paragraph) => paragraph.trim())
+      .filter(Boolean)
+    if (singleLineParagraphs.length > 1) {
+      return singleLineParagraphs
+    }
   }
 
   const sentences = trimmedBody

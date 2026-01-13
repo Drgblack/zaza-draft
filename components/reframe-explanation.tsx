@@ -21,7 +21,10 @@ export function ReframeExplanation({ tier }: ReframeExplanationProps) {
   const noticeDetails = t("editor.reframeNoticeDetails")
 
   return (
-    <details className="mt-4 rounded-2xl bg-blue-50/80 dark:bg-slate-900/60 border border-blue-200 dark:border-blue-500/40 p-4 text-sm text-blue-900 dark:text-blue-200 shadow-inner">
+    <details
+      data-testid="reframe-explanation"
+      className="mt-4 rounded-2xl bg-blue-50/80 dark:bg-slate-900/60 border border-blue-200 dark:border-blue-500/40 p-4 text-sm text-blue-900 dark:text-blue-200 shadow-inner"
+    >
       <summary className="flex cursor-pointer items-center justify-between gap-3 text-left">
         <span className="text-xs font-semibold uppercase tracking-wide text-blue-600 dark:text-blue-300">
           {tierLabel ?? noticeSummary}

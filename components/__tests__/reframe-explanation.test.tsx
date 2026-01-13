@@ -52,6 +52,8 @@ describe("ReframeExplanation", () => {
     render(<ReframeExplanation tier="tier1" />)
     expect(screen.getByText("Tier 1 · Gentle rephrase")).toBeInTheDocument()
     expect(screen.getByText("Why we softened the tone")).toBeInTheDocument()
+    const details = screen.getByTestId("reframe-explanation")
+    expect(details).toHaveClass("rounded-2xl")
     expect(
       screen.getByText("I softened the wording to keep it professional and parent-appropriate."),
     ).toBeInTheDocument()
@@ -62,6 +64,8 @@ describe("ReframeExplanation", () => {
     render(<ReframeExplanation tier="tier1" />)
     expect(screen.getByText("Stufe 1 · Sanfte Umformulierung")).toBeInTheDocument()
     expect(screen.getByText("Warum wir den Ton angepasst haben")).toBeInTheDocument()
+    const details = screen.getByTestId("reframe-explanation")
+    expect(details).toHaveClass("rounded-2xl")
     expect(
       screen.getByText("Ich habe die Formulierung abgeschwächt, damit sie professionell und für Eltern angemessen bleibt."),
     ).toBeInTheDocument()
