@@ -45,16 +45,6 @@ export default function SupportContactPage() {
                   {t("support.contact.primaryAction")}
                 </Button>
               </Link>
-              <Button
-                data-testid="support-contact-email-link"
-                variant="tertiary"
-                className="border border-white/70 bg-white/10 px-4 py-2 text-sm font-medium text-white hover:bg-white/30"
-                onClick={() => {
-                  window.location.href = "mailto:support@zazatechnologies.com"
-                }}
-              >
-                {t("support.emailCta")}
-              </Button>
             </div>
           </div>
         </main>
