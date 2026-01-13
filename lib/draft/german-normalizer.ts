@@ -1,7 +1,7 @@
 const SUBJECT_REGEX =
   /^\s*(?:Subject|Betreff)\s*[:\-]\s*(.+?)(?=(?:\n|Dear\b|Hi\b|Hello\b|Parents\b|Family\b|Team\b|Good\b|Liebe\b|Liebe Eltern\b|Liebe Erziehungsberechtigte\b|$))/im
 const GREETING_REGEX = /(Liebe(?:r)? (?:Eltern|Erziehungsberechtigte)[^,\n]*,)/i
-const CLOSING_REGEX = /(Freundliche Grüße|Herzliche Grüße|Mit freundlichen Grüßen)[\s\S]*$/im
+const CLOSING_REGEX = /(Freundliche Gr≪e|Herzliche Gr≪e|Mit freundlichen Gr≪en)[\s\S]*$/im
 
 function chunkSentences(sentences: string[], targetParagraphs: number) {
   const chunks: string[] = []
@@ -55,20 +55,39 @@ function ensureTrailingComma(value: string) {
 }
 
 function neutralizeJudgementalTerms(text: string) {
-  return text
-    .replace(/\bAusreden\b/gi, "Herausforderungen")
-    .replace(/\bLügen\b/gi, "abweichende Informationen")
-    .replace(/\bfaul\b/gi, "nicht konsequent genug")
+  let result = text
+  let replaced = false
+
+  const replacements: Array<[RegExp, string]> = [
+    [/\bAusreden\b/gi, "Herausforderungen"],
+    [/\bL“en\b/gi, "abweichende Informationen"],
+    [/\bfaul\b/gi, "nicht konsequent genug"],
+  ]
+
+  replacements.forEach(([pattern, replacement]) => {
+    const updated = result.replace(pattern, replacement)
+    if (updated !== result) {
+      replaced = true
+      result = updated
+    }
+  })
+
+  return { text: result, replaced }
 }
 
-export function normalizeGermanParentMessage(text: string) {
+export interface NormalizedGermanMessage {
+  text: string
+  neutralized: boolean
+}
+
+export function normalizeGermanParentMessage(text: string): NormalizedGermanMessage {
   const normalized = text.replace(/\r\n/g, "\n").trim()
   const subjectMatch = normalized.match(SUBJECT_REGEX)
   const bodyWithoutSubject = normalized.replace(SUBJECT_REGEX, "").trim()
   const cleanedBody = bodyWithoutSubject.replace(new RegExp(SUBJECT_REGEX, "gi"), "").trim()
 
   const subjectContent = subjectMatch?.[1]?.trim()
-  const subjectLine = subjectContent ? `Betreff: ${subjectContent}` : "Betreff: Rückmeldung"
+  const subjectLine = subjectContent ? `Betreff: ${subjectContent}` : "Betreff: R…kmeldung"
 
   let body = cleanedBody
 
@@ -114,5 +133,10 @@ export function normalizeGermanParentMessage(text: string) {
     result += `\n${teacherLine}`
   }
 
-  return neutralizeJudgementalTerms(result.replace(/\n{3,}/g, "\n\n").trim())
+  const collapsed = result.replace(/\n{3,}/g, "\n\n").trim()
+  const neutralized = neutralizeJudgementalTerms(collapsed)
+  return {
+    text: neutralized.text,
+    neutralized: neutralized.replaced,
+  }
 }

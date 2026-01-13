@@ -518,8 +518,20 @@ export async function POST(request: Request) {
     providerMeta = providerResult.providerMeta
   }
 
-  if (uiLocale?.toLowerCase().startsWith("de") && mode === "parent_message") {
-    generatedDraft = normalizeGermanParentMessage(generatedDraft)
+  const shouldNormalizeGermanParentMessage =
+    mode === "parent_message" &&
+    (language?.toLowerCase().startsWith("de") || uiLocale?.toLowerCase().startsWith("de"))
+
+  if (shouldNormalizeGermanParentMessage) {
+    const germanNormalization = normalizeGermanParentMessage(generatedDraft)
+    generatedDraft = germanNormalization.text
+    if (germanNormalization.neutralized) {
+      inputReframed = true
+      if (!inputReframedTier) {
+        inputReframedTier = "tier1"
+        safetyFlags.add(`input-reframed-${inputReframedTier}`)
+      }
+    }
   }
 
   const formattedDraftStructure = formatDraftText(generatedDraft)
