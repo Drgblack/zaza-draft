@@ -46,18 +46,14 @@ export default function SupportContactPage() {
                 </Button>
               </Link>
               <Button
-                asChild
                 data-testid="support-contact-email-link"
                 variant="tertiary"
                 className="border border-white/70 bg-white/10 px-4 py-2 text-sm font-medium text-white hover:bg-white/30"
+                onClick={() => {
+                  window.location.href = "mailto:support@zazatechnologies.com"
+                }}
               >
-                <a
-                  href="mailto:support@zazatechnologies.com"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  {t("support.emailCta")}
-                </a>
+                {t("support.emailCta")}
               </Button>
             </div>
           </div>
