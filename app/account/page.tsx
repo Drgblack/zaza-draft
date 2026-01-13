@@ -80,7 +80,15 @@ export default function AccountPage() {
   }>(null)
   const [diagnosticsError, setDiagnosticsError] = useState<string | null>(null)
   const showDevUid = Boolean(user?.uid && canShowDevUid)
-  const usageLimited = Boolean(accountInfo && !accountInfo.usage.unlimited)
+  const usageLimited = Boolean(
+    accountInfo && accountInfo.plan === "free" && !accountInfo.usage.unlimited,
+  )
+  const hasUnlimitedAccess = Boolean(
+    accountInfo &&
+      (accountInfo.plan === "pro" ||
+        accountInfo.usage.unlimited ||
+        accountInfo.usage.limit === null),
+  )
 
 
   const handleSave = () => {
@@ -513,14 +521,14 @@ export default function AccountPage() {
               <p className="text-sm text-gray-600 dark:text-gray-300">{t("account.billing.status")}</p>
               <p className="font-semibold text-gray-900 dark:text-white">{accountInfo?.subscriptionStatus ?? "—"}</p>
             </div>
-            <div className="flex justify-between">
+              <div className="flex justify-between">
               <p className="text-sm text-gray-600 dark:text-gray-300">{t("account.billing.usage")}</p>
               <p className="font-semibold text-gray-900 dark:text-white">
-                {usageLimited
-                  ? `${accountInfo?.usage.currentMonthUsage}/${
+                {hasUnlimitedAccess
+                  ? t("account.billing.unlimitedDrafts")
+                  : `${accountInfo?.usage.currentMonthUsage ?? 0}/${
                       accountInfo?.usage.limit ?? accountInfo?.usage.currentMonthUsage ?? 0
-                    }`
-                  : t("account.billing.unlimitedDrafts")}
+                    }`}
               </p>
             </div>
             <div className="flex flex-wrap gap-3">
@@ -605,8 +613,11 @@ export default function AccountPage() {
                       {t("account.diagnostics.usageLabel")}
                     </p>
                     <p className="font-semibold">
-                      {diagnostics.usage.currentMonthUsage}/
-                      {diagnostics.usage.limit ?? diagnostics.usage.currentMonthUsage}
+                      {diagnostics.usage.unlimited || diagnostics.usage.limit === null
+                        ? t("account.billing.unlimitedDrafts")
+                        : `${diagnostics.usage.currentMonthUsage}/${
+                            diagnostics.usage.limit ?? diagnostics.usage.currentMonthUsage
+                          }`}
                     </p>
                   </div>
                   <div>

@@ -631,6 +631,12 @@ export const localeMessages: Record<Locale, LocaleMessages> = {
     "editor.studentName.display": "Displayed name: {name}",
     "editor.generating.message": "Generating your snippet.",
     "editor.reframeNotice": "I softened the wording to keep it professional and parent-appropriate.",
+    "editor.reframeNoticeSummary": "Why we softened the tone",
+    "editor.reframeNoticeDetails":
+      "We replaced judgmental language with constructive, strength-focused observations so the message stays professional and supportive.",
+    "editor.reframeTier.tier1": "Tier 1 · Gentle rephrase",
+    "editor.reframeTier.tier2": "Tier 2 · Sensitive language removed",
+    "editor.reframeTier.tier3": "Tier 3 · Safety review applied",
     "draft.generatedTitle": "Draft Generated",
     "draft.modeLabel": "Mode: {mode}",
     "draft.generatedDetails": "Generated in {seconds}s",
