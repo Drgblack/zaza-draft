@@ -51,6 +51,7 @@ export default function AccountPage() {
       plan: "free" | "pro"
       currentMonthUsage: number
       limit: number | null
+      unlimited: boolean
       remaining: number | null
     }
     stripeCustomerId: string | null
@@ -67,6 +68,7 @@ export default function AccountPage() {
       plan: string
       currentMonthUsage: number
       limit: number | null
+      unlimited: boolean
       remaining: number | null
     }
     diagnostics?: {
@@ -78,8 +80,7 @@ export default function AccountPage() {
   }>(null)
   const [diagnosticsError, setDiagnosticsError] = useState<string | null>(null)
   const showDevUid = Boolean(user?.uid && canShowDevUid)
-  const accountLimited =
-    Boolean(accountInfo && accountInfo.usage.plan === "free" && !accountInfo.isQaUser)
+  const usageLimited = Boolean(accountInfo && !accountInfo.usage.unlimited)
 
 
   const handleSave = () => {
@@ -173,6 +174,7 @@ export default function AccountPage() {
           headers: {
             Authorization: `Bearer ${token}`,
           },
+          cache: "no-store",
         })
         const payload = await response.json()
         if (response.ok && payload?.success && payload?.data && isMounted) {
@@ -195,9 +197,20 @@ export default function AccountPage() {
     }
 
     loadDiagnostics()
+    const handleDiagnosticsUpdated = () => {
+      if (!isMounted) return
+      void loadDiagnostics()
+    }
+
+    if (typeof window !== "undefined") {
+      window.addEventListener("zaza:diagnostics-updated", handleDiagnosticsUpdated)
+    }
 
     return () => {
       isMounted = false
+      if (typeof window !== "undefined") {
+        window.removeEventListener("zaza:diagnostics-updated", handleDiagnosticsUpdated)
+      }
     }
   }, [getIdToken, status, user, t])
 
@@ -286,6 +299,7 @@ export default function AccountPage() {
           headers: {
             Authorization: `Bearer ${token}`,
           },
+          cache: "no-store",
         })
         if (response.status === 401) {
           await signOut()
@@ -502,13 +516,15 @@ export default function AccountPage() {
             <div className="flex justify-between">
               <p className="text-sm text-gray-600 dark:text-gray-300">{t("account.billing.usage")}</p>
               <p className="font-semibold text-gray-900 dark:text-white">
-                {accountLimited
-                  ? `${accountInfo?.usage.currentMonthUsage}/${accountInfo?.usage.limit ?? 0}`
+                {usageLimited
+                  ? `${accountInfo?.usage.currentMonthUsage}/${
+                      accountInfo?.usage.limit ?? accountInfo?.usage.currentMonthUsage ?? 0
+                    }`
                   : t("account.billing.unlimitedDrafts")}
               </p>
             </div>
             <div className="flex flex-wrap gap-3">
-              {accountInfo?.plan === "free" && accountLimited && (
+              {accountInfo?.plan === "free" && usageLimited && (
                 <Button onClick={handleUpgrade} disabled={billingAction === "upgrade"}>
                   {t("account.billing.upgrade")}
                 </Button>
@@ -517,7 +533,7 @@ export default function AccountPage() {
                 {t("account.billing.manage")}
               </Button>
             </div>
-            {accountLimited &&
+            {usageLimited &&
               accountInfo?.usage.remaining !== null &&
               accountInfo?.usage.remaining === 0 && (
               <p className="text-sm text-amber-900">

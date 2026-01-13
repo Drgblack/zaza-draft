@@ -614,7 +614,15 @@ export function MainEditor() {
       setDraftStructure(data.data.formattedDraft ?? null)
       setDeescalationSummary(data.data.deescalationSummary ?? null)
       setUsage(data.data.usage)
-      saveLastRunTimestamp(new Date())
+      const now = new Date()
+      saveLastRunTimestamp(now)
+      if (typeof window !== "undefined") {
+        const event =
+          typeof window.CustomEvent === "function"
+            ? new CustomEvent("zaza:diagnostics-updated", { detail: { timestamp: now } })
+            : new Event("zaza:diagnostics-updated")
+        window.dispatchEvent(event)
+      }
       setGenerationAction(null)
     } catch (error) {
       console.error("[v1] Draft generation failed", error)

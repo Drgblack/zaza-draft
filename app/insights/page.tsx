@@ -42,6 +42,7 @@ type InsightsSummary = {
     hours?: number
     trend?: number
     trendDirection?: "up" | "down"
+    minutes?: number
   }
   draftsCreated?: {
     total?: number
@@ -162,11 +163,12 @@ export default function InsightsPage() {
           headers: {
             Authorization: `Bearer ${token}`,
           },
+          cache: "no-store",
         })
         const payload = await response.json()
         if (!active) return
         if (response.ok && payload?.success) {
-          setInsightsSummary(null)
+          setInsightsSummary(payload.summary ?? null)
           setSummaryError(null)
         } else if (response.status === 404 || payload?.error?.code === "INSIGHTS_NOT_FOUND") {
           console.info("[insights] empty summary", response.status, payload?.error)
@@ -205,16 +207,19 @@ export default function InsightsPage() {
   const summaryDrafts = insightsSummary?.draftsCreated
   const summaryStreak = insightsSummary?.currentStreak
   const summaryQuality = insightsSummary?.qualityScore
+  const timeSavedValue = summaryTimeSaved?.hours ?? summaryTimeSaved?.minutes ?? 0
   const hasMetrics =
     Boolean(insightsSummary) &&
     Boolean(
-      summaryTimeSaved?.hours ||
+      timeSavedValue ||
         summaryDrafts?.total ||
         summaryStreak?.days ||
         summaryQuality?.score,
     )
   const downloadDisabled = !hasMetrics
-  const timeSavedHours = summaryTimeSaved?.hours ?? 0
+  const timeSavedHours =
+    summaryTimeSaved?.hours ??
+    (summaryTimeSaved?.minutes != null ? summaryTimeSaved.minutes / 60 : 0)
   const timeSavedTrend = summaryTimeSaved?.trend ?? 0
   const timeSavedContextCount = Math.round(summaryDrafts?.percentage ?? 0)
   const draftsTotal = summaryDrafts?.total ?? 0
