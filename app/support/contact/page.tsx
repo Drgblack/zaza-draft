@@ -49,8 +49,7 @@ export default function SupportContactPage() {
             >
               <a
                 data-testid="support-contact-email-link"
-                href="mailto:support@zazatechnologies.com"
-              >
+                href="mailto:support@zazatechnologies.com" className="text-gray-900 dark:text-white">
                 {t("support.emailCta")}
               </a>
             </Button>
@@ -60,6 +59,7 @@ export default function SupportContactPage() {
     </div>
   )
 }
+
 
 
 

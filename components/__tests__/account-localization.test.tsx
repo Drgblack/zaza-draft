@@ -1,38 +1,48 @@
 ﻿import { describe, it, expect, vi } from "vitest"
 import { render, screen } from "@testing-library/react"
 
-// Force German locale for the test
+// Mock auth as signed-in
+vi.mock("@/hooks/use-auth", () => ({
+  useAuth: () => ({
+    user: {
+      uid: "test-uid",
+      email: "greg@zazatechnologies.com",
+      getIdToken: async () => "test-token",
+    },
+    isAnonymous: false,
+    loading: false,
+    getIdToken: async () => "test-token",
+  }),
+}))
+
+// Ensure the dev UID button is allowed to render (path may already exist in your repo)
+vi.mock("@/lib/can-show-dev-uid", () => ({
+  canShowDevUid: () => true,
+}))
+
+// Force DE locale + translations used in this test
 vi.mock("@/hooks/use-locale", () => ({
   useLocale: () => ({
-    locale: "de-DE",
+    locale: "de",
     t: (key: string) => {
-      const map: Record<string, string> = {
-        "account.signInRequired.title": "Anmeldung erforderlich",
-        "account.signInRequired.description": "Bitte melde dich an, um dein Konto zu verwalten.",
-        "account.signInRequired.action": "Anmelden",
+      const dict: Record<string, string> = {
+        "account.devUid.copy": "UID kopieren",
+        "account.devUid.copied": "UID kopiert",
       }
-      return map[key] ?? key
+      return dict[key] ?? key
     },
   }),
 }))
 
-// Ensure Account page renders signed-out state
-vi.mock("@/hooks/use-auth", () => ({
-  useAuth: () => ({
-    user: null,
-    isAnonymous: true,
-    loading: false,
-    getIdToken: async () => null,
-  }),
-}))
+import AccountPage from "@/app/account/page"
 
 describe("Account page localization", () => {
-  it("shows German sign-in required card when signed out", async () => {
-    const { default: AccountPage } = await import("@/app/account/page")
+  it("shows German copy/feedback text for the UID button", async () => {
     render(<AccountPage />)
 
-    expect(screen.getByText("Anmeldung erforderlich")).toBeInTheDocument()
-    expect(screen.getByText("Bitte melde dich an, um dein Konto zu verwalten.")).toBeInTheDocument()
-    expect(screen.getByRole("button", { name: "Anmelden" })).toBeInTheDocument()
+    // Button should exist in DE
+    expect(
+      await screen.findByRole("button", { name: "UID kopieren" })
+    ).toBeTruthy()
   })
 })
