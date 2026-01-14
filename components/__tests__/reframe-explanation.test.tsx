@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 
 import "@testing-library/jest-dom"
-import { render, screen } from "@testing-library/react"
+import { fireEvent, render, screen } from "@testing-library/react"
 import { vi } from "vitest"
 import { ReframeExplanation } from "@/components/reframe-explanation"
 
@@ -69,5 +69,18 @@ describe("ReframeExplanation", () => {
     expect(
       screen.getByText("Ich habe die Formulierung abgeschwächt, damit sie professionell und für Eltern angemessen bleibt."),
     ).toBeInTheDocument()
+  })
+
+  it("keeps the snippet visible when the explanation expands", () => {
+    render(
+      <>
+        <div data-testid="current-snippet">Current snippet</div>
+        <ReframeExplanation tier="tier1" />
+      </>,
+    )
+
+    const summary = screen.getByText("Why we softened the tone")
+    fireEvent.click(summary)
+    expect(screen.getByTestId("current-snippet")).toBeInTheDocument()
   })
 })

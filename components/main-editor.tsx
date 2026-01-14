@@ -735,7 +735,10 @@ export function MainEditor() {
 
   return (
     <div className="min-h-screen flex flex-col transition-colors">
-      <main className="flex-1 max-w-3xl mx-auto px-4 sm:px-6 py-8 sm:py-12 w-full">
+      <main
+        className="flex-1 max-w-3xl mx-auto px-4 sm:px-6 py-8 sm:py-12 w-full"
+        data-build-stamp={buildSha}
+      >
         {/* Main Content Area */}
         <div className="mb-6 sm:mb-8 animate-fade-in">
             <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold text-white mb-3 tracking-tight leading-tight drop-shadow-[0_2px_8px_rgba(0,0,0,0.3)]">

@@ -25,11 +25,11 @@ export function ReframeExplanation({ tier }: ReframeExplanationProps) {
       data-testid="reframe-explanation"
       className="mt-4 rounded-2xl bg-blue-50/80 dark:bg-slate-900/60 border border-blue-200 dark:border-blue-500/40 p-4 text-sm text-blue-900 dark:text-blue-200 shadow-inner"
     >
-      <summary className="flex cursor-pointer items-center justify-between gap-3 text-left">
+      <summary className="flex cursor-pointer flex-col gap-1 text-left">
         <span className="text-xs font-semibold uppercase tracking-wide text-blue-600 dark:text-blue-300">
           {tierLabel ?? noticeSummary}
         </span>
-        <span className="text-sm text-blue-900 dark:text-blue-100">{noticeSummary}</span>
+        <span className="text-sm font-semibold text-blue-900 dark:text-blue-100">{noticeSummary}</span>
       </summary>
       <div className="mt-3 space-y-2 text-sm text-blue-900 dark:text-blue-200">
         <p>{notice}</p>

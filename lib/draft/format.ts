@@ -18,6 +18,21 @@ function stripMarkdown(value: string) {
   return value.replace(/\*\*([\s\S]*?)\*\*/g, "$1").replace(/__([\s\S]*?)__/g, "$1")
 }
 
+function splitClosingParagraph(paragraph: string): string[] {
+  const closingMatch = paragraph.match(CLOSING_REGEX)
+  if (closingMatch && !CLOSING_REGEX.test(paragraph.trimEnd())) {
+    const index = paragraph.search(CLOSING_REGEX)
+    if (index > 0) {
+      return [paragraph.slice(0, index).trim(), paragraph.slice(index).trim()]
+    }
+  }
+  return [paragraph]
+}
+
+function resolveParagraphs(paragraphs: string[]): string[] {
+  return paragraphs.flatMap(splitClosingParagraph).filter(Boolean)
+}
+
 function chunkSentences(sentences: string[], targetParagraphs: number) {
   const chunks: string[] = []
   if (!sentences.length) {
@@ -45,28 +60,15 @@ function buildParagraphs(body: string): string[] {
     .filter(Boolean)
 
   if (newlineParagraphs.length > 1) {
-    return newlineParagraphs
-      .flatMap((paragraph) => {
-        const closingMatch = paragraph.match(CLOSING_REGEX)
-        if (closingMatch && !CLOSING_REGEX.test(paragraph.trimEnd())) {
-          const index = paragraph.search(CLOSING_REGEX)
-          if (index > 0) {
-            return [paragraph.slice(0, index).trim(), paragraph.slice(index).trim()]
-          }
-        }
-        return [paragraph]
-      })
-      .filter(Boolean)
+    return resolveParagraphs(newlineParagraphs)
   }
 
-  if (newlineParagraphs.length === 1 && SINGLELINE_BREAK_REGEX.test(trimmedBody)) {
-    const singleLineParagraphs = trimmedBody
-      .split(SINGLELINE_BREAK_REGEX)
-      .map((paragraph) => paragraph.trim())
-      .filter(Boolean)
-    if (singleLineParagraphs.length > 1) {
-      return singleLineParagraphs
-    }
+  const singleLineParagraphs = trimmedBody
+    .split(SINGLELINE_BREAK_REGEX)
+    .map((paragraph) => paragraph.trim())
+    .filter(Boolean)
+  if (singleLineParagraphs.length > 1) {
+    return resolveParagraphs(singleLineParagraphs)
   }
 
   const sentences = trimmedBody

@@ -68,4 +68,20 @@ Frau Mueller`
     expect(closingParagraph).toBeDefined()
     expect(closingParagraph).toContain("Frau Mueller")
   })
+
+  it("creates multiple paragraphs for German text with single-line breaks", () => {
+    const draft = `Betreff: Schulprojekt
+Liebe Eltern,
+Die Schüler haben diese Woche am Gruppenprojekt gearbeitet.
+Die Präsentationen haben viel Zuversicht gezeigt.
+Vielen Dank für Ihre Unterstützung.
+Mit freundlichen Grüßen,
+Frau Müller`
+
+    const formatted = formatDraftText(draft)
+    expect(formatted.subject).toBe("Schulprojekt")
+    expect(formatted.paragraphs.length).toBeGreaterThanOrEqual(3)
+    expect(formatted.paragraphs[0]).toContain("Liebe Eltern,")
+    expect(formatted.paragraphs.some((paragraph) => paragraph.includes("Ihre Unterstützung"))).toBe(true)
+  })
 })
