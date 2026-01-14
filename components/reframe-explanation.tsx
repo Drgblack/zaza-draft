@@ -31,7 +31,7 @@ export function ReframeExplanation({ tier }: ReframeExplanationProps) {
         </span>
         <span className="text-sm font-semibold text-blue-900 dark:text-blue-100">{noticeSummary}</span>
       </summary>
-      <div className="mt-3 space-y-2 text-sm text-blue-900 dark:text-blue-200">
+      <div className="mt-3 space-y-2 text-sm text-blue-900 dark:text-blue-200 max-h-[260px] overflow-auto pr-1">
         <p>{notice}</p>
         <p className="text-xs font-medium text-blue-700 dark:text-blue-300">{noticeDetails}</p>
       </div>

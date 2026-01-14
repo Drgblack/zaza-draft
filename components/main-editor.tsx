@@ -1123,6 +1123,7 @@ Examples:
               draftsUsed={draftsUsed}
               draftsLimit={draftsLimit}
               showUsageLimit={isLimitedUser}
+              buildSha={buildSha}
               structure={draftStructure ?? undefined}
             />
             {deescalationSummary?.wasDeescalated && (

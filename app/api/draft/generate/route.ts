@@ -534,7 +534,7 @@ export async function POST(request: Request) {
     }
   }
 
-  const formattedDraftStructure = formatDraftText(generatedDraft)
+  const formattedDraftStructure = formatDraftText(generatedDraft, language)
   let rewriteAttempted = false
   const generationTime = providerMeta.latencyMs ?? Date.now() - generationStart
 

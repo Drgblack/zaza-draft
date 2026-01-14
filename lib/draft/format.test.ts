@@ -84,4 +84,15 @@ Frau Müller`
     expect(formatted.paragraphs[0]).toContain("Liebe Eltern,")
     expect(formatted.paragraphs.some((paragraph) => paragraph.includes("Ihre Unterstützung"))).toBe(true)
   })
+
+  it("splits long German single-block text into multiple paragraphs", () => {
+    const draft =
+      "Betreff: Wochenbericht Mathematik Liebe Eltern, die Klasse hat diese Woche konzentriert gearbeitet und es gab viele Momente, in denen Schüler*innen ihre Ideen geteilt haben. Ich möchte besonders hervorheben, wie die Kooperation in den Gruppenprojekten gewachsen ist und wie Mut gezeigt wurde, neue Wege auszuprobieren. Auch wenn es noch kleine Unsicherheiten gibt, freue ich mich über den Fortschritt und die Zusammenarbeit. Herzliche Grüße, Frau Müller"
+
+    const formatted = formatDraftText(draft, "de-DE")
+    expect(formatted.subject).toBe("Wochenbericht Mathematik")
+    expect(formatted.paragraphs.length).toBeGreaterThan(2)
+    expect(formatted.paragraphs.some((paragraph) => paragraph.includes("Liebe Eltern,"))).toBe(true)
+    expect(formatted.paragraphs.some((paragraph) => paragraph.includes("Herzliche Grüße"))).toBe(true)
+  })
 })

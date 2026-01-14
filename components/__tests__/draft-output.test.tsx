@@ -6,6 +6,19 @@ import { vi } from "vitest"
 import { DraftOutput } from "@/components/draft-output"
 import type { DraftStructure } from "@/lib/draft/format"
 
+let mockSearchParams = new URLSearchParams()
+const setMockSearchParams = (search = "") => {
+  mockSearchParams = new URLSearchParams(search)
+}
+
+vi.mock("next/navigation", async () => {
+  const actual = await vi.importActual<typeof import("next/navigation")>("next/navigation")
+  return {
+    ...actual,
+    useSearchParams: () => mockSearchParams,
+  }
+})
+
 type LocaleKey = "en-GB" | "de-DE"
 
 const localeMessages: Record<LocaleKey, Record<string, string>> = {
@@ -109,6 +122,7 @@ const baseProps = {
 
 afterEach(() => {
   setMockLocale("en-GB")
+  setMockSearchParams()
 })
 
 describe("DraftOutput formatting", () => {
@@ -183,5 +197,31 @@ Frau Mueller`
     expect(paragraphNodes[1].textContent?.trim()).toBe("Liebe Eltern,")
     expect(paragraphNodes[2].textContent?.trim()).toBe("Wir beobachten Fortschritte beim Lesen.")
     expect(paragraphNodes.length).toBeGreaterThanOrEqual(4)
+  })
+
+  it("renders multiple paragraphs when German output is a single blob", () => {
+    setMockLocale("de-DE")
+    const germanBlob = `Betreff: Wochenbericht Mathematik Liebe Eltern, die Klasse hat diese Woche am Projekt gearbeitet. Wir sehen ruhigeres Verhalten und mehr Kooperation bei der Gruppenarbeit. Ich freue mich auf weitere Fortschritte und hoffe auf Ihr Feedback. Herzliche Grüße, Frau Müller`
+
+    render(<DraftOutput {...baseProps} draftText={germanBlob} />)
+    const body = screen.getByTestId("draft-output-body")
+    const paragraphNodes = Array.from(body.querySelectorAll("p"))
+    expect(paragraphNodes[0].textContent?.trim()).toBe("Betreff: Wochenbericht Mathematik")
+    expect(paragraphNodes.length).toBeGreaterThanOrEqual(4)
+    expect(paragraphNodes.some((paragraph) => paragraph.textContent?.includes("Liebe Eltern"))).toBe(true)
+  })
+
+  it("shows diagnostics only when the debug param is present", () => {
+    setMockSearchParams("debug=1")
+    render(<DraftOutput {...baseProps} />)
+    expect(screen.getByText("Formatter diagnostics")).toBeInTheDocument()
+    expect(screen.getByText(/Paragraph count:/)).toBeInTheDocument()
+    expect(screen.getByText("Subject detected: yes")).toBeInTheDocument()
+  })
+
+  it("hides diagnostics when debug mode is off", () => {
+    setMockSearchParams()
+    render(<DraftOutput {...baseProps} />)
+    expect(screen.queryByText("Formatter diagnostics")).not.toBeInTheDocument()
   })
 })

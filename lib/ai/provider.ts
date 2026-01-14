@@ -117,10 +117,10 @@ export function buildSystemPrompt(input: ProviderInput) {
         "German parent messages must mimic a concise professional email: start with 'Betreff: <short subject>' on the first line, add a blank line, and begin with a polite greeting such as 'Liebe Eltern,' or 'Liebe Erziehungsberechtigte,'.",
       )
       systemLines.push(
-        "Write 2-4 short paragraphs separated by blank lines; each paragraph should focus on calm observations, progress updates, and a collaborative next step (for example, 'K�nnen wir einen kurzen Termin vereinbaren?').",
+        "Write 3-5 short paragraphs separated by blank lines; each paragraph should focus on calm observations, progress updates, and collaborative next steps, keeping sentences brief (2-3 sentences) and paragraphs short.",
       )
       systemLines.push(
-        "End with a blank line, then 'Freundliche Gr��e,' or 'Herzliche Gr��e,' on its own line, followed by the teacher's name on the final line; include a reassuring statement before the closing.",
+        "End with a blank line, then 'Herzliche Grüße,' or 'Freundliche Grüße,' on its own line, followed by the teacher's name; include a brief reassuring sentence before the closing.",
       )
     } else {
       systemLines.push(

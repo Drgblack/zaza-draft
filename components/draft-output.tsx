@@ -7,6 +7,7 @@ import type { DraftMode } from "@/lib/types"
 import { DraftStructure, formatDraftText, CLOSING_REGEX } from "@/lib/draft/format"
 import { MODE_LABEL_KEYS, DEFAULT_DRAFT_MODE } from "@/lib/draft-mode"
 import { useLocale } from "@/hooks/use-locale"
+import { useSearchParams } from "next/navigation"
 
 interface DraftOutputProps {
   draftText: string
@@ -24,6 +25,7 @@ interface DraftOutputProps {
   draftsUsed: number
   draftsLimit: number
   showUsageLimit?: boolean
+  buildSha?: string
 }
 
 export function DraftOutput({
@@ -38,16 +40,19 @@ export function DraftOutput({
   draftsUsed,
   draftsLimit,
   showUsageLimit = false,
+  buildSha,
 }: DraftOutputProps) {
   const [copied, setCopied] = useState(false)
   const [showSaveModal, setShowSaveModal] = useState(false)
   const [showMoreMenu, setShowMoreMenu] = useState(false)
   const [actionMessage, setActionMessage] = useState<string | null>(null)
   const { locale, t } = useLocale()
+  const searchParams = useSearchParams()
+  const showDiagnostics = searchParams?.get("debug") === "1"
   const modeKey = (metadata.modeUsed ?? DEFAULT_DRAFT_MODE) as keyof typeof MODE_LABEL_KEYS
   const modeLabel = t(MODE_LABEL_KEYS[modeKey])
   const { displaySubject, displayParagraphs, signatureParagraph } = useMemo(() => {
-    const resolvedStructure = structure ?? formatDraftText(draftText)
+    const resolvedStructure = structure ?? formatDraftText(draftText, locale)
     const subject = modeKey === "parent_message" ? resolvedStructure.subject : undefined
     const paragraphs = [...(resolvedStructure.paragraphs ?? [])]
     let signature: string | undefined
@@ -59,7 +64,7 @@ export function DraftOutput({
       displayParagraphs: paragraphs,
       signatureParagraph: signature,
     }
-  }, [structure, draftText, modeKey])
+  }, [structure, draftText, modeKey, locale])
   const clipboardText = useMemo(() => {
     const segments: string[] = []
     if (displaySubject) {
@@ -292,6 +297,25 @@ export function DraftOutput({
           <span>•</span>
           <span>{t("statusBar.words", { count: metadata.wordCount })}</span>
         </div>
+
+        {showDiagnostics && (
+          <details
+            className="mt-3 rounded-lg border border-dashed border-slate-200 bg-white/90 p-3 text-xs text-slate-700"
+            open
+          >
+            <summary className="text-[11px] font-semibold uppercase tracking-widest text-slate-500">
+              Formatter diagnostics
+            </summary>
+            <div className="mt-2 space-y-1 pl-2">
+              <p>Build: {buildSha ?? "unknown"}</p>
+              <p>Locale: {locale}</p>
+              <p>Subject detected: {displaySubject ? "yes" : "no"}</p>
+              <p>Paragraph count: {displayParagraphs.length}</p>
+              <p>Raw length: {draftText.length}</p>
+              <p>Preview: {draftText.trim().slice(0, 120).replace(/\n/g, "\\n")}</p>
+            </div>
+          </details>
+        )}
 
         <div className="hidden md:flex items-center gap-3">
           <button
