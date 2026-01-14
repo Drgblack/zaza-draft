@@ -43,11 +43,11 @@ export function ReframeExplanation({ tier }: ReframeExplanationProps) {
         aria-expanded={isOpen}
         onClick={handleSummaryClick}
       >
-        <div className="space-y-0.5 text-left">
+        <div className="space-y-1 text-left">
           <span className="inline-flex items-center gap-1 rounded-full border border-blue-200 bg-white px-3 py-0.5 text-[11px] font-semibold uppercase tracking-[0.3em] text-blue-600 dark:border-blue-500/70 dark:bg-slate-900/80 dark:text-blue-300">
             {tierLabel}
           </span>
-          <p className="text-base font-semibold text-blue-900 dark:text-blue-50">{noticeSummary}</p>
+          <p className="text-base font-semibold leading-5 text-blue-900 dark:text-blue-50">{noticeSummary}</p>
         </div>
         <span className="flex items-center gap-1 text-xs font-semibold uppercase text-blue-700 dark:text-blue-200">
           {toggleLabel}
@@ -59,7 +59,7 @@ export function ReframeExplanation({ tier }: ReframeExplanationProps) {
           </span>
         </span>
       </summary>
-      <div className="mt-3 space-y-3 text-sm text-blue-900 dark:text-blue-200 max-h-[250px] overflow-y-auto pr-2">
+      <div className="mt-4 space-y-4 text-sm text-blue-900/90 dark:text-blue-200 max-h-[220px] overflow-y-auto pr-2">
         <p>{notice}</p>
         <p className="text-xs font-medium text-blue-700 dark:text-blue-300">{noticeDetails}</p>
       </div>
