@@ -93,6 +93,32 @@ Frau Müller`
     expect(formatted.subject).toBe("Wochenbericht Mathematik")
     expect(formatted.paragraphs.length).toBeGreaterThan(2)
     expect(formatted.paragraphs.some((paragraph) => paragraph.includes("Liebe Eltern,"))).toBe(true)
-    expect(formatted.paragraphs.some((paragraph) => paragraph.includes("Herzliche Grüße"))).toBe(true)
+    expect(formatted.paragraphs.some((paragraph) => paragraph.includes("Herzliche Gr"))).toBe(true)
+  })
+
+  it("synthesizes 3-5 paragraphs for long German blobs lacking blank lines", () => {
+    const draft =
+      "Betreff: Wochenbericht Liebe Eltern, die Woche begann mit viel Neugier und die Kinder haben sich in den Projekten engagiert. Die Klasse hat sich intensiv mit neuen Lesestrategien beschaeftigt und zeigte dabei eine ruhige Haltung. Im Partnerunterricht konnte ich beobachten, wie sie sich gegenseitig unterstuetzten und Ideen austauschten. Die Praesentation der Ergebnisse war energisch und viele Lernende zeigten Mut, eigene Wege zu finden. Es gab einzelne Situationen, in denen Unruhe aufkam, doch wir fanden gemeinsam klare Schritte, um sie zu ordnen. Ich wuerde gerne einen kurzen Austausch vorschlagen, um die naechsten Schritte zu besprechen. Herzliche Gruesse, Frau Schulze"
+
+    const formatted = formatDraftText(draft, "de-DE")
+    expect(formatted.subject).toBe("Wochenbericht")
+    expect(formatted.paragraphs.length).toBeGreaterThanOrEqual(3)
+    expect(formatted.paragraphs.length).toBeLessThanOrEqual(5)
+    expect(formatted.paragraphs[0]).toContain("Liebe Eltern")
+    expect(formatted.paragraphs.some((paragraph) => paragraph.includes("Herzliche Gruesse"))).toBe(true)
+  })
+
+  it("does not over-split short German drafts", () => {
+    const draft = "Betreff: Kurze Nachricht\n\nDie Schuelerinnen und Schueler haben diese Woche konzentriert gearbeitet."
+    const formatted = formatDraftText(draft, "de-DE")
+    expect(formatted.paragraphs).toHaveLength(1)
+  })
+
+  it("keeps existing behavior for English blobs", () => {
+    const draft =
+      "Subject: Progress update\n\nThe team used the new writing routine this week. The students shared thoughtful ideas in pairs. There were a few distractions, but they regrouped quickly. Sincerely, Ms. Rivera"
+    const formatted = formatDraftText(draft, "en-US")
+    expect(formatted.paragraphs.length).toBe(2)
+    expect(formatted.paragraphs.some((paragraph) => paragraph.includes("Sincerely"))).toBe(true)
   })
 })

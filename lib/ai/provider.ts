@@ -113,18 +113,24 @@ export function buildSystemPrompt(input: ProviderInput) {
       "If no student name was supplied, refer to the child as 'Ihr Kind' (use 'Ihr Sohn' or 'Ihre Tochter' only when the teacher explicitly provides gender).",
     )
     if (input.mode === "parent_message") {
-      systemLines.push(
-        "German parent messages must mimic a concise professional email: start with 'Betreff: <short subject>' on the first line, add a blank line, and begin with a polite greeting such as 'Liebe Eltern,' or 'Liebe Erziehungsberechtigte,'.",
-      )
-      systemLines.push(
-        "Write 3-5 short paragraphs separated by blank lines; each paragraph should focus on calm observations, progress updates, and collaborative next steps, keeping sentences brief (2-3 sentences) and paragraphs short.",
-      )
-      systemLines.push(
-        "End with a blank line, then 'Herzliche Grüße,' or 'Freundliche Grüße,' on its own line, followed by the teacher's name; include a brief reassuring sentence before the closing.",
-      )
-    } else {
-      systemLines.push(
-        "German report comments should span 35 to 70 words, omit greetings, focus on observable behaviour and progress, and end with a short clarity statement without a call to action.",
+    systemLines.push(
+      "German parent messages must mimic a concise professional email: start with 'Betreff: <short subject>' on the first line, add a blank line, and begin with a polite greeting such as 'Liebe Eltern,' or 'Liebe Erziehungsberechtigte,'.",
+    )
+    systemLines.push(
+      "Write 3-5 short paragraphs separated by blank lines; each paragraph should focus on calm observations, progress updates, and collaborative next steps, keeping sentences brief (2-3 sentences) and paragraphs short.",
+    )
+    systemLines.push(
+      "End with a blank line, then 'Herzliche Grüße,' or 'Freundliche Grüße,' on its own line, followed by the teacher's name; include a brief reassuring sentence before the closing.",
+    )
+    systemLines.push(
+      "German parent messages must always include EXACTLY 3-5 paragraphs separated by blank lines (two newline characters), keep 'Betreff: …' on the first line, and never collapse the response into a single block.",
+    )
+    systemLines.push(
+      "Always finish after a blank line with a polite closing (for example, 'Herzliche Grüße,' or 'Freundliche Grüße,' plus the teacher name) and never begin or end with refusal phrasing such as 'Es tut mir leid' or 'Ich kann nicht helfen'.",
+    )
+  } else {
+    systemLines.push(
+      "German report comments should span 35 to 70 words, omit greetings, focus on observable behaviour and progress, and end with a short clarity statement without a call to action.",
       )
     }
     systemLines.push("Translate any English notes into natural German rather than copying English words literally.")
