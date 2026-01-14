@@ -224,4 +224,16 @@ Frau Mueller`
     render(<DraftOutput {...baseProps} />)
     expect(screen.queryByText("Formatter diagnostics")).not.toBeInTheDocument()
   })
+
+  it("honors the NEXT_PUBLIC_DEBUG_UI flag when set", () => {
+    const originalFlag = process.env.NEXT_PUBLIC_DEBUG_UI
+    process.env.NEXT_PUBLIC_DEBUG_UI = "1"
+    try {
+      setMockSearchParams()
+      render(<DraftOutput {...baseProps} />)
+      expect(screen.getByText("Formatter diagnostics")).toBeInTheDocument()
+    } finally {
+      process.env.NEXT_PUBLIC_DEBUG_UI = originalFlag
+    }
+  })
 })

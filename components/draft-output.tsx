@@ -8,6 +8,7 @@ import { DraftStructure, formatDraftText, CLOSING_REGEX } from "@/lib/draft/form
 import { MODE_LABEL_KEYS, DEFAULT_DRAFT_MODE } from "@/lib/draft-mode"
 import { useLocale } from "@/hooks/use-locale"
 import { useSearchParams } from "next/navigation"
+import { isDebugEnabled } from "@/lib/debug"
 
 interface DraftOutputProps {
   draftText: string
@@ -48,7 +49,7 @@ export function DraftOutput({
   const [actionMessage, setActionMessage] = useState<string | null>(null)
   const { locale, t } = useLocale()
   const searchParams = useSearchParams()
-  const showDiagnostics = searchParams?.get("debug") === "1"
+  const showDiagnostics = isDebugEnabled(searchParams)
   const modeKey = (metadata.modeUsed ?? DEFAULT_DRAFT_MODE) as keyof typeof MODE_LABEL_KEYS
   const modeLabel = t(MODE_LABEL_KEYS[modeKey])
   const { displaySubject, displayParagraphs, signatureParagraph } = useMemo(() => {
