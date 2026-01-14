@@ -109,6 +109,40 @@ Frau Mueller`
     })
   })
 
+  it("splits a very long German body while keeping greeting/closing intact", () => {
+    const repeatedSentence =
+      "Die Lerngruppe hat im Fachunterricht ein komplexes Thema bearbeitet, die Diskussionen waren differenziert und ich dokumentiere die Impulse für unsere nächsten Schritte."
+    const longBody = Array(20).fill(repeatedSentence).join(" ")
+    const draft = `Betreff: Ausblick\nLiebe Eltern,\n\n${longBody}\n\nHerzliche Gruesse,\nFrau Meyer`
+
+    const formatted = formatDraftText(draft, "de-DE")
+    expect(formatted.subject).toBe("Ausblick")
+    expect(formatted.paragraphs[0]).toContain("Liebe Eltern")
+    expect(formatted.paragraphs[formatted.paragraphs.length - 1]).toContain("Herzliche Gruesse")
+    const bodyParagraphs = formatted.paragraphs.slice(1, -1)
+    expect(bodyParagraphs.length).toBeGreaterThanOrEqual(3)
+    bodyParagraphs.forEach((paragraph) => {
+      expect(paragraph.length).toBeLessThanOrEqual(MAX_PARAGRAPH_CHARS)
+    })
+  })
+
+  it("splits a very long English body without trimming greeting/closing", () => {
+    const repeatedSentence =
+      "Weriched our cycle by testing variations of the routine, and every refinement adds clarity to the learners' portfolios."
+    const longBody = Array(18).fill(repeatedSentence).join(" ")
+    const draft = `Subject: Routine update\nDear family,\n\n${longBody}\n\nWarm regards,\nMs. Rivera`
+
+    const formatted = formatDraftText(draft, "en-GB")
+    expect(formatted.subject).toBe("Routine update")
+    expect(formatted.paragraphs[0]).toContain("Dear family")
+    expect(formatted.paragraphs[formatted.paragraphs.length - 1]).toContain("Warm regards")
+    const bodyParagraphs = formatted.paragraphs.slice(1, -1)
+    expect(bodyParagraphs.length).toBeGreaterThanOrEqual(3)
+    bodyParagraphs.forEach((paragraph) => {
+      expect(paragraph.length).toBeLessThanOrEqual(MAX_PARAGRAPH_CHARS)
+    })
+  })
+
   it("keeps greeting and closing as separate paragraphs for English drafts", () => {
     const draft = "Subject: Planning note Dear family, the upcoming project will require more formative checks. Warm regards, Ms. Rivera"
     const formatted = formatDraftText(draft)
