@@ -6,23 +6,46 @@ import { fireEvent, render, screen } from "@testing-library/react"
 import { DeescalationBanner } from "@/components/deescalation-banner"
 import type { DeescalationSummary } from "@/lib/deescalation/types"
 
-vi.mock("@/hooks/use-locale", () => {
-  const translations: Record<string, string> = {
+type LocaleKey = "en-GB" | "de-DE"
+
+const translations: Record<LocaleKey, Record<string, string>> = {
+  "en-GB": {
     "deescalation.title": "Calmed and professionalised",
     "deescalation.description": "I softened a few high-emotion phrases to keep this message safe and effective.",
     "deescalation.button.show": "See what changed",
     "deescalation.button.hide": "Hide changes",
     "deescalation.diff.original": "Original:",
     "deescalation.diff.suggestion": "Calmer alternative:",
-  }
+    "deescalation.category.insult": "Insult",
+    "deescalation.category.threat": "Threat",
+  },
+  "de-DE": {
+    "deescalation.title": "Beruhigt und professionell",
+    "deescalation.description":
+      "Ich habe ein paar emotional aufgeladene Formulierungen entschärft, damit die Nachricht sicher und wirkungsvoll bleibt.",
+    "deescalation.button.show": "Änderungen anzeigen",
+    "deescalation.button.hide": "Änderungen ausblenden",
+    "deescalation.diff.original": "Original:",
+    "deescalation.diff.suggestion": "Beruhigte Alternative:",
+    "deescalation.category.insult": "Beleidigung",
+    "deescalation.category.threat": "Problematische Formulierung",
+  },
+}
+
+let currentLocale: LocaleKey = "en-GB"
+
+const setLocale = (locale: LocaleKey) => {
+  currentLocale = locale
+}
+
+vi.mock("@/hooks/use-locale", () => {
   return {
     useLocale: () => ({
-      locale: "en-GB",
-      t: (key: string) => translations[key] ?? key,
+      locale: currentLocale,
+      t: (key: string) => translations[currentLocale][key] ?? key,
     }),
   }
 })
-
 const baseSummary: DeescalationSummary = {
   wasDeescalated: true,
   coachingLine: "I kept your intent but softened a few phrases so the message lands well and stays professional.",
@@ -34,6 +57,10 @@ const baseSummary: DeescalationSummary = {
     },
   ],
 }
+
+afterEach(() => {
+  setLocale("en-GB")
+})
 
 describe("DeescalationBanner", () => {
   it("shows details when the summary flags phrases", () => {
@@ -109,11 +136,25 @@ describe("DeescalationBanner", () => {
       <>
         <div data-testid="current-snippet">Current snippet</div>
         <DeescalationBanner summary={baseSummary} />
-      </>,
-    )
+    </>,
+  )
 
-    const toggle = screen.getByRole("button", { name: /see what changed/i })
+  const toggle = screen.getByRole("button", { name: /see what changed/i })
+  fireEvent.click(toggle)
+  expect(screen.getByTestId("current-snippet")).toBeInTheDocument()
+})
+
+  it("renders German copy when the locale is de-DE", () => {
+    setLocale("de-DE")
+    render(<DeescalationBanner summary={baseSummary} />)
+
+    const toggle = screen.getByRole("button", { name: /Änderungen anzeigen/i })
+    expect(toggle).toBeInTheDocument()
+    expect(screen.getByText("Beruhigt und professionell")).toBeInTheDocument()
+    expect(screen.queryByText("Calmed and professionalised")).not.toBeInTheDocument()
+
     fireEvent.click(toggle)
-    expect(screen.getByTestId("current-snippet")).toBeInTheDocument()
+    expect(toggle).toHaveTextContent("Änderungen ausblenden")
+    expect(screen.getByText("Beleidigung")).toBeInTheDocument()
   })
 })

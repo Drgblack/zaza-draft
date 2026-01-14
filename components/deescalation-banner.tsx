@@ -4,15 +4,15 @@
 import { useEffect, useId, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { useLocale } from "@/hooks/use-locale"
-import type { DeescalationSummary } from "@/lib/deescalation/types"
+import type { DeescalationCategory, DeescalationSummary } from "@/lib/deescalation/types"
 
-const CATEGORY_LABELS: Record<DeescalationSummary["flaggedPhrases"][number]["category"], string> = {
-  insult: "Insult",
-  sarcasm: "Sarcasm",
-  threat: "Threat",
-  absolute: "Absolute language",
-  inflammatory: "Inflammatory label",
-  profanity: "Profanity",
+const CATEGORY_LABEL_KEYS: Record<DeescalationCategory, string> = {
+  insult: "deescalation.category.insult",
+  sarcasm: "deescalation.category.sarcasm",
+  threat: "deescalation.category.threat",
+  absolute: "deescalation.category.absolute",
+  inflammatory: "deescalation.category.inflammatory",
+  profanity: "deescalation.category.profanity",
 }
 
 interface DeescalationBannerProps {
@@ -64,7 +64,7 @@ export function DeescalationBanner({ summary }: DeescalationBannerProps) {
               className="rounded-xl border border-slate-200 bg-white/80 p-3 shadow-sm mb-6"
             >
               <div className="flex flex-wrap items-center gap-2 text-xs font-semibold uppercase tracking-widest text-slate-500">
-                <span>{CATEGORY_LABELS[phrase.category]}</span>
+                <span>{t(CATEGORY_LABEL_KEYS[phrase.category] ?? phrase.category)}</span>
               </div>
               <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-1 mt-3">
                 {t("deescalation.diff.original")}

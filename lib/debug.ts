@@ -1,7 +1,5 @@
 export const DEBUG_QUERY_PARAM = "debug"
 
-const DEBUG_ENV_FLAG = process.env.NEXT_PUBLIC_DEBUG_UI === "1"
-
 export function isDebugEnabled(searchParams?: URLSearchParams | null) {
   if (searchParams?.get(DEBUG_QUERY_PARAM) === "1") {
     return true
@@ -18,5 +16,5 @@ export function isDebugEnabled(searchParams?: URLSearchParams | null) {
     }
   }
 
-  return DEBUG_ENV_FLAG
+  return process.env.NEXT_PUBLIC_DEBUG_UI === "1"
 }
