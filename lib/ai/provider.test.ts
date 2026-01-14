@@ -32,4 +32,9 @@ describe("buildSystemPrompt", () => {
     expect(prompt).toContain("DE tone contract")
     expect(prompt).toContain("Termin vereinbaren")
   })
+
+  it("instructs the German prompt not to refuse with 'Es tut mir leid'", () => {
+    const prompt = buildSystemPrompt(baseInput)
+    expect(prompt).toContain("never begin with a refusal such as 'Es tut mir leid'")
+  })
 })

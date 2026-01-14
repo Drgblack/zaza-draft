@@ -32,7 +32,7 @@ import { cleanStudentName } from "@/lib/draft/student-name"
 import { normalizeGermanParentMessage } from "@/lib/draft/german-normalizer"
 import { detectHighEmotionPhrases } from "@/lib/deescalation/detect"
 import { rewriteHighEmotionText } from "@/lib/deescalation/rewrite"
-import { resolveOutputLanguage } from "@/lib/draft/language"
+import { canonicalizeLocaleIdentifier, resolveOutputLanguage } from "@/lib/draft/language"
 import {
   applySignatureToDraft,
   resolveSignature,
@@ -175,6 +175,10 @@ export async function POST(request: Request) {
     uiLocale,
     acceptLanguage: acceptLanguageHeader,
   })
+  payload.language = language
+  payload.outputLanguage = language
+  const canonicalUiLocale = canonicalizeLocaleIdentifier(uiLocale)
+  const normalizedUiLocale = canonicalUiLocale ?? uiLocale
   const mode = resolveDraftMode(payload?.mode)
 
   const studentFirstNameInput =
@@ -475,7 +479,7 @@ export async function POST(request: Request) {
     studentFirstName: studentNameForPayload || undefined,
     resolvedPronounPreference,
     signatureBlock: resolvedSignature.block,
-    uiLocale,
+    uiLocale: normalizedUiLocale,
   }
   const fallbackContext: DraftFallbackContext = {
     mode,
@@ -520,7 +524,7 @@ export async function POST(request: Request) {
 
   const shouldNormalizeGermanParentMessage =
     mode === "parent_message" &&
-    (language?.toLowerCase().startsWith("de") || uiLocale?.toLowerCase().startsWith("de"))
+    (language?.toLowerCase().startsWith("de") || normalizedUiLocale?.toLowerCase().startsWith("de"))
 
   if (shouldNormalizeGermanParentMessage) {
     const germanNormalization = normalizeGermanParentMessage(generatedDraft)

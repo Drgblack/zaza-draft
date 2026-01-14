@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest"
 
-import { resolveLanguageChoiceFromLocale, resolveOutputLanguage } from "@/lib/draft/language"
+import {
+  canonicalizeLocaleIdentifier,
+  resolveLanguageChoiceFromLocale,
+  resolveOutputLanguage,
+} from "@/lib/draft/language"
 
 describe("resolveOutputLanguage", () => {
   it("prefers explicit output language over other hints", () => {
@@ -30,6 +34,11 @@ describe("resolveOutputLanguage", () => {
     expect(result).toBe("de")
   })
 
+  it("normalizes uppercase codes to German when hints include DE/GE", () => {
+    expect(resolveOutputLanguage({ explicit: "DE" })).toBe("de")
+    expect(resolveOutputLanguage({ explicit: "GE" })).toBe("de")
+  })
+
   it("falls back to the Accept-Language header when no other hints are available", () => {
     const result = resolveOutputLanguage({
       acceptLanguage: "de-CH,de;q=0.9,en;q=0.8",
@@ -53,5 +62,14 @@ describe("resolveLanguageChoiceFromLocale", () => {
     expect(resolveLanguageChoiceFromLocale("en-GB")).toBe("en")
     expect(resolveLanguageChoiceFromLocale("")).toBe("en")
     expect(resolveLanguageChoiceFromLocale()).toBe("en")
+  })
+})
+
+describe("canonicalizeLocaleIdentifier", () => {
+  it("maps known locale codes to canonical forms", () => {
+    expect(canonicalizeLocaleIdentifier("DE")).toBe("de-DE")
+    expect(canonicalizeLocaleIdentifier("GE")).toBe("de-DE")
+    expect(canonicalizeLocaleIdentifier("en_us")).toBe("en-GB")
+    expect(canonicalizeLocaleIdentifier("")).toBeNull()
   })
 })

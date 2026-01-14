@@ -128,6 +128,9 @@ export function buildSystemPrompt(input: ProviderInput) {
       )
     }
     systemLines.push("Translate any English notes into natural German rather than copying English words literally.")
+    systemLines.push(
+      "Always reframe rude or harsh German input into a calm, professional note; never begin with a refusal such as 'Es tut mir leid' or 'Ich kann nicht helfen'. Stay within 3-5 short paragraphs separated by blank lines, include the requested subject line and a polite closing, and keep the tone supportive.",
+    )
   }
 
   if (input.uiLocale?.toLowerCase().startsWith("de")) {

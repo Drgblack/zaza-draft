@@ -8,11 +8,26 @@ function normalizeLangInput(value?: string) {
   if (!trimmed) {
     return null
   }
-  if (trimmed.startsWith("de")) {
+  if (trimmed.startsWith("de") || trimmed.startsWith("ge")) {
     return "de"
   }
   if (trimmed.startsWith("en")) {
     return "en"
+  }
+  return null
+}
+
+export function canonicalizeLocaleIdentifier(value?: string | null): "de-DE" | "en-GB" | null {
+  if (!value) return null
+  const normalized = value.trim().replace(/_/g, "-").toLowerCase()
+  if (!normalized) {
+    return null
+  }
+  if (normalized.startsWith("de") || normalized.startsWith("ge")) {
+    return "de-DE"
+  }
+  if (normalized.startsWith("en")) {
+    return "en-GB"
   }
   return null
 }
