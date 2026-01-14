@@ -1,5 +1,3 @@
-import { parseLanguageCandidate } from "./language"
-
 export interface DraftStructure {
   subject?: string
   paragraphs: string[]
@@ -10,43 +8,25 @@ const GREETING_REGEX =
 export const CLOSING_REGEX =
   /\b(?:Kind|Warm|Best|Many)\s+regards,|Sincerely,|Yours sincerely,|Best wishes,|With thanks,|Thanks,|Mit freundlichen Grüßen,|Mit freundlichen Gruessen,|Herzliche Grüße,|Herzliche Gruesse,/i
 const SUBJECT_LABELS = ["Subject", "Betreff"] as const
+const SUBJECT_SEPARATOR_REGEX = "[:\\-–—|]+"
 const SUBJECT_REGEX = new RegExp(
-  `^\\s*(?:${SUBJECT_LABELS.join("|")})\\s*[:\\-–—：]\\s*(.+?)(?=(?:\\n|Dear\\b|Hi\\b|Hello\\b|Parents\\b|Family\\b|Team\\b|Good\\b|Liebe\\b|Guten Tag\\b|Hallo\\b|Sehr geehrte\\b|$))`,
+  `^\\s*(?:${SUBJECT_LABELS.join("|")})\\s*(?:${SUBJECT_SEPARATOR_REGEX})\\s*(.+?)(?=(?:\\n|Dear\\b|Hi\\b|Hello\\b|Parents\\b|Family\\b|Team\\b|Good\\b|Liebe\\b|Guten Tag\\b|Hallo\\b|Sehr geehrte\\b|$))`,
   "i",
 )
-const PARAGRAPH_BREAK_REGEX = /\n\s*\n+/
-const SINGLELINE_BREAK_REGEX = /\n+/
-const SENTENCE_LENGTH_THRESHOLD = 360
-const LONG_TEXT_LENGTH = 420
-const MAX_SENTENCES_PER_PARAGRAPH = 3
-const DEFAULT_LOCALE = "en-US"
-const GERMAN_PARAGRAPH_MIN = 3
-const GERMAN_PARAGRAPH_MAX = 5
-const GERMAN_PREFERRED_PARAGRAPHS = 4
-const GERMAN_PARAGRAPH_BODY_LENGTH_THRESHOLD = 240
+const SENTENCE_SPLIT_REGEX = /(?<=[.!?…])\s+(?=[A-ZÄÖÜẞ]|[„“"'])/
+const PARAGRAPH_TARGET_CHUNK_SIZE = 320
+const MEDIUM_BODY_THRESHOLD = 280
+const LONG_BODY_THRESHOLD = 600
+const MAX_PARAGRAPHS = 6
+const MIN_SENTENCES_FOR_MULTIPLE_PARAGRAPHS = 3
 
 function stripMarkdown(value: string) {
   return value.replace(/\*\*([\s\S]*?)\*\*/g, "$1").replace(/__([\s\S]*?)__/g, "$1")
 }
 
-function splitClosingParagraph(paragraph: string): string[] {
-  const closingMatch = paragraph.match(CLOSING_REGEX)
-  if (closingMatch && !CLOSING_REGEX.test(paragraph.trimEnd())) {
-    const index = paragraph.search(CLOSING_REGEX)
-    if (index > 0) {
-      return [paragraph.slice(0, index).trim(), paragraph.slice(index).trim()]
-    }
-  }
-  return [paragraph]
-}
-
-function resolveParagraphs(paragraphs: string[]): string[] {
-  return paragraphs.flatMap(splitClosingParagraph).filter(Boolean)
-}
-
 function getLocaleForSegmenter(locale?: string) {
   if (!locale) {
-    return DEFAULT_LOCALE
+    return "en-US"
   }
   if (locale.toLowerCase().startsWith("de")) {
     return "de-DE"
@@ -56,74 +36,62 @@ function getLocaleForSegmenter(locale?: string) {
 
 function getSentencesFromText(body: string, locale?: string) {
   const normalizedLocale = getLocaleForSegmenter(locale)
+  const normalizedBody = body.replace(/\s+/g, " ").trim()
+  if (!normalizedBody) {
+    return []
+  }
+
   if (typeof Intl !== "undefined" && "Segmenter" in Intl) {
     try {
       const segmenter = new Intl.Segmenter(normalizedLocale, { granularity: "sentence" })
-      const sentences = Array.from(segmenter.segment(body), (segment) => segment.segment.trim())
+      const sentences = Array.from(segmenter.segment(normalizedBody), (segment) => segment.segment.trim())
       const filtered = sentences.filter(Boolean)
       if (filtered.length) {
         return filtered
       }
     } catch {
-      // fallback to regex split
+      // fallback to regex
     }
   }
 
-  return body
-    .split(/(?<=[.!?])\s+/)
+  return normalizedBody
+    .split(SENTENCE_SPLIT_REGEX)
     .map((sentence) => sentence.trim())
     .filter(Boolean)
 }
 
-function chunkSentencesIntoParagraphs(sentences: string[]) {
-  if (!sentences.length) {
-    return []
+function calculateMinParagraphCount(bodyLength: number, sentenceCount: number) {
+  if (bodyLength > LONG_BODY_THRESHOLD && sentenceCount >= MIN_SENTENCES_FOR_MULTIPLE_PARAGRAPHS) {
+    return 3
   }
-
-  const paragraphs: string[] = []
-  let buffer: string[] = []
-  let currentLength = 0
-
-  const flushBuffer = () => {
-    if (!buffer.length) {
-      return
-    }
-    paragraphs.push(buffer.join(" ").trim())
-    buffer = []
-    currentLength = 0
+  if (bodyLength > MEDIUM_BODY_THRESHOLD && sentenceCount >= MIN_SENTENCES_FOR_MULTIPLE_PARAGRAPHS) {
+    return 2
   }
-
-  for (const sentence of sentences) {
-    if (
-      buffer.length >= MAX_SENTENCES_PER_PARAGRAPH ||
-      currentLength + sentence.length > SENTENCE_LENGTH_THRESHOLD
-    ) {
-      flushBuffer()
-    }
-    buffer.push(sentence)
-    currentLength += sentence.length
-  }
-
-  flushBuffer()
-  return resolveParagraphs(paragraphs.filter(Boolean))
+  return 1
 }
 
-function isGermanLocale(locale?: string) {
-  return parseLanguageCandidate(locale ?? undefined) === "de"
+function determineBodyParagraphCount(bodyLength: number, sentenceCount: number, minParagraphs: number) {
+  if (!sentenceCount) {
+    return 0
+  }
+  const baseByLength = Math.max(1, Math.ceil(bodyLength / PARAGRAPH_TARGET_CHUNK_SIZE))
+  const desired = Math.max(minParagraphs, baseByLength)
+  const boundedByMax = Math.min(MAX_PARAGRAPHS, desired)
+  return Math.min(boundedByMax, sentenceCount)
 }
 
-function chunkSentencesEvenly(sentences: string[], targetCount: number) {
+function chunkSentencesIntoGroups(sentences: string[], targetCount: number) {
   if (!sentences.length || targetCount <= 0) {
     return []
   }
 
-  const actualTarget = Math.min(targetCount, sentences.length)
-  const baseSize = Math.floor(sentences.length / actualTarget)
-  let remainder = sentences.length - baseSize * actualTarget
-  const chunks: string[] = []
+  const actualCount = Math.min(targetCount, sentences.length)
+  const baseSize = Math.floor(sentences.length / actualCount)
+  let remainder = sentences.length - baseSize * actualCount
+  const paragraphs: string[] = []
   let cursor = 0
 
-  for (let i = 0; i < actualTarget; i++) {
+  for (let i = 0; i < actualCount; i++) {
     const size = baseSize + (remainder > 0 ? 1 : 0)
     if (remainder > 0) {
       remainder -= 1
@@ -134,79 +102,21 @@ function chunkSentencesEvenly(sentences: string[], targetCount: number) {
     const chunk = sentences.slice(cursor, cursor + size).join(" ").trim()
     cursor += size
     if (chunk) {
-      chunks.push(chunk)
+      paragraphs.push(chunk)
     }
   }
 
   const leftover = sentences.slice(cursor).join(" ").trim()
   if (leftover) {
-    if (chunks.length) {
-      const lastIndex = chunks.length - 1
-      chunks[lastIndex] = `${chunks[lastIndex]} ${leftover}`.trim()
+    if (paragraphs.length) {
+      const lastIndex = paragraphs.length - 1
+      paragraphs[lastIndex] = `${paragraphs[lastIndex]} ${leftover}`.trim()
     } else {
-      chunks.push(leftover)
+      paragraphs.push(leftover)
     }
   }
 
-  return chunks
-}
-
-function determineGermanBodyParagraphCount(
-  sentenceCount: number,
-  hasGreeting: boolean,
-  hasClosing: boolean,
-) {
-  const extras = Number(hasGreeting) + Number(hasClosing)
-  const bodySlots = Math.max(1, GERMAN_PREFERRED_PARAGRAPHS - extras)
-  return Math.min(sentenceCount, bodySlots)
-}
-
-function synthesizeGermanParagraphs(sentences: string[]) {
-  if (!sentences.length) {
-    return []
-  }
-
-  const working = [...sentences]
-  let greeting: string | null = null
-  if (working.length && GREETING_REGEX.test(working[0])) {
-    greeting = working.shift()!.trim()
-  }
-
-  let closingParagraph: string | null = null
-  const closingIndex = working.findIndex((sentence) => CLOSING_REGEX.test(sentence))
-  if (closingIndex >= 0) {
-    closingParagraph = working.slice(closingIndex).join(" ").trim()
-    working.splice(closingIndex)
-  }
-
-  const bodySentences = working.filter(Boolean)
-  const bodyParagraphCount = determineGermanBodyParagraphCount(
-    bodySentences.length,
-    Boolean(greeting),
-    Boolean(closingParagraph),
-  )
-  const bodyParagraphs = chunkSentencesEvenly(bodySentences, bodyParagraphCount)
-
-  const assembled = [
-    ...(greeting ? [greeting] : []),
-    ...bodyParagraphs,
-    ...(closingParagraph ? [closingParagraph] : []),
-  ]
-
-  const resolved = resolveParagraphs(assembled.filter(Boolean))
-  if (resolved.length >= 2) {
-    return resolved
-  }
-
-  if (sentences.length > 1) {
-    const mid = Math.ceil(sentences.length / 2)
-    return resolveParagraphs([
-      sentences.slice(0, mid).join(" ").trim(),
-      sentences.slice(mid).join(" ").trim(),
-    ])
-  }
-
-  return resolved
+  return paragraphs
 }
 
 function buildParagraphs(body: string, locale?: string): string[] {
@@ -215,33 +125,15 @@ function buildParagraphs(body: string, locale?: string): string[] {
     return []
   }
 
-  const newlineParagraphs = trimmedBody
-    .split(PARAGRAPH_BREAK_REGEX)
-    .map((paragraph) => paragraph.trim())
-    .filter(Boolean)
-
-  if (newlineParagraphs.length > 1) {
-    return resolveParagraphs(newlineParagraphs)
-  }
-
-  const singleLineParagraphs = trimmedBody
-    .split(SINGLELINE_BREAK_REGEX)
-    .map((paragraph) => paragraph.trim())
-    .filter(Boolean)
-  if (singleLineParagraphs.length > 1) {
-    return resolveParagraphs(singleLineParagraphs)
-  }
-
   const sentenceCandidates = getSentencesFromText(trimmedBody, locale)
-  let sentences = [...sentenceCandidates]
-
-  const paragraphs: string[] = []
-  if (!sentences.length) {
-    return paragraphs
+  if (!sentenceCandidates.length) {
+    return [trimmedBody]
   }
 
-  if (GREETING_REGEX.test(sentences[0])) {
-    paragraphs.push(sentences.shift()!)
+  const sentences = [...sentenceCandidates]
+  let greeting: string | null = null
+  if (sentences.length && GREETING_REGEX.test(sentences[0])) {
+    greeting = sentences.shift()!.trim()
   }
 
   let closingParagraph: string | null = null
@@ -251,31 +143,23 @@ function buildParagraphs(body: string, locale?: string): string[] {
     sentences.splice(closingIndex)
   }
 
-  if (sentences.length) {
-    paragraphs.push(...chunkSentencesIntoParagraphs(sentences))
+  const bodySentences = sentences.filter(Boolean)
+  const bodyLength = bodySentences.join(" ").length
+  const minParagraphs = calculateMinParagraphCount(bodyLength, bodySentences.length)
+  const paragraphCount = determineBodyParagraphCount(bodyLength, bodySentences.length, minParagraphs)
+  const bodyParagraphs = chunkSentencesIntoGroups(bodySentences, paragraphCount)
+
+  const assembled = [
+    ...(greeting ? [greeting] : []),
+    ...bodyParagraphs,
+    ...(closingParagraph ? [closingParagraph] : []),
+  ].filter(Boolean)
+
+  if (assembled.length) {
+    return assembled
   }
 
-  if (closingParagraph) {
-    paragraphs.push(closingParagraph)
-  }
-
-  const localeIsGerman = isGermanLocale(locale)
-  const shouldForceGerman =
-    localeIsGerman &&
-    paragraphs.length <= 2 &&
-    (trimmedBody.length > GERMAN_PARAGRAPH_BODY_LENGTH_THRESHOLD || sentenceCandidates.length >= 3)
-  if (shouldForceGerman) {
-    return synthesizeGermanParagraphs([...sentenceCandidates])
-  }
-
-  if (paragraphs.length === 1 && trimmedBody.length > LONG_TEXT_LENGTH && sentenceCandidates.length > 1) {
-    const mid = Math.ceil(sentenceCandidates.length / 2)
-    const first = sentenceCandidates.slice(0, mid).join(" ").trim()
-    const second = sentenceCandidates.slice(mid).join(" ").trim()
-    return resolveParagraphs([first, second])
-  }
-
-  return paragraphs
+  return [trimmedBody]
 }
 
 export function formatDraftText(text: string, locale?: string): DraftStructure {
