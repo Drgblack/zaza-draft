@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { formatDraftText } from "./format"
+import { MAX_PARAGRAPH_CHARS, formatDraftText } from "./format"
 
 describe("formatDraftText", () => {
   it("extracts subject and paragraphs from structured text", () => {
@@ -78,6 +78,35 @@ Frau Mueller`
     const formatted = formatDraftText(draft, "de-DE")
     expect(formatted.subject).toBe("Kurzer Blick")
     expect(formatted.paragraphs.length).toBeGreaterThanOrEqual(3)
+  })
+
+  it("splits long German bodies so each paragraph stays under the soft max", () => {
+    const draft =
+      "Betreff: Ausblick Liebe Eltern, zurzeit arbeiten wir intensiv an Präsentationen, und die Schüler*innen entwickeln sehr unterschiedliche Lösungswege, die wir gemeinsam erarbeiten. In Gesprächsrunden fallen viele konkrete Fragen, und ich dokumentiere diese, damit wir in den kommenden Treffen gezielt darauf eingehen können. Die Schreibaufgaben werden durchgehend reflektiert, und ich sehe, wie das Interesse daran wächst, neue Formate zu probieren. Ich bitte Sie, die Übungsbögen zu Hause zu besprechen, damit die Kinder ihre Gedanken noch einmal ordnen können. Wir planen ein kurzes Feedback-Gespräch nächste Woche, um auf individuelle Fortschritte einzugehen. Herzliche Gruesse, Frau Meyer"
+
+    const formatted = formatDraftText(draft, "de-DE")
+    expect(formatted.subject).toBe("Ausblick")
+    expect(formatted.paragraphs[0]).toContain("Liebe Eltern")
+    expect(formatted.paragraphs[formatted.paragraphs.length - 1]).toContain("Herzliche Gruesse")
+    formatted.paragraphs.forEach((paragraph) => {
+      if (paragraph.includes("Liebe Eltern") || paragraph.includes("Herzliche Gruesse")) {
+        return
+      }
+      expect(paragraph.length).toBeLessThanOrEqual(MAX_PARAGRAPH_CHARS)
+    })
+  })
+
+  it("splits overly long English paragraphs at sentence boundaries", () => {
+    const draft =
+      "Subject: Upcoming project Dear family, we have more updates than usual, and to keep everything clear I want to mention that we are reorganizing how we collect portfolios, which means more reflective writing and very focused peer reviews. The new rhythm feels unfamiliar for some students, yet I notice more thoughtful questions arising and an increased sense of ownership. I will gather your feedback by Friday so we can tune the plan together. Warm regards, Ms. Rivera"
+    const formatted = formatDraftText(draft, "en-GB")
+    expect(formatted.subject).toBe("Upcoming project")
+    formatted.paragraphs.forEach((paragraph) => {
+      if (paragraph.includes("Dear family") || paragraph.includes("Warm regards")) {
+        return
+      }
+      expect(paragraph.length).toBeLessThanOrEqual(MAX_PARAGRAPH_CHARS)
+    })
   })
 
   it("keeps greeting and closing as separate paragraphs for English drafts", () => {

@@ -634,6 +634,8 @@ export const localeMessages: Record<Locale, LocaleMessages> = {
     "editor.reframeNoticeSummary": "Why we softened the tone",
     "editor.reframeNoticeDetails":
       "We replaced judgmental language with constructive, strength-focused observations so the message stays professional and supportive.",
+    "editor.reframeShowChanges": "Show the changes",
+    "editor.reframeHideChanges": "Hide the changes",
     "editor.reframeTier.tier1": "Tier 1 · Gentle rephrase",
     "editor.reframeTier.tier2": "Tier 2 · Sensitive language removed",
     "editor.reframeTier.tier3": "Tier 3 · Safety review applied",
@@ -1432,6 +1434,8 @@ export const localeMessages: Record<Locale, LocaleMessages> = {
     "editor.reframeNoticeSummary": "Warum wir den Ton angepasst haben",
     "editor.reframeNoticeDetails":
       "Wir haben wertende Sprache durch konstruktive, stärkenorientierte Beobachtungen ersetzt, damit die Nachricht professionell und unterstützend bleibt.",
+    "editor.reframeShowChanges": "Änderungen anzeigen",
+    "editor.reframeHideChanges": "Änderungen verbergen",
     "editor.reframeTier.tier1": "Stufe 1 · Sanfte Umformulierung",
     "editor.reframeTier.tier2": "Stufe 2 · Sensible Sprache entfernt",
     "editor.reframeTier.tier3": "Stufe 3 · Sicherheitsprüfung durchgeführt",

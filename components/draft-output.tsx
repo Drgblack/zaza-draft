@@ -297,11 +297,6 @@ export function DraftOutput({
           <span>•</span>
           <span>{t("statusBar.words", { count: metadata.wordCount })}</span>
         </div>
-        {locale.toLowerCase().startsWith("de") && (
-          <div className="text-[11px] font-semibold uppercase tracking-[0.2em] text-purple-600 dark:text-purple-300 mb-4">
-            Paragraphs: {displayParagraphs.length}
-          </div>
-        )}
 
         {showDiagnostics && (
           <details

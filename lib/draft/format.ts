@@ -19,6 +19,8 @@ const MEDIUM_BODY_THRESHOLD = 280
 const LONG_BODY_THRESHOLD = 600
 const MAX_PARAGRAPHS = 6
 const MIN_SENTENCES_FOR_MULTIPLE_PARAGRAPHS = 3
+// Soft limit for paragraph length; prefer splitting at sentence boundaries and allow single sentences to exceed the threshold.
+export const MAX_PARAGRAPH_CHARS = 560
 
 function stripMarkdown(value: string) {
   return value.replace(/\*\*([\s\S]*?)\*\*/g, "$1").replace(/__([\s\S]*?)__/g, "$1")
@@ -119,6 +121,65 @@ function chunkSentencesIntoGroups(sentences: string[], targetCount: number) {
   return paragraphs
 }
 
+function isGreetingParagraph(paragraph: string) {
+  return GREETING_REGEX.test(paragraph)
+}
+
+function isClosingParagraph(paragraph: string) {
+  return CLOSING_REGEX.test(paragraph)
+}
+
+function splitParagraphByMaxLength(paragraph: string, locale?: string) {
+  const sentences = getSentencesFromText(paragraph, locale)
+  if (sentences.length <= 1) {
+    return [paragraph]
+  }
+
+  const parts: string[] = []
+  let buffer = sentences[0]
+
+  for (let i = 1; i < sentences.length; i++) {
+    const sentence = sentences[i]
+    const candidate = `${buffer} ${sentence}`.trim()
+    if (candidate.length > MAX_PARAGRAPH_CHARS && buffer.length <= MAX_PARAGRAPH_CHARS) {
+      parts.push(buffer)
+      buffer = sentence
+      continue
+    }
+    if (candidate.length > MAX_PARAGRAPH_CHARS && buffer.length > MAX_PARAGRAPH_CHARS) {
+      // allow overflow when a single sentence already exceeds the limit rather than splitting mid-sentence
+      parts.push(buffer)
+      buffer = sentence
+      continue
+    }
+    buffer = candidate
+  }
+
+  if (buffer) {
+    parts.push(buffer)
+  }
+
+  return parts
+}
+
+function enforceMaxParagraphLength(paragraphs: string[], locale?: string) {
+  const resolved: string[] = []
+  for (const paragraph of paragraphs) {
+    if (
+      paragraph.length <= MAX_PARAGRAPH_CHARS ||
+      isGreetingParagraph(paragraph) ||
+      isClosingParagraph(paragraph)
+    ) {
+      resolved.push(paragraph)
+      continue
+    }
+
+    const split = splitParagraphByMaxLength(paragraph, locale)
+    resolved.push(...split)
+  }
+  return resolved
+}
+
 function buildParagraphs(body: string, locale?: string): string[] {
   const trimmedBody = body.replace(/\r\n/g, "\n").trim()
   if (!trimmedBody) {
@@ -156,10 +217,10 @@ function buildParagraphs(body: string, locale?: string): string[] {
   ].filter(Boolean)
 
   if (assembled.length) {
-    return assembled
+    return enforceMaxParagraphLength(assembled, locale)
   }
 
-  return [trimmedBody]
+  return enforceMaxParagraphLength([trimmedBody], locale)
 }
 
 export function formatDraftText(text: string, locale?: string): DraftStructure {

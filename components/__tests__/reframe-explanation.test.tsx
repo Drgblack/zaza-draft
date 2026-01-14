@@ -14,6 +14,8 @@ const localeMessages: Record<LocaleKey, Record<string, string>> = {
     "editor.reframeNotice": "I softened the wording to keep it professional and parent-appropriate.",
     "editor.reframeNoticeDetails":
       "We replaced judgmental language with constructive, strength-focused observations so the message stays professional and supportive.",
+    "editor.reframeShowChanges": "Show the changes",
+    "editor.reframeHideChanges": "Hide the changes",
   },
   "de-DE": {
     "editor.reframeTier.tier1": "Stufe 1 · Sanfte Umformulierung",
@@ -21,6 +23,8 @@ const localeMessages: Record<LocaleKey, Record<string, string>> = {
     "editor.reframeNotice": "Ich habe die Formulierung abgeschwächt, damit sie professionell und für Eltern angemessen bleibt.",
     "editor.reframeNoticeDetails":
       "Wir haben wertende Sprache durch konstruktive, stärkenorientierte Beobachtungen ersetzt, damit die Nachricht professionell und unterstützend bleibt.",
+    "editor.reframeShowChanges": "Änderungen anzeigen",
+    "editor.reframeHideChanges": "Änderungen verbergen",
   },
 }
 
@@ -52,7 +56,14 @@ describe("ReframeExplanation", () => {
     render(<ReframeExplanation tier="tier1" />)
     expect(screen.getByText("Tier 1 · Gentle rephrase")).toBeInTheDocument()
     expect(screen.getByText("Why we softened the tone")).toBeInTheDocument()
+    expect(screen.getByText("Show the changes")).toBeInTheDocument()
     const details = screen.getByTestId("reframe-explanation")
+    const summary = details.querySelector("summary")
+    if (!summary) {
+      throw new Error("Missing summary element")
+    }
+    fireEvent.click(summary)
+    expect(details).toHaveAttribute("open")
     expect(details).toHaveClass("rounded-2xl")
     expect(
       screen.getByText("I softened the wording to keep it professional and parent-appropriate."),
@@ -79,8 +90,13 @@ describe("ReframeExplanation", () => {
       </>,
     )
 
-    const summary = screen.getByText("Why we softened the tone")
+    const details = screen.getByTestId("reframe-explanation")
+    const summary = details.querySelector("summary")
+    if (!summary) {
+      throw new Error("Missing summary element")
+    }
     fireEvent.click(summary)
+    expect(details).toHaveAttribute("open")
     expect(screen.getByTestId("current-snippet")).toBeInTheDocument()
   })
 })
