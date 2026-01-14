@@ -197,7 +197,6 @@ export function MainEditor() {
   const [draftMetadata, setDraftMetadata] = useState<any>(null)
   const [draftStructure, setDraftStructure] = useState<DraftStructure | null>(null)
   const [deescalationSummary, setDeescalationSummary] = useState<DeescalationSummary | null>(null)
-  const [isDiffViewOpen, setIsDiffViewOpen] = useState(false)
   const [isEditing, setIsEditing] = useState(false)
   const [subject, setSubject] = useState("")
   const [gradeLevel, setGradeLevel] = useState("")
@@ -672,10 +671,6 @@ export function MainEditor() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [draftMetadata?.generatedAt])
 
-  useEffect(() => {
-    setIsDiffViewOpen(false)
-  }, [deescalationSummary])
-
   const loadSnippet = (snippet: SnippetHistoryItem) => {
     setContent(snippet.generatedText)
     setSelectedTone(snippet.tone as ToneKey)
@@ -1114,26 +1109,21 @@ Examples:
 
         {generatedDraft && draftMetadata && (
           <div className="mt-8 space-y-2">
-            {!isDiffViewOpen && (
-              <DraftOutput
-                draftText={generatedDraft}
-                tone={draftMetadata.toneUsed ?? selectedTone}
-                metadata={draftMetadata}
-                onSave={handleSaveDraft}
-                onEdit={handleEditDraft}
-                onRegenerate={handleRegenerateDraft}
-                onRewrite={handleRewriteDraft}
-                draftsUsed={draftsUsed}
-                draftsLimit={draftsLimit}
-                showUsageLimit={isLimitedUser}
-                structure={draftStructure ?? undefined}
-              />
-            )}
+            <DraftOutput
+              draftText={generatedDraft}
+              tone={draftMetadata.toneUsed ?? selectedTone}
+              metadata={draftMetadata}
+              onSave={handleSaveDraft}
+              onEdit={handleEditDraft}
+              onRegenerate={handleRegenerateDraft}
+              onRewrite={handleRewriteDraft}
+              draftsUsed={draftsUsed}
+              draftsLimit={draftsLimit}
+              showUsageLimit={isLimitedUser}
+              structure={draftStructure ?? undefined}
+            />
             {deescalationSummary?.wasDeescalated && (
-              <DeescalationBanner
-                summary={deescalationSummary}
-                onToggleDiffView={setIsDiffViewOpen}
-              />
+              <DeescalationBanner summary={deescalationSummary} />
             )}
           </div>
         )}

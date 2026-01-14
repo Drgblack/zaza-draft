@@ -17,18 +17,16 @@ const CATEGORY_LABELS: Record<DeescalationSummary["flaggedPhrases"][number]["cat
 
 interface DeescalationBannerProps {
   summary: DeescalationSummary
-  onToggleDiffView?: (open: boolean) => void
 }
 
-export function DeescalationBanner({ summary, onToggleDiffView }: DeescalationBannerProps) {
+export function DeescalationBanner({ summary }: DeescalationBannerProps) {
   const [expanded, setExpanded] = useState(false)
   const detailsId = useId()
   const { t } = useLocale()
 
   useEffect(() => {
     setExpanded(false)
-    onToggleDiffView?.(false)
-  }, [summary, onToggleDiffView])
+  }, [summary])
 
   if (!summary.wasDeescalated) {
     return null
@@ -37,11 +35,7 @@ export function DeescalationBanner({ summary, onToggleDiffView }: DeescalationBa
   const phrases = summary.flaggedPhrases.slice(0, 5)
 
   const handleToggle = () => {
-    setExpanded((prev) => {
-      const next = !prev
-      onToggleDiffView?.(next)
-      return next
-    })
+    setExpanded((prev) => !prev)
   }
 
   return (

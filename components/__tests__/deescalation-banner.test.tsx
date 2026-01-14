@@ -103,4 +103,17 @@ describe("DeescalationBanner", () => {
     expect(toggle).toHaveTextContent("See what changed")
     expect(toggle).toHaveAttribute("aria-expanded", "false")
   })
+
+  it("keeps the snippet visible when showing the explanation", () => {
+    render(
+      <>
+        <div data-testid="current-snippet">Current snippet</div>
+        <DeescalationBanner summary={baseSummary} />
+      </>,
+    )
+
+    const toggle = screen.getByRole("button", { name: /see what changed/i })
+    fireEvent.click(toggle)
+    expect(screen.getByTestId("current-snippet")).toBeInTheDocument()
+  })
 })
