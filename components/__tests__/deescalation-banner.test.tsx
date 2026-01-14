@@ -18,6 +18,8 @@ const translations: Record<LocaleKey, Record<string, string>> = {
     "deescalation.diff.suggestion": "Calmer alternative:",
     "deescalation.category.insult": "Insult",
     "deescalation.category.threat": "Threat",
+    "deescalation.helper.insult": "Use neutral descriptions of the behaviour and its impact.",
+    "deescalation.helper.threat": "Offer clear next steps instead of consequences or ultimatums.",
   },
   "de-DE": {
     "deescalation.title": "Beruhigt und professionell",
@@ -29,6 +31,8 @@ const translations: Record<LocaleKey, Record<string, string>> = {
     "deescalation.diff.suggestion": "Beruhigte Alternative:",
     "deescalation.category.insult": "Beleidigung",
     "deescalation.category.threat": "Problematische Formulierung",
+    "deescalation.helper.insult": "Beschreiben Sie das Verhalten und dessen Auswirkungen neutral und ohne Beschimpfungen.",
+    "deescalation.helper.threat": "Bieten Sie klare nächste Schritte an, statt mit Konsequenzen oder Ultimaten zu drohen.",
   },
 }
 
@@ -54,6 +58,17 @@ const baseSummary: DeescalationSummary = {
       originalSnippet: "Johnny's lies",
       category: "insult",
       suggestionSnippet: "Describe the inaccurate information instead.",
+    },
+  ],
+}
+
+const threatSummary: DeescalationSummary = {
+  ...baseSummary,
+  flaggedPhrases: [
+    {
+      originalSnippet: "I will remove your privileges",
+      category: "threat",
+      suggestionSnippet: "Offer guidance instead of consequences.",
     },
   ],
 }
@@ -136,17 +151,26 @@ describe("DeescalationBanner", () => {
       <>
         <div data-testid="current-snippet">Current snippet</div>
         <DeescalationBanner summary={baseSummary} />
-    </>,
-  )
+      </>,
+    )
 
-  const toggle = screen.getByRole("button", { name: /see what changed/i })
-  fireEvent.click(toggle)
-  expect(screen.getByTestId("current-snippet")).toBeInTheDocument()
-})
+    const toggle = screen.getByRole("button", { name: /see what changed/i })
+    fireEvent.click(toggle)
+    expect(screen.getByTestId("current-snippet")).toBeInTheDocument()
+  })
+
+  it("renders the English helper text for threat guidance", () => {
+    render(<DeescalationBanner summary={threatSummary} />)
+    const toggle = screen.getByRole("button", { name: /see what changed/i })
+    fireEvent.click(toggle)
+    expect(
+      screen.getByText(/Offer clear next steps instead of consequences or ultimatums./),
+    ).toBeInTheDocument()
+  })
 
   it("renders German copy when the locale is de-DE", () => {
     setLocale("de-DE")
-    render(<DeescalationBanner summary={baseSummary} />)
+    render(<DeescalationBanner summary={threatSummary} />)
 
     const toggle = screen.getByRole("button", { name: /Änderungen anzeigen/i })
     expect(toggle).toBeInTheDocument()
@@ -155,6 +179,14 @@ describe("DeescalationBanner", () => {
 
     fireEvent.click(toggle)
     expect(toggle).toHaveTextContent("Änderungen ausblenden")
-    expect(screen.getByText("Beleidigung")).toBeInTheDocument()
+    expect(screen.getByText("Problematische Formulierung")).toBeInTheDocument()
+    expect(
+      screen.getByText(
+        /Bieten Sie klare nächste Schritte an, statt mit Konsequenzen oder Ultimaten zu drohen./,
+      ),
+    ).toBeInTheDocument()
+    expect(
+      screen.queryByText(/Offer clear next steps instead of consequences or ultimatums./),
+    ).not.toBeInTheDocument()
   })
 })

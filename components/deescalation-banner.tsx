@@ -76,7 +76,7 @@ export function DeescalationBanner({ summary }: DeescalationBannerProps) {
                 {t("deescalation.diff.suggestion")}
               </p>
               <p className="text-sm text-gray-600 dark:text-gray-300 italic pl-3 border-l-2 border-blue-200 dark:border-blue-800">
-                {phrase.suggestionSnippet}
+                {t(`deescalation.helper.${phrase.category}`)}
               </p>
             </div>
           ))}
