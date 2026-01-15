@@ -99,4 +99,17 @@ describe("ReframeExplanation", () => {
     expect(details).toHaveAttribute("open")
     expect(screen.getByTestId("current-snippet")).toBeInTheDocument()
   })
+
+  it("stays visible even when debug mode is enabled", () => {
+    const originalFlag = process.env.NEXT_PUBLIC_DEBUG_UI
+    process.env.NEXT_PUBLIC_DEBUG_UI = "1"
+    try {
+      render(<ReframeExplanation tier="tier1" />)
+      expect(screen.getByText("Why we softened the tone")).toBeInTheDocument()
+      const details = screen.getByTestId("reframe-explanation")
+      expect(details).toHaveClass("rounded-2xl")
+    } finally {
+      process.env.NEXT_PUBLIC_DEBUG_UI = originalFlag
+    }
+  })
 })
