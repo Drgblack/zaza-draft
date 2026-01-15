@@ -143,6 +143,21 @@ interface SnippetHistoryItem {
   }
 }
 
+export function resolveExplanationTier(
+  inputReframeTier: "tier1" | "tier2" | null,
+  deescalationSummary: DeescalationSummary | null,
+) {
+  if (inputReframeTier) {
+    return inputReframeTier
+  }
+
+  if (deescalationSummary?.wasDeescalated) {
+    return "tier1"
+  }
+
+  return null
+}
+
 export function MainEditor() {
   const [content, setContent] = useState("")
   const [selectedTone, setSelectedTone] = useState<ToneKey>("warm")
@@ -222,6 +237,10 @@ export function MainEditor() {
   const [pronounPreference, setPronounPreference] = useState<PronounPreference>("auto")
   const [mode, setMode] = useState<ModeKey>("parent_message")
   const [inputReframeTier, setInputReframeTier] = useState<"tier1" | "tier2" | null>(null)
+  const explanationTier = useMemo(
+    () => resolveExplanationTier(inputReframeTier, deescalationSummary),
+    [inputReframeTier, deescalationSummary],
+  )
   const [isGenerating, setIsGenerating] = useState(false)
   const [generationError, setGenerationError] = useState<string | null>(null)
   const [sensitivePreview, setSensitivePreview] = useState<string | null>(null)
@@ -1131,8 +1150,8 @@ Examples:
             )}
           </div>
         )}
-        {generatedDraft && draftMetadata && inputReframeTier && (
-          <ReframeExplanation tier={inputReframeTier} />
+        {generatedDraft && draftMetadata && explanationTier && (
+          <ReframeExplanation tier={explanationTier} />
         )}
       </main>
 
