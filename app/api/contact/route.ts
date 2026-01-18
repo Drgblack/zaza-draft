@@ -15,8 +15,9 @@ const MESSAGE_MAX = 4000
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 const RATE_LIMIT_WINDOW_MS = 10 * 60 * 1000
 const RATE_LIMIT_MAX = 5
-
-const rateLimitStore = new Map<string, number[]>()
+const RATE_LIMIT_STORE = new Map<string, number[]>()
+const RATE_LIMIT_ENABLED =
+  process.env.SUPPORT_RATE_LIMIT === "on" || process.env.NODE_ENV === "production"
 
 function getRateLimitKey(req: NextRequest) {
   const xForwardedFor = req.headers.get("x-forwarded-for")
@@ -50,18 +51,20 @@ function escapeHtml(s: string) {
 
 export async function POST(req: NextRequest) {
   try {
-    const rateLimitKey = getRateLimitKey(req)
-    const now = Date.now()
-    const history = rateLimitStore.get(rateLimitKey) ?? []
-    const windowed = history.filter((ts) => now - ts < RATE_LIMIT_WINDOW_MS)
-    if (windowed.length >= RATE_LIMIT_MAX) {
-      return Response.json(
-        { ok: false, error: "rate_limited", message: "Too many messages. Please wait a few minutes and try again." },
-        { status: 429 },
-      )
+    if (RATE_LIMIT_ENABLED && process.env.NODE_ENV !== "test") {
+      const rateLimitKey = getRateLimitKey(req)
+      const now = Date.now()
+      const history = RATE_LIMIT_STORE.get(rateLimitKey) ?? []
+      const windowed = history.filter((ts) => now - ts < RATE_LIMIT_WINDOW_MS)
+      if (windowed.length >= RATE_LIMIT_MAX) {
+        return Response.json(
+          { ok: false, error: "Too many requests. Please wait a few minutes and try again." },
+          { status: 429 },
+        )
+      }
+      windowed.push(now)
+      RATE_LIMIT_STORE.set(rateLimitKey, windowed)
     }
-    windowed.push(now)
-    rateLimitStore.set(rateLimitKey, windowed)
 
     const body = await req.json()
     const nameRaw = typeof body?.name === "string" ? body.name : ""
@@ -212,24 +215,31 @@ export async function POST(req: NextRequest) {
     }
 
     const lindyUrl = process.env.LINDY_WEBHOOK_URL?.trim()
-    if (lindyUrl) {
-      try {
-        await fetch(lindyUrl, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            ticketId,
-            source: SUPPORT_SOURCE,
-            name,
-            email,
-            message,
-            createdAt,
-            firestoreDocId: firestoreDocId ?? undefined,
-          }),
-        })
-      } catch (error) {
-        console.error("[contact] Lindy webhook failed", error)
-      }
+    const lindySecret = process.env.LINDY_WEBHOOK_SECRET?.trim()
+    if (lindyUrl && lindySecret) {
+      void (async () => {
+        try {
+          await fetch(lindyUrl, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${lindySecret}`,
+            },
+            body: JSON.stringify({
+              ticketId,
+              source: SUPPORT_SOURCE,
+              name,
+              email,
+              message,
+              locale,
+              userAgent,
+              createdAt,
+            }),
+          })
+        } catch (error) {
+          console.warn("[contact] Lindy webhook failed", error)
+        }
+      })()
     }
 
     return Response.json({ ok: true, ticketId })

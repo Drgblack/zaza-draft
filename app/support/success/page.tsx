@@ -45,7 +45,10 @@ function SupportSuccessContent() {
         </p>
         <h1 className="mt-4 text-3xl font-semibold">Thanks - we have your message.</h1>
         <p className="mt-2 text-sm text-muted-foreground">
-          We aim to reply as soon as possible. If you hear from us, just mention the ticket below.
+          Our support team has received your message and will reply as soon as possible.
+        </p>
+        <p className="text-sm text-muted-foreground">
+          Please quote your ticket ID if you contact us again.
         </p>
 
         {ticketId ? (
@@ -72,13 +75,13 @@ function SupportSuccessContent() {
         <div className="mt-8 flex flex-wrap gap-3">
           <Link
             href="/"
-            className="inline-flex items-center justify-center rounded-md border border-transparent bg-primary px-4 py-2 text-sm font-medium text-white"
+            className="inline-flex items-center justify-center rounded-md border border-transparent bg-primary px-4 py-2 text-sm font-medium text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
           >
-            Go back to the app
+            Back to Zaza Draft
           </Link>
           <Link
             href="/support/contact"
-            className="inline-flex items-center justify-center rounded-md border px-4 py-2 text-sm font-medium text-foreground"
+            className="inline-flex items-center justify-center rounded-md border border-transparent bg-white/70 px-4 py-2 text-sm font-medium text-foreground shadow-sm transition hover:bg-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
           >
             Send another message
           </Link>
