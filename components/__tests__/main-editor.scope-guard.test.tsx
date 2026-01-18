@@ -69,6 +69,20 @@ vi.mock("@/hooks/use-auth", () => {
   }
 })
 
+const createMockSearchParams = () => {
+  const params = new URLSearchParams()
+  return {
+    get: (key: string) => params.get(key),
+    getAll: (key: string) => params.getAll(key),
+    has: (key: string) => params.has(key),
+    entries: () => params.entries(),
+    keys: () => params.keys(),
+    values: () => params.values(),
+    toString: () => params.toString(),
+    [Symbol.iterator]: () => params.entries(),
+  }
+}
+
 vi.mock("next/navigation", () => ({
   useRouter: () => ({
     push: vi.fn(),
@@ -77,6 +91,9 @@ vi.mock("next/navigation", () => ({
     back: vi.fn(),
     refresh: vi.fn(),
   }),
+  usePathname: () => "/",
+  useSearchParams: () => createMockSearchParams(),
+  useParams: () => ({}),
 }))
 
 vi.mock("@/lib/analytics", () => ({
@@ -228,16 +245,19 @@ function getPromptTextarea() {
   return el as HTMLTextAreaElement
 }
 
-function clickGenerateButton() {
-  // Your DOM often contains the raw i18n key "button.generate" (as in the failure output).
-  const btn =
-    screen.queryByRole("button", { name: /button\.generate/i }) ??
-    screen.queryByRole("button", { name: /generate/i }) ??
-    screen.queryByRole("button", { name: /entwurf/i }) ??
-    screen.queryByRole("button", { name: /draft/i }) ??
-    screen.getAllByRole("button")[0]
+function findGenerateButton() {
+  const matchers = [/button\.generate/i, /generate/i, /entwurf/i, /draft/i]
+  for (const matcher of matchers) {
+    const button = screen.queryByRole("button", { name: matcher })
+    if (button) {
+      return button
+    }
+  }
+  throw new Error("Generate button not found")
+}
 
-  fireEvent.click(btn)
+function clickGenerateButton() {
+  fireEvent.click(findGenerateButton())
 }
 
 describe("MainEditor scope guard notice", () => {

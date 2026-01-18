@@ -9,12 +9,6 @@ const nextConfig = {
       parser: { amd: false },
     });
 
-    // Prevent bundling the Brevo SDK in server builds
-    if (isServer) {
-      config.externals = config.externals || [];
-      config.externals.push("sib-api-v3-sdk");
-    }
-
     return config;
   },
 };

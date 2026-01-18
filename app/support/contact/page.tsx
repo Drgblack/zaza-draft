@@ -1,23 +1,32 @@
-﻿"use client"
+"use client"
 
 import * as React from "react"
+import { useRouter } from "next/navigation"
+
+import { useLocale } from "@/hooks/use-locale"
 
 type Status =
   | { state: "idle" }
   | { state: "loading" }
-  | { state: "success" }
   | { state: "error"; message: string }
 
+const ERROR_MESSAGE =
+  "Sorry - something went wrong. Please try again or email support@zazatechnologies.com."
+
 export default function SupportContactPage() {
+  const { t } = useLocale()
+  const router = useRouter()
   const [name, setName] = React.useState("")
   const [email, setEmail] = React.useState("")
   const [message, setMessage] = React.useState("")
-  const [company, setCompany] = React.useState("") // honeypot
+  const [company, setCompany] = React.useState("")
   const [status, setStatus] = React.useState<Status>({ state: "idle" })
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault()
-    if (status.state === "loading") return
+    if (status.state === "loading") {
+      return
+    }
 
     setStatus({ state: "loading" })
 
@@ -29,40 +38,50 @@ export default function SupportContactPage() {
           name,
           email,
           message,
-          company, // honeypot
+          company,
         }),
       })
 
-      const data = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string }
+      const data = (await res.json().catch(() => ({}))) as {
+        ok?: boolean
+        ticketId?: string
+        message?: string
+      }
 
-      if (!res.ok || !data.ok) {
-        setStatus({
-          state: "error",
-          message:
-            "Sorry - something went wrong. Please try again or email support@zazatechnologies.com.",
-        })
+      if (!res.ok || !data.ok || !data.ticketId) {
+        const friendlyMessage = data.message ?? ERROR_MESSAGE
+        setStatus({ state: "error", message: friendlyMessage })
         return
       }
 
-      setStatus({ state: "success" })
-      setMessage("")
-      // keep name/email to reduce friction for follow-ups
+      router.push(`/support/success?ticket=${encodeURIComponent(data.ticketId)}`)
     } catch {
-      setStatus({
-        state: "error",
-        message:
-          "Sorry - something went wrong. Please try again or email support@zazatechnologies.com.",
-      })
+      setStatus({ state: "error", message: ERROR_MESSAGE })
     }
   }
 
   return (
     <main className="min-h-screen px-4 py-10">
       <div className="mx-auto w-full max-w-xl">
-        <h1 className="text-3xl font-semibold tracking-tight">Contact support</h1>
-        <p className="mt-2 text-sm text-muted-foreground">
-          Send us a message and we will get back to you as soon as possible.
-        </p>
+        <header className="space-y-3">
+          <div className="flex flex-wrap items-center gap-3">
+            <h1
+              data-testid="support-contact-heading"
+              className="text-3xl font-semibold tracking-tight"
+            >
+              {t("support.contact.heading")}
+            </h1>
+            <a
+              data-testid="support-contact-email-link"
+              href="mailto:support@zazatechnologies.com"
+              className="text-sm font-medium text-black underline"
+            >
+              {t("support.contact.secondaryAction")}
+            </a>
+          </div>
+          <p className="text-sm text-black">{t("support.contact.body")}</p>
+          <p className="text-sm text-black">{t("support.contact.description")}</p>
+        </header>
 
         <form onSubmit={onSubmit} className="mt-8 space-y-4" noValidate>
           <div className="space-y-2">
@@ -77,7 +96,7 @@ export default function SupportContactPage() {
               required
               maxLength={120}
               value={name}
-              onChange={(e) => setName(e.target.value)}
+              onChange={(event) => setName(event.target.value)}
               className="w-full rounded-md border px-3 py-2 text-sm"
             />
           </div>
@@ -94,7 +113,7 @@ export default function SupportContactPage() {
               required
               maxLength={254}
               value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              onChange={(event) => setEmail(event.target.value)}
               className="w-full rounded-md border px-3 py-2 text-sm"
             />
           </div>
@@ -110,12 +129,11 @@ export default function SupportContactPage() {
               maxLength={4000}
               rows={6}
               value={message}
-              onChange={(e) => setMessage(e.target.value)}
+              onChange={(event) => setMessage(event.target.value)}
               className="w-full rounded-md border px-3 py-2 text-sm"
             />
           </div>
 
-          {/* Honeypot: hide from humans, visible to bots */}
           <div className="hidden" aria-hidden="true">
             <label htmlFor="company">Company</label>
             <input
@@ -123,18 +141,13 @@ export default function SupportContactPage() {
               name="company"
               type="text"
               value={company}
-              onChange={(e) => setCompany(e.target.value)}
+              onChange={(event) => setCompany(event.target.value)}
               tabIndex={-1}
               autoComplete="off"
             />
           </div>
 
-          <div aria-live="polite" className="min-h-[24px] text-sm">
-            {status.state === "success" ? (
-              <p className="text-green-700">
-                Thanks - your message has been sent. We will reply shortly.
-              </p>
-            ) : null}
+          <div aria-live="polite" className="min-h-[24px] text-sm text-left">
             {status.state === "error" ? <p className="text-red-700">{status.message}</p> : null}
           </div>
 

@@ -62,6 +62,33 @@ function getSentencesFromText(body: string, locale?: string) {
     .filter(Boolean)
 }
 
+function splitLeadingGreeting(sentences: string[], trimmedBody: string, locale?: string) {
+  if (!locale?.toLowerCase().startsWith("de")) {
+    return sentences
+  }
+  if (!sentences.length) {
+    return sentences
+  }
+  const first = sentences[0]
+  if (!GREETING_REGEX.test(first)) {
+    return sentences
+  }
+  const commaIndex = first.indexOf(",")
+  if (commaIndex < 0) {
+    return sentences
+  }
+  const greetingFragment = first.slice(0, commaIndex + 1).trim()
+  const remainder = first.slice(commaIndex + 1).trim()
+  if (!greetingFragment || !remainder) {
+    return sentences
+  }
+  const offset = trimmedBody.indexOf(greetingFragment)
+  if (offset !== 0) {
+    return sentences
+  }
+  return [greetingFragment, remainder, ...sentences.slice(1)]
+}
+
 function calculateMinParagraphCount(bodyLength: number, sentenceCount: number) {
   if (bodyLength > LONG_BODY_THRESHOLD && sentenceCount >= MIN_SENTENCES_FOR_MULTIPLE_PARAGRAPHS) {
     return 3
@@ -191,7 +218,8 @@ function buildParagraphs(body: string, locale?: string): string[] {
     return [trimmedBody]
   }
 
-  const sentences = [...sentenceCandidates]
+  const normalizedSentences = splitLeadingGreeting(sentenceCandidates, trimmedBody, locale)
+  const sentences = [...normalizedSentences]
   let greeting: string | null = null
   if (sentences.length && GREETING_REGEX.test(sentences[0])) {
     greeting = sentences.shift()!.trim()

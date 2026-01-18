@@ -11,7 +11,7 @@ export default defineConfig({
     },
   },
   test: {
-    environment: "node",
+    environment: "jsdom",
     globals: true,
     include: [
       "lib/**/*.test.{ts,tsx}",
@@ -19,5 +19,6 @@ export default defineConfig({
       "app/**/*.test.{ts,tsx}",
       "hooks/**/*.test.{ts,tsx}",
     ],
+    setupFiles: ["test/setup/test-setup.ts"],
   },
 })
