@@ -53,21 +53,21 @@ function SupportSuccessContent() {
 
         {ticketId ? (
           <div className="mt-6 flex flex-col gap-2 text-sm">
-            <div className="flex items-center gap-3">
-              <p className="flex items-center gap-2 font-mono text-xs tracking-wider text-foreground">
+            <div className="flex flex-wrap items-center gap-3">
+              <span className="flex items-center gap-2 font-mono text-xs tracking-wider text-foreground">
                 Ticket ID:
                 <span className="inline-flex items-center rounded-md bg-muted px-2 py-1">{ticketId}</span>
-              </p>
+              </span>
               <button
                 type="button"
                 onClick={handleCopy}
-                className="inline-flex items-center justify-center rounded-md border border-gray-300 bg-white px-3 py-1 text-xs font-medium text-gray-900 transition hover:bg-gray-50"
+                className="inline-flex items-center justify-center rounded-md border border-gray-300 bg-white px-3 py-1 text-xs font-medium text-gray-900 transition hover:bg-gray-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
               >
                 Copy ticket ID
               </button>
             </div>
-            <p aria-live="polite" className="text-xs text-muted-foreground">
-              {copied ? "Copied" : ""}
+            <p aria-live="polite" className="h-4 text-xs text-muted-foreground">
+              {copied ? "Ticket ID copied" : ""}
             </p>
           </div>
         ) : null}

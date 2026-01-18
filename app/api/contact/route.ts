@@ -15,11 +15,27 @@ const MESSAGE_MAX = 4000
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 const RATE_LIMIT_WINDOW_MS = 10 * 60 * 1000
 const RATE_LIMIT_MAX = 5
-const RATE_LIMIT_STORE = new Map<string, number[]>()
+
+type RateLimitRecord = { timestamps: number[] }
+type GlobalWithLimiter = typeof globalThis & {
+  __supportContactRateLimiter?: Map<string, RateLimitRecord>
+}
+const globalWithLimiter = globalThis as GlobalWithLimiter
+
+const RATE_LIMIT_STORE = (() => {
+  if (globalWithLimiter.__supportContactRateLimiter) {
+    return globalWithLimiter.__supportContactRateLimiter
+  }
+
+  const store = new Map<string, RateLimitRecord>()
+  globalWithLimiter.__supportContactRateLimiter = store
+  return store
+})()
+
 const RATE_LIMIT_ENABLED =
   process.env.SUPPORT_RATE_LIMIT === "on" || process.env.NODE_ENV === "production"
 
-function getRateLimitKey(req: NextRequest) {
+function getRateLimitKey(req: NextRequest, email?: string) {
   const xForwardedFor = req.headers.get("x-forwarded-for")
   if (xForwardedFor) {
     return xForwardedFor.split(",")[0].trim()
@@ -32,7 +48,10 @@ function getRateLimitKey(req: NextRequest) {
 
   const userAgent = req.headers.get("user-agent") ?? ""
   const acceptLanguage = req.headers.get("accept-language") ?? ""
-  return createHash("sha256").update(`${userAgent}|${acceptLanguage}`).digest("hex")
+  const emailPart = email ? `|${email.toLowerCase()}` : ""
+  return createHash("sha256")
+    .update(`${userAgent}|${acceptLanguage}${emailPart}`)
+    .digest("hex")
 }
 
 function escapeHtml(s: string) {
@@ -51,21 +70,6 @@ function escapeHtml(s: string) {
 
 export async function POST(req: NextRequest) {
   try {
-    if (RATE_LIMIT_ENABLED && process.env.NODE_ENV !== "test") {
-      const rateLimitKey = getRateLimitKey(req)
-      const now = Date.now()
-      const history = RATE_LIMIT_STORE.get(rateLimitKey) ?? []
-      const windowed = history.filter((ts) => now - ts < RATE_LIMIT_WINDOW_MS)
-      if (windowed.length >= RATE_LIMIT_MAX) {
-        return Response.json(
-          { ok: false, error: "Too many requests. Please wait a few minutes and try again." },
-          { status: 429 },
-        )
-      }
-      windowed.push(now)
-      RATE_LIMIT_STORE.set(rateLimitKey, windowed)
-    }
-
     const body = await req.json()
     const nameRaw = typeof body?.name === "string" ? body.name : ""
     const emailRaw = typeof body?.email === "string" ? body.email : ""
@@ -79,6 +83,21 @@ export async function POST(req: NextRequest) {
     const name = nameRaw.trim()
     const email = emailRaw.trim()
     const message = messageRaw.trim()
+
+    if (RATE_LIMIT_ENABLED && process.env.NODE_ENV !== "test") {
+      const rateLimitKey = getRateLimitKey(req, email)
+      const now = Date.now()
+      const record = RATE_LIMIT_STORE.get(rateLimitKey) ?? { timestamps: [] }
+      const windowed = record.timestamps.filter((ts) => now - ts < RATE_LIMIT_WINDOW_MS)
+      if (windowed.length >= RATE_LIMIT_MAX) {
+        return Response.json(
+          { ok: false, error: "Too many requests. Please try again shortly." },
+          { status: 429 },
+        )
+      }
+      windowed.push(now)
+      RATE_LIMIT_STORE.set(rateLimitKey, { timestamps: windowed })
+    }
 
     if (!name || !email || !message) {
       return Response.json({ ok: false, error: "Missing fields" }, { status: 400 })
