@@ -1,4 +1,4 @@
-"use client"
+﻿"use client"
 
 import Link from "next/link"
 
@@ -45,6 +45,16 @@ export default function SupportContactPage() {
                   {t("support.contact.primaryAction")}
                 </Button>
               </Link>
+
+              <a
+                href="mailto:support@zazatechnologies.com"
+                data-testid="support-contact-email-link"
+                className="inline-flex"
+              >
+                <Button variant="secondary">
+                  {t("support.contact.secondaryAction")}
+                </Button>
+              </a>
             </div>
           </div>
         </main>
@@ -52,3 +62,4 @@ export default function SupportContactPage() {
     </div>
   )
 }
+

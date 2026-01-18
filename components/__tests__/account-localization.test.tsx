@@ -1,4 +1,5 @@
-﻿import { describe, it, expect, vi } from "vitest"
+﻿// @vitest-environment jsdom
+import { describe, it, expect, vi } from "vitest"
 import { render, screen } from "@testing-library/react"
 
 // Mock auth as signed-in
@@ -46,3 +47,4 @@ describe("Account page localization", () => {
     ).toBeTruthy()
   })
 })
+
