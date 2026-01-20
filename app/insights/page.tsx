@@ -502,7 +502,7 @@ export default function InsightsPage() {
               direction: "up",
               color: "text-green-600 dark:text-green-400",
             }}
-            icon={<span className="text-2xl">âœ¨</span>}
+            icon={<span className="text-2xl">✨</span>}
             tooltip={t("insights.qualityScore.tooltip")}
             sparklineData={[85, 87, 89, 90, 91, 91, 92]}
           />
