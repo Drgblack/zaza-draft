@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server"
+import { NextResponse, type RouteHandlerContext } from "next/server"
 import { authorizeFirebaseRequest } from "@/lib/firebase/server"
 
 interface RequestPayload {
@@ -8,9 +8,9 @@ interface RequestPayload {
 
 export async function POST(
   request: Request,
-  { params }: { params: { scanId: string } },
+  context: RouteHandlerContext<{ scanId: string }>,
 ) {
-  const { scanId } = params
+  const { scanId } = context.params
   if (!scanId) {
     return NextResponse.json(
       { success: false, error: { code: "MISSING_ID", message: "Missing scan identifier." } },

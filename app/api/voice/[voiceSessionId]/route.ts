@@ -1,11 +1,11 @@
-import { NextResponse } from "next/server"
+import { NextResponse, type RouteHandlerContext } from "next/server"
 import { authorizeFirebaseRequest } from "@/lib/firebase/server"
 
 export async function GET(
   request: Request,
-  { params }: { params: { voiceSessionId: string } },
+  context: RouteHandlerContext<{ voiceSessionId: string }>,
 ) {
-  const { voiceSessionId } = params
+  const { voiceSessionId } = context.params
   if (!voiceSessionId) {
     return NextResponse.json(
       { success: false, error: { code: "MISSING_ID", message: "Missing session identifier." } },
