@@ -929,6 +929,401 @@ function detectFabrication(text: string, context: Context): boolean {
   return false;
 }
 ```
+3.5 Panic Scan & Voice-to-Calm (Zero-Cognitive-Load Inputs)
+Overview
+
+Panic Scan and Voice-to-Calm introduce zero-cognitive-load input paths to Zaza Draft, enabling teachers to use the product during moments of emotional stress without typing, copying, or formatting text.
+
+These features serve as alternative entry points into Draft’s existing safety-first rewrite engine.
+
+They do not replace the traditional text editor.
+They expand it.
+
+Objectives
+
+Reduce activation energy during moments of anxiety
+
+Enable Draft usage without typing or text copying
+
+Support real-world teacher workflows (screenshots, phone photos, voice)
+
+Increase early value realization and subscription conversion
+
+Maintain Draft’s core principles:
+
+intent preservation
+
+de-escalation
+
+professional safety
+
+zero memory between sessions
+
+Supported Input Types
+Input Type	Description
+Screenshot upload	Desktop or mobile screenshots of received messages
+Camera photo	Mobile device photo of screen or printed message
+Voice recording	Spoken emotional draft converted to calm professional text
+Core Entry Points (UI)
+
+Draft exposes three parallel input modes:
+
+✏️ Safe Draft
+Manual text entry (existing behaviour)
+
+📸 Panic Scan
+Upload screenshot or photo of received message
+
+🎤 Voice-to-Calm
+Speak emotional response aloud and convert to safe text
+
+All three ultimately converge into the same rewrite engine.
+
+Feature 1: Panic Scan (Screenshot → Analysis → Safe Reply)
+User Flow
+Teacher receives stressful message
+→ Takes screenshot or photo
+→ Opens Draft
+→ Clicks "Panic Scan"
+→ Uploads image
+→ Sees immediate analysis
+→ Clicks "Help me reply safely"
+→ Draft editor opens with extracted context
+
+Panic Scan Output Structure
+
+Every scan produces the following structured response:
+
+What this is
+High-level classification of message type
+
+How this might land emotionally
+Receiver-side tone interpretation
+
+Professional risk level
+Low / Medium / High escalation risk
+
+What this likely means
+Underlying concern or motivation
+
+Primary suggested response approach
+Example:
+
+acknowledge concern
+
+provide information
+
+schedule meeting
+
+escalate to leadership
+
+CTA:
+“Help me reply safely”
+
+Message Classification Schema
+interface MessageClassification {
+  messageType:
+    | "parent_complaint"
+    | "student_concern"
+    | "admin_feedback"
+    | "colleague_conflict"
+    | "official_notice"
+    | "urgent_request"
+    | "general_inquiry";
+
+  emotionalTone:
+    | "angry"
+    | "frustrated"
+    | "passive_aggressive"
+    | "demanding"
+    | "anxious"
+    | "neutral"
+    | "supportive";
+
+  riskLevel: "low" | "medium" | "high";
+  urgency: "low" | "medium" | "high";
+
+  confidenceScore: number; // 0–100
+}
+
+Panic Scan Analysis Output
+interface PanicScanAnalysis {
+  summary: string;
+  emotionalInterpretation: string;
+  professionalRisk: string;
+  likelyMeaning: string;
+  suggestedResponse:
+    | "acknowledge_concern"
+    | "provide_info"
+    | "schedule_meeting"
+    | "escalate_to_admin";
+}
+
+Panic Scan Processing Pipeline
+Image Upload
+→ Cloud Storage (temporary)
+→ OCR extraction (Google Vision)
+→ Text normalization
+→ Message classification (GPT-4)
+→ Risk & tone analysis
+→ Structured explanation generation
+→ Safe-reply CTA
+
+OCR Processing
+
+Provider: Google Vision API
+
+Supported formats:
+
+JPG
+
+PNG
+
+HEIC
+
+Maximum file size: 5MB
+
+Minimum image resolution: 600px width recommended
+
+Normalization steps:
+
+whitespace cleanup
+
+emoji removal
+
+OCR artefact correction
+
+punctuation stabilization
+
+Panic Scan API Endpoints
+Upload image
+POST /api/panic-scan/upload
+
+Request (multipart/form-data):
+{
+  file: File;
+  sessionId: string;
+  platform: "web" | "mobile_ios" | "mobile_android";
+}
+
+Response:
+{
+  success: boolean;
+  data: {
+    scanId: string;
+    status: "processing";
+  };
+}
+
+Retrieve analysis
+GET /api/panic-scan/{scanId}/analysis
+
+Response:
+{
+  success: boolean;
+  data: {
+    status: "processing" | "completed" | "failed";
+    extractedText?: string;
+    classification?: MessageClassification;
+    analysis?: PanicScanAnalysis;
+    processingTime?: number;
+  };
+}
+
+Generate safe reply
+POST /api/panic-scan/{scanId}/generate-reply
+
+Request:
+{
+  userIntent?: "acknowledge_concern" | "provide_info" | "schedule_meeting";
+  tonePreference?: "professional" | "warm" | "direct" | "empathetic";
+}
+
+
+This endpoint reuses the existing Draft rewrite engine with injected OCR context.
+
+Panic Scan Storage Model
+Firestore Collection
+panic_scans/{scanId}
+
+interface PanicScan {
+  scanId: string;
+  userId: string;
+  fileName: string;
+  status: "processing" | "completed" | "failed";
+  extractedText?: string;
+  classification?: MessageClassification;
+  analysis?: PanicScanAnalysis;
+  createdAt: Timestamp;
+  expiresAt: Timestamp; // 24 hours
+}
+
+Feature 2: Voice-to-Calm (Spoken Emotion → Safe Text)
+User Flow
+Teacher feels frustrated
+→ Opens Draft
+→ Taps microphone icon
+→ Speaks freely (up to 90 seconds)
+→ Transcription appears
+→ Emotion intensity analysed
+→ Calm professional version generated
+→ Teacher edits or uses result
+
+Voice Processing Pipeline
+Audio recording
+→ Cloud Storage (temporary)
+→ Speech-to-Text
+→ Linguistic emotion analysis
+→ Intent extraction
+→ Safe rewrite generation
+→ Emotional comparison output
+
+Speech-to-Text
+
+Provider: Google Speech-to-Text
+
+Supported formats:
+
+WAV
+
+MP3
+
+M4A
+
+Max duration: 90 seconds
+
+Default language: en-GB
+
+Emotion Analysis (Text-Based)
+
+Emotion detection is derived from linguistic indicators only:
+
+negative vocabulary density
+
+intensifiers
+
+capitalisation
+
+punctuation frequency
+
+urgency phrases
+
+interface EmotionAnalysis {
+  frustrationScore: number; // 0–100
+  urgencyScore: number;
+  defensivenessScore: number;
+  primaryEmotion: "frustrated" | "angry" | "anxious" | "neutral";
+  detectedNegativity: boolean;
+}
+
+Voice API Endpoints
+Upload recording
+POST /api/voice/upload
+
+Request:
+{
+  audio: File;
+  language: string; // default en-GB
+  sessionId: string;
+}
+
+Response:
+{
+  success: boolean;
+  data: {
+    voiceSessionId: string;
+    status: "processing";
+  };
+}
+
+Retrieve transcription
+GET /api/voice/{voiceSessionId}
+
+Response:
+{
+  success: boolean;
+  data: {
+    status: "completed";
+    transcribedText: string;
+    emotionAnalysis: EmotionAnalysis;
+  };
+}
+
+Generate safe rewrite
+POST /api/voice/{voiceSessionId}/safe-rewrite
+
+Request:
+{
+  targetTone?: "professional_calm" | "collaborative" | "empathetic";
+  preserveIntent?: boolean;
+}
+
+Response:
+{
+  success: boolean;
+  data: {
+    originalText: string;
+    safeVersion: string;
+    emotionReduction: {
+      frustrationChange: string;
+      professionalImprovement: string;
+    };
+    keyChanges: string[];
+  };
+}
+
+Voice Storage Model
+voice_sessions/{voiceSessionId}
+
+interface VoiceSession {
+  voiceSessionId: string;
+  userId: string;
+  fileName: string;
+  language: string;
+  status: "processing" | "completed" | "failed";
+  transcribedText?: string;
+  emotionAnalysis?: EmotionAnalysis;
+  safeRewrite?: string;
+  createdAt: Timestamp;
+  expiresAt: Timestamp; // 1 hour
+}
+
+Privacy & Safety Guarantees
+
+Screenshots deleted automatically after 24 hours
+
+Audio deleted automatically after 1 hour
+
+No media retained long-term
+
+No model training on user content
+
+No cross-session memory
+
+No student records stored
+
+No identity extraction attempted
+
+Why this belongs in v1 go-live
+
+These features:
+
+replicate Cal.ai-level input physics
+
+eliminate friction at emotional peak
+
+dramatically increase demo-ability
+
+create visual “wow” moments
+
+preserve Draft’s safety-first positioning
+
+Draft becomes:
+
+The fastest way from panic to professionalism.
+
+---
+
 
 #### System Prompt Template (Structured for Safety)
 
