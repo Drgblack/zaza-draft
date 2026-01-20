@@ -46,6 +46,12 @@ export async function POST(request: NextRequest) {
   }
 
   const { uid, firestore } = authContext
+  if (!firestore) {
+    return NextResponse.json(
+      { success: false, error: { code: "FIRESTORE_UNAVAILABLE", message: "Unable to access Firestore." } },
+      { status: 500 },
+    )
+  }
   const docRef = firestore.collection("panic_scans").doc(scanId)
   const snapshot = await docRef.get()
   if (!snapshot.exists) {

@@ -27,6 +27,12 @@ export async function GET(request: NextRequest) {
   }
 
   const { uid, firestore } = authContext
+  if (!firestore) {
+    return NextResponse.json(
+      { success: false, error: { code: "FIRESTORE_UNAVAILABLE", message: "Unable to access Firestore." } },
+      { status: 500 },
+    )
+  }
   const docRef = firestore.collection("voice_sessions").doc(voiceSessionId)
   const snapshot = await docRef.get()
   if (!snapshot.exists) {
