@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useMemo, useState } from "react"
+import { ChangeEvent, useEffect, useMemo, useState } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
@@ -47,8 +47,16 @@ export default function PanicScanPage() {
     [t],
   )
   const selectedFileInfo = file
-    ? `${t("panicScanSelected")}: ${file.name} · ${(file.size / 1024 / 1024).toFixed(2)} MB`
+    ? `${t("panicScanSelected")}: ${file.name} • ${(file.size / 1024 / 1024).toFixed(2)} MB`
     : null
+
+  const handleFileChange = (event: ChangeEvent<HTMLInputElement>) => {
+    const nextFile = event.target.files?.[0] ?? null
+    setFile(nextFile)
+    if (nextFile) {
+      setError(null)
+    }
+  }
 
   const handleSubmit = async () => {
     if (panicConfigMissing) {
@@ -149,7 +157,7 @@ export default function PanicScanPage() {
             accept="image/*"
             capture="environment"
             className="text-xs text-white"
-            onChange={(event) => setFile(event.target.files?.[0] ?? null)}
+            onChange={handleFileChange}
           />
           {selectedFileInfo && (
             <p className="mt-2 text-xs text-white/70">{selectedFileInfo}</p>
@@ -174,10 +182,17 @@ export default function PanicScanPage() {
             <Button
               onClick={handleSubmit}
               disabled={!file || isUploading || panicConfigMissing}
+              type="button"
+              loading={isUploading}
               className={primaryButtonClass}
             >
               {isUploading ? t("panicScanUploading") : t("panicScanButton")}
             </Button>
+            {isUploading && (
+              <p className="text-center text-xs text-white/70" role="status">
+                {t("panicScanUploading")}
+              </p>
+            )}
             {!file && (
               <p className="text-center text-xs text-white/60">
                 {t("panicScan.helper.selectFile")}

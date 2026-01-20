@@ -1,6 +1,6 @@
 ﻿"use client"
 
-import { useState } from "react"
+import { ChangeEvent, useState } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
@@ -29,8 +29,16 @@ export default function VoiceCapturePage() {
   const primaryButtonClass =
     "w-full rounded-xl bg-indigo-900 px-4 py-3 text-base font-semibold text-white shadow-lg shadow-black/40 transition duration-200 hover:bg-indigo-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-indigo-400 focus-visible:ring-offset-slate-900 disabled:bg-indigo-600 disabled:text-white/70 disabled:cursor-not-allowed"
   const selectedFileInfo = file
-    ? `${t("voiceSelected")}: ${file.name} · ${(file.size / 1024 / 1024).toFixed(2)} MB`
+    ? `${t("voiceSelected")}: ${file.name} • ${(file.size / 1024 / 1024).toFixed(2)} MB`
     : null
+
+  const handleFileChange = (event: ChangeEvent<HTMLInputElement>) => {
+    const nextFile = event.target.files?.[0] ?? null
+    setFile(nextFile)
+    if (nextFile) {
+      setError(null)
+    }
+  }
 
   const handleSubmit = async () => {
     if (voiceConfigMissing) {
@@ -128,7 +136,7 @@ export default function VoiceCapturePage() {
               accept="audio/*"
               capture="environment"
               className="text-xs text-white"
-              onChange={(event) => setFile(event.target.files?.[0] ?? null)}
+              onChange={handleFileChange}
             />
           </div>
           {selectedFileInfo && (
@@ -154,10 +162,17 @@ export default function VoiceCapturePage() {
             <Button
               onClick={handleSubmit}
               disabled={!file || isUploading || voiceConfigMissing}
+              type="button"
+              loading={isUploading}
               className={primaryButtonClass}
             >
               {isUploading ? t("voiceProcessing") : t("voiceButton")}
             </Button>
+            {isUploading && (
+              <p className="text-center text-xs text-white/70" role="status">
+                {t("voiceProcessing")}
+              </p>
+            )}
             {!file && (
               <p className="text-center text-xs text-white/60">{t("voice.helper.selectFile")}</p>
             )}
