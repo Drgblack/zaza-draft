@@ -23,7 +23,7 @@ import type { DraftLanguage, DraftMode, PronounPreference } from "@/lib/types"
 import { MODE_LABEL_KEYS, DEFAULT_DRAFT_MODE } from "@/lib/draft-mode"
 import { isValidDraftRequest, OUT_OF_SCOPE_REDIRECT_MESSAGE } from "@/lib/draft/scope-guard"
 import Link from "next/link"
-import { FileText, Info, Mail, MessageCircle, Sun, Target, Users } from "lucide-react"
+import { Camera, FileText, Image, Info, Mail, MessageCircle, Mic, Sun, Target, Users } from "lucide-react"
 import type { LucideIcon } from "lucide-react"
 import { formatGreetingDisplay } from "@/lib/text/greeting-display"
 import { saveLastRunTimestamp } from "@/lib/diagnostics/local-storage"
@@ -91,6 +91,40 @@ const LOADING_MESSAGES = [
   "Selecting the best tone...",
   "Crafting your message...",
 ] as const
+
+const PREFILL_STORAGE_KEY = "zazaDraftPrefill"
+
+type InputModeCard = {
+  id: string
+  title: string
+  description: string
+  icon: LucideIcon
+  action: { type: "focus"; label: string } | { type: "link"; href: string; label: string }
+}
+
+const INPUT_MODE_CARDS: InputModeCard[] = [
+  {
+    id: "safe-draft",
+    title: "Safe Draft",
+    description: "Type directly into the editor for precise control.",
+    icon: FileText,
+    action: { type: "focus", label: "Continue in editor" },
+  },
+  {
+    id: "panic-scan",
+    title: "Panic Scan",
+    description: "Upload a screenshot or photo and let Zaza explain and guide replies.",
+    icon: Image,
+    action: { type: "link", href: "/panic-scan", label: "Upload screenshot" },
+  },
+  {
+    id: "voice-to-calm",
+    title: "Voice-to-Calm",
+    description: "Speak emotionally-loaded thoughts and get a calm rewrite instantly.",
+    icon: Mic,
+    action: { type: "link", href: "/voice", label: "Record voice" },
+  },
+]
 
 const GENERATION_ERROR_MAP: Record<
   string,
@@ -280,6 +314,10 @@ export function MainEditor() {
   const [dontShowWelcome, setDontShowWelcome] = useState(false)
   const [welcomeDismissed, setWelcomeDismissed] = useState(false)
   const textareaRef = useRef<HTMLTextAreaElement | null>(null)
+  const focusEditor = useCallback(() => {
+    textareaRef.current?.focus()
+  }, [])
+  const [prefillApplied, setPrefillApplied] = useState(false)
   const adjustTextareaHeight = useCallback(() => {
     const el = textareaRef.current
     if (!el) return
@@ -293,6 +331,29 @@ export function MainEditor() {
   useEffect(() => {
     adjustTextareaHeight()
   }, [content, adjustTextareaHeight])
+
+  useEffect(() => {
+    if (prefillApplied) {
+      return
+    }
+
+    if (content.trim()) {
+      setPrefillApplied(true)
+      return
+    }
+
+    if (typeof window === "undefined") {
+      return
+    }
+
+    const stored = sessionStorage.getItem(PREFILL_STORAGE_KEY)
+    if (stored) {
+      setContent(stored)
+      sessionStorage.removeItem(PREFILL_STORAGE_KEY)
+    }
+
+    setPrefillApplied(true)
+  }, [content, prefillApplied])
 
   useEffect(() => {
     let isMounted = true
@@ -784,40 +845,77 @@ export function MainEditor() {
         <div className="space-y-6">
           {showWellbeingInsights && <MiniInsightsBar />}
 
-          <section className="glass shadow-lg rounded-xl p-6 sm:p-8 transition-all duration-200 border border-white/40 dark:border-white/30 bg-white/90 dark:bg-white/15 backdrop-blur-[32px]">
-            <textarea
-              ref={textareaRef}
-              value={content}
-              onChange={(e) => setContent(e.target.value)}
-              onInput={adjustTextareaHeight}
-              placeholder={
-                locale === "de-DE"
-                  ? `Beschreiben Sie die Situation...
+          <section className="space-y-4">
+            <div className="grid gap-3 md:grid-cols-3">
+              {INPUT_MODE_CARDS.map((card) => {
+                const Icon = card.icon
+                return (
+                  <article
+                    key={card.id}
+                    className="flex flex-col justify-between rounded-2xl border border-white/10 bg-white/10 p-4 text-sm text-white backdrop-blur"
+                  >
+                    <div className="space-y-2">
+                      <Icon className="h-6 w-6 text-purple-300" aria-hidden="true" />
+                      <p className="text-base font-semibold">{card.title}</p>
+                      <p className="text-xs text-white/70">{card.description}</p>
+                    </div>
+                    <div>
+                      {card.action.type === "focus" ? (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={focusEditor}
+                          className="w-full text-white border-white/40"
+                        >
+                          {card.action.label}
+                        </Button>
+                      ) : (
+                        <Link href={card.action.href}>
+                          <Button size="sm" className="w-full text-white">
+                            {card.action.label}
+                          </Button>
+                        </Link>
+                      )}
+                    </div>
+                  </article>
+                )
+              })}
+            </div>
+            <section className="glass shadow-lg rounded-xl p-6 sm:p-8 transition-all duration-200 border border-white/40 dark:border-white/30 bg-white/90 dark:bg-white/15 backdrop-blur-[32px]">
+              <textarea
+                ref={textareaRef}
+                value={content}
+                onChange={(e) => setContent(e.target.value)}
+                onInput={adjustTextareaHeight}
+                placeholder={
+                  locale === "de-DE"
+                    ? `Beschreiben Sie die Situation...
 
 Beispiele:
 • Schüler der 6. Klasse mit Schwierigkeiten bei Brüchen, braucht ermutigendes Feedback
 • Eltern-E-Mail zu Hausaufgaben, professioneller und einfühlsamer Ton
 • Zeugniskommentar für hervorragende Fortschritte beim Leseverständnis`
-                : `Describe the situation...
+                    : `Describe the situation...
 
 Examples:
 • Year 6 student struggling with fractions, needs encouraging feedback
 • Parent email about homework concerns, professional and empathetic tone
 • Report card comment for excellent progress in reading comprehension`
-            }
-            className="w-full min-h-[80px] max-h-[320px] text-base sm:text-lg text-gray-900 dark:text-white bg-transparent border-0 focus:outline-none focus:ring-0 resize-none placeholder:text-gray-600 dark:placeholder:text-white/60 leading-relaxed font-medium"
-              style={{
-                color: isDocumentDark ? "#ffffff" : undefined,
-              }}
-              aria-label={
-                locale === "de-DE" ? "Beschreiben Sie die Situation" : "Describe the situation you need help with"
-              }
-            />
-          <p className="mt-3 text-xs text-white/80">
-            {locale === "de-DE"
-              ? "Geben Sie keine vollständigen Namen, E-Mails, Telefonnummern oder Adressen ein."
-              : "Do not include student full names, email addresses, phone numbers, or street addresses."}
-          </p>
+                }
+                className="w-full min-h-[80px] max-h-[320px] text-base sm:text-lg text-gray-900 dark:text-white bg-transparent border-0 focus:outline-none focus:ring-0 resize-none placeholder:text-gray-600 dark:placeholder:text-white/60 leading-relaxed font-medium"
+                style={{
+                  color: isDocumentDark ? "#ffffff" : undefined,
+                }}
+                aria-label={
+                  locale === "de-DE" ? "Beschreiben Sie die Situation" : "Describe the situation you need help with"
+                }
+              />
+              <p className="mt-3 text-xs text-white/80">
+                {locale === "de-DE"
+                  ? "Geben Sie keine vollständigen Namen, E-Mails, Telefonnummern oder Adressen ein."
+                  : "Do not include student full names, email addresses, phone numbers, or street addresses."}
+              </p>
+            </section>
           </section>
 
           {outOfScopeNotice && (

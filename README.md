@@ -14,6 +14,19 @@ A quick mention here ensures Vercel sees a content change before the next previe
 - **Safety assumptions:** input is rejected if it contains detectable emails, phone numbers, or street addresses; users are reminded not to submit student full names or private identifiers; metadata flags `safetyFlags` for downstream logging.
 - **Temporary notes:** AI provider calls are still placeholder drafts, but auth and usage now rely on Firebase (see below).
 
+## Panic Scan & Voice-to-Calm
+
+- **Overview:** Teachers can now tap “Panic Scan” (screenshot/photo upload) or “Voice-to-Calm” (90-second recording) from the editor. Each flow OCRs or transcribes the media, classifies tone/risk, analyzes emotion, and surfaces the same safety-first rewrite engine.
+- **Endpoints (auth required, token via `Authorization: Bearer <id-token>`):**
+  - `POST /api/panic-scan/upload` — upload image, run OCR + classification, store derived text with 24h TTL.
+  - `GET /api/panic-scan/{scanId}/analysis` — poll for status, extracted text, classification, analysis, failure reason.
+  - `POST /api/panic-scan/{scanId}/generate-reply` — forwards the extracted text into `/api/draft/generate` (supports tone overrides) so the rewrite engine stays shared.
+  - `POST /api/voice/upload` — ingest audio (WAV/MP3/M4A), transcribe via Speech-to-Text, run emotion heuristics, keep media for 1h.
+  - `GET /api/voice/{voiceSessionId}` — check transcription/emotion, handle failures.
+  - `POST /api/voice/{voiceSessionId}/safe-rewrite` — kicks off the rewrite with optional tone/preserveIntent flags and returns safe text + emotion reduction.
+- **TTL & cleanup:** Media is scoped to `panic_scans/{scanId}` and `voice_sessions/{voiceSessionId}` documents, which expire after 24h/1h; run `pnpm tsx scripts/cleanup-media.ts` (or Cron) to delete expired documents and storage objects.
+- **UI entries:** The main editor now surfaces Safe Draft, Panic Scan, and Voice-to-Calm cards; the panic-scan and voice routes live at `/panic-scan` and `/voice`, and their result pages auto-prefill the editor when the user taps “Help me reply safely” or “Use this version”.
+
 ## Firebase configuration (Phase 2a)
 
 - `NEXT_PUBLIC_FIREBASE_API_KEY`
@@ -23,6 +36,9 @@ A quick mention here ensures Vercel sees a content change before the next previe
 - `NEXT_PUBLIC_FIREBASE_APP_ID`
 - `NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID` (optional)
 - `FIREBASE_SERVICE_ACCOUNT_KEY` -  JSON string with the service account credential (used by the admin SDK to verify tokens and manage Firestore). Example: `cat service-account.json | jq -c . | pbcopy`.
+- `FIREBASE_STORAGE_BUCKET` - The bucket used for temporary panic scan/voice uploads (configure lifecycle rules for 24h / 1h TTLs).
+- `GOOGLE_VISION_API_KEY` - Key for the Vision API used to OCR panic scans.
+- `GOOGLE_SPEECH_TO_TEXT_API_KEY` - Key for converting voice uploads into text.
 
 The client now uses Firebase Auth (email/password + Google) and surface the support email `greg@zazatechnologies.com` on the login screen. Every request to `/api/draft/generate` must include `Authorization: Bearer <id-token>`; the server verifies the token and enforces the 10-draft/month free tier in Firestore (`users/{uid}.monthlyUsage`).
 

@@ -12,8 +12,13 @@ export class FirebaseAuthorizationError extends Error {
 
 export async function authorizeFirebaseRequest(
   request: Request | NextRequest,
-): Promise<{ uid: string; auth: FirebaseAdminContext["auth"]; firestore: FirebaseAdminContext["firestore"] }> {
-  const { auth, firestore } = getFirebaseAdmin()
+): Promise<{
+  uid: string
+  auth: FirebaseAdminContext["auth"]
+  firestore: FirebaseAdminContext["firestore"]
+  storage: FirebaseAdminContext["storage"]
+}> {
+  const { auth, firestore, storage } = getFirebaseAdmin()
 
   if (!auth || !firestore) {
     throw new FirebaseAuthorizationError("Missing Firebase Admin configuration", 500)
@@ -31,6 +36,7 @@ export async function authorizeFirebaseRequest(
       uid: decoded.uid,
       auth,
       firestore,
+      storage,
     }
   } catch (error) {
     throw new FirebaseAuthorizationError("Invalid authorization token", 401)

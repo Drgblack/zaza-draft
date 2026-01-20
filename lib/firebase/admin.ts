@@ -48,11 +48,13 @@ export function getFirebaseAdmin() {
     return {
       auth: null,
       firestore: null,
+      storage: null,
     }
   }
 
   return {
     auth: admin.auth(app),
     firestore: admin.firestore(app),
+    storage: admin.storage(app),
   }
 }

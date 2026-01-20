@@ -11,13 +11,23 @@ export class RateLimitError extends Error {
   }
 }
 
-export async function enforceDraftRateLimit(uid: string, firestore: Firestore) {
+interface RateLimitConfig {
+  docName?: string
+  windowMs?: number
+  limit?: number
+}
+
+export async function enforcePerUserRateLimit(
+  uid: string,
+  firestore: Firestore,
+  config: RateLimitConfig = {},
+) {
   const now = Date.now()
-  const docRef = firestore
-    .collection("users")
-    .doc(uid)
-    .collection("rateLimits")
-    .doc(RATE_LIMIT_DOC_NAME)
+  const docName = config.docName ?? RATE_LIMIT_DOC_NAME
+  const windowMs = config.windowMs ?? RATE_LIMIT_WINDOW_MS
+  const limit = config.limit ?? RATE_LIMIT_COUNT
+
+  const docRef = firestore.collection("users").doc(uid).collection("rateLimits").doc(docName)
 
   await firestore.runTransaction(async (tx) => {
     const snapshot = await tx.get(docRef)
@@ -33,7 +43,7 @@ export async function enforceDraftRateLimit(uid: string, firestore: Firestore) {
     const windowStart = typeof data?.windowStart === "number" ? data.windowStart : 0
     const count = typeof data?.count === "number" ? data.count : 0
 
-    if (now - windowStart > RATE_LIMIT_WINDOW_MS) {
+    if (now - windowStart > windowMs) {
       tx.set(docRef, {
         windowStart: now,
         count: 1,
@@ -41,8 +51,8 @@ export async function enforceDraftRateLimit(uid: string, firestore: Firestore) {
       return
     }
 
-    if (count >= RATE_LIMIT_COUNT) {
-      const retryAfterMs = Math.max(RATE_LIMIT_WINDOW_MS - (now - windowStart), 0)
+    if (count >= limit) {
+      const retryAfterMs = Math.max(windowMs - (now - windowStart), 0)
       throw new RateLimitError(retryAfterMs)
     }
 
@@ -50,4 +60,8 @@ export async function enforceDraftRateLimit(uid: string, firestore: Firestore) {
       count: count + 1,
     })
   })
+}
+
+export async function enforceDraftRateLimit(uid: string, firestore: Firestore) {
+  return enforcePerUserRateLimit(uid, firestore)
 }
