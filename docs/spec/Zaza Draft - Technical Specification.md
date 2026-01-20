@@ -929,70 +929,66 @@ function detectFabrication(text: string, context: Context): boolean {
   return false;
 }
 ```
-3.5 Panic Scan & Voice-to-Calm (Zero-Cognitive-Load Inputs)
-Overview
+### 3.5 Panic Scan & Voice-to-Calm (Zero-Cognitive-Load Inputs)
+
+#### Overview
 
 Panic Scan and Voice-to-Calm introduce zero-cognitive-load input paths to Zaza Draft, enabling teachers to use the product during moments of emotional stress without typing, copying, or formatting text.
 
-These features serve as alternative entry points into Draft’s existing safety-first rewrite engine.
+These features serve as alternative entry points into Draft's existing safety-first rewrite engine.
 
 They do not replace the traditional text editor.
 They expand it.
 
-Objectives
+#### Objectives
 
-Reduce activation energy during moments of anxiety
+- Reduce activation energy during moments of anxiety
+- Enable Draft usage without typing or text copying
+- Support real-world teacher workflows (screenshots, phone photos, voice)
+- Increase early value realization and subscription conversion
+- Maintain Draft's core principles:
+  - intent preservation
+  - de-escalation
+  - professional safety
+  - zero memory between sessions
 
-Enable Draft usage without typing or text copying
+#### Supported Input Types
 
-Support real-world teacher workflows (screenshots, phone photos, voice)
+| Input Type | Description |
+| --- | --- |
+| Screenshot upload | Desktop or mobile screenshots of received messages |
+| Camera photo | Mobile device photo of screen or printed message |
+| Voice recording | Spoken emotional draft converted to calm professional text |
 
-Increase early value realization and subscription conversion
-
-Maintain Draft’s core principles:
-
-intent preservation
-
-de-escalation
-
-professional safety
-
-zero memory between sessions
-
-Supported Input Types
-Input Type	Description
-Screenshot upload	Desktop or mobile screenshots of received messages
-Camera photo	Mobile device photo of screen or printed message
-Voice recording	Spoken emotional draft converted to calm professional text
-Core Entry Points (UI)
+#### Core Entry Points (UI)
 
 Draft exposes three parallel input modes:
 
-✏️ Safe Draft
-Manual text entry (existing behaviour)
+- ?? Safe Draft  
+  Manual text entry (existing behaviour)
 
-📸 Panic Scan
-Upload screenshot or photo of received message
+- ?? Panic Scan  
+  Upload screenshot or photo of received message
 
-🎤 Voice-to-Calm
-Speak emotional response aloud and convert to safe text
+- ?? Voice-to-Calm  
+  Speak emotional response aloud and convert to safe text
 
 All three ultimately converge into the same rewrite engine.
 
-Feature 1: Panic Scan (Screenshot → Analysis → Safe Reply)
-User Flow
+#### Feature 1: Panic Scan (Screenshot  Analysis  Safe Reply)
+
+#### User Flow
+
 Teacher receives stressful message
-→ Takes screenshot or photo
-→ Opens Draft
-→ Clicks "Panic Scan"
-→ Uploads image
-→ Sees immediate analysis
-→ Clicks "Help me reply safely"
-→ Draft editor opens with extracted context
+ Takes screenshot or photo
+ Opens Draft
+ Clicks "Panic Scan"
+ Uploads image
+ Sees immediate analysis
+ Clicks "Help me reply safely"
+ Draft editor opens with extracted context
 
-Panic Scan Output Structure
-
-Every scan produces the following structured response:
+#### Panic Scan Output Structure
 
 What this is
 High-level classification of message type
@@ -1018,9 +1014,11 @@ schedule meeting
 escalate to leadership
 
 CTA:
-“Help me reply safely”
+"Help me reply safely"
 
-Message Classification Schema
+#### Message Classification Schema
+
+```ts
 interface MessageClassification {
   messageType:
     | "parent_complaint"
@@ -1043,10 +1041,13 @@ interface MessageClassification {
   riskLevel: "low" | "medium" | "high";
   urgency: "low" | "medium" | "high";
 
-  confidenceScore: number; // 0–100
+  confidenceScore: number; // 0-100
 }
+```
 
-Panic Scan Analysis Output
+#### Panic Scan Analysis Output
+
+```ts
 interface PanicScanAnalysis {
   summary: string;
   emotionalInterpretation: string;
@@ -1058,18 +1059,20 @@ interface PanicScanAnalysis {
     | "schedule_meeting"
     | "escalate_to_admin";
 }
+```
 
-Panic Scan Processing Pipeline
+#### Panic Scan Processing Pipeline
+
 Image Upload
-→ Cloud Storage (temporary)
-→ OCR extraction (Google Vision)
-→ Text normalization
-→ Message classification (GPT-4)
-→ Risk & tone analysis
-→ Structured explanation generation
-→ Safe-reply CTA
+ Cloud Storage (temporary)
+ OCR extraction (Google Vision)
+ Text normalization
+ Message classification (GPT-4)
+ Risk & tone analysis
+ Structured explanation generation
+ Safe-reply CTA
 
-OCR Processing
+#### OCR Processing
 
 Provider: Google Vision API
 
@@ -1085,7 +1088,7 @@ Maximum file size: 5MB
 
 Minimum image resolution: 600px width recommended
 
-Normalization steps:
+#### Normalization steps
 
 whitespace cleanup
 
@@ -1095,18 +1098,22 @@ OCR artefact correction
 
 punctuation stabilization
 
-Panic Scan API Endpoints
+#### Panic Scan API Endpoints
+
 Upload image
 POST /api/panic-scan/upload
 
 Request (multipart/form-data):
+```ts
 {
   file: File;
   sessionId: string;
   platform: "web" | "mobile_ios" | "mobile_android";
 }
+```
 
 Response:
+```ts
 {
   success: boolean;
   data: {
@@ -1114,11 +1121,13 @@ Response:
     status: "processing";
   };
 }
+```
 
 Retrieve analysis
 GET /api/panic-scan/{scanId}/analysis
 
 Response:
+```ts
 {
   success: boolean;
   data: {
@@ -1129,23 +1138,27 @@ Response:
     processingTime?: number;
   };
 }
+```
 
 Generate safe reply
 POST /api/panic-scan/{scanId}/generate-reply
 
 Request:
+```ts
 {
   userIntent?: "acknowledge_concern" | "provide_info" | "schedule_meeting";
   tonePreference?: "professional" | "warm" | "direct" | "empathetic";
 }
-
+```
 
 This endpoint reuses the existing Draft rewrite engine with injected OCR context.
 
-Panic Scan Storage Model
+#### Panic Scan Storage Model
+
 Firestore Collection
 panic_scans/{scanId}
 
+```ts
 interface PanicScan {
   scanId: string;
   userId: string;
@@ -1157,28 +1170,32 @@ interface PanicScan {
   createdAt: Timestamp;
   expiresAt: Timestamp; // 24 hours
 }
+```
 
-Feature 2: Voice-to-Calm (Spoken Emotion → Safe Text)
-User Flow
+#### Feature 2: Voice-to-Calm (Spoken Emotion  Safe Text)
+
+#### User Flow
+
 Teacher feels frustrated
-→ Opens Draft
-→ Taps microphone icon
-→ Speaks freely (up to 90 seconds)
-→ Transcription appears
-→ Emotion intensity analysed
-→ Calm professional version generated
-→ Teacher edits or uses result
+ Opens Draft
+ Taps microphone icon
+ Speaks freely (up to 90 seconds)
+ Transcription appears
+ Emotion intensity analysed
+ Calm professional version generated
+ Teacher edits or uses result
 
-Voice Processing Pipeline
+#### Voice Processing Pipeline
+
 Audio recording
-→ Cloud Storage (temporary)
-→ Speech-to-Text
-→ Linguistic emotion analysis
-→ Intent extraction
-→ Safe rewrite generation
-→ Emotional comparison output
+ Cloud Storage (temporary)
+ Speech-to-Text
+ Linguistic emotion analysis
+ Intent extraction
+ Safe rewrite generation
+ Emotional comparison output
 
-Speech-to-Text
+#### Speech-to-Text
 
 Provider: Google Speech-to-Text
 
@@ -1194,7 +1211,7 @@ Max duration: 90 seconds
 
 Default language: en-GB
 
-Emotion Analysis (Text-Based)
+#### Emotion Analysis (Text-Based)
 
 Emotion detection is derived from linguistic indicators only:
 
@@ -1208,26 +1225,32 @@ punctuation frequency
 
 urgency phrases
 
+```ts
 interface EmotionAnalysis {
-  frustrationScore: number; // 0–100
+  frustrationScore: number; // 0-100
   urgencyScore: number;
   defensivenessScore: number;
   primaryEmotion: "frustrated" | "angry" | "anxious" | "neutral";
   detectedNegativity: boolean;
 }
+```
 
-Voice API Endpoints
+#### Voice API Endpoints
+
 Upload recording
 POST /api/voice/upload
 
 Request:
+```ts
 {
   audio: File;
   language: string; // default en-GB
   sessionId: string;
 }
+```
 
 Response:
+```ts
 {
   success: boolean;
   data: {
@@ -1235,11 +1258,13 @@ Response:
     status: "processing";
   };
 }
+```
 
 Retrieve transcription
 GET /api/voice/{voiceSessionId}
 
 Response:
+```ts
 {
   success: boolean;
   data: {
@@ -1248,17 +1273,21 @@ Response:
     emotionAnalysis: EmotionAnalysis;
   };
 }
+```
 
 Generate safe rewrite
 POST /api/voice/{voiceSessionId}/safe-rewrite
 
 Request:
+```ts
 {
   targetTone?: "professional_calm" | "collaborative" | "empathetic";
   preserveIntent?: boolean;
 }
+```
 
 Response:
+```ts
 {
   success: boolean;
   data: {
@@ -1271,10 +1300,13 @@ Response:
     keyChanges: string[];
   };
 }
+```
 
-Voice Storage Model
+#### Voice Storage Model
+
 voice_sessions/{voiceSessionId}
 
+```ts
 interface VoiceSession {
   voiceSessionId: string;
   userId: string;
@@ -1287,8 +1319,9 @@ interface VoiceSession {
   createdAt: Timestamp;
   expiresAt: Timestamp; // 1 hour
 }
+```
 
-Privacy & Safety Guarantees
+#### Privacy & Safety Guarantees
 
 Screenshots deleted automatically after 24 hours
 
@@ -1304,7 +1337,7 @@ No student records stored
 
 No identity extraction attempted
 
-Why this belongs in v1 go-live
+#### Why this belongs in v1 go-live
 
 These features:
 
@@ -1314,13 +1347,14 @@ eliminate friction at emotional peak
 
 dramatically increase demo-ability
 
-create visual “wow” moments
+create visual "wow" moments
 
-preserve Draft’s safety-first positioning
+preserve Draft's safety-first positioning
 
 Draft becomes:
 
 The fastest way from panic to professionalism.
+
 
 ---
 
