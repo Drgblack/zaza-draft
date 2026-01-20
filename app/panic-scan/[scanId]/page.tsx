@@ -33,41 +33,65 @@ export default function PanicScanResultPage() {
   const isCompleted = scan?.status === "completed"
   const isFailed = scan?.status === "failed"
 
-  const fetchScan = async () => {
-    if (!scanId) {
-      setError("Invalid scan identifier.")
-      setLoading(false)
-      return
-    }
-
-    try {
-      const token = await getIdToken()
-      if (!token) {
-        throw new Error("Sign in again to view this scan.")
-      }
-      const response = await fetch(`/api/panic-scan/${scanId}/analysis`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      })
-      const payload = await response.json()
-      if (!response.ok || !payload?.success) {
-        throw new Error(payload?.error?.message || "Unable to load scan.")
-      }
-      setScan(payload.data)
-      setError(null)
-    } catch (fetchError) {
-      setError(fetchError instanceof Error ? fetchError.message : "Unable to load scan.")
-    } finally {
-      setLoading(false)
-    }
-  }
-
   useEffect(() => {
+    let cancelled = false
+
+    async function fetchScan() {
+      if (!scanId) {
+        if (!cancelled) {
+          setError("Invalid scan identifier.")
+          setLoading(false)
+        }
+        return
+      }
+
+      try {
+        const token = await getIdToken()
+        if (!token) {
+          throw new Error("Sign in again to view this scan.")
+        }
+        const response = await fetch(`/api/panic-scan/${scanId}/analysis`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        })
+        const payload = await response.json()
+        if (!response.ok || !payload?.success) {
+          throw new Error(payload?.error?.message || "Unable to load scan.")
+        }
+        if (!cancelled) {
+          setScan(payload.data)
+          setError(null)
+        }
+      } catch (fetchError) {
+        if (!cancelled) {
+          setError(fetchError instanceof Error ? fetchError.message : "Unable to load scan.")
+        }
+      } finally {
+        if (!cancelled) {
+          setLoading(false)
+        }
+      }
+    }
+
     fetchScan()
     const interval = window.setInterval(fetchScan, 4000)
-    return () => window.clearInterval(interval)
-  }, [scanId])
+    return () => {
+      cancelled = true
+      window.clearInterval(interval)
+    }
+  }, [scanId, getIdToken])
+
+  const classificationList = useMemo(
+    () =>
+      scan?.classification
+        ? Object.entries(scan.classification).map(([key, value]) => ({
+            label: key,
+            value: typeof value === "number" ? value.toFixed(0) : String(value),
+          }))
+        : [],
+    [scan?.classification],
+  )
 
   if (status === "loading") {
     return (
@@ -87,17 +111,6 @@ export default function PanicScanResultPage() {
       router.push("/")
     }
   }
-
-  const classificationList = useMemo(
-    () =>
-      scan?.classification
-        ? Object.entries(scan.classification).map(([key, value]) => ({
-            label: key,
-            value: typeof value === "number" ? value.toFixed(0) : String(value),
-          }))
-        : [],
-    [scan?.classification],
-  )
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-slate-900 to-black text-white">

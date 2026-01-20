@@ -46,43 +46,56 @@ export default function VoiceSessionPage() {
   const [safeResponse, setSafeResponse] = useState<SafeResponse | null>(null)
   const [isGenerating, setIsGenerating] = useState(false)
 
-  const fetchSession = async () => {
-    if (!sessionId) {
-      setError("Invalid session identifier.")
-      setLoading(false)
-      return
-    }
-
-    try {
-      const token = await getIdToken()
-      if (!token) {
-        throw new Error("Sign in again to continue.")
-      }
-
-      const response = await fetch(`/api/voice/${sessionId}`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      })
-      const payload = await response.json()
-      if (!response.ok || !payload?.success) {
-        throw new Error(payload?.error?.message || "Unable to load session.")
-      }
-
-      setSession(payload.data)
-      setError(null)
-    } catch (fetchError) {
-      setError(fetchError instanceof Error ? fetchError.message : "Unable to load session.")
-    } finally {
-      setLoading(false)
-    }
-  }
-
   useEffect(() => {
+    let cancelled = false
+
+    async function fetchSession() {
+      if (!sessionId) {
+        if (!cancelled) {
+          setError("Invalid session identifier.")
+          setLoading(false)
+        }
+        return
+      }
+
+      try {
+        const token = await getIdToken()
+        if (!token) {
+          throw new Error("Sign in again to continue.")
+        }
+
+        const response = await fetch(`/api/voice/${sessionId}`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        })
+        const payload = await response.json()
+        if (!response.ok || !payload?.success) {
+          throw new Error(payload?.error?.message || "Unable to load session.")
+        }
+
+        if (!cancelled) {
+          setSession(payload.data)
+          setError(null)
+        }
+      } catch (fetchError) {
+        if (!cancelled) {
+          setError(fetchError instanceof Error ? fetchError.message : "Unable to load session.")
+        }
+      } finally {
+        if (!cancelled) {
+          setLoading(false)
+        }
+      }
+    }
+
     fetchSession()
     const interval = window.setInterval(fetchSession, 4000)
-    return () => window.clearInterval(interval)
-  }, [sessionId])
+    return () => {
+      cancelled = true
+      window.clearInterval(interval)
+    }
+  }, [sessionId, getIdToken])
 
   if (status === "loading") {
     return (
