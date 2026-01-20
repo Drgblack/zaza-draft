@@ -826,7 +826,7 @@ export function MainEditor() {
             </h1>
           <p className="text-base sm:text-lg text-white/95 leading-relaxed drop-shadow-[0_1px_4px_rgba(0,0,0,0.25)]">
             {locale === "de-DE"
-              ? "Lassen Sie uns prÃ¤zise und professionell bleiben."
+              ? "Lassen Sie uns präzise und professionell bleiben."
               : "Let's keep it crisp and professional."}
           </p>
         </div>
@@ -892,9 +892,9 @@ export function MainEditor() {
                     ? `Beschreiben Sie die Situation...
 
 Beispiele:
-- SchÃ¼ler der 6. Klasse mit Schwierigkeiten bei BrÃ¼chen, braucht ermutigendes Feedback
-- Eltern-E-Mail zu Hausaufgaben, professioneller und einfÃ¼hlsamer Ton
-- Zeugniskommentar fÃ¼r hervorragende Fortschritte beim LeseverstÃ¤ndnis`
+- Schüler der 6. Klasse mit Schwierigkeiten bei Brüchen, braucht ermutigendes Feedback
+- Eltern-E-Mail zu Hausaufgaben, professioneller und einfühlsamer Ton
+- Zeugniskommentar für hervorragende Fortschritte beim Leseverständnis`
                     : `Describe the situation...
 
 Examples:
@@ -912,7 +912,7 @@ Examples:
               />
               <p className="mt-3 text-xs text-white/80">
                 {locale === "de-DE"
-                  ? "Geben Sie keine vollstÃ¤ndigen Namen, E-Mails, Telefonnummern oder Adressen ein."
+                  ? "Geben Sie keine vollständigen Namen, E-Mails, Telefonnummern oder Adressen ein."
                   : "Do not include student full names, email addresses, phone numbers, or street addresses."}
               </p>
             </section>
@@ -1257,7 +1257,7 @@ Examples:
         <FooterSlim />
         {showBuildInfo && (
           <div className="mt-2 text-center text-[11px] text-white/60 uppercase tracking-[0.2em]">
-            Build {buildSha} - {process.env.NODE_ENV ?? "dev"}
+            Build {buildSha} • {process.env.NODE_ENV ?? "dev"}
           </div>
         )}
       </div>
