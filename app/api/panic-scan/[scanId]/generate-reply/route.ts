@@ -1,4 +1,4 @@
-import { NextResponse, type RouteHandlerContext } from "next/server"
+import { NextResponse, type NextRequest } from "next/server"
 import { authorizeFirebaseRequest } from "@/lib/firebase/server"
 
 interface RequestPayload {
@@ -6,11 +6,14 @@ interface RequestPayload {
   language?: string
 }
 
-export async function POST(
-  request: Request,
-  context: RouteHandlerContext<{ scanId: string }>,
-) {
-  const { scanId } = context.params
+function extractScanId(request: Request | NextRequest) {
+  const url = new URL(request.url)
+  const segments = url.pathname.split("/").filter(Boolean)
+  return segments[segments.length - 2] ?? ""
+}
+
+export async function POST(request: NextRequest) {
+  const scanId = extractScanId(request)
   if (!scanId) {
     return NextResponse.json(
       { success: false, error: { code: "MISSING_ID", message: "Missing scan identifier." } },

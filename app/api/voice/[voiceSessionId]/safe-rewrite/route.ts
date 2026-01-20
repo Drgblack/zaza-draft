@@ -1,4 +1,4 @@
-import { NextResponse, type RouteHandlerContext } from "next/server"
+import { NextResponse, type NextRequest } from "next/server"
 import { authorizeFirebaseRequest } from "@/lib/firebase/server"
 import { analyzeVoiceEmotion } from "@/lib/voice/emotion"
 
@@ -7,11 +7,14 @@ interface RequestPayload {
   preserveIntent?: boolean
 }
 
-export async function POST(
-  request: Request,
-  context: RouteHandlerContext<{ voiceSessionId: string }>,
-) {
-  const { voiceSessionId } = context.params
+function extractSessionId(request: Request | NextRequest) {
+  const url = new URL(request.url)
+  const segments = url.pathname.split("/").filter(Boolean)
+  return segments[segments.length - 2] ?? ""
+}
+
+export async function POST(request: NextRequest) {
+  const voiceSessionId = extractSessionId(request)
   if (!voiceSessionId) {
     return NextResponse.json(
       { success: false, error: { code: "MISSING_ID", message: "Missing session identifier." } },
