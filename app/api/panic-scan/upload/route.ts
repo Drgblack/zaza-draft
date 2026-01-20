@@ -64,6 +64,15 @@ export async function POST(request: Request) {
   }
 
   const { uid, firestore, storage } = authContext
+  if (!firestore) {
+    return NextResponse.json(
+      {
+        success: false,
+        error: { code: "FIRESTORE_UNAVAILABLE", message: "Unable to access Firestore." },
+      },
+      { status: 500 },
+    )
+  }
   if (!storage) {
     return NextResponse.json(
       {
