@@ -13,7 +13,7 @@ export default function DocsPage() {
         <h1 className="text-4xl font-semibold">{t("docsTitle")}</h1>
         <p className="max-w-2xl text-lg text-white/80">{t("docsDescription")}</p>
         <Link
-          href="/docs/spec/Zaza Draft - Technical Specification.md"
+          href="/docs"
           className="inline-flex w-fit rounded-full bg-white/10 px-6 py-3 text-sm font-semibold text-indigo-100 shadow-lg shadow-indigo-950/40 hover:bg-white/20 transition"
         >
           {t("docsLinkLabel")}
@@ -29,7 +29,7 @@ export default function DocsPage() {
             <h2 className="text-2xl font-semibold text-white">{t("docsSectionPanicScanTitle")}</h2>
             <p className="text-sm text-white/70">{t("docsSectionPanicScanDescription")}</p>
             <Link
-              href="/docs/spec/Zaza Draft - Technical Specification.md#panic-scan"
+              href="/docs#panic-scan"
               className="text-sm font-semibold text-indigo-300 underline"
             >
               {t("docsLinkLabel")}
@@ -45,7 +45,7 @@ export default function DocsPage() {
             <h2 className="text-2xl font-semibold text-white">{t("docsSectionVoiceTitle")}</h2>
             <p className="text-sm text-white/70">{t("docsSectionVoiceDescription")}</p>
             <Link
-              href="/docs/spec/Zaza Draft - Technical Specification.md#voice-to-calm"
+              href="/docs#voice-to-calm"
               className="text-sm font-semibold text-indigo-300 underline"
             >
               {t("docsLinkLabel")}
@@ -59,4 +59,5 @@ export default function DocsPage() {
     </div>
   )
 }
+
 
