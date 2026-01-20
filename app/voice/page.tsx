@@ -114,7 +114,7 @@ export default function VoiceCapturePage() {
           <input
             type="file"
             accept="audio/*"
-            capture="microphone"
+            capture="environment"
             className="text-xs text-white"
             onChange={(event) => setFile(event.target.files?.[0] ?? null)}
           />
