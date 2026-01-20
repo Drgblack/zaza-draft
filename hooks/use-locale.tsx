@@ -109,6 +109,8 @@ export const localeMessages: Record<Locale, LocaleMessages> = {
     panicScanResultSuggestedResponse: "Suggested response: {response}",
     "panicScan.error.chooseFile": "Choose an image to scan.",
     "panicScan.error.uploadFailed": "Upload failed.",
+    "panicScan.error.configMissing":
+      "The client is not configured for uploads. Please set NEXT_PUBLIC_FIREBASE_API_KEY and NEXT_PUBLIC_FIREBASE_PROJECT_ID.",
     voiceTitle: "Voice-to-Calm",
     voiceDescription:
       "Speak when emotions run high and let Zaza Draft listen, transcribe, analyse tone, and draft a calm rewrite.",
@@ -142,6 +144,8 @@ export const localeMessages: Record<Locale, LocaleMessages> = {
     voiceSessionLoadError: "Unable to load session.",
     "voice.error.chooseFile": "Choose an audio file to record.",
     "voice.error.uploadFailed": "Upload failed.",
+    "voice.error.configMissing":
+      "Recording is unavailable because the client configuration is missing. Please set NEXT_PUBLIC_FIREBASE_API_KEY and NEXT_PUBLIC_FIREBASE_PROJECT_ID.",
     voiceSessionStatusProcessing: "Processing",
     voiceSessionStatusCompleted: "Completed",
     voiceSessionStatusFailed: "Failed",
@@ -1370,6 +1374,8 @@ export const localeMessages: Record<Locale, LocaleMessages> = {
     panicScanResultSuggestedResponse: "Vorgeschlagene Antwort: {response}",
     "panicScan.error.chooseFile": "Wählen Sie ein Bild zum Scannen aus.",
     "panicScan.error.uploadFailed": "Upload fehlgeschlagen.",
+    "panicScan.error.configMissing":
+      "Uploads sind nicht verfügbar, weil NEXT_PUBLIC_FIREBASE_API_KEY oder NEXT_PUBLIC_FIREBASE_PROJECT_ID fehlt.",
     voiceTitle: "Voice-to-Calm",
     voiceDescription:
       "Sprechen Sie, wenn Emotionen hochkochen, und lassen Sie Zaza Draft zuhören, transkribieren und eine ruhige Neuformulierung schreiben.",
@@ -1403,6 +1409,8 @@ export const localeMessages: Record<Locale, LocaleMessages> = {
     voiceSessionLoadError: "Sitzung konnte nicht geladen werden.",
     "voice.error.chooseFile": "Wählen Sie eine Audiodatei für die Aufnahme aus.",
     "voice.error.uploadFailed": "Upload fehlgeschlagen.",
+    "voice.error.configMissing":
+      "Aufnahmen sind nicht möglich, weil NEXT_PUBLIC_FIREBASE_API_KEY oder NEXT_PUBLIC_FIREBASE_PROJECT_ID fehlt.",
     voiceSessionStatusProcessing: "Verarbeitung",
     voiceSessionStatusCompleted: "Abgeschlossen",
     voiceSessionStatusFailed: "Fehlgeschlagen",

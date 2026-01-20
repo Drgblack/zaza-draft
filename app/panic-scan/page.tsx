@@ -18,6 +18,9 @@ export default function PanicScanPage() {
   const [error, setError] = useState<string | null>(null)
   const [isUploading, setIsUploading] = useState(false)
   const [platform, setPlatform] = useState<"web" | "mobile_ios" | "mobile_android">("web")
+  const panicConfigMissing =
+    !process.env.NEXT_PUBLIC_FIREBASE_API_KEY || !process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID
+  const configError = panicConfigMissing ? t("panicScan.error.configMissing") : null
   const primaryButtonClass =
     "w-full rounded-xl bg-indigo-900 px-4 py-3 text-base font-semibold text-white shadow-lg shadow-black/40 transition duration-200 hover:bg-indigo-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-indigo-400 focus-visible:ring-offset-slate-900 disabled:bg-indigo-600 disabled:text-white/70 disabled:cursor-not-allowed"
 
@@ -48,6 +51,11 @@ export default function PanicScanPage() {
     : null
 
   const handleSubmit = async () => {
+    if (panicConfigMissing) {
+      setError(t("panicScan.error.configMissing"))
+      return
+    }
+
     if (!file) {
       setError(t("panicScan.error.chooseFile"))
       return
@@ -146,6 +154,14 @@ export default function PanicScanPage() {
           {selectedFileInfo && (
             <p className="mt-2 text-xs text-white/70">{selectedFileInfo}</p>
           )}
+          {panicConfigMissing && (
+            <div
+              className="mt-2 rounded-2xl border border-amber-300/80 bg-amber-200/10 p-3 text-xs text-amber-200"
+              role="alert"
+            >
+              {configError}
+            </div>
+          )}
           {error && (
             <div
               className="mt-2 rounded-2xl border border-rose-400/80 bg-rose-500/10 p-3 text-xs text-rose-100"
@@ -155,7 +171,11 @@ export default function PanicScanPage() {
             </div>
           )}
           <div className="mt-4">
-            <Button onClick={handleSubmit} disabled={!file || isUploading} className={primaryButtonClass}>
+            <Button
+              onClick={handleSubmit}
+              disabled={!file || isUploading || panicConfigMissing}
+              className={primaryButtonClass}
+            >
               {isUploading ? t("panicScanUploading") : t("panicScanButton")}
             </Button>
           </div>

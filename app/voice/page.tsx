@@ -23,6 +23,9 @@ export default function VoiceCapturePage() {
   const [language, setLanguage] = useState("en-GB")
   const [isUploading, setIsUploading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const voiceConfigMissing =
+    !process.env.NEXT_PUBLIC_FIREBASE_API_KEY || !process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID
+  const configError = voiceConfigMissing ? t("voice.error.configMissing") : null
   const primaryButtonClass =
     "w-full rounded-xl bg-indigo-900 px-4 py-3 text-base font-semibold text-white shadow-lg shadow-black/40 transition duration-200 hover:bg-indigo-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-indigo-400 focus-visible:ring-offset-slate-900 disabled:bg-indigo-600 disabled:text-white/70 disabled:cursor-not-allowed"
   const selectedFileInfo = file
@@ -30,6 +33,11 @@ export default function VoiceCapturePage() {
     : null
 
   const handleSubmit = async () => {
+    if (voiceConfigMissing) {
+      setError(t("voice.error.configMissing"))
+      return
+    }
+
     if (!file) {
       setError(t("voice.error.chooseFile"))
       return
@@ -126,6 +134,14 @@ export default function VoiceCapturePage() {
           {selectedFileInfo && (
             <p className="text-xs text-white/70">{selectedFileInfo}</p>
           )}
+          {voiceConfigMissing && (
+            <div
+              className="rounded-2xl border border-amber-300/80 bg-amber-200/10 p-3 text-xs text-amber-200"
+              role="alert"
+            >
+              {configError}
+            </div>
+          )}
           {error && (
             <div
               className="rounded-2xl border border-rose-400/80 bg-rose-500/10 p-3 text-xs text-rose-100"
@@ -134,7 +150,11 @@ export default function VoiceCapturePage() {
               {error}
             </div>
           )}
-          <Button onClick={handleSubmit} disabled={!file || isUploading} className={primaryButtonClass}>
+          <Button
+            onClick={handleSubmit}
+            disabled={!file || isUploading || voiceConfigMissing}
+            className={primaryButtonClass}
+          >
             {isUploading ? t("voiceProcessing") : t("voiceButton")}
           </Button>
         </div>
