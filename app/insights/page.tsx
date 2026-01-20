@@ -675,7 +675,7 @@ export default function InsightsPage() {
 
             <Card className="p-6 hover:shadow-2xl hover:shadow-purple-500/30 transition-all duration-300 hover:-translate-y-1 border-2 border-purple-300 dark:border-purple-400/40 bg-white/85 dark:bg-white/15 backdrop-blur-xl shadow-xl shadow-purple-500/20">
               <div className="flex items-center gap-2 mb-3">
-                <span className="text-3xl filter drop-shadow-lg">â­</span>
+                <span className="text-3xl filter drop-shadow-lg">✏️</span>
                 <span
                   className="text-xs font-bold text-white bg-gradient-to-r from-yellow-500 to-orange-500 px-3 py-1 rounded-full shadow-lg animate-pulse"
                   aria-hidden="true"

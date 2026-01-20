@@ -150,13 +150,18 @@ export default function VoiceCapturePage() {
               {error}
             </div>
           )}
-          <Button
-            onClick={handleSubmit}
-            disabled={!file || isUploading || voiceConfigMissing}
-            className={primaryButtonClass}
-          >
-            {isUploading ? t("voiceProcessing") : t("voiceButton")}
-          </Button>
+          <div className="space-y-2">
+            <Button
+              onClick={handleSubmit}
+              disabled={!file || isUploading || voiceConfigMissing}
+              className={primaryButtonClass}
+            >
+              {isUploading ? t("voiceProcessing") : t("voiceButton")}
+            </Button>
+            {!file && (
+              <p className="text-center text-xs text-white/60">{t("voice.helper.selectFile")}</p>
+            )}
+          </div>
         </div>
 
         <div className="space-y-1 text-sm text-white/70">

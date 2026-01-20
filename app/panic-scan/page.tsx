@@ -170,7 +170,7 @@ export default function PanicScanPage() {
               {error}
             </div>
           )}
-          <div className="mt-4">
+          <div className="mt-4 space-y-2">
             <Button
               onClick={handleSubmit}
               disabled={!file || isUploading || panicConfigMissing}
@@ -178,6 +178,11 @@ export default function PanicScanPage() {
             >
               {isUploading ? t("panicScanUploading") : t("panicScanButton")}
             </Button>
+            {!file && (
+              <p className="text-center text-xs text-white/60">
+                {t("panicScan.helper.selectFile")}
+              </p>
+            )}
           </div>
         </div>
 

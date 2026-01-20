@@ -87,6 +87,7 @@ export const localeMessages: Record<Locale, LocaleMessages> = {
     panicScanDocsLink: "See the documentation",
     panicScanButton: "Analyze screenshot",
     panicScanUploading: "Uploading...",
+    "panicScan.helper.selectFile": "Select a file to enable analysis.",
     panicScanResultTitle: "Panic Scan analysis",
     panicScanResultDescription:
       "Zaza Draft extracts the message, assesses emotional tone, and explains possible replies.",
@@ -123,6 +124,7 @@ export const localeMessages: Record<Locale, LocaleMessages> = {
     voiceButton: "Transcribe & analyze",
     voiceProcessing: "Processing...",
     voiceSelected: "Selected",
+    "voice.helper.selectFile": "Select a recording to enable analysis.",
     voiceSessionTitle: "Voice-to-Calm session",
     voiceSessionDescription:
       "Review the transcription, emotion analysis, and generate a safe rewrite.",
@@ -1352,6 +1354,7 @@ export const localeMessages: Record<Locale, LocaleMessages> = {
     panicScanDocsLink: "Dokumentation anzeigen",
     panicScanButton: "Screenshot analysieren",
     panicScanUploading: "Wird hochgeladen...",
+    "panicScan.helper.selectFile": "Wählen Sie eine Datei aus, um die Analyse zu aktivieren.",
     panicScanResultTitle: "Panic Scan-Analyse",
     panicScanResultDescription:
       "Zaza Draft extrahiert die Nachricht, bewertet den emotionalen Ton und erklärt mögliche Antworten.",
@@ -1388,6 +1391,7 @@ export const localeMessages: Record<Locale, LocaleMessages> = {
     voiceButton: "Transkribieren & analysieren",
     voiceProcessing: "Verarbeitung...",
     voiceSelected: "Ausgewählt",
+    "voice.helper.selectFile": "Wählen Sie eine Aufnahme aus, um die Analyse zu aktivieren.",
     voiceSessionTitle: "Voice-to-Calm-Sitzung",
     voiceSessionDescription:
       "Überprüfen Sie die Transkription, Emotionsanalyse und generieren Sie eine sichere Umschreibung.",
