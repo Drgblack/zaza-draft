@@ -6,16 +6,20 @@ import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { AuthScreen } from "@/components/auth/auth-screen"
 import { useAuth } from "@/hooks/use-auth"
+import { useLocale } from "@/hooks/use-locale"
 
 const SUPPORTED_FORMATS = ["JPG", "PNG", "HEIC"]
 
 export default function PanicScanPage() {
   const router = useRouter()
   const { status, getIdToken } = useAuth()
+  const { t } = useLocale()
   const [file, setFile] = useState<File | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [isUploading, setIsUploading] = useState(false)
   const [platform, setPlatform] = useState<"web" | "mobile_ios" | "mobile_android">("web")
+  const primaryButtonClass =
+    "w-full rounded-xl bg-indigo-900 px-4 py-3 text-base font-semibold text-white shadow-lg shadow-black/40 transition duration-200 hover:bg-indigo-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-indigo-400 focus-visible:ring-offset-slate-900 disabled:bg-indigo-600 disabled:text-white/70 disabled:cursor-not-allowed"
 
   useEffect(() => {
     if (typeof navigator === "undefined") {
@@ -33,16 +37,19 @@ export default function PanicScanPage() {
 
   const instructions = useMemo(
     () => [
-      "Upload a screenshot or camera photo of the original message (nurture the context without typing).",
-      "We automatically OCR, classify tone/risk, and propose a calm reply.",
-      "No media is stored long-term: screenshots expire after 24 hours.",
+      t("panicScanInstructionUpload"),
+      t("panicScanInstructionAuto"),
+      t("panicScanInstructionTTL"),
     ],
-    [],
+    [t],
   )
+  const selectedFileInfo = file
+    ? `${t("panicScanSelected")}: ${file.name} · ${(file.size / 1024 / 1024).toFixed(2)} MB`
+    : null
 
   const handleSubmit = async () => {
     if (!file) {
-      setError("Choose an image to scan.")
+      setError(t("panicScan.error.chooseFile"))
       return
     }
 
@@ -74,7 +81,9 @@ export default function PanicScanPage() {
 
       router.push(`/panic-scan/${payload.data.scanId}`)
     } catch (uploadError) {
-      setError(uploadError instanceof Error ? uploadError.message : "Upload failed.")
+      setError(
+        uploadError instanceof Error ? uploadError.message : t("panicScan.error.uploadFailed"),
+      )
     } finally {
       setIsUploading(false)
     }
@@ -83,7 +92,7 @@ export default function PanicScanPage() {
   if (status === "loading") {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <p className="text-lg text-gray-900 dark:text-white">Loading.</p>
+        <p className="text-lg text-gray-900 dark:text-white">{t("loading")}</p>
       </div>
     )
   }
@@ -94,21 +103,20 @@ export default function PanicScanPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-purple-900 via-purple-950 to-black text-white">
-      <div className="mx-auto max-w-4xl px-4 py-16 space-y-8">
+      <div className="mx-auto flex min-h-[calc(100vh-160px)] max-w-4xl flex-col space-y-8 px-4 py-16">
         <div className="space-y-2">
           <Link href="/" className="text-sm text-white/80 underline">
-            ← Back to Draft editor
+            {t("panicScanBackLink")}
           </Link>
-          <h1 className="text-3xl font-semibold">Panic Scan</h1>
-          <p className="text-sm text-white/70">
-            Upload a screenshot or photo of the stressful message and let Zaza Draft explain it, assess risk,
-            and prepare a calm reply path.
-          </p>
+          <h1 className="text-3xl font-semibold">{t("panicScanTitle")}</h1>
+          <p className="text-sm text-white/70">{t("panicScanDescription")}</p>
         </div>
 
         <div className="rounded-2xl border border-white/20 bg-white/5 p-6 space-y-4">
           <div className="space-y-2">
-            <p className="text-sm uppercase tracking-[0.3em] text-white/60">Supported Input Types</p>
+            <p className="text-sm uppercase tracking-[0.3em] text-white/60">
+              {t("panicScanSupportedLabel")}
+            </p>
             <ul className="grid gap-2 text-sm text-white/80 md:grid-cols-3">
               {SUPPORTED_FORMATS.map((format) => (
                 <li key={format} className="rounded-lg border border-white/10 bg-black/30 px-3 py-1 text-center">
@@ -117,17 +125,17 @@ export default function PanicScanPage() {
               ))}
             </ul>
           </div>
-          <div className="space-y-2">
+          <div className="space-y-2 text-sm text-white/70">
             {instructions.map((item) => (
-              <p key={item} className="text-sm text-white/70">
-                • {item}
-              </p>
+              <p key={item}>{item}</p>
             ))}
           </div>
         </div>
 
         <div className="rounded-2xl border border-white/20 bg-white/10 p-6 shadow-lg shadow-purple-900/60">
-          <label className="block text-sm font-semibold text-white mb-2">Upload screenshot/photo</label>
+          <label className="block text-sm font-semibold text-white mb-2">
+            {t("panicScanUploadLabel")}
+          </label>
           <input
             type="file"
             accept="image/*"
@@ -135,29 +143,36 @@ export default function PanicScanPage() {
             className="text-xs text-white"
             onChange={(event) => setFile(event.target.files?.[0] ?? null)}
           />
-          {file && (
-            <p className="mt-2 text-xs text-white/70">
-              Selected: {file.name} • {(file.size / 1024 / 1024).toFixed(2)} MB
-            </p>
+          {selectedFileInfo && (
+            <p className="mt-2 text-xs text-white/70">{selectedFileInfo}</p>
           )}
-          {error && <p className="mt-2 text-xs text-rose-200">{error}</p>}
-          <div className="mt-4">
-            <Button
-              onClick={handleSubmit}
-              disabled={!file || isUploading}
-              className="w-full bg-gradient-to-br from-[#f06292] via-[#ec4899] to-[#c026d3] text-white"
+          {error && (
+            <div
+              className="mt-2 rounded-2xl border border-rose-400/80 bg-rose-500/10 p-3 text-xs text-rose-100"
+              role="alert"
             >
-              {isUploading ? "Uploading..." : "Analyze screenshot"}
+              {error}
+            </div>
+          )}
+          <div className="mt-4">
+            <Button onClick={handleSubmit} disabled={!file || isUploading} className={primaryButtonClass}>
+              {isUploading ? t("panicScanUploading") : t("panicScanButton")}
             </Button>
           </div>
         </div>
-        <div className="text-sm text-white/70">
-          <p>Images expire after 24 hours. We never keep copies beyond that window.</p>
-          <p className="mt-2">
-            Need more detail? <Link href="/docs" className="underline">See the documentation</Link>.
+
+        <div className="space-y-1 text-sm text-white/70">
+          <p>{t("panicScanExpiryNote")}</p>
+          <p>
+            {t("panicScanDocsLink")}{" "}
+            <Link href="/docs#panic-scan" className="underline">
+              {t("docsLinkLabel")}
+            </Link>
           </p>
         </div>
+
       </div>
     </div>
   )
 }
+

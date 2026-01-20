@@ -1,4 +1,4 @@
-"use client"
+﻿"use client"
 
 import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent } from "react"
 import { Button } from "@/components/ui/button"
@@ -94,35 +94,35 @@ const LOADING_MESSAGES = [
 
 const PREFILL_STORAGE_KEY = "zazaDraftPrefill"
 
-type InputModeCard = {
+type InputModeCardDefinition = {
   id: string
-  title: string
-  description: string
+  titleKey: string
+  descriptionKey: string
   icon: LucideIcon
-  action: { type: "focus"; label: string } | { type: "link"; href: string; label: string }
+  action: { type: "focus"; labelKey: string } | { type: "link"; href: string; labelKey: string }
 }
 
-const INPUT_MODE_CARDS: InputModeCard[] = [
+const INPUT_MODE_CARD_DEFINITIONS: InputModeCardDefinition[] = [
   {
     id: "safe-draft",
-    title: "Safe Draft",
-    description: "Type directly into the editor for precise control.",
+    titleKey: "homeSafeDraftTitle",
+    descriptionKey: "homeSafeDraftDescription",
     icon: FileText,
-    action: { type: "focus", label: "Continue in editor" },
+    action: { type: "focus", labelKey: "homeSafeDraftAction" },
   },
   {
     id: "panic-scan",
-    title: "Panic Scan",
-    description: "Upload a screenshot or photo and let Zaza explain and guide replies.",
+    titleKey: "panicScanTitle",
+    descriptionKey: "panicScanDescription",
     icon: Image,
-    action: { type: "link", href: "/panic-scan", label: "Upload screenshot" },
+    action: { type: "link", href: "/panic-scan", labelKey: "homePanicScanAction" },
   },
   {
     id: "voice-to-calm",
-    title: "Voice-to-Calm",
-    description: "Speak emotionally-loaded thoughts and get a calm rewrite instantly.",
+    titleKey: "voiceTitle",
+    descriptionKey: "voiceDescription",
     icon: Mic,
-    action: { type: "link", href: "/voice", label: "Record voice" },
+    action: { type: "link", href: "/voice", labelKey: "homeVoiceAction" },
   },
 ]
 
@@ -826,7 +826,7 @@ export function MainEditor() {
             </h1>
           <p className="text-base sm:text-lg text-white/95 leading-relaxed drop-shadow-[0_1px_4px_rgba(0,0,0,0.25)]">
             {locale === "de-DE"
-              ? "Lassen Sie uns präzise und professionell bleiben."
+              ? "Lassen Sie uns prÃ¤zise und professionell bleiben."
               : "Let's keep it crisp and professional."}
           </p>
         </div>
@@ -847,39 +847,39 @@ export function MainEditor() {
 
           <section className="space-y-4">
             <div className="grid gap-3 md:grid-cols-3">
-              {INPUT_MODE_CARDS.map((card) => {
-                const Icon = card.icon
-                return (
-                  <article
-                    key={card.id}
-                    className="flex flex-col justify-between rounded-2xl border border-white/10 bg-white/10 p-4 text-sm text-white backdrop-blur"
-                  >
-                    <div className="space-y-2">
-                      <Icon className="h-6 w-6 text-purple-300" aria-hidden="true" />
-                      <p className="text-base font-semibold">{card.title}</p>
-                      <p className="text-xs text-white/70">{card.description}</p>
-                    </div>
-                    <div>
-                      {card.action.type === "focus" ? (
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={focusEditor}
-                          className="w-full text-white border-white/40"
-                        >
-                          {card.action.label}
-                        </Button>
-                      ) : (
-                        <Link href={card.action.href}>
-                          <Button size="sm" className="w-full text-white">
-                            {card.action.label}
-                          </Button>
-                        </Link>
-                      )}
-                    </div>
-                  </article>
-                )
-              })}
+          {INPUT_MODE_CARD_DEFINITIONS.map((card) => {
+            const Icon = card.icon
+            const title = t(card.titleKey)
+            const description = t(card.descriptionKey)
+            const buttonLabel = t(card.action.labelKey)
+            const tileButtonClass =
+              "w-full rounded-xl bg-indigo-900 px-4 py-3 text-sm font-semibold text-white shadow-lg shadow-black/40 transition duration-200 hover:bg-indigo-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-indigo-400 focus-visible:ring-offset-slate-900 disabled:bg-indigo-600 disabled:text-white/70 disabled:cursor-not-allowed"
+            return (
+                <article
+                  key={card.id}
+                  className="flex flex-col justify-between rounded-2xl border border-white/15 bg-gradient-to-b from-slate-950/80 to-slate-900/60 p-4 text-sm text-white shadow-lg shadow-black/40 backdrop-blur"
+                >
+                <div className="space-y-2">
+                  <Icon className="h-6 w-6 text-purple-300" aria-hidden="true" />
+                  <p className="text-base font-semibold text-white">{title}</p>
+                  <p className="text-xs text-white/70">{description}</p>
+                </div>
+                <div>
+                  {card.action.type === "focus" ? (
+                    <Button size="sm" variant="ghost" onClick={focusEditor} className={tileButtonClass}>
+                      {buttonLabel}
+                    </Button>
+                  ) : (
+                    <Link href={card.action.href}>
+                      <Button size="sm" variant="ghost" className={tileButtonClass}>
+                        {buttonLabel}
+                      </Button>
+                    </Link>
+                  )}
+                </div>
+              </article>
+            )
+          })}
             </div>
             <section className="glass shadow-lg rounded-xl p-6 sm:p-8 transition-all duration-200 border border-white/40 dark:border-white/30 bg-white/90 dark:bg-white/15 backdrop-blur-[32px]">
               <textarea
@@ -892,15 +892,15 @@ export function MainEditor() {
                     ? `Beschreiben Sie die Situation...
 
 Beispiele:
-• Schüler der 6. Klasse mit Schwierigkeiten bei Brüchen, braucht ermutigendes Feedback
-• Eltern-E-Mail zu Hausaufgaben, professioneller und einfühlsamer Ton
-• Zeugniskommentar für hervorragende Fortschritte beim Leseverständnis`
+â€¢ SchÃ¼ler der 6. Klasse mit Schwierigkeiten bei BrÃ¼chen, braucht ermutigendes Feedback
+â€¢ Eltern-E-Mail zu Hausaufgaben, professioneller und einfÃ¼hlsamer Ton
+â€¢ Zeugniskommentar fÃ¼r hervorragende Fortschritte beim LeseverstÃ¤ndnis`
                     : `Describe the situation...
 
 Examples:
-• Year 6 student struggling with fractions, needs encouraging feedback
-• Parent email about homework concerns, professional and empathetic tone
-• Report card comment for excellent progress in reading comprehension`
+â€¢ Year 6 student struggling with fractions, needs encouraging feedback
+â€¢ Parent email about homework concerns, professional and empathetic tone
+â€¢ Report card comment for excellent progress in reading comprehension`
                 }
                 className="w-full min-h-[80px] max-h-[320px] text-base sm:text-lg text-gray-900 dark:text-white bg-transparent border-0 focus:outline-none focus:ring-0 resize-none placeholder:text-gray-600 dark:placeholder:text-white/60 leading-relaxed font-medium"
                 style={{
@@ -912,7 +912,7 @@ Examples:
               />
               <p className="mt-3 text-xs text-white/80">
                 {locale === "de-DE"
-                  ? "Geben Sie keine vollständigen Namen, E-Mails, Telefonnummern oder Adressen ein."
+                  ? "Geben Sie keine vollstÃ¤ndigen Namen, E-Mails, Telefonnummern oder Adressen ein."
                   : "Do not include student full names, email addresses, phone numbers, or street addresses."}
               </p>
             </section>
@@ -1257,7 +1257,7 @@ Examples:
         <FooterSlim />
         {showBuildInfo && (
           <div className="mt-2 text-center text-[11px] text-white/60 uppercase tracking-[0.2em]">
-            Build {buildSha} • {process.env.NODE_ENV ?? "dev"}
+            Build {buildSha} â€¢ {process.env.NODE_ENV ?? "dev"}
           </div>
         )}
       </div>
@@ -1266,6 +1266,7 @@ Examples:
     </div>
   )
 }
+
 
 
 

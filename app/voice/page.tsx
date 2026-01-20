@@ -1,11 +1,12 @@
-"use client"
+﻿"use client"
 
-import { useEffect, useMemo, useState } from "react"
+import { useState } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { AuthScreen } from "@/components/auth/auth-screen"
 import { useAuth } from "@/hooks/use-auth"
+import { useLocale } from "@/hooks/use-locale"
 
 const SUPPORTED_FORMATS = ["WAV", "MP3", "M4A"]
 const LANGUAGE_OPTIONS = [
@@ -17,14 +18,20 @@ const LANGUAGE_OPTIONS = [
 export default function VoiceCapturePage() {
   const router = useRouter()
   const { status, getIdToken } = useAuth()
+  const { t } = useLocale()
   const [file, setFile] = useState<File | null>(null)
   const [language, setLanguage] = useState("en-GB")
   const [isUploading, setIsUploading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const primaryButtonClass =
+    "w-full rounded-xl bg-indigo-900 px-4 py-3 text-base font-semibold text-white shadow-lg shadow-black/40 transition duration-200 hover:bg-indigo-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-indigo-400 focus-visible:ring-offset-slate-900 disabled:bg-indigo-600 disabled:text-white/70 disabled:cursor-not-allowed"
+  const selectedFileInfo = file
+    ? `${t("voiceSelected")}: ${file.name} · ${(file.size / 1024 / 1024).toFixed(2)} MB`
+    : null
 
   const handleSubmit = async () => {
     if (!file) {
-      setError("Choose an audio file to record.")
+      setError(t("voice.error.chooseFile"))
       return
     }
 
@@ -56,7 +63,7 @@ export default function VoiceCapturePage() {
 
       router.push(`/voice/${payload.data.voiceSessionId}`)
     } catch (recordError) {
-      setError(recordError instanceof Error ? recordError.message : "Upload failed.")
+      setError(recordError instanceof Error ? recordError.message : t("voice.error.uploadFailed"))
     } finally {
       setIsUploading(false)
     }
@@ -65,7 +72,7 @@ export default function VoiceCapturePage() {
   if (status === "loading") {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <p className="text-lg text-gray-900 dark:text-white">Loading.</p>
+        <p className="text-lg text-gray-900 dark:text-white">{t("loading")}</p>
       </div>
     )
   }
@@ -75,28 +82,27 @@ export default function VoiceCapturePage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-slate-950 to-black px-4 py-12 text-white">
-      <div className="mx-auto max-w-4xl space-y-8">
+    <div className="min-h-screen bg-gradient-to-b from-slate-950 to-black text-white">
+      <div className="mx-auto flex min-h-[calc(100vh-160px)] max-w-4xl flex-col space-y-8 px-4 py-12">
         <Link href="/" className="text-sm text-white/80 underline">
-          ← Back to Draft editor
+          {t("voiceBackLink")}
         </Link>
         <div className="space-y-2">
-          <h1 className="text-3xl font-semibold">Voice-to-Calm</h1>
-          <p className="text-sm text-white/70">
-            Speak when emotions run high and let Zaza Draft listen, summarize, analyze tone, and draft a calm rewrite.
-          </p>
+          <h1 className="text-3xl font-semibold">{t("voiceTitle")}</h1>
+          <p className="text-sm text-white/70">{t("voiceDescription")}</p>
         </div>
 
-        <div className="rounded-2xl border border-white/20 bg-white/5 p-6 space-y-4">
-          <div className="space-y-1 text-sm text-white/80">
-            <p>Supported audio: {SUPPORTED_FORMATS.join(" • ")}</p>
-            <p>Maximum duration: 90 seconds. Default language: English (UK).</p>
-            <p>No audio is kept longer than one hour.</p>
-          </div>
+        <div className="rounded-2xl border border-white/20 bg-white/5 p-6 space-y-3 text-sm text-white/70">
+          <p className="uppercase tracking-[0.3em] text-xs text-white/60">{t("voiceSupportedLabel")}</p>
+          <p>{SUPPORTED_FORMATS.join(" · ")}</p>
+          <p>{t("voiceMaxDurationNote")}</p>
+        </div>
+
+        <div className="rounded-2xl border border-white/20 bg-black/40 p-6 space-y-4">
           <div>
-            <label className="text-xs uppercase tracking-[0.3em] text-white/60">Language</label>
+            <label className="text-xs uppercase tracking-[0.3em] text-white/60">{t("voiceLanguageLabel")}</label>
             <select
-              className="mt-1 w-full rounded-xl bg-white/80 px-4 py-3 text-gray-900 font-semibold shadow-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
+              className="mt-1 w-full rounded-xl bg-white/80 px-4 py-3 text-gray-900 font-semibold shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
               value={language}
               onChange={(event) => setLanguage(event.target.value)}
             >
@@ -107,36 +113,44 @@ export default function VoiceCapturePage() {
               ))}
             </select>
           </div>
-        </div>
-
-        <div className="rounded-2xl border border-white/20 bg-black/40 p-6 space-y-4">
-          <label className="block text-sm font-semibold text-white">Upload recording</label>
-          <input
-            type="file"
-            accept="audio/*"
-            capture="environment"
-            className="text-xs text-white"
-            onChange={(event) => setFile(event.target.files?.[0] ?? null)}
-          />
-          {file && (
-            <p className="text-xs text-white/70">
-              Selected: {file.name} • {(file.size / 1024 / 1024).toFixed(2)} MB
-            </p>
+          <div>
+            <label className="block text-sm font-semibold text-white">{t("voiceUploadLabel")}</label>
+            <input
+              type="file"
+              accept="audio/*"
+              capture="environment"
+              className="text-xs text-white"
+              onChange={(event) => setFile(event.target.files?.[0] ?? null)}
+            />
+          </div>
+          {selectedFileInfo && (
+            <p className="text-xs text-white/70">{selectedFileInfo}</p>
           )}
-          {error && <p className="text-xs text-rose-300">{error}</p>}
-          <Button
-            onClick={handleSubmit}
-            disabled={!file || isUploading}
-            className="w-full bg-gradient-to-br from-[#fbbf24] via-[#f97316] to-[#ef4444] text-white"
-          >
-            {isUploading ? "Uploading..." : "Transcribe & analyze"}
+          {error && (
+            <div
+              className="rounded-2xl border border-rose-400/80 bg-rose-500/10 p-3 text-xs text-rose-100"
+              role="alert"
+            >
+              {error}
+            </div>
+          )}
+          <Button onClick={handleSubmit} disabled={!file || isUploading} className={primaryButtonClass}>
+            {isUploading ? t("voiceProcessing") : t("voiceButton")}
           </Button>
         </div>
 
-        <div className="text-sm text-white/70">
-          Not ready to upload? Record voice notes on your phone and send to yourself via Airdrop/Share, then upload the WAV/MP3 file here.
+        <div className="space-y-1 text-sm text-white/70">
+          <p>{t("voiceFooterTip")}</p>
+          <p>
+            {t("panicScanDocsLink")}{" "}
+            <Link href="/docs#voice-to-calm" className="underline">
+              {t("docsLinkLabel")}
+            </Link>
+          </p>
         </div>
+
       </div>
     </div>
   )
 }
+

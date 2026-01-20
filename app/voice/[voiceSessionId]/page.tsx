@@ -1,11 +1,12 @@
 "use client"
 
-import { useEffect, useState } from "react"
-import { useParams, useRouter } from "next/navigation"
+import { useEffect, useMemo, useState } from "react"
 import Link from "next/link"
+import { useParams, useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
-import { useAuth } from "@/hooks/use-auth"
 import { AuthScreen } from "@/components/auth/auth-screen"
+import { useAuth } from "@/hooks/use-auth"
+import { useLocale } from "@/hooks/use-locale"
 
 const PREFILL_KEY = "zazaDraftPrefill"
 
@@ -33,10 +34,20 @@ interface SafeResponse {
   keyChanges: string[]
 }
 
+const TONE_OPTIONS = [
+  { value: "empathetic", labelKey: "voiceSessionToneOptionEmpathetic" },
+  { value: "professional", labelKey: "voiceSessionToneOptionProfessional" },
+  { value: "calm", labelKey: "voiceSessionToneOptionCalm" },
+]
+
+const PRIMARY_BUTTON_CLASS =
+  "w-full rounded-xl bg-indigo-900 px-4 py-3 text-base font-semibold text-white shadow-lg shadow-black/40 transition duration-200 hover:bg-indigo-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-indigo-400 focus-visible:ring-offset-slate-900 disabled:bg-indigo-600 disabled:text-white/70 disabled:cursor-not-allowed"
+
 export default function VoiceSessionPage() {
   const router = useRouter()
   const params = useParams()
   const { status, getIdToken } = useAuth()
+  const { t } = useLocale()
   const sessionId = params?.voiceSessionId
   const [session, setSession] = useState<VoiceSessionData | null>(null)
   const [loading, setLoading] = useState(true)
@@ -52,7 +63,7 @@ export default function VoiceSessionPage() {
     async function fetchSession() {
       if (!sessionId) {
         if (!cancelled) {
-          setError("Invalid session identifier.")
+          setError(t("voiceSessionInvalidId"))
           setLoading(false)
         }
         return
@@ -61,7 +72,7 @@ export default function VoiceSessionPage() {
       try {
         const token = await getIdToken()
         if (!token) {
-          throw new Error("Sign in again to continue.")
+          throw new Error(t("voiceSessionAuthError"))
         }
 
         const response = await fetch(`/api/voice/${sessionId}`, {
@@ -71,7 +82,7 @@ export default function VoiceSessionPage() {
         })
         const payload = await response.json()
         if (!response.ok || !payload?.success) {
-          throw new Error(payload?.error?.message || "Unable to load session.")
+          throw new Error(payload?.error?.message || t("voiceSessionLoadError"))
         }
 
         if (!cancelled) {
@@ -80,7 +91,7 @@ export default function VoiceSessionPage() {
         }
       } catch (fetchError) {
         if (!cancelled) {
-          setError(fetchError instanceof Error ? fetchError.message : "Unable to load session.")
+          setError(fetchError instanceof Error ? fetchError.message : t("voiceSessionLoadError"))
         }
       } finally {
         if (!cancelled) {
@@ -95,19 +106,40 @@ export default function VoiceSessionPage() {
       cancelled = true
       window.clearInterval(interval)
     }
-  }, [sessionId, getIdToken])
+  }, [sessionId, getIdToken, t])
 
-  if (status === "loading") {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <p className="text-lg text-gray-900 dark:text-white">Loading.</p>
-      </div>
-    )
-  }
+  const statusLabel = useMemo(() => {
+    if (!session?.status) {
+      return null
+    }
+    if (session.status === "processing") {
+      return t("voiceSessionStatusProcessing")
+    }
+    if (session.status === "completed") {
+      return t("voiceSessionStatusCompleted")
+    }
+    return t("voiceSessionStatusFailed")
+  }, [session?.status, t])
 
-  if (status === "unauthenticated") {
-    return <AuthScreen />
-  }
+  const statusBadgeLabel = statusLabel ?? session?.status ?? ""
+
+  const emotionMetrics = useMemo(
+    () => [
+      {
+        labelKey: "voiceSessionMetricFrustration",
+        value: session?.emotionAnalysis?.frustrationScore,
+      },
+      {
+        labelKey: "voiceSessionMetricUrgency",
+        value: session?.emotionAnalysis?.urgencyScore,
+      },
+      {
+        labelKey: "voiceSessionMetricDefensiveness",
+        value: session?.emotionAnalysis?.defensivenessScore,
+      },
+    ],
+    [session?.emotionAnalysis],
+  )
 
   const handleGenerate = async () => {
     if (!sessionId) return
@@ -115,7 +147,7 @@ export default function VoiceSessionPage() {
     try {
       const token = await getIdToken()
       if (!token) {
-        throw new Error("Sign in again to continue.")
+        throw new Error(t("voiceSessionAuthError"))
       }
 
       const response = await fetch(`/api/voice/${sessionId}/safe-rewrite`, {
@@ -132,12 +164,14 @@ export default function VoiceSessionPage() {
 
       const payload = await response.json()
       if (!response.ok || !payload?.success) {
-        throw new Error(payload?.error?.message || "Unable to create safe rewrite.")
+        throw new Error(payload?.error?.message || t("voiceSessionRewriteError"))
       }
 
       setSafeResponse(payload.data)
     } catch (generationError) {
-      setError(generationError instanceof Error ? generationError.message : "Unable to rewrite.")
+      setError(
+        generationError instanceof Error ? generationError.message : t("voiceSessionRewriteError"),
+      )
     } finally {
       setIsGenerating(false)
     }
@@ -150,21 +184,33 @@ export default function VoiceSessionPage() {
     }
   }
 
+  if (status === "loading") {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <p className="text-lg text-gray-900 dark:text-white">{t("loading")}</p>
+      </div>
+    )
+  }
+
+  if (status === "unauthenticated") {
+    return <AuthScreen />
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-b from-slate-900 to-black text-white">
       <div className="mx-auto max-w-5xl px-4 py-12 space-y-8">
         <Link href="/voice" className="text-sm text-white/80 underline">
-          ← Record a new voice note
+          {t("voiceSessionBackLink")}
         </Link>
         <div className="space-y-1">
-          <h1 className="text-3xl font-semibold">Voice-to-Calm session</h1>
-          <p className="text-sm text-white/70">
-            Review the transcription, emotion analysis, and generate a safe rewrite.
-          </p>
+          <h1 className="text-3xl font-semibold">{t("voiceSessionTitle")}</h1>
+          <p className="text-sm text-white/70">{t("voiceSessionDescription")}</p>
         </div>
 
         {loading && (
-          <div className="rounded-2xl border border-white/10 bg-white/5 p-6 text-sm text-white/70">Loading…</div>
+          <div className="rounded-2xl border border-white/10 bg-white/5 p-6 text-sm text-white/70">
+            {t("voiceSessionChecking")}
+          </div>
         )}
 
         {error && (
@@ -177,7 +223,9 @@ export default function VoiceSessionPage() {
           <div className="space-y-6">
             <div className="rounded-2xl border border-white/10 bg-white/5 p-5 space-y-3">
               <div className="flex items-center justify-between">
-                <p className="text-xs uppercase tracking-[0.3em] text-white/60">Status</p>
+                <p className="text-xs uppercase tracking-[0.3em] text-white/60">
+                  {t("voiceSessionStatusLabel")}
+                </p>
                 <span
                   className={`rounded-full px-3 py-1 text-xs font-semibold ${
                     session.status === "processing"
@@ -187,28 +235,26 @@ export default function VoiceSessionPage() {
                       : "bg-rose-500/20 text-rose-200"
                   }`}
                 >
-                  {session.status}
+                  {statusBadgeLabel}
                 </span>
               </div>
-              {session.transcribedText && (
-                <p className="text-sm text-white/80 whitespace-pre-wrap">{session.transcribedText}</p>
-              )}
+              <p className="text-sm text-white/80 whitespace-pre-wrap">{session.transcribedText}</p>
               {session.failureReason && (
-                <p className="text-xs text-rose-200">Issue: {session.failureReason}</p>
+                <p className="text-xs text-rose-200">
+                  {t("voiceSessionFailureLabel", { reason: session.failureReason })}
+                </p>
               )}
             </div>
 
             {session.emotionAnalysis && (
               <div className="grid gap-3 md:grid-cols-3">
-                {[
-                  { label: "Frustration", value: session.emotionAnalysis.frustrationScore },
-                  { label: "Urgency", value: session.emotionAnalysis.urgencyScore },
-                  { label: "Defensiveness", value: session.emotionAnalysis.defensivenessScore },
-                ].map((item) => (
-                  <div key={item.label} className="rounded-2xl border border-white/10 bg-black/40 p-4">
-                    <p className="text-xs uppercase tracking-[0.3em] text-white/60">{item.label}</p>
+                {emotionMetrics.map((metric) => (
+                  <div key={metric.labelKey} className="rounded-2xl border border-white/10 bg-black/40 p-4">
+                    <p className="text-xs uppercase tracking-[0.3em] text-white/60">
+                      {t(metric.labelKey)}
+                    </p>
                     <p className="text-2xl font-semibold text-white">
-                      {typeof item.value === "number" ? item.value.toFixed(0) : "-"}
+                      {typeof metric.value === "number" ? metric.value.toFixed(0) : "-"}
                     </p>
                   </div>
                 ))}
@@ -216,18 +262,22 @@ export default function VoiceSessionPage() {
             )}
 
             <div className="rounded-2xl border border-white/10 bg-white/5 p-5 space-y-3">
-              <p className="text-xs uppercase tracking-[0.3em] text-white/60">Rewrite options</p>
+              <p className="text-xs uppercase tracking-[0.3em] text-white/60">
+                {t("voiceSessionRewriteOptions")}
+              </p>
               <div className="space-y-2 text-sm text-white/80">
                 <label className="flex flex-col gap-1">
-                  Target tone
+                  {t("voiceSessionTargetToneLabel")}
                   <select
                     className="rounded-xl bg-black/40 px-4 py-2 text-white focus:outline-none"
                     value={targetTone}
                     onChange={(event) => setTargetTone(event.target.value)}
                   >
-                    <option value="empathetic">Empathetic</option>
-                    <option value="professional">Professional</option>
-                    <option value="calm">Calm</option>
+                    {TONE_OPTIONS.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {t(option.labelKey)}
+                      </option>
+                    ))}
                   </select>
                 </label>
                 <label className="flex items-center gap-2 text-xs">
@@ -236,26 +286,28 @@ export default function VoiceSessionPage() {
                     checked={preserveIntent}
                     onChange={(event) => setPreserveIntent(event.target.checked)}
                   />
-                  Preserve original intent
+                  {t("voiceSessionPreserveIntent")}
                 </label>
               </div>
               <Button
                 onClick={handleGenerate}
                 disabled={session.status !== "completed" || isGenerating}
-                className="w-full bg-gradient-to-br from-[#38bdf8] via-[#0ea5e9] to-[#0284c7] text-white"
+                className={PRIMARY_BUTTON_CLASS}
               >
-                {isGenerating ? "Generating..." : "Generate safe rewrite"}
+                {isGenerating ? t("voiceSessionGenerating") : t("voiceSessionGenerateButton")}
               </Button>
             </div>
 
             {safeResponse && (
               <div className="space-y-4 rounded-2xl border border-white/10 bg-black/40 p-5">
-                <p className="text-xs uppercase tracking-[0.3em] text-white/60">Safe rewrite</p>
+                <p className="text-xs uppercase tracking-[0.3em] text-white/60">
+                  {t("voiceSessionSafeRewriteTitle")}
+                </p>
                 <div className="rounded-xl bg-white/10 p-4 text-sm text-white/80">
                   {safeResponse.safeVersion}
                 </div>
                 <div className="space-y-1 text-xs text-white/60">
-                  <p>Key changes:</p>
+                  <p>{t("voiceSessionKeyChangesLabel")}</p>
                   <ul className="list-disc space-y-1 pl-5">
                     {safeResponse.keyChanges.map((change) => (
                       <li key={change}>{change}</li>
@@ -263,12 +315,10 @@ export default function VoiceSessionPage() {
                   </ul>
                 </div>
                 <div className="flex flex-col gap-2">
-                  <Button onClick={handleUseVersion} className="w-full border border-white/20">
-                    Use this version
+                  <Button onClick={handleUseVersion} className={PRIMARY_BUTTON_CLASS}>
+                    {t("voiceSessionUseVersionButton")}
                   </Button>
-                  <p className="text-xs text-white/50">
-                    This will load the rewrite in the main editor for editing or sending.
-                  </p>
+                  <p className="text-xs text-white/50">{t("voiceSessionFooterNote")}</p>
                 </div>
               </div>
             )}

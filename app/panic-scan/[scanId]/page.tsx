@@ -6,17 +6,25 @@ import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { useAuth } from "@/hooks/use-auth"
 import { AuthScreen } from "@/components/auth/auth-screen"
+import { useLocale } from "@/hooks/use-locale"
 
 const PREFILL_KEY = "zazaDraftPrefill"
 
 type ScanStatus = "processing" | "completed" | "failed"
 
+interface PanicScanAnalysis {
+  summary?: string | null
+  emotionalInterpretation?: string | null
+  professionalRisk?: string | null
+  suggestedResponse?: string | null
+}
+
 interface ScanResponse {
   scanId: string
   status: ScanStatus
   extractedText?: string | null
-  classification?: Record<string, any> | null
-  analysis?: Record<string, any> | null
+  classification?: Record<string, number | string> | null
+  analysis?: PanicScanAnalysis | null
   failureReason?: string | null
   processingTimeMs?: number | null
 }
@@ -25,13 +33,13 @@ export default function PanicScanResultPage() {
   const router = useRouter()
   const params = useParams()
   const { status, getIdToken } = useAuth()
+  const { t } = useLocale()
   const scanId = params?.scanId
   const [scan, setScan] = useState<ScanResponse | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
   const isCompleted = scan?.status === "completed"
-  const isFailed = scan?.status === "failed"
 
   useEffect(() => {
     let cancelled = false
@@ -39,7 +47,7 @@ export default function PanicScanResultPage() {
     async function fetchScan() {
       if (!scanId) {
         if (!cancelled) {
-          setError("Invalid scan identifier.")
+          setError(t("panicScanResultInvalidId"))
           setLoading(false)
         }
         return
@@ -48,24 +56,27 @@ export default function PanicScanResultPage() {
       try {
         const token = await getIdToken()
         if (!token) {
-          throw new Error("Sign in again to view this scan.")
+          throw new Error(t("panicScanResultAuthError"))
         }
+
         const response = await fetch(`/api/panic-scan/${scanId}/analysis`, {
           headers: {
             Authorization: `Bearer ${token}`,
           },
         })
+
         const payload = await response.json()
         if (!response.ok || !payload?.success) {
-          throw new Error(payload?.error?.message || "Unable to load scan.")
+          throw new Error(payload?.error?.message || t("panicScanResultLoadError"))
         }
+
         if (!cancelled) {
           setScan(payload.data)
           setError(null)
         }
       } catch (fetchError) {
         if (!cancelled) {
-          setError(fetchError instanceof Error ? fetchError.message : "Unable to load scan.")
+          setError(fetchError instanceof Error ? fetchError.message : t("panicScanResultLoadError"))
         }
       } finally {
         if (!cancelled) {
@@ -80,7 +91,7 @@ export default function PanicScanResultPage() {
       cancelled = true
       window.clearInterval(interval)
     }
-  }, [scanId, getIdToken])
+  }, [scanId, getIdToken, t])
 
   const classificationList = useMemo(
     () =>
@@ -93,10 +104,23 @@ export default function PanicScanResultPage() {
     [scan?.classification],
   )
 
+  const statusLabel = useMemo(() => {
+    if (!scan?.status) {
+      return null
+    }
+    if (scan.status === "processing") {
+      return t("panicScanResultStatusProcessing")
+    }
+    if (scan.status === "completed") {
+      return t("panicScanResultStatusReady")
+    }
+    return t("panicScanResultStatusFailed")
+  }, [scan?.status, t])
+
   if (status === "loading") {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <p className="text-lg text-gray-900 dark:text-white">Loading.</p>
+        <p className="text-lg text-gray-900 dark:text-white">{t("loading")}</p>
       </div>
     )
   }
@@ -112,22 +136,27 @@ export default function PanicScanResultPage() {
     }
   }
 
+  const statusBadgeLabel = statusLabel ?? scan?.status ?? ""
+  const professionalRiskLabel = scan?.analysis?.professionalRisk
+  const suggestedResponseText =
+    typeof scan?.analysis?.suggestedResponse === "string"
+      ? scan.analysis.suggestedResponse.replaceAll("_", " ")
+      : scan?.analysis?.suggestedResponse ?? ""
+
   return (
     <div className="min-h-screen bg-gradient-to-b from-slate-900 to-black text-white">
       <div className="mx-auto max-w-5xl px-4 py-12 space-y-8">
         <Link href="/panic-scan" className="text-sm text-white/80 underline">
-          ← Upload another screenshot
+          {t("panicScanResultBackLink")}
         </Link>
         <div className="space-y-2">
-          <h1 className="text-3xl font-semibold">Panic Scan analysis</h1>
-          <p className="text-sm text-white/70">
-            Zaza Draft extracts the message, assesses emotional tone, and explains possible replies.
-          </p>
+          <h1 className="text-3xl font-semibold">{t("panicScanResultTitle")}</h1>
+          <p className="text-sm text-white/70">{t("panicScanResultDescription")}</p>
         </div>
 
         {loading && (
           <div className="rounded-2xl border border-white/10 bg-white/5 p-6 text-sm text-white/70">
-            Checking the scan status…
+            {t("panicScanResultCheckingStatus")}
           </div>
         )}
 
@@ -142,12 +171,10 @@ export default function PanicScanResultPage() {
             <div className="rounded-2xl border border-white/10 bg-white/5 p-6 space-y-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-xs uppercase tracking-[0.3em] text-white/60">Status</p>
-                  <p className="text-xl font-semibold">
-                    {scan.status === "processing" && "Processing"}
-                    {scan.status === "completed" && "Ready to reply"}
-                    {scan.status === "failed" && "Failed"}
+                  <p className="text-xs uppercase tracking-[0.3em] text-white/60">
+                    {t("panicScanResultStatusLabel")}
                   </p>
+                  <p className="text-xl font-semibold">{statusLabel}</p>
                 </div>
                 <span
                   className={`rounded-full px-3 py-1 text-xs font-semibold ${
@@ -158,22 +185,26 @@ export default function PanicScanResultPage() {
                       : "bg-rose-500/20 text-rose-200"
                   }`}
                 >
-                  {scan.status}
+                  {statusBadgeLabel}
                 </span>
               </div>
               {scan.processingTimeMs && (
                 <p className="text-xs text-white/50">
-                  Processing time: {Math.round(scan.processingTimeMs)} ms
+                  {t("panicScanResultProcessingTime", { ms: Math.round(scan.processingTimeMs) })}
                 </p>
               )}
               {scan.failureReason && (
-                <p className="text-sm text-rose-200">Reason: {scan.failureReason}</p>
+                <p className="text-sm text-rose-200">
+                  {t("panicScanResultFailureLabel", { reason: scan.failureReason })}
+                </p>
               )}
             </div>
 
             {scan.extractedText && (
               <div className="rounded-2xl border border-white/10 bg-black/40 p-4">
-                <p className="text-sm uppercase tracking-[0.3em] text-white/60">Extracted text</p>
+                <p className="text-sm uppercase tracking-[0.3em] text-white/60">
+                  {t("panicScanResultExtractedTitle")}
+                </p>
                 <p className="mt-2 text-sm text-white/80 whitespace-pre-wrap">{scan.extractedText}</p>
               </div>
             )}
@@ -191,15 +222,21 @@ export default function PanicScanResultPage() {
 
             {scan.analysis && (
               <div className="rounded-2xl border border-white/10 bg-gradient-to-br from-purple-900/70 to-black/60 p-5 space-y-3">
-                <p className="text-xs uppercase tracking-[0.3em] text-white/60">Analysis</p>
-                <p className="text-sm text-white/80">{scan.analysis.summary}</p>
-                <p className="text-xs text-white/60">{scan.analysis.emotionalInterpretation}</p>
-                <p className="text-sm text-white/70">
-                  Professional risk: {scan.analysis.professionalRisk}
+                <p className="text-xs uppercase tracking-[0.3em] text-white/60">
+                  {t("panicScanResultAnalysisTitle")}
                 </p>
-                <p className="text-sm text-white/70">
-                  Suggested response: {scan.analysis.suggestedResponse.replaceAll("_", " ")}
-                </p>
+                <p className="text-sm text-white/80">{scan.analysis.summary ?? ""}</p>
+                <p className="text-xs text-white/60">{scan.analysis.emotionalInterpretation ?? ""}</p>
+                {professionalRiskLabel && (
+                  <p className="text-sm text-white/70">
+                    {t("panicScanResultProfessionalRisk", { risk: professionalRiskLabel })}
+                  </p>
+                )}
+                {suggestedResponseText && (
+                  <p className="text-sm text-white/70">
+                    {t("panicScanResultSuggestedResponse", { response: suggestedResponseText })}
+                  </p>
+                )}
               </div>
             )}
 
@@ -209,11 +246,9 @@ export default function PanicScanResultPage() {
                 disabled={!isCompleted}
                 className="w-full bg-gradient-to-br from-[#fb7185] via-[#f43f5e] to-[#c026d3] text-white"
               >
-                Help me reply safely
+                {t("panicScanResultHelpButton")}
               </Button>
-              <p className="text-xs text-white/60">
-                Clicking this will open the editor with the extracted message preloaded.
-              </p>
+              <p className="text-xs text-white/60">{t("panicScanResultHelpNote")}</p>
             </div>
           </div>
         )}
