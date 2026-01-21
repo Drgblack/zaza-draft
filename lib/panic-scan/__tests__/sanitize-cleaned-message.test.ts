@@ -4,7 +4,7 @@ import { describe, expect, it } from "vitest"
 import { sanitizeCleanedMessage } from "../sanitize-cleaned-message"
 
 describe("sanitizeCleanedMessage", () => {
-  it("removes known UI/label artefacts while keeping message text", () => {
+  it("removes UI chrome before the actual parent message", () => {
     const raw = [
       "Active V",
       "Active ✓",
@@ -19,12 +19,12 @@ describe("sanitizeCleanedMessage", () => {
     expect(sanitizeCleanedMessage(raw)).toBe("Hi Ms. Riley,\nThanks for your note.")
   })
 
-  it("collapses extra blank lines and trims whitespace", () => {
+  it("collapses blank runs of whitespace-only lines", () => {
     const raw = ["Hello", "", "", "World", "", "  "].join("\n")
     expect(sanitizeCleanedMessage(raw)).toBe("Hello\n\nWorld")
   })
 
-  it("removes Gmail header metadata lines while keeping the parent message", () => {
+  it("strips Gmail metadata like counts, timestamps, and checkbox glyphs", () => {
     const raw = [
       "5 of 1,142",
       "21:59 (2 minutes ago)",
@@ -37,8 +37,24 @@ describe("sanitizeCleanedMessage", () => {
     expect(sanitizeCleanedMessage(raw)).toBe("Dear Ms. Riley,\nThank you for sharing the update.")
   })
 
-  it("does not strip legitimate 'X of Y' content inside a real sentence", () => {
+  it("keeps legitimate 'X of Y' statements inside longer sentences", () => {
     const raw = "He scored 5 of 10 questions correctly on the quiz."
     expect(sanitizeCleanedMessage(raw)).toBe(raw)
+  })
+
+  it("drops Gmail sender footers and numeric UI fragments", () => {
+    const raw = [
+      "Dear Mrs Patel,",
+      "",
+      "The message you need to respond to is below.",
+      "",
+      "Mrs Patel",
+      "Dr Greg Blackburn (gmail.com)",
+      "5 2",
+    ].join("\n")
+
+    expect(sanitizeCleanedMessage(raw)).toBe(
+      ["Dear Mrs Patel,", "", "The message you need to respond to is below.", "", "Mrs Patel"].join("\n"),
+    )
   })
 })

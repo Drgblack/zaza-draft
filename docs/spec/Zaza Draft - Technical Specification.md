@@ -11,6 +11,21 @@
 - Tier 1 / Tier 2 inputs are automatically reframed into professional parent language on the server before generation. The client receives a gentle notice when reframing occurs; no raw or reframed text is persisted or logged.
 - Tier 3 inputs still trigger a `BLOCKED_LANGUAGE` rejection with a clear user-facing message; only these cases block the generation flow.
 
+### Out-of-scope requests and boundary-setting replies
+- **Purpose:** Ensure the draft assistant always helps the teacher with a professional reply, even when the parent request falls outside school-related boundaries.
+- **Rule:** Draft must never fulfil off-topic personal requests. Always generate a polite, school-focused reply summarising the parent request, declining the off-topic ask, and redirecting the conversation back to school communication.
+- **Severity levels:**
+  - **Low severity** covers recipe requests, personal recommendations, and other gentle off-topic asks. Replies should stay warm, thank the parent, decline the specific favour, and offer to help with class-related questions.
+  - **High severity** covers attempts to obtain private contact info, unsupervised home visits, gifts/payments, or private tutoring. Replies should be firmer, restate school policy or official channels, and clearly decline while remaining calm.
+- **Examples:**
+  1. “Please send your chocolate cake recipe.” → Out-of-scope low.
+  2. “Text me on your personal mobile or WhatsApp.” → Out-of-scope high.
+  3. “Can we meet at my house after school?” → Out-of-scope high.
+  4. “We can give you a gift card or cash if you help.” → Out-of-scope high.
+  5. “Could you tutor my child privately?” → Out-of-scope high.
+  6. “Could you explain next week’s homework?” → In-scope.
+- **Implementation notes:** Detect out-of-scope requests deterministically (keyword/phrase heuristics) before prompting the model. When triggered, inject an inline system instruction that asks the AI to set boundaries, redirect politely, and avoid inventing personal details. Severity flags govern whether that instruction includes firmer language.
+
 ### Never-fail resilience
 - The provider call is wrapped in a fallback helper (`generateDraftWithFallback`). When the model fails (network, timeout, rate limit), the route still returns a usable draft plus metadata flags (`usedFallback`, `errorCode`) so the UI can explain the graceful degradation without exposing prompts.
 

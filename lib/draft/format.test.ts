@@ -149,4 +149,10 @@ Frau Mueller`
     expect(formatted.paragraphs[0]).toContain("Dear family")
     expect(formatted.paragraphs[formatted.paragraphs.length - 1]).toContain("Warm regards,")
   })
+
+  it("normalizes newline-split salutations before formatting", () => {
+    const draft = "Dear Mrs.\n\nPatel,\n\nThank you for your patience."
+    const formatted = formatDraftText(draft)
+    expect(formatted.paragraphs[0]).toContain("Dear Mrs Patel,")
+  })
 })

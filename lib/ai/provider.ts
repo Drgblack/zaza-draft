@@ -1,6 +1,7 @@
 import type { DraftLanguage, DraftMode, DraftTone, PronounPreference } from "@/lib/types"
 import { MODE_DISPLAY_NAMES, MODE_PROMPT_INSTRUCTIONS } from "@/lib/draft-mode"
 import { buildStudentInstruction, PRONOUN_LABELS } from "@/lib/draft/student-policy"
+import { detectOutOfScopeRequest } from "@/lib/safety/out-of-scope"
 
 function getOpenAiApiKey() {
   return process.env.OPENAI_API_KEY
@@ -81,6 +82,19 @@ export function buildSystemPrompt(input: ProviderInput) {
     PRONOUN_INSTRUCTIONS[input.pronounPreference],
     MODE_PROMPT_INSTRUCTIONS[input.mode],
   ]
+
+  const requestText = input.originalSituation ?? input.situation
+  const outOfScope = detectOutOfScopeRequest(requestText)
+  if (outOfScope.isOutOfScope) {
+    systemLines.push(
+      "Out-of-scope request detected. Do not fulfil the parent’s off-topic or personal request. Write a professional teacher reply that politely sets boundaries and redirects to school-related communication. Do not invent personal teacher details.",
+    )
+    if (outOfScope.severity === "high") {
+      systemLines.push(
+        "Be firmer, maintain safeguarding-professional boundaries, and suggest official school channels or policy when appropriate.",
+      )
+    }
+  }
 
   const resolvedPronoun = input.resolvedPronounPreference ?? input.pronounPreference
   const studentInstruction = buildStudentInstruction({

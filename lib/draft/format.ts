@@ -26,6 +26,21 @@ function stripMarkdown(value: string) {
   return value.replace(/\*\*([\s\S]*?)\*\*/g, "$1").replace(/__([\s\S]*?)__/g, "$1")
 }
 
+const SALUTATION_NORMALIZATION_REGEX =
+  /^(Dear\s+(?:Mr|Mrs|Ms|Miss|Dr|Prof|Mx|Sir|Madam|Teacher)\.?)[\s\r\n]+([^\r\n,]+)(,?)/imu
+
+function normalizeGreetingNewline(value: string) {
+  return value.replace(SALUTATION_NORMALIZATION_REGEX, (_, prefix, name, comma) => {
+    const normalizedPrefix = prefix.replace(/\.\s*$/, "").trim()
+    const normalizedName = name.replace(/\s+/g, " ").trim()
+    if (!normalizedName) {
+      return `${normalizedPrefix}${comma || ","}`
+    }
+    const commaToken = comma || ","
+    return `${normalizedPrefix} ${normalizedName}${commaToken}`
+  })
+}
+
 function getLocaleForSegmenter(locale?: string) {
   if (!locale) {
     return "en-US"
@@ -252,7 +267,7 @@ function buildParagraphs(body: string, locale?: string): string[] {
 }
 
 export function formatDraftText(text: string, locale?: string): DraftStructure {
-  const normalized = stripMarkdown(text).replace(/\r\n/g, "\n").trim()
+  const normalized = normalizeGreetingNewline(stripMarkdown(text).replace(/\r\n/g, "\n")).trim()
   if (!normalized) {
     return { paragraphs: [] }
   }
