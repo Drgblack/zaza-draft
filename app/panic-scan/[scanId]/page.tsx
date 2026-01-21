@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useMemo, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import { useRouter, useParams } from "next/navigation"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
@@ -9,6 +9,7 @@ import { AuthScreen } from "@/components/auth/auth-screen"
 import { useLocale } from "@/hooks/use-locale"
 
 const PREFILL_KEY = "zazaDraftPrefill"
+const CLEAN_MESSAGE_COLLAPSE_THRESHOLD = 420
 
 type ScanStatus = "processing" | "completed" | "failed"
 
@@ -40,6 +41,9 @@ export default function PanicScanResultPage() {
   const [scan, setScan] = useState<ScanResponse | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [cleanExpanded, setCleanExpanded] = useState(false)
+  const [copiedCleanMessage, setCopiedCleanMessage] = useState(false)
+  const copyTimeoutRef = useRef<number | null>(null)
 
   const isCompleted = scan?.status === "completed"
 
@@ -119,23 +123,11 @@ export default function PanicScanResultPage() {
     return t("panicScanResultStatusFailed")
   }, [scan?.status, t])
 
-  if (status === "loading") {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <p className="text-lg text-gray-900 dark:text-white">{t("loading")}</p>
-      </div>
-    )
-  }
-
-  if (status === "unauthenticated") {
-    return <AuthScreen />
-  }
-
   const handleUseDraft = () => {
     const messageToPrefill = scan?.extractedTextClean ?? scan?.extractedText
     if (messageToPrefill) {
       sessionStorage.setItem(PREFILL_KEY, messageToPrefill)
-      router.push("/")
+      router.push("/?panicScanReturn=1")
     }
   }
 
@@ -152,10 +144,50 @@ export default function PanicScanResultPage() {
     : null
   const showLowConfidenceWarning =
     showCleanConfidence && (scan?.cleanConfidence ?? 0) < 0.5 && Boolean(cleanMessage)
+  const cleanMessageIsLong =
+    Boolean(cleanMessage) && (cleanMessage?.length ?? 0) > CLEAN_MESSAGE_COLLAPSE_THRESHOLD
 
+  useEffect(() => {
+    setCleanExpanded(false)
+  }, [cleanMessage])
+
+  useEffect(() => {
+    return () => {
+      if (copyTimeoutRef.current && typeof window !== "undefined") {
+        window.clearTimeout(copyTimeoutRef.current)
+      }
+    }
+  }, [])
+
+  const handleCopyCleanMessage = async () => {
+    if (!cleanMessage || typeof navigator === "undefined" || !navigator.clipboard) {
+      return
+    }
+    try {
+      await navigator.clipboard.writeText(cleanMessage)
+      setCopiedCleanMessage(true)
+      if (copyTimeoutRef.current && typeof window !== "undefined") {
+        window.clearTimeout(copyTimeoutRef.current)
+      }
+      copyTimeoutRef.current = window.setTimeout(() => setCopiedCleanMessage(false), 2000)
+    } catch (copyError) {
+      console.error("[panic-scan] copy failed", copyError)
+    }
+  }
+  if (status === "loading") {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <p className="text-lg text-gray-900 dark:text-white">{t("loading")}</p>
+      </div>
+    )
+  }
+
+  if (status === "unauthenticated") {
+    return <AuthScreen />
+  }
   return (
-    <div className="min-h-screen bg-gradient-to-b from-slate-900 to-black text-white">
-      <div className="mx-auto max-w-5xl px-4 py-12 space-y-8">
+    <div className="min-h-screen bg-gradient-to-b from-purple-950/90 via-slate-950/80 to-slate-900 text-white">
+      <div className="mx-auto max-w-5xl px-4 py-12 space-y-6">
         <Link href="/panic-scan" className="text-sm text-white/80 underline">
           {t("panicScanResultBackLink")}
         </Link>
@@ -177,8 +209,8 @@ export default function PanicScanResultPage() {
         )}
 
         {scan && (
-          <div className="space-y-4">
-            <div className="rounded-2xl border border-white/10 bg-white/5 p-6 space-y-4">
+          <div className="space-y-6">
+            <div className="rounded-[28px] border border-white/15 bg-white/5 px-6 py-6 space-y-3 shadow-[0_20px_60px_rgba(15,4,50,0.6)]">
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-xs uppercase tracking-[0.3em] text-white/60">
@@ -211,18 +243,48 @@ export default function PanicScanResultPage() {
             </div>
 
             {cleanMessage && (
-              <div className="rounded-2xl border border-white/10 bg-black/40 p-4 space-y-2">
-                <div className="flex items-center justify-between">
+              <div className="rounded-[28px] border border-white/15 bg-white/5 px-6 py-5 space-y-4 shadow-[0_20px_60px_rgba(15,4,50,0.55)]">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                   <p className="text-sm uppercase tracking-[0.3em] text-white/60">
                     {t("panicScanResultMessageLabel")}
                   </p>
-                  {displayConfidence !== null && (
-                    <p className="text-xs text-white/60">
-                      {t("panicScanResultCleanConfidence", { confidence: displayConfidence })}
-                    </p>
-                  )}
+                  <div className="flex flex-wrap items-center gap-3 text-xs text-white/70">
+                    {displayConfidence !== null && (
+                      <span className="font-semibold text-white">
+                        {t("panicScanResultCleanConfidence", { confidence: displayConfidence })}
+                      </span>
+                    )}
+                    <Button
+                      onClick={handleCopyCleanMessage}
+                      size="sm"
+                      variant="outline"
+                      className="text-xs uppercase tracking-[0.3em]"
+                    >
+                      {t("panicScanResultCopyButton")}
+                    </Button>
+                    {copiedCleanMessage && (
+                      <span className="text-xs text-emerald-200">Copied!</span>
+                    )}
+                  </div>
                 </div>
-                <p className="text-sm text-white/80 whitespace-pre-wrap">{cleanMessage}</p>
+                <div
+                  className={`rounded-2xl border border-white/5 bg-slate-900/70 p-4 text-sm text-white/90 whitespace-pre-wrap transition-[max-height] duration-200 overflow-y-auto ${
+                    cleanExpanded ? "max-h-[900px]" : "max-h-80"
+                  }`}
+                >
+                  {cleanMessage}
+                </div>
+                {cleanMessageIsLong && (
+                  <button
+                    type="button"
+                    onClick={() => setCleanExpanded((prev) => !prev)}
+                    className="text-xs text-purple-200 underline transition hover:text-purple-100"
+                  >
+                    {cleanExpanded
+                      ? t("panicScanResultCollapseLabel")
+                      : t("panicScanResultExpandLabel")}
+                  </button>
+                )}
                 {showLowConfidenceWarning && (
                   <p className="text-xs text-amber-200">
                     {t("panicScanResultCleanLowWarning")}
@@ -232,12 +294,12 @@ export default function PanicScanResultPage() {
             )}
 
             {scan.extractedText && (
-              <details className="rounded-2xl border border-white/10 bg-black/40 p-4">
-                <summary className="text-sm uppercase tracking-[0.3em] text-white/60">
+              <details className="rounded-[28px] border border-white/15 bg-white/5 p-4">
+                <summary className="text-sm uppercase tracking-[0.3em] text-slate-500">
                   {t("panicScanResultRawLabel")}
                 </summary>
-                <p className="mt-2 text-sm text-white/80 whitespace-pre-wrap">{scan.extractedText}</p>
-                <p className="mt-2 text-xs text-white/50">{t("panicScanResultRawSummary")}</p>
+                <p className="mt-2 text-sm text-slate-200 whitespace-pre-wrap">{scan.extractedText}</p>
+                <p className="mt-2 text-xs text-slate-400">{t("panicScanResultRawSummary")}</p>
               </details>
             )}
 
@@ -253,7 +315,7 @@ export default function PanicScanResultPage() {
             )}
 
             {scan.analysis && (
-              <div className="rounded-2xl border border-white/10 bg-gradient-to-br from-purple-900/70 to-black/60 p-5 space-y-3">
+              <div className="rounded-[28px] border border-white/15 bg-white/5 p-5 space-y-3 shadow-[0_20px_60px_rgba(15,4,50,0.45)]">
                 <p className="text-xs uppercase tracking-[0.3em] text-white/60">
                   {t("panicScanResultAnalysisTitle")}
                 </p>
@@ -272,15 +334,15 @@ export default function PanicScanResultPage() {
               </div>
             )}
 
-            <div className="space-y-3">
+            <div className="space-y-2">
               <Button
                 onClick={handleUseDraft}
                 disabled={!isCompleted}
-                className="w-full bg-gradient-to-br from-[#fb7185] via-[#f43f5e] to-[#c026d3] text-white"
+                className="w-full bg-gradient-to-r from-purple-500 via-fuchsia-500 to-pink-500 text-white shadow-lg shadow-purple-500/50"
               >
                 {t("panicScanResultHelpButton")}
               </Button>
-              <p className="text-xs text-white/60">{t("panicScanResultHelpNote")}</p>
+              <p className="text-xs text-slate-200">{t("panicScanResultHelpNote")}</p>
             </div>
           </div>
         )}

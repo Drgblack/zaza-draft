@@ -12,6 +12,10 @@ describe("formatGreetingDisplay", () => {
     expect(formatGreetingDisplay("Guten Abend", "Lehrer")).toBe("Guten Abend, Lehrer")
   })
 
+  it("joins title greetings without a comma", () => {
+    expect(formatGreetingDisplay("Dear Mr.", "Khalid")).toBe("Dear Mr Khalid")
+  })
+
   it("does not return 'there' or 'da'", () => {
     const result = formatGreetingDisplay("Good evening", "")
     expect(result).not.toContain("there")

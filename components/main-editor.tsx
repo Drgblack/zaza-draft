@@ -23,6 +23,7 @@ import type { DraftLanguage, DraftMode, PronounPreference } from "@/lib/types"
 import { MODE_LABEL_KEYS, DEFAULT_DRAFT_MODE } from "@/lib/draft-mode"
 import { isValidDraftRequest, OUT_OF_SCOPE_REDIRECT_MESSAGE } from "@/lib/draft/scope-guard"
 import Link from "next/link"
+import { useSearchParams } from "next/navigation"
 import { Camera, FileText, Image, Info, Mail, MessageCircle, Mic, Sun, Target, Users } from "lucide-react"
 import type { LucideIcon } from "lucide-react"
 import { formatGreetingDisplay } from "@/lib/text/greeting-display"
@@ -212,6 +213,8 @@ export function MainEditor() {
   const isLimitedUser = usage.plan === "free" && !isQaUser
   const { prefs } = useTeacherPrefs()
   const { t, locale } = useLocale()
+  const searchParams = useSearchParams()
+  const isReturningFromPanicScan = searchParams.get("panicScanReturn") === "1"
   const { user, getIdToken, signOut } = useAuth()
   const toneControlOptions = useMemo(
     () =>
@@ -824,12 +827,17 @@ export function MainEditor() {
             <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold text-white mb-3 tracking-tight leading-tight drop-shadow-[0_2px_8px_rgba(0,0,0,0.3)]">
               {formatGreetingDisplay(greeting, userName)}
             </h1>
-          <p className="text-base sm:text-lg text-white/95 leading-relaxed drop-shadow-[0_1px_4px_rgba(0,0,0,0.25)]">
-            {locale === "de-DE"
-              ? "Lassen Sie uns präzise und professionell bleiben."
-              : "Let's keep it crisp and professional."}
-          </p>
-        </div>
+            <p className="text-base sm:text-lg text-white/95 leading-relaxed drop-shadow-[0_1px_4px_rgba(0,0,0,0.25)]">
+              {locale === "de-DE"
+                ? "Lassen Sie uns präzise und professionell bleiben."
+                : "Let's keep it crisp and professional."}
+            </p>
+          </div>
+          {isReturningFromPanicScan && (
+            <div className="rounded-2xl border border-white/20 bg-purple-900/40 px-4 py-3 text-sm text-white/90">
+              {t("panicScanReturnNote")}
+            </div>
+          )}
 
         {isLimitedUser && usage.remaining === 0 && (
           <div className="mt-4 rounded-2xl bg-amber-50/80 border border-amber-200 p-4 text-sm text-amber-900 dark:bg-amber-900/30 dark:border-amber-800 dark:text-amber-100 space-y-3">
