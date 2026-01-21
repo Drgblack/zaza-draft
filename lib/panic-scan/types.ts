@@ -48,6 +48,8 @@ export interface PanicScanDocument {
   mediaPath: string
   status: PanicScanStatus
   extractedText?: string
+  extractedTextClean?: string
+  cleanConfidence?: number
   classification?: MessageClassification
   analysis?: PanicScanAnalysis
   processingTimeMs?: number

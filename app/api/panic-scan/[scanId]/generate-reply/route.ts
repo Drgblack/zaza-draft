@@ -69,7 +69,7 @@ export async function POST(request: NextRequest) {
     )
   }
 
-  if (data.status !== "completed" || !data.extractedText) {
+  if (data.status !== "completed" || (!data.extractedTextClean && !data.extractedText)) {
     return NextResponse.json(
       {
         success: false,
@@ -80,8 +80,9 @@ export async function POST(request: NextRequest) {
   }
 
   const baseUrl = new URL(request.url).origin
+  const situation = data.extractedTextClean ?? data.extractedText
   const draftPayload = {
-    situation: data.extractedText,
+    situation,
     tone: payload.tone ?? "professional",
     language: payload.language ?? "en",
   }

@@ -23,6 +23,8 @@ interface ScanResponse {
   scanId: string
   status: ScanStatus
   extractedText?: string | null
+  extractedTextClean?: string | null
+  cleanConfidence?: number | null
   classification?: Record<string, number | string> | null
   analysis?: PanicScanAnalysis | null
   failureReason?: string | null
@@ -130,8 +132,9 @@ export default function PanicScanResultPage() {
   }
 
   const handleUseDraft = () => {
-    if (scan?.extractedText) {
-      sessionStorage.setItem(PREFILL_KEY, scan.extractedText)
+    const messageToPrefill = scan?.extractedTextClean ?? scan?.extractedText
+    if (messageToPrefill) {
+      sessionStorage.setItem(PREFILL_KEY, messageToPrefill)
       router.push("/")
     }
   }
@@ -142,6 +145,13 @@ export default function PanicScanResultPage() {
     typeof scan?.analysis?.suggestedResponse === "string"
       ? scan.analysis.suggestedResponse.replaceAll("_", " ")
       : scan?.analysis?.suggestedResponse ?? ""
+  const cleanMessage = scan?.extractedTextClean ?? scan?.extractedText
+  const showCleanConfidence = typeof scan?.cleanConfidence === "number"
+  const displayConfidence = showCleanConfidence
+    ? Math.round((scan?.cleanConfidence ?? 0) * 100)
+    : null
+  const showLowConfidenceWarning =
+    showCleanConfidence && (scan?.cleanConfidence ?? 0) < 0.5 && Boolean(cleanMessage)
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-slate-900 to-black text-white">
@@ -200,13 +210,35 @@ export default function PanicScanResultPage() {
               )}
             </div>
 
-            {scan.extractedText && (
-              <div className="rounded-2xl border border-white/10 bg-black/40 p-4">
-                <p className="text-sm uppercase tracking-[0.3em] text-white/60">
-                  {t("panicScanResultExtractedTitle")}
-                </p>
-                <p className="mt-2 text-sm text-white/80 whitespace-pre-wrap">{scan.extractedText}</p>
+            {cleanMessage && (
+              <div className="rounded-2xl border border-white/10 bg-black/40 p-4 space-y-2">
+                <div className="flex items-center justify-between">
+                  <p className="text-sm uppercase tracking-[0.3em] text-white/60">
+                    {t("panicScanResultMessageLabel")}
+                  </p>
+                  {displayConfidence !== null && (
+                    <p className="text-xs text-white/60">
+                      {t("panicScanResultCleanConfidence", { confidence: displayConfidence })}
+                    </p>
+                  )}
+                </div>
+                <p className="text-sm text-white/80 whitespace-pre-wrap">{cleanMessage}</p>
+                {showLowConfidenceWarning && (
+                  <p className="text-xs text-amber-200">
+                    {t("panicScanResultCleanLowWarning")}
+                  </p>
+                )}
               </div>
+            )}
+
+            {scan.extractedText && (
+              <details className="rounded-2xl border border-white/10 bg-black/40 p-4">
+                <summary className="text-sm uppercase tracking-[0.3em] text-white/60">
+                  {t("panicScanResultRawLabel")}
+                </summary>
+                <p className="mt-2 text-sm text-white/80 whitespace-pre-wrap">{scan.extractedText}</p>
+                <p className="mt-2 text-xs text-white/50">{t("panicScanResultRawSummary")}</p>
+              </details>
             )}
 
             {classificationList.length > 0 && (

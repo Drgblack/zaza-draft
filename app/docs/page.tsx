@@ -43,7 +43,7 @@ export default function DocsPage() {
             </Link>
           </div>
           <Link
-            href="/docs#panic-scan"
+            href="/docs/panic-scan"
             scroll={false}
             className="inline-flex w-fit rounded-full bg-white/10 px-6 py-3 text-sm font-semibold text-indigo-100 shadow-lg shadow-indigo-950/40 hover:bg-white/20 transition"
           >
@@ -61,7 +61,7 @@ export default function DocsPage() {
               <h2 className="text-2xl font-semibold text-white">{t("docsSectionPanicScanTitle")}</h2>
               <p className="text-sm text-white/70">{t("docsSectionPanicScanDescription")}</p>
               <Link
-                href="/docs#panic-scan"
+                href="/docs/panic-scan"
                 scroll={false}
                 className="text-sm font-semibold text-indigo-300 underline"
               >
@@ -78,7 +78,7 @@ export default function DocsPage() {
               <h2 className="text-2xl font-semibold text-white">{t("docsSectionVoiceTitle")}</h2>
               <p className="text-sm text-white/70">{t("docsSectionVoiceDescription")}</p>
               <Link
-                href="/docs#voice-to-calm"
+                href="/docs/voice-to-calm"
                 scroll={false}
                 className="text-sm font-semibold text-indigo-300 underline"
               >

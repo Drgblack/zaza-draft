@@ -93,6 +93,9 @@ export const localeMessages: Record<Locale, LocaleMessages> = {
     panicScanButton: "Analyze screenshot",
     panicScanUploading: "Uploading...",
     "panicScan.helper.selectFile": "Select a file to enable analysis.",
+    "panicScan.storageBanner": "Storage is not configured. Screenshots are processed securely in memory only.",
+    "panicScan.storageBannerDetail": "Storage issue: {detail}",
+    "panicScan.ocrTip": "We could not read text from the image. Crop to the message or reshoot without glare.",
     panicScanResultTitle: "Panic Scan analysis",
     panicScanResultDescription:
       "Zaza Draft extracts the message, assesses emotional tone, and explains possible replies.",
@@ -101,6 +104,12 @@ export const localeMessages: Record<Locale, LocaleMessages> = {
     panicScanResultCheckingStatus: "Checking the scan status.",
     panicScanResultProcessingTime: "Processing time: {ms} ms",
     panicScanResultFailureLabel: "Reason: {reason}",
+    panicScanResultMessageLabel: "Message (cleaned)",
+    panicScanResultCleanConfidence: "Clean confidence: {confidence}%",
+    panicScanResultCleanLowWarning:
+      "Cleaned message may be incomplete. Expand Raw OCR if something feels missing.",
+    panicScanResultRawLabel: "Show raw OCR",
+    panicScanResultRawSummary: "Raw OCR may include UI chrome and navigation text.",
     panicScanResultExtractedTitle: "Extracted text",
     panicScanResultAnalysisTitle: "Analysis",
     panicScanResultHelpButton: "Help me reply safely",
@@ -130,6 +139,7 @@ export const localeMessages: Record<Locale, LocaleMessages> = {
     voiceButton: "Transcribe & analyze",
     voiceProcessing: "Processing...",
     voiceSelected: "Selected",
+    "voice.aiMissingEnvList": "Missing config: {envs}",
     "voice.tab.recordNow": "Record now",
     "voice.tab.uploadFile": "Upload file",
     "voice.recordNowHint": "Press record and speak for up to 90 seconds.",
@@ -185,6 +195,43 @@ export const localeMessages: Record<Locale, LocaleMessages> = {
     docsSectionVoiceTitle: "Voice-to-Calm workflow",
     docsSectionVoiceDescription:
       "Record a 90-second note, analyze emotions, and generate a safe rewrite to continue in the editor.",
+    docsSpecBackLink: "Back to documentation overview",
+    docsPanicSpecTitle: "Panic Scan technical specification",
+    docsPanicSpecOverview:
+      "Panic Scan securely ingests screenshots, classifies risk, and proposes a calm reply recommendation.",
+    docsPanicSpecInputs: "Inputs",
+    docsPanicSpecInputsDetail:
+      "Upload JPG, PNG, or HEIC screenshots (no PDFs). We validate file size and MIME type before processing.",
+    docsPanicSpecProcessing: "Processing pipeline",
+    docsPanicSpecProcessingDetail:
+      "OCR runs directly on raw bytes via Google Vision, then AI analyzes tone and suggests a response.",
+    docsPanicSpecPrivacy: "Privacy",
+    docsPanicSpecPrivacyDetail:
+      "Only extracted text and metadata persist for 24h; images are dropped unless storage is configured.",
+    docsPanicSpecFailureModes: "Failure modes",
+    docsPanicSpecFailureModesDetail:
+      "Rate limits, missing OCR/AI keys, or bucket issues surface structured diagnostics in the UI.",
+    docsPanicSpecConfig: "Required configuration",
+    docsPanicSpecConfigDetail:
+      "Set GOOGLE_VISION_API_KEY and OPENAI_API_KEY; FIREBASE_STORAGE_BUCKET is optional for persistence.",
+    docsVoiceSpecTitle: "Voice-to-Calm technical specification",
+    docsVoiceSpecOverview:
+      "Record up to 90 seconds, transcribe via Google Speech-to-Text, and analyze tone before rewriting safely.",
+    docsVoiceSpecRecording: "Recording",
+    docsVoiceSpecRecordingDetail:
+      "MediaRecorder captures WebM/Opus; fallback accepts WAV/MP3/M4A uploads with size checks.",
+    docsVoiceSpecProcessing: "Processing pipeline",
+    docsVoiceSpecProcessingDetail:
+      "Rate limits guard uploads, raw bytes land in Firestore with TTL, then Speech API transcribes and we analyze emotions.",
+    docsVoiceSpecPrivacy: "Privacy",
+    docsVoiceSpecPrivacyDetail:
+      "Audio expires after 1h; transcripts and rewrites persist only for editing in the main editor.",
+    docsVoiceSpecFailureModes: "Failure modes",
+    docsVoiceSpecFailureModesDetail:
+      "Missing AI/STT keys or storage issues surface banners; retry prompts appear for transient errors.",
+    docsVoiceSpecConfig: "Required configuration",
+    docsVoiceSpecConfigDetail:
+      "Set GOOGLE_SPEECH_TO_TEXT_API_KEY and FIREBASE_STORAGE_BUCKET; OPENAI_API_KEY backs emotion analysis.",
     toneProfessional: "Professional",
     toneFriendly: "Friendly",
     toneFormal: "Formal",
@@ -1377,6 +1424,9 @@ export const localeMessages: Record<Locale, LocaleMessages> = {
     panicScanButton: "Screenshot analysieren",
     panicScanUploading: "Wird hochgeladen...",
     "panicScan.helper.selectFile": "Wählen Sie eine Datei aus, um die Analyse zu aktivieren.",
+    "panicScan.storageBanner": "Speicher ist nicht konfiguriert. Screenshots werden im Arbeitsspeicher verarbeitet.",
+    "panicScan.storageBannerDetail": "Speicherproblem: {detail}",
+    "panicScan.ocrTip": "Wir konnten den Text nicht lesen. Beschneiden Sie das Bild oder vermeiden Sie Blendung.",
     panicScanResultTitle: "Panic Scan-Analyse",
     panicScanResultDescription:
       "Zaza Draft extrahiert die Nachricht, bewertet den emotionalen Ton und erklärt mögliche Antworten.",
@@ -1385,6 +1435,13 @@ export const localeMessages: Record<Locale, LocaleMessages> = {
     panicScanResultCheckingStatus: "Scan-Status wird überprüft.",
     panicScanResultProcessingTime: "Verarbeitungszeit: {ms} ms",
     panicScanResultFailureLabel: "Grund: {reason}",
+    panicScanResultMessageLabel: "Nachricht (bereinigt)",
+    panicScanResultCleanConfidence: "Bereinigungsgenauigkeit: {confidence}%",
+    panicScanResultCleanLowWarning:
+      "Die bereinigte Nachricht wirkt unvollständig. Erweitern Sie Raw OCR, wenn etwas fehlt.",
+    panicScanResultRawLabel: "Rohes OCR anzeigen",
+    panicScanResultRawSummary:
+      "Das rohe OCR kann Interface-Elemente enthalten. Nur bei Bedarf öffnen.",
     panicScanResultExtractedTitle: "Erkannter Text",
     panicScanResultAnalysisTitle: "Analyse",
     panicScanResultHelpButton: "Hilf mir sicher zu antworten",
@@ -1425,6 +1482,7 @@ export const localeMessages: Record<Locale, LocaleMessages> = {
     voiceButton: "Transkribieren & analysieren",
     voiceProcessing: "Verarbeitung...",
     voiceSelected: "Ausgewählt",
+    "voice.aiMissingEnvList": "Fehlende Konfiguration: {envs}",
     "voice.helper.selectFile": "Wählen Sie eine Aufnahme aus, um die Analyse zu aktivieren.",
     voiceSessionTitle: "Voice-to-Calm-Sitzung",
     voiceSessionDescription:
@@ -1469,6 +1527,43 @@ export const localeMessages: Record<Locale, LocaleMessages> = {
     docsSectionVoiceTitle: "Voice-to-Calm Workflow",
     docsSectionVoiceDescription:
       "90 Sekunden Sprachnotiz aufnehmen, Emotionen analysieren und eine sichere Umschreibung erstellen.",
+    docsSpecBackLink: "Zurück zur Dokumentationsübersicht",
+    docsPanicSpecTitle: "Panic Scan technische Spezifikation",
+    docsPanicSpecOverview:
+      "Panic Scan verarbeitet Screenshots sicher, klassifiziert Risiken und schlägt eine ruhige Antwort vor.",
+    docsPanicSpecInputs: "Eingaben",
+    docsPanicSpecInputsDetail:
+      "Laden Sie JPG-, PNG- oder HEIC-Screenshots hoch (keine PDFs). Größe und MIME-Typ werden geprüft.",
+    docsPanicSpecProcessing: "Verarbeitungspipeline",
+    docsPanicSpecProcessingDetail:
+      "OCR läuft über Google Vision auf den Rohdaten, danach analysiert KI den Ton und schlägt eine Antwort vor.",
+    docsPanicSpecPrivacy: "Datenschutz",
+    docsPanicSpecPrivacyDetail:
+      "Text und Metadaten bleiben 24 Stunden, Bilder werden verworfen, wenn kein Speicher konfiguriert ist.",
+    docsPanicSpecFailureModes: "Fehlerfälle",
+    docsPanicSpecFailureModesDetail:
+      "Rate Limits, fehlende OCR/AI-Keys oder Bucket-Probleme zeigen strukturierte Diagnosen.",
+    docsPanicSpecConfig: "Erforderliche Konfiguration",
+    docsPanicSpecConfigDetail:
+      "Setzen Sie GOOGLE_VISION_API_KEY und OPENAI_API_KEY; FIREBASE_STORAGE_BUCKET ist optional.",
+    docsVoiceSpecTitle: "Voice-to-Calm technische Spezifikation",
+    docsVoiceSpecOverview:
+      "Bis zu 90 Sekunden aufzeichnen, Google Speech-to-Text transkribieren lassen und den Ton analysieren, bevor eine sichere Umschreibung erstellt wird.",
+    docsVoiceSpecRecording: "Aufnahme",
+    docsVoiceSpecRecordingDetail:
+      "MediaRecorder erstellt WebM/Opus; der Fallback akzeptiert WAV/MP3/M4A mit Größenprüfung.",
+    docsVoiceSpecProcessing: "Verarbeitungspipeline",
+    docsVoiceSpecProcessingDetail:
+      "Rate Limits schützen Uploads; Rohdaten erhalten eine TTL in Firestore, Speech API transkribiert und wir analysieren Emotionen.",
+    docsVoiceSpecPrivacy: "Datenschutz",
+    docsVoiceSpecPrivacyDetail:
+      "Audio verfällt nach einer Stunde; Transkripte und Umschreibungen bleiben nur zum Bearbeiten.",
+    docsVoiceSpecFailureModes: "Fehlerfälle",
+    docsVoiceSpecFailureModesDetail:
+      "Fehlende AI/STT-Keys oder Speicherprobleme zeigen Hinweise; es gibt Wiederholungsversuche bei temporären Fehlern.",
+    docsVoiceSpecConfig: "Erforderliche Konfiguration",
+    docsVoiceSpecConfigDetail:
+      "Setzen Sie GOOGLE_SPEECH_TO_TEXT_API_KEY und FIREBASE_STORAGE_BUCKET; OPENAI_API_KEY braucht es für die Emotionsanalyse.",
     toneProfessional: "Professionell",
     toneFriendly: "Freundlich",
     toneFormal: "Formell",

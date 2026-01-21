@@ -58,6 +58,9 @@ export async function GET(request: NextRequest) {
       createdAt: data.createdAt,
       expiresAt: data.expiresAt,
       extractedText: data.extractedText ?? null,
+      extractedTextClean: data.extractedTextClean ?? null,
+      cleanConfidence:
+        typeof data.cleanConfidence === "number" ? data.cleanConfidence : null,
       classification: data.classification ?? null,
       analysis: data.analysis ?? null,
       failureReason: data.failureReason ?? null,

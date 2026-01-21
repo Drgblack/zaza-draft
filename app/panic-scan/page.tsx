@@ -20,6 +20,8 @@ export default function PanicScanPage() {
   const [isUploading, setIsUploading] = useState(false)
   const [platform, setPlatform] = useState<"web" | "mobile_ios" | "mobile_android">("web")
   const [aiConfigured, setAiConfigured] = useState(true)
+  const [lastDiagnostics, setLastDiagnostics] = useState<Record<string, any> | null>(null)
+  const [lastErrorMeta, setLastErrorMeta] = useState<{ stage?: string; code?: string } | null>(null)
   const panicConfigMissing =
     !process.env.NEXT_PUBLIC_FIREBASE_API_KEY || !process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID
   const configError = panicConfigMissing ? t("panicScan.error.configMissing") : null
@@ -147,7 +149,17 @@ export default function PanicScanPage() {
       })
 
       const payload = await response.json().catch(() => null)
+      if (payload?.diagnostics) {
+        setLastDiagnostics(payload.diagnostics)
+        if (typeof payload.diagnostics.aiConfigured === "boolean") {
+          setAiConfigured(Boolean(payload.diagnostics.aiConfigured))
+        }
+      }
       if (!response.ok || !payload?.success) {
+        setLastErrorMeta({
+          stage: payload?.error?.stage,
+          code: payload?.error?.code,
+        })
         const message =
           payload?.error?.message ??
           payload?.message ??
@@ -155,6 +167,7 @@ export default function PanicScanPage() {
         setError(t("panicScan.error.analysisFailed", { message }))
         return
       }
+      setLastErrorMeta(null)
 
       router.push(`/panic-scan/${payload.data.scanId}`)
     } catch (uploadError) {
@@ -191,6 +204,18 @@ export default function PanicScanPage() {
         {!aiConfigured && (
           <div className="rounded-2xl border border-amber-300/80 bg-amber-200/10 p-3 text-xs text-amber-200">
             {t("config.aiMissingBanner")}
+          </div>
+        )}
+        {lastDiagnostics?.storageConfigured === false && (
+          <div className="rounded-2xl border border-amber-300/80 bg-amber-200/10 p-3 text-xs text-amber-200">
+            <p>{t("panicScan.storageBanner")}</p>
+            {lastDiagnostics?.storageError && (
+              <p className="mt-1 text-[11px] text-amber-100">
+                {t("panicScan.storageBannerDetail", {
+                  detail: lastDiagnostics.storageError,
+                })}
+              </p>
+            )}
           </div>
         )}
 
@@ -251,6 +276,9 @@ export default function PanicScanPage() {
               {error}
             </div>
           )}
+          {lastErrorMeta?.stage === "ocr" && (
+            <p className="mt-2 text-xs text-white/60">{t("panicScan.ocrTip")}</p>
+          )}
           <div className="mt-4 space-y-2">
             <Button
               onClick={handleSubmit}
@@ -273,6 +301,11 @@ export default function PanicScanPage() {
             {!!debugHint && (
               <p className="text-center text-[11px] text-white/40 tracking-wide">{debugHint}</p>
             )}
+            {isDebugEnabled() && lastErrorMeta && (
+              <p className="text-center text-[11px] text-white/50">
+                Stage: {lastErrorMeta.stage ?? "unknown"} · Code: {lastErrorMeta.code ?? "unknown"}
+              </p>
+            )}
           </div>
         </div>
 
@@ -280,7 +313,7 @@ export default function PanicScanPage() {
           <p>{t("panicScanExpiryNote")}</p>
           <p>
             {t("panicScanDocsLink")}{" "}
-            <Link href="/docs#panic-scan" className="underline">
+            <Link href="/docs/panic-scan" className="underline">
               {t("docsLinkLabel")}
             </Link>
           </p>

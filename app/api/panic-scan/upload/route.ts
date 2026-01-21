@@ -2,23 +2,79 @@ import { NextResponse } from "next/server"
 import { authorizeFirebaseRequest } from "@/lib/firebase/server"
 import { enforcePerUserRateLimit, RateLimitError } from "@/lib/rate-limit"
 import { analyzePanicMessage } from "@/lib/panic-scan/analysis"
+import { cleanOcrText } from "@/lib/panic-scan/clean-ocr"
 import { performVisionOcr } from "@/lib/panic-scan/ocr"
 import type { PanicScanDocument } from "@/lib/panic-scan/types"
 
-const MAX_IMAGE_SIZE_BYTES = 5 * 1024 * 1024
+const MAX_IMAGE_SIZE_BYTES = 10 * 1024 * 1024
 const SCAN_TTL_MS = 24 * 60 * 60 * 1000
 
-function createErrorResponse(
-  code: string,
-  message: string,
+type ResponseStage =
+  | "auth"
+  | "parse"
+  | "validate"
+  | "ocr"
+  | "analysis"
+  | "storage"
+  | "rate_limit"
+  | "unknown"
+
+function createDiagnostics(overrides: Partial<Record<string, unknown>> = {}) {
+  return {
+    storageConfigured: false,
+    storageError: null,
+    aiConfigured: Boolean(process.env.OPENAI_API_KEY),
+    ocrPerformed: false,
+    ocrSucceeded: false,
+    analysisSucceeded: false,
+    ...overrides,
+  }
+}
+
+function createErrorResponse({
+  code,
+  message,
+  stage,
   status = 500,
-  details?: string,
-) {
-  const errorPayload: Record<string, string> = { code, message }
+  diagnostics,
+  details,
+}: {
+  code: string
+  message: string
+  stage: ResponseStage
+  status?: number
+  diagnostics: ReturnType<typeof createDiagnostics>
+  details?: string | null
+}) {
+  const errorPayload: Record<string, unknown> = { code, message, stage }
   if (details) {
     errorPayload.details = details
   }
-  return NextResponse.json({ success: false, error: errorPayload }, { status })
+  console.error(`[panic-scan] stage=${stage} code=${code} message=${message}`)
+  return NextResponse.json(
+    {
+      ok: false,
+      error: errorPayload,
+      diagnostics,
+    },
+    { status },
+  )
+}
+
+function createSuccessResponse({
+  scanId,
+  diagnostics,
+}: {
+  scanId: string
+  diagnostics: ReturnType<typeof createDiagnostics>
+}) {
+  return NextResponse.json({
+    ok: true,
+    data: {
+      scanId,
+    },
+    diagnostics,
+  })
 }
 
 function createMediaPath(scanId: string, fileName: string) {
@@ -32,99 +88,92 @@ export async function POST(request: Request) {
   const file = form.get("file")
   const platform = (form.get("platform") as string) ?? "web"
   const sessionId = form.get("sessionId") as string | null
+  const diagnostics = createDiagnostics()
 
   if (!file || typeof file === "string") {
-    return NextResponse.json(
-      {
-        success: false,
-        error: { code: "MISSING_FILE", message: "Please attach an image." },
-      },
-      { status: 400 },
-    )
+    return createErrorResponse({
+      code: "MISSING_FILE",
+      message: "Please attach an image.",
+      stage: "parse",
+      status: 400,
+      diagnostics,
+    })
   }
 
   if (!["web", "mobile_ios", "mobile_android"].includes(platform)) {
-    return NextResponse.json(
-      {
-        success: false,
-        error: { code: "INVALID_PLATFORM", message: "Unsupported platform." },
-      },
-      { status: 400 },
-    )
+    return createErrorResponse({
+      code: "INVALID_PLATFORM",
+      message: "Unsupported platform.",
+      stage: "validate",
+      status: 400,
+      diagnostics,
+    })
   }
 
   const arrayBuffer = await file.arrayBuffer()
   const buffer = Buffer.from(arrayBuffer)
-  if (buffer.length > MAX_IMAGE_SIZE_BYTES) {
-    return NextResponse.json(
-      {
-        success: false,
-        error: { code: "FILE_TOO_LARGE", message: "Image must be under 5MB." },
-      },
-      { status: 413 },
-    )
+  if (buffer.length === 0 || buffer.length > MAX_IMAGE_SIZE_BYTES) {
+    return createErrorResponse({
+      code: "FILE_TOO_LARGE",
+      message: `Image must be under ${Math.round(MAX_IMAGE_SIZE_BYTES / (1024 * 1024))}MB.`,
+      stage: "validate",
+      status: 413,
+      diagnostics,
+    })
+  }
+
+  if (!file.type?.startsWith("image/")) {
+    return createErrorResponse({
+      code: "INVALID_FORMAT",
+      message: "Only image uploads are supported.",
+      stage: "validate",
+      status: 415,
+      diagnostics,
+    })
   }
 
   let authContext
   try {
     authContext = await authorizeFirebaseRequest(request)
   } catch (error) {
-    const status = error instanceof Error && error.name === "FirebaseAuthorizationError" ? 401 : 401
-    return NextResponse.json(
-      { success: false, error: { code: "UNAUTHORIZED", message: "Unauthorized" } },
-      { status },
-    )
+    const status =
+      error instanceof Error && error.name === "FirebaseAuthorizationError" ? 401 : 401
+    return createErrorResponse({
+      code: "UNAUTHORIZED",
+      message: "Unauthorized",
+      stage: "auth",
+      status,
+      diagnostics,
+    })
   }
 
   const { uid, firestore, storage } = authContext
   if (!firestore) {
-    return NextResponse.json(
-      {
-        success: false,
-        error: { code: "FIRESTORE_UNAVAILABLE", message: "Unable to access Firestore." },
-      },
-      { status: 500 },
-    )
-  }
-  if (!storage) {
-    return NextResponse.json(
-      {
-        success: false,
-        error: { code: "STORAGE_UNAVAILABLE", message: "Storage bucket not configured." },
-      },
-      { status: 500 },
-    )
+    return createErrorResponse({
+      code: "FIRESTORE_UNAVAILABLE",
+      message: "Unable to access Firestore.",
+      stage: "storage",
+      status: 500,
+      diagnostics,
+    })
   }
 
   try {
     await enforcePerUserRateLimit(uid, firestore, { docName: "panicScanUpload" })
   } catch (error) {
     if (error instanceof RateLimitError) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: {
-            code: "RATE_LIMITED",
-            message: `Try again in ${Math.ceil(error.retryAfterMs / 1000)} seconds.`,
-          },
-        },
-        { status: 429 },
-      )
+      return createErrorResponse({
+        code: "RATE_LIMIT",
+        message: `Try again in ${Math.ceil(error.retryAfterMs / 1000)} seconds.`,
+        stage: "rate_limit",
+        status: 429,
+        diagnostics,
+      })
     }
     console.error("[panic-scan] Rate limit check failed", error)
   }
 
   const bucketName = process.env.FIREBASE_STORAGE_BUCKET
-  if (!bucketName) {
-    return NextResponse.json(
-      {
-        success: false,
-        error: { code: "STORAGE_BUCKET_MISSING", message: "Storage bucket is not configured." },
-      },
-      { status: 500 },
-    )
-  }
-
   const scanRef = firestore.collection("panic_scans").doc()
   const createdAt = new Date()
   const expiresAt = new Date(createdAt.getTime() + SCAN_TTL_MS)
@@ -140,32 +189,72 @@ export async function POST(request: Request) {
     sessionId: sessionId ?? undefined,
   }
 
+  const storageDiagnostics = {
+    storageConfigured: false,
+    storageError: null as string | null,
+  }
+  if (storage && bucketName) {
+    try {
+      const bucket = storage.bucket(bucketName)
+      await bucket
+        .file(doc.mediaPath)
+        .save(buffer, { metadata: { contentType: file.type || "application/octet-stream" } })
+      storageDiagnostics.storageConfigured = true
+    } catch (uploadError) {
+      storageDiagnostics.storageConfigured = false
+      storageDiagnostics.storageError =
+        uploadError instanceof Error
+          ? uploadError.message
+          : "Storage upload failed"
+      console.error(
+        `[panic-scan] storage disabled: ${storageDiagnostics.storageError} (${bucketName})`,
+      )
+    }
+  } else if (bucketName) {
+    storageDiagnostics.storageError = "Firebase storage client unavailable"
+  } else {
+    storageDiagnostics.storageError = "FIREBASE_STORAGE_BUCKET is not set"
+  }
+
   await scanRef.set(doc)
 
+  const diagWithStorage = createDiagnostics({
+    storageConfigured: storageDiagnostics.storageConfigured,
+    storageError: storageDiagnostics.storageError,
+  })
+
+  if (!process.env.OPENAI_API_KEY) {
+    const message = "Missing OPENAI_API_KEY"
+    await scanRef.set(
+      {
+        status: "failed",
+        failureReason: message,
+      },
+      { merge: true },
+    )
+    return createErrorResponse({
+      code: "AI_NOT_CONFIGURED",
+      message,
+      stage: "analysis",
+      diagnostics: diagWithStorage,
+    })
+  }
+
   try {
-    const bucket = storage.bucket(bucketName)
-    await bucket.file(doc.mediaPath).save(buffer, { metadata: { contentType: file.type || "application/octet-stream" } })
-
-    if (!process.env.OPENAI_API_KEY) {
-      const message = "Missing OPENAI_API_KEY"
-      console.error("[panic-scan] missing AI key")
-      await scanRef.set(
-        {
-          status: "failed",
-          failureReason: message,
-        },
-        { merge: true },
-      )
-      return createErrorResponse("OPENAI_KEY_MISSING", message, 500)
-    }
-
+    diagWithStorage.ocrPerformed = true
     const extractedText = await performVisionOcr(buffer)
+    diagWithStorage.ocrSucceeded = true
+    const cleaned = cleanOcrText(extractedText)
+
     const analysis = await analyzePanicMessage(extractedText)
+    diagWithStorage.analysisSucceeded = true
     const processingTimeMs = Date.now() - createdAt.getTime()
 
     await scanRef.set(
       {
         extractedText,
+        extractedTextClean: cleaned.cleanText,
+        cleanConfidence: cleaned.confidence,
         classification: analysis.classification,
         analysis: analysis.analysis,
         processingTimeMs,
@@ -175,7 +264,6 @@ export async function POST(request: Request) {
     )
   } catch (error) {
     const message = error instanceof Error ? error.message : "Processing error"
-    console.error("[panic-scan] processing failed", message)
     await scanRef.set(
       {
         status: "failed",
@@ -183,14 +271,16 @@ export async function POST(request: Request) {
       },
       { merge: true },
     )
-    return createErrorResponse("PROCESSING_FAILED", message, 500)
+    return createErrorResponse({
+      code: "PROCESSING_FAILED",
+      message,
+      stage: "analysis",
+      diagnostics: diagWithStorage,
+    })
   }
 
-  return NextResponse.json({
-    success: true,
-    data: {
-      scanId: scanRef.id,
-      status: "completed",
-    },
+  return createSuccessResponse({
+    scanId: scanRef.id,
+    diagnostics: diagWithStorage,
   })
 }

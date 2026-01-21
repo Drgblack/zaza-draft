@@ -51,6 +51,7 @@ export default function VoiceCapturePage() {
   const [language, setLanguage] = useState("en-GB")
   const [recordingFile, setRecordingFile] = useState<File | null>(null)
   const [recordingUrl, setRecordingUrl] = useState<string | null>(null)
+  const [missingAiEnv, setMissingAiEnv] = useState<string[] | null>(null)
   const [isRecording, setIsRecording] = useState(false)
   const [recordingTime, setRecordingTime] = useState(0)
   const [maxRecordingReached, setMaxRecordingReached] = useState(false)
@@ -59,6 +60,7 @@ export default function VoiceCapturePage() {
   const [error, setError] = useState<string | null>(null)
   const [mode, setMode] = useState<"record" | "upload">("record")
   const [aiConfigured, setAiConfigured] = useState(true)
+  const [lastErrorMeta, setLastErrorMeta] = useState<{ stage?: string; code?: string } | null>(null)
   const recordingIntervalRef = useRef<number | null>(null)
   const recordingTimeoutRef = useRef<number | null>(null)
   const recorderRef = useRef<MediaRecorder | null>(null)
@@ -291,7 +293,21 @@ export default function VoiceCapturePage() {
       })
 
       const payload = await response.json().catch(() => null)
+      if (payload?.diagnostics) {
+        setAiConfigured(Boolean(payload.diagnostics.aiConfigured))
+      }
       if (!response.ok || !payload?.success) {
+        setLastErrorMeta({
+          stage: payload?.error?.stage,
+          code: payload?.error?.code,
+        })
+        const missingEnv =
+          payload?.error?.details && Array.isArray(payload.error.details["missingEnv"])
+            ? payload.error.details["missingEnv"]
+            : null
+        if (missingEnv) {
+          setMissingAiEnv(missingEnv)
+        }
         const message =
           payload?.error?.message ??
           payload?.message ??
@@ -300,6 +316,8 @@ export default function VoiceCapturePage() {
         return
       }
 
+      setMissingAiEnv(null)
+      setLastErrorMeta(null)
       router.push(`/voice/${payload.data.voiceSessionId}`)
     } catch (recordError) {
       setError(
@@ -337,6 +355,11 @@ export default function VoiceCapturePage() {
         {!aiConfigured && (
           <div className="rounded-2xl border border-amber-300/80 bg-amber-200/10 p-3 text-xs text-amber-200">
             {t("config.aiMissingBanner")}
+            {missingAiEnv && missingAiEnv.length > 0 && (
+              <p className="mt-1 text-[11px] text-amber-100">
+                {t("voice.aiMissingEnvList", { envs: missingAiEnv.join(", ") })}
+              </p>
+            )}
           </div>
         )}
         <div className="rounded-2xl border border-white/20 bg-white/5 p-6 space-y-3 text-sm text-white/70">
@@ -482,6 +505,11 @@ export default function VoiceCapturePage() {
             {!!debugHint && (
               <p className="text-center text-[11px] text-white/40 tracking-wide">{debugHint}</p>
             )}
+            {isDebugEnabled() && lastErrorMeta && (
+              <p className="text-center text-[11px] text-white/50 tracking-wide">
+                Stage: {lastErrorMeta.stage ?? "unknown"} · Code: {lastErrorMeta.code ?? "unknown"}
+              </p>
+            )}
           </div>
         </div>
 
@@ -489,7 +517,7 @@ export default function VoiceCapturePage() {
           <p>{t("voiceFooterTip")}</p>
           <p>
             {t("panicScanDocsLink")}{" "}
-            <Link href="/docs#voice-to-calm" className="underline">
+            <Link href="/docs/voice-to-calm" className="underline">
               {t("docsLinkLabel")}
             </Link>
           </p>
