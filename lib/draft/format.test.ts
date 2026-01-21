@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest"
+﻿import { describe, expect, it } from "vitest"
 import { MAX_PARAGRAPH_CHARS, formatDraftText } from "./format"
 
 describe("formatDraftText", () => {
@@ -82,7 +82,7 @@ Frau Mueller`
 
   it("splits long German bodies so each paragraph stays under the soft max", () => {
     const draft =
-      "Betreff: Ausblick Liebe Eltern, zurzeit arbeiten wir intensiv an Präsentationen, und die Schüler*innen entwickeln sehr unterschiedliche Lösungswege, die wir gemeinsam erarbeiten. In Gesprächsrunden fallen viele konkrete Fragen, und ich dokumentiere diese, damit wir in den kommenden Treffen gezielt darauf eingehen können. Die Schreibaufgaben werden durchgehend reflektiert, und ich sehe, wie das Interesse daran wächst, neue Formate zu probieren. Ich bitte Sie, die Übungsbögen zu Hause zu besprechen, damit die Kinder ihre Gedanken noch einmal ordnen können. Wir planen ein kurzes Feedback-Gespräch nächste Woche, um auf individuelle Fortschritte einzugehen. Herzliche Gruesse, Frau Meyer"
+      "Betreff: Ausblick Liebe Eltern, zurzeit arbeiten wir intensiv an PrÃ¤sentationen, und die SchÃ¼ler*innen entwickeln sehr unterschiedliche LÃ¶sungswege, die wir gemeinsam erarbeiten. In GesprÃ¤chsrunden fallen viele konkrete Fragen, und ich dokumentiere diese, damit wir in den kommenden Treffen gezielt darauf eingehen kÃ¶nnen. Die Schreibaufgaben werden durchgehend reflektiert, und ich sehe, wie das Interesse daran wÃ¤chst, neue Formate zu probieren. Ich bitte Sie, die ÃœbungsbÃ¶gen zu Hause zu besprechen, damit die Kinder ihre Gedanken noch einmal ordnen kÃ¶nnen. Wir planen ein kurzes Feedback-GesprÃ¤ch nÃ¤chste Woche, um auf individuelle Fortschritte einzugehen. Herzliche Gruesse, Frau Meyer"
 
     const formatted = formatDraftText(draft, "de-DE")
     expect(formatted.subject).toBe("Ausblick")
@@ -111,7 +111,7 @@ Frau Mueller`
 
   it("splits a very long German body while keeping greeting/closing intact", () => {
     const repeatedSentence =
-      "Die Lerngruppe hat im Fachunterricht ein komplexes Thema bearbeitet, die Diskussionen waren differenziert und ich dokumentiere die Impulse für unsere nächsten Schritte."
+      "Die Lerngruppe hat im Fachunterricht ein komplexes Thema bearbeitet, die Diskussionen waren differenziert und ich dokumentiere die Impulse fÃ¼r unsere nÃ¤chsten Schritte."
     const longBody = Array(20).fill(repeatedSentence).join(" ")
     const draft = `Betreff: Ausblick\nLiebe Eltern,\n\n${longBody}\n\nHerzliche Gruesse,\nFrau Meyer`
 
@@ -162,4 +162,50 @@ Frau Mueller`
     expect(formatted.paragraphs[0]).toContain("Dear Mr Reynolds,")
     expect(formatted.paragraphs.some((para) => para.includes("Let me know"))).toBe(true)
   })
+
+  it("merges greetings split over blank lines while keeping body text after the salutation", () => {
+    const draft = "Dear Mr.\n\nCollins,\n\nThank you for reaching out."
+    const formatted = formatDraftText(draft)
+    expect(formatted.paragraphs[0]).toContain("Dear Mr Collins,")
+    expect(formatted.paragraphs.some((para) => para.includes("Thank you for reaching out."))).toBe(true)
+  })
+
+  it("adds a comma when the split salutation line lacks one", () => {
+    const draft = "Dear Mrs.\nPatel\nI appreciate your note."
+    const formatted = formatDraftText(draft)
+    expect(formatted.paragraphs[0]).toContain("Dear Mrs Patel,")
+    expect(formatted.paragraphs.some((para) => para.includes("I appreciate your note."))).toBe(true)
+  })
+  it("normalizes paragraph-split salutations in structured drafts (subject + blank lines)", () => {
+    const draft = `Subject: Test
+
+Dear Mr.
+
+Collins,
+
+Body line`
+    const formatted = formatDraftText(draft, "en-GB")
+    expect(formatted.subject).toBe("Test")
+    expect(formatted.paragraphs[0]).toContain("Dear Mr Collins,")
+    expect(formatted.paragraphs.some((para) => para.includes("Body line"))).toBe(true)
+  })
+
+  it("detaches body copy when surname line already contains text", () => {
+    const draft = "Dear Mr.\n\nCollins, Thank you for your message.\n\nLet me know if you need anything."
+    const formatted = formatDraftText(draft, "en-GB")
+    expect(formatted.paragraphs[0]).toContain("Dear Mr Collins,")
+    expect(formatted.paragraphs.some((para) => para.includes("Thank you for your message."))).toBe(true)
+    expect(formatted.paragraphs.some((para) => para.includes("Let me know if you need anything."))).toBe(true)
+  })
+
+  it("does not merge salutation when the next paragraph is normal prose", () => {
+    const draft = `Dear Mr.
+
+Thank you for your email.`
+    const formatted = formatDraftText(draft, "en-GB")
+    expect(formatted.paragraphs[0]).toContain("Dear Mr")
+    expect(formatted.paragraphs.join(" ")).toContain("Thank you for your email.")
+    expect(formatted.paragraphs.join(" ")).not.toContain("Dear Mr Thank you")
+  })
+
 })

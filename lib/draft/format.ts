@@ -35,48 +35,86 @@ const SALUTATION_BREAK_RE = new RegExp(
   `^Dear(?:\\s+(${SALUTATION_TITLE_TITLES.join("|")})\\.?)?$`,
   "i",
 )
-const SALUTATION_NAME_LINE_RE = /^([^,\n]{1,40}),\s*$/
+const SALUTATION_NAME_LINE_RE = /^([^,\n]{1,40}),\s*(.*)$/
+const SALUTATION_PARAGRAPH_RE = /^Dear\s+(Mr|Mrs|Ms|Miss|Dr|Prof|Mx|Sir|Madam|Teacher)\.?$/i
+const SALUTATION_NAME_PARAGRAPH_RE = /^([A-Za-zÀ-ÖØ-öø-ÿ][A-Za-zÀ-ÖØ-öø-ÿ'.\-\s]{0,40})(,?)$/u
+const SALUTATION_NAME_BLACKLIST = ["thank", "thanks", "please", "i", "we", "your", "could", "would", "hope", "happy"]
 
 function normalizeSalutationBreaks(text: string) {
   const normalized = text.replace(/\r\n/g, "\n")
   const lines = normalized.split("\n")
-  const mergedLines: string[] = []
-  let i = 0
 
-  while (i < lines.length) {
-    const currentLine = lines[i]
-    const nextLine = i + 1 < lines.length ? lines[i + 1] : undefined
-    const currentMatch = currentLine.match(SALUTATION_BREAK_RE)
-    const nextMatch = nextLine?.match(SALUTATION_NAME_LINE_RE)
-
-    if (currentMatch && nextMatch) {
-      const title = currentMatch[1] ? currentMatch[1].replace(/\.\s*$/, "") : ""
-      const baseName = nextMatch[1].trim()
-      const nameParts = baseName.split(/\s+/)
-      const combinedName = title ? `${title} ${nameParts.join(" ")}` : nameParts.join(" ")
-      mergedLines.push(`Dear ${combinedName},`)
-      i += 2
+  let index = 0
+  while (index < lines.length) {
+    const currentLine = lines[index]
+    const trimmedLine = currentLine.trim()
+    if (!trimmedLine) {
+      index += 1
       continue
     }
-
-    mergedLines.push(currentLine)
-    i += 1
+    const currentMatch = trimmedLine.match(SALUTATION_BREAK_RE)
+    if (!currentMatch) {
+      index += 1
+      continue
+    }
+    let nextIndex = index + 1
+    while (nextIndex < lines.length && !lines[nextIndex].trim()) {
+      lines.splice(nextIndex, 1)
+    }
+    if (nextIndex >= lines.length) {
+      break
+    }
+    const nextLine = lines[nextIndex]
+    const nextTrimmed = nextLine.trim()
+    const nameMatch = nextTrimmed.match(SALUTATION_NAME_LINE_RE)
+    if (!nameMatch) {
+      break
+    }
+    const title = currentMatch[1] ? currentMatch[1].replace(/\.\s*$/, "") : ""
+    const baseName = nameMatch[1].trim()
+    const nameParts = baseName.split(/\s+/).filter(Boolean)
+    if (!nameParts.length || nameParts.length > 3) {
+      break
+    }
+    const normalizedBaseName = baseName.toLowerCase()
+    if (SALUTATION_NAME_BLACKLIST.some((token) => normalizedBaseName.startsWith(token))) {
+      break
+    }
+    const combinedName = title ? `${title} ${nameParts.join(" ")}` : nameParts.join(" ")
+    lines[index] = `Dear ${combinedName},`
+    const remainder = nameMatch[2]?.trim()
+    if (remainder) {
+      lines[nextIndex] = remainder
+    } else {
+      lines.splice(nextIndex, 1)
+    }
+    break
   }
 
-  return mergedLines.join("\n")
+  return lines.join("\n")
 }
 
 function normalizeGreetingNewline(value: string) {
   const salutationFixed = normalizeSalutationBreaks(value)
-  return salutationFixed.replace(SALUTATION_NORMALIZATION_REGEX, (_, prefix, name, comma) => {
-    const normalizedPrefix = prefix.replace(/\.\s*$/, "").trim()
-    const normalizedName = name.replace(/\s+/g, " ").trim()
-    if (!normalizedName) {
-      return `${normalizedPrefix}${comma || ","}`
-    }
-    const commaToken = comma || ","
-    return `${normalizedPrefix} ${normalizedName}${commaToken}`
-  })
+  return salutationFixed.replace(
+    SALUTATION_NORMALIZATION_REGEX,
+    (match, prefix, name, comma) => {
+      const normalizedPrefix = prefix.replace(/\.\s*$/, "").trim()
+      const normalizedName = name.replace(/\s+/g, " ").trim()
+      const nameWords = normalizedName.split(/\s+/).filter(Boolean)
+      const normalizedNameLower = normalizedName.toLowerCase()
+      if (
+        !normalizedName ||
+        nameWords.length === 0 ||
+        nameWords.length > 3 ||
+        SALUTATION_NAME_BLACKLIST.some((token) => normalizedNameLower.startsWith(token))
+      ) {
+        return match
+      }
+      const commaToken = comma || ","
+      return `${normalizedPrefix} ${normalizedName}${commaToken}`
+    },
+  )
 }
 
 function getLocaleForSegmenter(locale?: string) {
@@ -304,6 +342,34 @@ function buildParagraphs(body: string, locale?: string): string[] {
   return enforceMaxParagraphLength([trimmedBody], locale)
 }
 
+function normalizeSalutationParagraphs(paragraphs: string[]): string[] {
+  if (!paragraphs.length || paragraphs.length < 2) {
+    return paragraphs
+  }
+  const first = paragraphs[0].trim()
+  const salutationMatch = first.match(SALUTATION_PARAGRAPH_RE)
+  if (!salutationMatch) {
+    return paragraphs
+  }
+  const second = paragraphs[1].trim()
+  const nameMatch = second.match(SALUTATION_NAME_PARAGRAPH_RE)
+  if (!nameMatch) {
+    return paragraphs
+  }
+  const nameWords = nameMatch[1].trim().split(/\s+/).filter(Boolean)
+  if (!nameWords.length || nameWords.length > 3) {
+    return paragraphs
+  }
+  const proseBlacklist = ["thank", "thanks", "please", "i", "we", "your", "could", "would", "hope", "happy"]
+  if (proseBlacklist.some((token) => nameMatch[1].trim().toLowerCase().startsWith(token))) {
+    return paragraphs
+  }
+  const title = salutationMatch[1]
+  const commaToken = nameMatch[2] || ","
+  const combined = `Dear ${title} ${nameMatch[1].trim()}${commaToken}`
+  return [combined, ...paragraphs.slice(2)]
+}
+
 export function formatDraftText(text: string, locale?: string): DraftStructure {
   const normalized = normalizeGreetingNewline(stripMarkdown(text).replace(/\r\n/g, "\n")).trim()
   if (!normalized) {
@@ -328,8 +394,9 @@ export function formatDraftText(text: string, locale?: string): DraftStructure {
   }
 
   const paragraphs = buildParagraphs(bodyText, locale)
+  const normalizedParagraphs = normalizeSalutationParagraphs(paragraphs)
   return {
     subject,
-    paragraphs,
+    paragraphs: normalizedParagraphs,
   }
 }
