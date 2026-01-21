@@ -155,4 +155,11 @@ Frau Mueller`
     const formatted = formatDraftText(draft)
     expect(formatted.paragraphs[0]).toContain("Dear Mrs Patel,")
   })
+
+  it("normalizes single-line greetings to keep title and surname together", () => {
+    const draft = "Dear Mr.\nReynolds,\n\nLet me know if you need anything."
+    const formatted = formatDraftText(draft)
+    expect(formatted.paragraphs[0]).toContain("Dear Mr Reynolds,")
+    expect(formatted.paragraphs.some((para) => para.includes("Let me know"))).toBe(true)
+  })
 })

@@ -29,8 +29,46 @@ function stripMarkdown(value: string) {
 const SALUTATION_NORMALIZATION_REGEX =
   /^(Dear\s+(?:Mr|Mrs|Ms|Miss|Dr|Prof|Mx|Sir|Madam|Teacher)\.?)[\s\r\n]+([^\r\n,]+)(,?)/imu
 
+const SALUTATION_TITLE_TITLES = ["Mr", "Mrs", "Ms", "Miss", "Dr", "Prof", "Mx", "Sir", "Madam", "Teacher"]
+
+const SALUTATION_BREAK_RE = new RegExp(
+  `^Dear(?:\\s+(${SALUTATION_TITLE_TITLES.join("|")})\\.?)?$`,
+  "i",
+)
+const SALUTATION_NAME_LINE_RE = /^([^,\n]{1,40}),\s*$/
+
+function normalizeSalutationBreaks(text: string) {
+  const normalized = text.replace(/\r\n/g, "\n")
+  const lines = normalized.split("\n")
+  const mergedLines: string[] = []
+  let i = 0
+
+  while (i < lines.length) {
+    const currentLine = lines[i]
+    const nextLine = i + 1 < lines.length ? lines[i + 1] : undefined
+    const currentMatch = currentLine.match(SALUTATION_BREAK_RE)
+    const nextMatch = nextLine?.match(SALUTATION_NAME_LINE_RE)
+
+    if (currentMatch && nextMatch) {
+      const title = currentMatch[1] ? currentMatch[1].replace(/\.\s*$/, "") : ""
+      const baseName = nextMatch[1].trim()
+      const nameParts = baseName.split(/\s+/)
+      const combinedName = title ? `${title} ${nameParts.join(" ")}` : nameParts.join(" ")
+      mergedLines.push(`Dear ${combinedName},`)
+      i += 2
+      continue
+    }
+
+    mergedLines.push(currentLine)
+    i += 1
+  }
+
+  return mergedLines.join("\n")
+}
+
 function normalizeGreetingNewline(value: string) {
-  return value.replace(SALUTATION_NORMALIZATION_REGEX, (_, prefix, name, comma) => {
+  const salutationFixed = normalizeSalutationBreaks(value)
+  return salutationFixed.replace(SALUTATION_NORMALIZATION_REGEX, (_, prefix, name, comma) => {
     const normalizedPrefix = prefix.replace(/\.\s*$/, "").trim()
     const normalizedName = name.replace(/\s+/g, " ").trim()
     if (!normalizedName) {
