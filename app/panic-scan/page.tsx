@@ -164,23 +164,30 @@ export default function PanicScanPage() {
           <label className="block text-sm font-semibold text-white mb-2">
             {t("panicScanUploadLabel")}
           </label>
-          <input
-            type="file"
-            accept="image/*"
-            capture="environment"
-            className="text-xs text-white"
-            onChange={handleFileChange}
-          />
-          {selectedFileInfo && (
-            <p className="mt-2 text-xs text-white/70">{selectedFileInfo}</p>
-          )}
           {panicConfigMissing && (
             <div
-              className="mt-2 rounded-2xl border border-amber-300/80 bg-amber-200/10 p-3 text-xs text-amber-200"
+              className="mb-4 rounded-2xl border border-amber-300/80 bg-amber-200/10 p-3 text-xs text-amber-200"
               role="alert"
             >
               {configError}
             </div>
+          )}
+          <input
+            id="panic-file"
+            type="file"
+            accept="image/jpeg,image/png,image/heic"
+            capture="environment"
+            className="sr-only"
+            onChange={handleFileChange}
+          />
+          <label
+            htmlFor="panic-file"
+            className="mt-2 inline-flex w-full cursor-pointer items-center justify-center rounded-xl border border-white/30 bg-white/10 px-4 py-3 text-sm font-semibold text-white shadow-lg shadow-black/40 transition hover:bg-white/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2"
+          >
+            {t("panicScanUploadLabel")}
+          </label>
+          {selectedFileInfo && (
+            <p className="mt-2 text-xs text-white/70">{selectedFileInfo}</p>
           )}
           {error && (
             <div

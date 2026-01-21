@@ -27,8 +27,9 @@ export default function DocsPage() {
 
   return (
     <div className="min-h-screen flex flex-col bg-gradient-to-b from-slate-950 to-black text-white">
-      <main className="flex-1">
-        <div className="mx-auto flex min-h-[calc(100vh-220px)] max-w-4xl flex-col space-y-6 px-4 py-16">
+      <main className="relative flex-1">
+        <div className="absolute inset-0 pointer-events-none bg-[radial-gradient(circle_at_top,_rgba(99,102,241,0.35),_transparent_60%)]" />
+        <div className="mx-auto relative z-10 flex min-h-[calc(100vh-220px)] max-w-4xl flex-col space-y-6 px-4 py-16">
           <div className="flex items-center justify-between gap-4">
             <div>
               <h1 className="text-4xl font-semibold">{t("docsTitle")}</h1>

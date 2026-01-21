@@ -143,13 +143,28 @@ export default function VoiceCapturePage() {
           </div>
           <div>
             <label className="block text-sm font-semibold text-white">{t("voiceUploadLabel")}</label>
+            {voiceConfigMissing && (
+              <div
+                className="mb-3 rounded-2xl border border-amber-300/80 bg-amber-200/10 p-3 text-xs text-amber-200"
+                role="alert"
+              >
+                {configError}
+              </div>
+            )}
             <input
+              id="voice-file"
               type="file"
-              accept="audio/*"
+              accept="audio/wav,audio/mpeg,audio/mp4,audio/x-m4a,audio/m4a"
               capture="environment"
-              className="text-xs text-white"
+              className="sr-only"
               onChange={handleFileChange}
             />
+            <label
+              htmlFor="voice-file"
+              className="mt-2 inline-flex w-full cursor-pointer items-center justify-center rounded-xl border border-white/30 bg-white/10 px-4 py-3 text-sm font-semibold text-white shadow-lg shadow-black/40 transition hover:bg-white/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2"
+            >
+              {t("voiceUploadLabel")}
+            </label>
           </div>
           {selectedFileInfo && (
             <p className="text-xs text-white/70">{selectedFileInfo}</p>
