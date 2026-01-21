@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server"
+import { randomUUID } from "crypto"
 import { authorizeFirebaseRequest } from "@/lib/firebase/server"
 import { enforcePerUserRateLimit, RateLimitError } from "@/lib/rate-limit"
 import { analyzeVoiceEmotion } from "@/lib/voice/emotion"
@@ -17,8 +18,15 @@ type ResponseStage =
   | "storage"
   | "rate_limit"
   | "unknown"
+  | "done"
 
-function createDiagnostics(overrides: Partial<Record<string, unknown>> = {}) {
+type VoiceDiagnostics = {
+  storageConfigured: boolean
+  storageError: string | null
+  aiConfigured: boolean
+}
+
+function createDiagnostics(overrides: Partial<VoiceDiagnostics> = {}) {
   return {
     storageConfigured: false,
     storageError: null,
@@ -27,49 +35,63 @@ function createDiagnostics(overrides: Partial<Record<string, unknown>> = {}) {
   }
 }
 
+const jsonHeaders = (requestId: string) => ({
+  "content-type": "application/json",
+  "x-request-id": requestId,
+})
+
 function createErrorResponse({
   code,
   message,
   stage,
   status = 500,
   diagnostics,
+  requestId,
   details,
 }: {
   code: string
   message: string
   stage: ResponseStage
   status?: number
-  diagnostics: ReturnType<typeof createDiagnostics>
+  diagnostics: VoiceDiagnostics
+  requestId: string
   details?: string | Record<string, unknown>
 }) {
-  const errorPayload: Record<string, unknown> = { code, message, stage }
-  if (details) {
-    errorPayload.details = details
+  const payload: Record<string, unknown> = {
+    ok: false,
+    requestId,
+    stage,
+    error: { code, message, details, stage },
+    diagnostics,
   }
-  console.error(`[voice] stage=${stage} code=${code} message=${message}`)
-  return NextResponse.json(
-    {
-      ok: false,
-      error: errorPayload,
-      diagnostics,
-    },
-    { status },
+  console.error(
+    `[voice] requestId=${requestId} stage=${stage} status=${status} code=${code} msg=${message}`,
   )
+  return NextResponse.json(payload, {
+    status,
+    headers: jsonHeaders(requestId),
+  })
 }
 
 function createSuccessResponse({
   voiceSessionId,
   diagnostics,
+  requestId,
 }: {
   voiceSessionId: string
-  diagnostics: ReturnType<typeof createDiagnostics>
+  diagnostics: VoiceDiagnostics
+  requestId: string
 }) {
-  return NextResponse.json({
+  const payload = {
     ok: true,
-    data: {
-      voiceSessionId,
-    },
+    requestId,
+    stage: "done" as const,
+    data: { voiceSessionId },
     diagnostics,
+  }
+  return NextResponse.json(payload, {
+    status: 200,
+    headers: jsonHeaders(requestId),
   })
 }
 
@@ -79,166 +101,221 @@ function createMediaPath(sessionId: string, fileName: string) {
   return `voice_sessions/${sessionId}/${timestamp}-${safeName}`
 }
 
+function logStage(requestId: string, stage: ResponseStage, success: boolean, info?: string) {
+  const line = `[voice] requestId=${requestId} stage=${stage} ${success ? "ok" : "error"}${
+    info ? ` msg=${info}` : ""
+  }`
+  if (success) {
+    console.info(line)
+  } else {
+    console.error(line)
+  }
+}
+
 export async function POST(request: Request) {
-  const form = await request.formData()
-  const file = form.get("file")
-  const language = (form.get("language") as string) ?? "en-GB"
-  const sessionId = form.get("sessionId") as string | null
+  const requestId = randomUUID()
   const diagnostics = createDiagnostics()
-
-  if (!file || typeof file === "string") {
-    return createErrorResponse({
-      code: "MISSING_FILE",
-      message: "Please attach an audio file.",
-      stage: "parse",
-      status: 400,
-      diagnostics,
-    })
-  }
-
-  const arrayBuffer = await file.arrayBuffer()
-  const buffer = Buffer.from(arrayBuffer)
-  if (buffer.length === 0 || buffer.length > MAX_AUDIO_BYTES) {
-    return createErrorResponse({
-      code: "FILE_TOO_LARGE",
-      message: `Audio must be under ${Math.round(MAX_AUDIO_BYTES / (1024 * 1024))}MB.`,
-      stage: "validate",
-      status: 413,
-      diagnostics,
-    })
-  }
-
-  const aiConfigured = AUDIO_ENV_VARS.every((env) => Boolean(process.env[env]))
-  if (!aiConfigured) {
-    return createErrorResponse({
-      code: "AI_NOT_CONFIGURED",
-      message: "Voice transcription is not configured.",
-      stage: "analysis",
-      diagnostics,
-      details: { missingEnv: AUDIO_ENV_VARS.filter((env) => !process.env[env]) },
-    })
-  }
-
-  let authContext
   try {
-    authContext = await authorizeFirebaseRequest(request)
-  } catch (error) {
-    return createErrorResponse({
-      code: "UNAUTHORIZED",
-      message: "Unauthorized",
-      stage: "auth",
-      status: 401,
-      diagnostics,
-    })
-  }
+    const form = await request.formData()
+    const file = form.get("file")
+    const language = (form.get("language") as string) ?? "en-GB"
+    const sessionId = form.get("sessionId") as string | null
 
-  const { uid, firestore, storage } = authContext
-  if (!firestore) {
-    return createErrorResponse({
-      code: "FIRESTORE_UNAVAILABLE",
-      message: "Unable to access Firestore.",
-      stage: "storage",
-      status: 500,
-      diagnostics,
-    })
-  }
-
-  try {
-    await enforcePerUserRateLimit(uid, firestore, { docName: "voiceUpload" })
-  } catch (error) {
-    if (error instanceof RateLimitError) {
+    if (!file || typeof file === "string") {
       return createErrorResponse({
-        code: "RATE_LIMIT",
-        message: `Try again in ${Math.ceil(error.retryAfterMs / 1000)} seconds.`,
-        stage: "rate_limit",
-        status: 429,
+        code: "MISSING_FILE",
+        message: "Please attach an audio file.",
+        stage: "parse",
+        status: 400,
         diagnostics,
+        requestId,
       })
     }
-    console.error("[voice] Rate limit check failed", error)
-  }
 
-  const bucketName = process.env.FIREBASE_STORAGE_BUCKET
-  const storageDiagnostics = {
-    storageConfigured: false,
-    storageError: null as string | null,
-  }
+    const arrayBuffer = await file.arrayBuffer()
+    const buffer = Buffer.from(arrayBuffer)
 
-  const sessionRef = firestore.collection("voice_sessions").doc()
-  const createdAt = new Date()
-  const expiresAt = new Date(createdAt.getTime() + AUDIO_TTL_MS)
-  const mediaPath = createMediaPath(sessionRef.id, file.name)
-  const doc = {
-    voiceSessionId: sessionRef.id,
-    userId: uid,
-    fileName: file.name,
-    language,
-    mediaPath,
-    status: "processing",
-    createdAt: createdAt.toISOString(),
-    expiresAt: expiresAt.toISOString(),
-    sessionId: sessionId ?? undefined,
-  }
-
-  await sessionRef.set(doc)
-
-  if (storage && bucketName) {
-    try {
-      const bucket = storage.bucket(bucketName)
-      await bucket.file(mediaPath).save(buffer, { metadata: { contentType: file.type || "audio/mpeg" } })
-      storageDiagnostics.storageConfigured = true
-    } catch (storageError) {
-      storageDiagnostics.storageConfigured = false
-      storageDiagnostics.storageError =
-        storageError instanceof Error ? storageError.message : "Storage upload failed"
-      console.error(
-        `[voice] storage disabled: ${storageDiagnostics.storageError} (${bucketName})`,
-      )
+    if (buffer.length === 0 || buffer.length > MAX_AUDIO_BYTES) {
+      return createErrorResponse({
+        code: "FILE_TOO_LARGE",
+        message: `Audio must be under ${Math.round(MAX_AUDIO_BYTES / (1024 * 1024))}MB.`,
+        stage: "validate",
+        status: 413,
+        diagnostics,
+        requestId,
+      })
     }
-  } else {
-    storageDiagnostics.storageError = bucketName
-      ? "Firebase storage client unavailable"
-      : "FIREBASE_STORAGE_BUCKET is not set"
-  }
+    logStage(requestId, "parse", true)
 
-  const diagWithStorage = createDiagnostics({
-    storageConfigured: storageDiagnostics.storageConfigured,
-    storageError: storageDiagnostics.storageError,
-  })
+    const aiConfigured = AUDIO_ENV_VARS.every((env) => Boolean(process.env[env]))
+    if (!aiConfigured) {
+      return createErrorResponse({
+        code: "AI_NOT_CONFIGURED",
+        message: "Voice transcription is not configured.",
+        stage: "analysis",
+        diagnostics,
+        requestId,
+        details: { missingEnv: AUDIO_ENV_VARS.filter((env) => !process.env[env]) },
+      })
+    }
+    logStage(requestId, "validate", true)
 
-  try {
-    const transcribedText = await transcribeAudio(buffer, file.type || "audio/mpeg", language)
-    const emotionAnalysis = analyzeVoiceEmotion(transcribedText)
+    let authContext
+    try {
+      authContext = await authorizeFirebaseRequest(request)
+    } catch (error) {
+      const status =
+        error instanceof Error && error.name === "FirebaseAuthorizationError" ? 401 : 401
+      return createErrorResponse({
+        code: "UNAUTHORIZED",
+        message: "Unauthorized",
+        stage: "auth",
+        status,
+        diagnostics,
+        requestId,
+      })
+    }
+    logStage(requestId, "auth", true)
 
-    await sessionRef.set(
-      {
-        transcribedText,
-        emotionAnalysis,
-        status: "completed",
-      },
-      { merge: true },
-    )
+    const { uid, firestore, storage } = authContext
+    if (!firestore) {
+      return createErrorResponse({
+        code: "FIRESTORE_UNAVAILABLE",
+        message: "Unable to access Firestore.",
+        stage: "storage",
+        status: 500,
+        diagnostics,
+        requestId,
+      })
+    }
+
+    try {
+      await enforcePerUserRateLimit(uid, firestore, { docName: "voiceUpload" })
+    } catch (error) {
+      if (error instanceof RateLimitError) {
+        return createErrorResponse({
+          code: "RATE_LIMIT",
+          message: `Try again in ${Math.ceil(error.retryAfterMs / 1000)} seconds.`,
+          stage: "rate_limit",
+          status: 429,
+          diagnostics,
+          requestId,
+        })
+      }
+      console.error("[voice] Rate limit check failed", error)
+    }
+
+    const bucketName = process.env.FIREBASE_STORAGE_BUCKET
+    const storageDiagnostics = {
+      storageConfigured: false,
+      storageError: null as string | null,
+    }
+
+    const sessionRef = firestore.collection("voice_sessions").doc()
+    const createdAt = new Date()
+    const expiresAt = new Date(createdAt.getTime() + AUDIO_TTL_MS)
+    const mediaPath = createMediaPath(sessionRef.id, file.name)
+    const doc = {
+      voiceSessionId: sessionRef.id,
+      userId: uid,
+      fileName: file.name,
+      language,
+      mediaPath,
+      status: "processing",
+      createdAt: createdAt.toISOString(),
+      expiresAt: expiresAt.toISOString(),
+      sessionId: sessionId ?? undefined,
+    }
+
+    await sessionRef.set(doc)
+
+    if (storage && bucketName) {
+      try {
+        const bucket = storage.bucket(bucketName)
+        await bucket.file(mediaPath).save(buffer, { metadata: { contentType: file.type || "audio/mpeg" } })
+        storageDiagnostics.storageConfigured = true
+        logStage(requestId, "storage", true)
+      } catch (storageError) {
+        storageDiagnostics.storageConfigured = false
+        storageDiagnostics.storageError =
+          storageError instanceof Error ? storageError.message : "Storage upload failed"
+        diagnostics.storageError = storageDiagnostics.storageError
+        await sessionRef.set(
+          {
+            status: "failed",
+            failureReason: storageDiagnostics.storageError,
+          },
+          { merge: true },
+        )
+        logStage(requestId, "storage", false, storageDiagnostics.storageError)
+        return createErrorResponse({
+          code: "STORAGE_UPLOAD_FAILED",
+          message: storageDiagnostics.storageError,
+          stage: "storage",
+          status: 500,
+          diagnostics,
+          requestId,
+        })
+      }
+    } else {
+      storageDiagnostics.storageError = bucketName
+        ? "Firebase storage client unavailable"
+        : "FIREBASE_STORAGE_BUCKET is not set"
+      diagnostics.storageError = storageDiagnostics.storageError
+    }
+
+    diagnostics.storageConfigured = storageDiagnostics.storageConfigured
+    diagnostics.storageError = storageDiagnostics.storageError
+    diagnostics.aiConfigured = aiConfigured
+
+    try {
+      const transcribedText = await transcribeAudio(buffer, file.type || "audio/mpeg", language)
+      const emotionAnalysis = analyzeVoiceEmotion(transcribedText)
+      logStage(requestId, "analysis", true)
+
+      await sessionRef.set(
+        {
+          transcribedText,
+          emotionAnalysis,
+          status: "completed",
+        },
+        { merge: true },
+      )
+
+      logStage(requestId, "done", true)
+      return createSuccessResponse({
+        voiceSessionId: sessionRef.id,
+        diagnostics,
+        requestId,
+      })
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Processing error"
+      await sessionRef.set(
+        {
+          status: "failed",
+          failureReason: message,
+        },
+        { merge: true },
+      )
+      logStage(requestId, "analysis", false, message)
+      return createErrorResponse({
+        code: "VOICE_TRANSCRIBE_FAILED",
+        message,
+        stage: "analysis",
+        diagnostics,
+        requestId,
+      })
+    }
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Processing error"
-    await sessionRef.set(
-      {
-        status: "failed",
-        failureReason: message,
-      },
-      { merge: true },
-    )
+    const message = error instanceof Error ? error.message : "Unexpected server error"
+    logStage(requestId, "unknown", false, message)
     return createErrorResponse({
-      code: "VOICE_TRANSCRIBE_FAILED",
+      code: "UNEXPECTED_ERROR",
       message,
-      stage: "analysis",
-      diagnostics: diagWithStorage,
+      stage: "unknown",
+      status: 500,
+      diagnostics,
+      requestId,
     })
   }
-
-  diagWithStorage.aiConfigured = true
-
-  return createSuccessResponse({
-    voiceSessionId: sessionRef.id,
-    diagnostics: diagWithStorage,
-  })
 }

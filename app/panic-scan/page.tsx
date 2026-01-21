@@ -22,6 +22,16 @@ export default function PanicScanPage() {
   const [aiConfigured, setAiConfigured] = useState(true)
   const [lastDiagnostics, setLastDiagnostics] = useState<Record<string, any> | null>(null)
   const [lastErrorMeta, setLastErrorMeta] = useState<{ stage?: string; code?: string } | null>(null)
+  const [errorDetails, setErrorDetails] = useState<
+    | {
+        code?: string
+        stage?: string
+        details?: string
+        requestId?: string
+      }
+    | null
+  >(null)
+  const [detailsVisible, setDetailsVisible] = useState(false)
   const panicConfigMissing =
     !process.env.NEXT_PUBLIC_FIREBASE_API_KEY || !process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID
   const configError = panicConfigMissing ? t("panicScan.error.configMissing") : null
@@ -148,28 +158,89 @@ export default function PanicScanPage() {
         body: form,
       })
 
-      const payload = await response.json().catch(() => null)
+      const contentType = response.headers.get("content-type") ?? ""
+      const isJson = contentType.includes("application/json")
+      const requestId =
+        response.headers.get("x-request-id") ?? response.headers.get("x-zaza-request-id") ?? null
+
+      let payload: Record<string, unknown> | null = null
+      let fallbackText: string | null = null
+
+      if (isJson) {
+        payload = await response.json().catch((parseError) => {
+          console.error("[panic-scan] failed to parse JSON response", parseError)
+          return null
+        })
+      } else {
+        fallbackText = await response.text().catch(() => null)
+      }
+
       if (payload?.diagnostics) {
-        setLastDiagnostics(payload.diagnostics)
-        if (typeof payload.diagnostics.aiConfigured === "boolean") {
-          setAiConfigured(Boolean(payload.diagnostics.aiConfigured))
+        const diagnostics = payload.diagnostics as Record<string, any>
+        setLastDiagnostics(diagnostics)
+        if (typeof diagnostics.aiConfigured === "boolean") {
+          setAiConfigured(Boolean(diagnostics.aiConfigured))
         }
       }
-      if (!response.ok || !payload?.success) {
-        setLastErrorMeta({
-          stage: payload?.error?.stage,
-          code: payload?.error?.code,
-        })
-        const message =
-          payload?.error?.message ??
-          payload?.message ??
-          `Unknown error (HTTP ${response.status})`
-        setError(t("panicScan.error.analysisFailed", { message }))
+
+      const successFlag =
+        Boolean(payload) && ((payload as any).ok === true || (payload as any).success === true)
+      const scanId = (payload as any)?.data?.scanId ?? (payload as any)?.scanId
+
+      if (response.ok && successFlag && scanId) {
+        setLastErrorMeta(null)
+        setErrorDetails(null)
+        setDetailsVisible(false)
+        router.push(`/panic-scan/${scanId}`)
         return
       }
-      setLastErrorMeta(null)
 
-      router.push(`/panic-scan/${payload.data.scanId}`)
+      const stage = (payload as any)?.stage ?? (payload as any)?.error?.stage ?? "unknown"
+      const code = (payload as any)?.error?.code
+      setLastErrorMeta({ stage, code })
+
+      const formattedRequestId = requestId ? ` (Request ID: ${requestId})` : ""
+
+      if (response.ok) {
+        const violationMessage = `We received an unexpected response from the server${formattedRequestId}. Please try again.`
+        setDetailsVisible(false)
+        setErrorDetails({
+          code,
+          stage,
+          details: fallbackText ?? (payload ? JSON.stringify(payload, null, 2) : undefined),
+          requestId: requestId ?? undefined,
+        })
+        setError(violationMessage)
+        return
+      }
+
+      const payloadErrorMessage =
+        (payload as any)?.error?.message ?? (payload as any)?.message
+      const detailsPayload = (payload as any)?.error?.details
+
+      const diagnosticMessage =
+        payloadErrorMessage ??
+        (fallbackText
+          ? `${fallbackText.slice(0, 250)}${fallbackText.length > 250 ? "." : ""}`
+          : "Unexpected server response. Please try again or contact support.")
+      const messageWithRequestId = `${diagnosticMessage}${formattedRequestId}`
+
+      const detailsText =
+        detailsPayload != null
+          ? typeof detailsPayload === "string"
+            ? detailsPayload
+            : JSON.stringify(detailsPayload, null, 2)
+          : fallbackText
+
+      setDetailsVisible(false)
+      setErrorDetails({
+        code,
+        stage,
+        details: detailsText ? detailsText.slice(0, 1000) : undefined,
+        requestId: requestId ?? undefined,
+      })
+      setError(t("panicScan.error.analysisFailed", { message: messageWithRequestId }))
+      return
     } catch (uploadError) {
       setError(
         uploadError instanceof Error ? uploadError.message : t("panicScan.error.uploadFailed"),
