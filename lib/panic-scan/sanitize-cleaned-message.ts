@@ -1,15 +1,19 @@
 const KNOWN_LABEL_LINES: RegExp[] = [
-  /^active(?:\s*✓)?$/i,
+  /^active(?:\s*(?:\u2713|\u2714|V))?$/i,
   /^zaza$/i,
   /^support\s*@/i,
   /^support@/i,
 ]
 
-function containsCatchAll(line: string) {
-  return /catch-all/i.test(line) && line.length <= 80
-}
+const POSITION_LINE = /^\d+\s+of\s+\d[\d,]*$/i
+const TIME_AGO_LINE = /^\d{1,2}:\d{2}\s*\([^)]*\b(ago|minutes?|hours?|days?)\b[^)]*\)$/i
+const WEEKDAY_TIME_AGO_LINE =
+  /^(Mon|Tue|Wed|Thu|Fri|Sat|Sun)\b.*\b\d{1,2}:\d{2}\b.*\b(ago|minutes?|hours?|days?)\b.*$/i
+const CHECKBOX_LINE = /^\d+\s*[\u2611\u2713\u2714\u2610\u25A1](?:\uFE0E|\uFE0F)?$/u
 
-function isLabelLine(line: string) {
+const CATCH_ALL_PATTERN = /catch-all/i
+
+function isNoiseLine(line: string) {
   const trimmed = line.trim()
   if (!trimmed) {
     return false
@@ -17,7 +21,22 @@ function isLabelLine(line: string) {
   if (KNOWN_LABEL_LINES.some((pattern) => pattern.test(trimmed))) {
     return true
   }
-  return containsCatchAll(trimmed)
+  if (POSITION_LINE.test(trimmed)) {
+    return true
+  }
+  if (TIME_AGO_LINE.test(trimmed)) {
+    return true
+  }
+  if (WEEKDAY_TIME_AGO_LINE.test(trimmed) && trimmed.length < 60) {
+    return true
+  }
+  if (CHECKBOX_LINE.test(trimmed) && trimmed.length < 8) {
+    return true
+  }
+  if (CATCH_ALL_PATTERN.test(trimmed) && trimmed.length <= 80) {
+    return true
+  }
+  return false
 }
 
 export function sanitizeCleanedMessage(raw?: string | null) {
@@ -38,7 +57,7 @@ export function sanitizeCleanedMessage(raw?: string | null) {
       continue
     }
 
-    if (isLabelLine(trimmed)) {
+    if (isNoiseLine(trimmed)) {
       continue
     }
 
