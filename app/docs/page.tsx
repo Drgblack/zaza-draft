@@ -1,11 +1,29 @@
 "use client"
 
+import { useEffect } from "react"
 import FooterSlim from "@/components/FooterSlim"
 import Link from "next/link"
 import { useLocale } from "@/hooks/use-locale"
 
 export default function DocsPage() {
   const { t } = useLocale()
+
+  useEffect(() => {
+    const scrollToHash = () => {
+      const hash = window.location.hash
+      if (!hash) {
+        return
+      }
+      const target = document.querySelector(hash)
+      if (target) {
+        target.scrollIntoView({ behavior: "smooth", block: "start" })
+      }
+    }
+
+    scrollToHash()
+    window.addEventListener("hashchange", scrollToHash)
+    return () => window.removeEventListener("hashchange", scrollToHash)
+  }, [])
 
   return (
     <div className="min-h-screen flex flex-col bg-gradient-to-b from-slate-950 to-black text-white">
@@ -24,13 +42,14 @@ export default function DocsPage() {
             </Link>
           </div>
           <Link
-            href="#panic-scan"
+            href="/docs#panic-scan"
+            scroll={false}
             className="inline-flex w-fit rounded-full bg-white/10 px-6 py-3 text-sm font-semibold text-indigo-100 shadow-lg shadow-indigo-950/40 hover:bg-white/20 transition"
           >
             {t("docsLinkLabel")}
           </Link>
 
-          <div className="space-y-4">
+          <div className="space-y-4 relative z-10">
             <section
               id="panic-scan"
               className="scroll-mt-20 rounded-2xl border border-white/10 bg-white/5 p-5 shadow-lg shadow-black/40"
@@ -42,6 +61,7 @@ export default function DocsPage() {
               <p className="text-sm text-white/70">{t("docsSectionPanicScanDescription")}</p>
               <Link
                 href="/docs#panic-scan"
+                scroll={false}
                 className="text-sm font-semibold text-indigo-300 underline"
               >
                 {t("docsLinkLabel")}
@@ -58,6 +78,7 @@ export default function DocsPage() {
               <p className="text-sm text-white/70">{t("docsSectionVoiceDescription")}</p>
               <Link
                 href="/docs#voice-to-calm"
+                scroll={false}
                 className="text-sm font-semibold text-indigo-300 underline"
               >
                 {t("docsLinkLabel")}

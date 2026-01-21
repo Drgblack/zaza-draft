@@ -186,8 +186,8 @@ export default function VoiceCapturePage() {
                 {t("voiceProcessing")}
               </p>
             )}
-            {!file && (
-              <p className="text-center text-xs text-white/60">{t("voice.helper.selectFile")}</p>
+            {disableReason && (
+              <p className="text-center text-xs text-white/60">{disableReason}</p>
             )}
             {!!debugHint && (
               <p className="text-center text-[11px] text-white/40 tracking-wide">{debugHint}</p>
