@@ -16,6 +16,11 @@ describe("formatGreetingDisplay", () => {
     expect(formatGreetingDisplay("Dear Mr.", "Khalid")).toBe("Dear Mr Khalid")
   })
 
+  it("keeps honorific and surname on one line even when greeting contains newline", () => {
+    expect(formatGreetingDisplay("Dear Mrs.\n", "Turner")).toBe("Dear Mrs Turner")
+    expect(formatGreetingDisplay("Dear Mr.\r\n", "Khalid")).toBe("Dear Mr Khalid")
+  })
+
   it("does not return 'there' or 'da'", () => {
     const result = formatGreetingDisplay("Good evening", "")
     expect(result).not.toContain("there")

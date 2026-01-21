@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button"
 import { useAuth } from "@/hooks/use-auth"
 import { AuthScreen } from "@/components/auth/auth-screen"
 import { useLocale } from "@/hooks/use-locale"
+import { sanitizeCleanedMessage } from "@/lib/panic-scan/sanitize-cleaned-message"
 
 const PREFILL_KEY = "zazaDraftPrefill"
 const CLEAN_MESSAGE_COLLAPSE_THRESHOLD = 420
@@ -124,11 +125,11 @@ export default function PanicScanResultPage() {
   }, [scan?.status, t])
 
   const handleUseDraft = () => {
-    const messageToPrefill = scan?.extractedTextClean ?? scan?.extractedText
-    if (messageToPrefill) {
-      sessionStorage.setItem(PREFILL_KEY, messageToPrefill)
-      router.push("/?panicScanReturn=1")
+    if (!displayedCleanMessage) {
+      return
     }
+    sessionStorage.setItem(PREFILL_KEY, displayedCleanMessage)
+    router.push("/?panicScanReturn=1")
   }
 
   const statusBadgeLabel = statusLabel ?? scan?.status ?? ""
@@ -142,10 +143,16 @@ export default function PanicScanResultPage() {
   const displayConfidence = showCleanConfidence
     ? Math.round((scan?.cleanConfidence ?? 0) * 100)
     : null
+  const sanitizedCleanMessage = useMemo(
+    () => sanitizeCleanedMessage(cleanMessage),
+    [cleanMessage],
+  )
+  const displayedCleanMessage = sanitizedCleanMessage || cleanMessage || ""
+  const showCleanMessage = Boolean(displayedCleanMessage)
   const showLowConfidenceWarning =
-    showCleanConfidence && (scan?.cleanConfidence ?? 0) < 0.5 && Boolean(cleanMessage)
+    showCleanConfidence && (scan?.cleanConfidence ?? 0) < 0.5 && showCleanMessage
   const cleanMessageIsLong =
-    Boolean(cleanMessage) && (cleanMessage?.length ?? 0) > CLEAN_MESSAGE_COLLAPSE_THRESHOLD
+    showCleanMessage && displayedCleanMessage.length > CLEAN_MESSAGE_COLLAPSE_THRESHOLD
 
   useEffect(() => {
     setCleanExpanded(false)
@@ -160,11 +167,11 @@ export default function PanicScanResultPage() {
   }, [])
 
   const handleCopyCleanMessage = async () => {
-    if (!cleanMessage || typeof navigator === "undefined" || !navigator.clipboard) {
+    if (!displayedCleanMessage || typeof navigator === "undefined" || !navigator.clipboard) {
       return
     }
     try {
-      await navigator.clipboard.writeText(cleanMessage)
+      await navigator.clipboard.writeText(displayedCleanMessage)
       setCopiedCleanMessage(true)
       if (copyTimeoutRef.current && typeof window !== "undefined") {
         window.clearTimeout(copyTimeoutRef.current)
@@ -242,7 +249,7 @@ export default function PanicScanResultPage() {
               )}
             </div>
 
-            {cleanMessage && (
+            {displayedCleanMessage && (
               <div className="rounded-[28px] border border-white/15 bg-white/5 px-6 py-5 space-y-4 shadow-[0_20px_60px_rgba(15,4,50,0.55)]">
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                   <p className="text-sm uppercase tracking-[0.3em] text-white/60">
@@ -258,7 +265,7 @@ export default function PanicScanResultPage() {
                       onClick={handleCopyCleanMessage}
                       size="sm"
                       variant="outline"
-                      className="text-xs uppercase tracking-[0.3em]"
+                      className="text-xs uppercase tracking-[0.3em] border-white/40 bg-white/10 text-white/90 hover:bg-white/20 focus-visible:ring-2 focus-visible:ring-white/70 focus-visible:ring-offset-0"
                     >
                       {t("panicScanResultCopyButton")}
                     </Button>
@@ -272,7 +279,7 @@ export default function PanicScanResultPage() {
                     cleanExpanded ? "max-h-[900px]" : "max-h-80"
                   }`}
                 >
-                  {cleanMessage}
+                  {displayedCleanMessage}
                 </div>
                 {cleanMessageIsLong && (
                   <button
