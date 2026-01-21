@@ -68,6 +68,8 @@ export const localeMessages: Record<Locale, LocaleMessages> = {
     confidenceMedium: "Medium",
     confidenceLow: "Low",
     homeHeroSubline: "Let's keep it crisp and professional.",
+    debug: "Debug tracker",
+    "debug.disableHintPrefix": "Debug: disabled because",
     homeSafeDraftTitle: "Safe Draft",
     homeSafeDraftDescription: "Type directly into the editor for precise control.",
     homeSafeDraftAction: "Continue in editor",
@@ -111,7 +113,7 @@ export const localeMessages: Record<Locale, LocaleMessages> = {
     "panicScan.error.chooseFile": "Choose an image to scan.",
     "panicScan.error.uploadFailed": "Upload failed.",
     "panicScan.error.configMissing":
-      "The client is not configured for uploads. Please set NEXT_PUBLIC_FIREBASE_API_KEY and NEXT_PUBLIC_FIREBASE_PROJECT_ID.",
+      "Uploads require NEXT_PUBLIC_FIREBASE_API_KEY and NEXT_PUBLIC_FIREBASE_PROJECT_ID. Configure them on Vercel and redeploy.",
     voiceTitle: "Voice-to-Calm",
     voiceDescription:
       "Speak when emotions run high and let Zaza Draft listen, transcribe, analyse tone, and draft a calm rewrite.",
@@ -147,7 +149,7 @@ export const localeMessages: Record<Locale, LocaleMessages> = {
     "voice.error.chooseFile": "Choose an audio file to record.",
     "voice.error.uploadFailed": "Upload failed.",
     "voice.error.configMissing":
-      "Recording is unavailable because the client configuration is missing. Please set NEXT_PUBLIC_FIREBASE_API_KEY and NEXT_PUBLIC_FIREBASE_PROJECT_ID.",
+      "Uploads require NEXT_PUBLIC_FIREBASE_API_KEY and NEXT_PUBLIC_FIREBASE_PROJECT_ID. Configure them on Vercel and redeploy.",
     voiceSessionStatusProcessing: "Processing",
     voiceSessionStatusCompleted: "Completed",
     voiceSessionStatusFailed: "Failed",
@@ -1335,6 +1337,8 @@ export const localeMessages: Record<Locale, LocaleMessages> = {
     confidenceMedium: "Mittel",
     confidenceLow: "Niedrig",
     homeHeroSubline: "Lassen Sie uns präzise und professionell bleiben.",
+    debug: "Debug-Tracker",
+    "debug.disableHintPrefix": "Debug: deaktiviert, weil",
     homeSafeDraftTitle: "Sicherer Entwurf",
     homeSafeDraftDescription: "Tippen Sie direkt in den Editor für volle Kontrolle.",
     homeSafeDraftAction: "Im Editor weiterschreiben",
@@ -1378,7 +1382,7 @@ export const localeMessages: Record<Locale, LocaleMessages> = {
     "panicScan.error.chooseFile": "Wählen Sie ein Bild zum Scannen aus.",
     "panicScan.error.uploadFailed": "Upload fehlgeschlagen.",
     "panicScan.error.configMissing":
-      "Uploads sind nicht verfügbar, weil NEXT_PUBLIC_FIREBASE_API_KEY oder NEXT_PUBLIC_FIREBASE_PROJECT_ID fehlt.",
+      "Für Uploads werden NEXT_PUBLIC_FIREBASE_API_KEY und NEXT_PUBLIC_FIREBASE_PROJECT_ID benötigt. Konfigurieren Sie sie in Vercel und deployen Sie erneut.",
     voiceTitle: "Voice-to-Calm",
     voiceDescription:
       "Sprechen Sie, wenn Emotionen hochkochen, und lassen Sie Zaza Draft zuhören, transkribieren und eine ruhige Neuformulierung schreiben.",
@@ -1414,7 +1418,7 @@ export const localeMessages: Record<Locale, LocaleMessages> = {
     "voice.error.chooseFile": "Wählen Sie eine Audiodatei für die Aufnahme aus.",
     "voice.error.uploadFailed": "Upload fehlgeschlagen.",
     "voice.error.configMissing":
-      "Aufnahmen sind nicht möglich, weil NEXT_PUBLIC_FIREBASE_API_KEY oder NEXT_PUBLIC_FIREBASE_PROJECT_ID fehlt.",
+      "Uploads erfordern NEXT_PUBLIC_FIREBASE_API_KEY und NEXT_PUBLIC_FIREBASE_PROJECT_ID. Konfigurieren Sie sie in Vercel und deployen Sie erneut.",
     voiceSessionStatusProcessing: "Verarbeitung",
     voiceSessionStatusCompleted: "Abgeschlossen",
     voiceSessionStatusFailed: "Fehlgeschlagen",

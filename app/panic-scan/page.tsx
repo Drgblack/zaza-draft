@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button"
 import { AuthScreen } from "@/components/auth/auth-screen"
 import { useAuth } from "@/hooks/use-auth"
 import { useLocale } from "@/hooks/use-locale"
+import { isDebugEnabled } from "@/lib/debug"
 
 const SUPPORTED_FORMATS = ["JPG", "PNG", "HEIC"]
 
@@ -47,8 +48,19 @@ export default function PanicScanPage() {
     [t],
   )
   const selectedFileInfo = file
-    ? `${t("panicScanSelected")}: ${file.name} • ${(file.size / 1024 / 1024).toFixed(2)} MB`
+    ? `${t("panicScanSelected")}: ${file.name} - ${(file.size / 1024 / 1024).toFixed(2)} MB`
     : null
+
+  const disableReason = panicConfigMissing
+    ? t("panicScan.error.configMissing")
+    : !file
+    ? t("panicScan.error.chooseFile")
+    : isUploading
+    ? t("panicScanUploading")
+    : null
+  const buttonDisabled = Boolean(disableReason)
+  const debugHint =
+    isDebugEnabled() && disableReason ? `${t("debug.disableHintPrefix")} ${disableReason}` : null
 
   const handleFileChange = (event: ChangeEvent<HTMLInputElement>) => {
     const nextFile = event.target.files?.[0] ?? null
@@ -181,10 +193,11 @@ export default function PanicScanPage() {
           <div className="mt-4 space-y-2">
             <Button
               onClick={handleSubmit}
-              disabled={!file || isUploading || panicConfigMissing}
+              disabled={buttonDisabled}
               type="button"
               loading={isUploading}
               className={primaryButtonClass}
+              aria-label={disableReason ?? t("panicScanButton")}
             >
               {isUploading ? t("panicScanUploading") : t("panicScanButton")}
             </Button>
@@ -197,6 +210,9 @@ export default function PanicScanPage() {
               <p className="text-center text-xs text-white/60">
                 {t("panicScan.helper.selectFile")}
               </p>
+            )}
+            {!!debugHint && (
+              <p className="text-center text-[11px] text-white/40 tracking-wide">{debugHint}</p>
             )}
           </div>
         </div>

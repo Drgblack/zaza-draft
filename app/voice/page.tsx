@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button"
 import { AuthScreen } from "@/components/auth/auth-screen"
 import { useAuth } from "@/hooks/use-auth"
 import { useLocale } from "@/hooks/use-locale"
+import { isDebugEnabled } from "@/lib/debug"
 
 const SUPPORTED_FORMATS = ["WAV", "MP3", "M4A"]
 const LANGUAGE_OPTIONS = [
@@ -29,8 +30,19 @@ export default function VoiceCapturePage() {
   const primaryButtonClass =
     "w-full rounded-xl bg-indigo-900 px-4 py-3 text-base font-semibold text-white shadow-lg shadow-black/40 transition duration-200 hover:bg-indigo-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-indigo-400 focus-visible:ring-offset-slate-900 disabled:bg-indigo-600 disabled:text-white/70 disabled:cursor-not-allowed"
   const selectedFileInfo = file
-    ? `${t("voiceSelected")}: ${file.name} • ${(file.size / 1024 / 1024).toFixed(2)} MB`
+    ? `${t("voiceSelected")}: ${file.name} - ${(file.size / 1024 / 1024).toFixed(2)} MB`
     : null
+
+  const disableReason = voiceConfigMissing
+    ? t("voice.error.configMissing")
+    : !file
+    ? t("voice.error.chooseFile")
+    : isUploading
+    ? t("voiceProcessing")
+    : null
+  const buttonDisabled = Boolean(disableReason)
+  const debugHint =
+    isDebugEnabled() && disableReason ? `${t("debug.disableHintPrefix")} ${disableReason}` : null
 
   const handleFileChange = (event: ChangeEvent<HTMLInputElement>) => {
     const nextFile = event.target.files?.[0] ?? null
@@ -110,7 +122,7 @@ export default function VoiceCapturePage() {
 
         <div className="rounded-2xl border border-white/20 bg-white/5 p-6 space-y-3 text-sm text-white/70">
           <p className="uppercase tracking-[0.3em] text-xs text-white/60">{t("voiceSupportedLabel")}</p>
-          <p>{SUPPORTED_FORMATS.join(" · ")}</p>
+          <p>{SUPPORTED_FORMATS.join(" / ")}</p>
           <p>{t("voiceMaxDurationNote")}</p>
         </div>
 
@@ -161,10 +173,11 @@ export default function VoiceCapturePage() {
           <div className="space-y-2">
             <Button
               onClick={handleSubmit}
-              disabled={!file || isUploading || voiceConfigMissing}
+              disabled={buttonDisabled}
               type="button"
               loading={isUploading}
               className={primaryButtonClass}
+              aria-label={disableReason ?? t("voiceButton")}
             >
               {isUploading ? t("voiceProcessing") : t("voiceButton")}
             </Button>
@@ -175,6 +188,9 @@ export default function VoiceCapturePage() {
             )}
             {!file && (
               <p className="text-center text-xs text-white/60">{t("voice.helper.selectFile")}</p>
+            )}
+            {!!debugHint && (
+              <p className="text-center text-[11px] text-white/40 tracking-wide">{debugHint}</p>
             )}
           </div>
         </div>
