@@ -19,6 +19,7 @@ export default function PanicScanPage() {
   const [error, setError] = useState<string | null>(null)
   const [isUploading, setIsUploading] = useState(false)
   const [platform, setPlatform] = useState<"web" | "mobile_ios" | "mobile_android">("web")
+  const [aiConfigured, setAiConfigured] = useState(true)
   const panicConfigMissing =
     !process.env.NEXT_PUBLIC_FIREBASE_API_KEY || !process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID
   const configError = panicConfigMissing ? t("panicScan.error.configMissing") : null
@@ -51,7 +52,9 @@ export default function PanicScanPage() {
     ? `${t("panicScanSelected")}: ${file.name} - ${(file.size / 1024 / 1024).toFixed(2)} MB`
     : null
 
-  const disableReason = panicConfigMissing
+  const disableReason = !aiConfigured
+    ? t("config.aiMissingReason")
+    : panicConfigMissing
     ? t("panicScan.error.configMissing")
     : !file
     ? t("panicScan.error.chooseFile")
@@ -70,7 +73,48 @@ export default function PanicScanPage() {
     }
   }
 
+  useEffect(() => {
+    let isMounted = true
+
+    const loadDiagnostics = async () => {
+      try {
+        const token = await getIdToken()
+        if (!token) {
+          return
+        }
+        const response = await fetch("/api/diagnostics", {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+          cache: "no-store",
+        })
+        const payload = await response.json().catch(() => null)
+        if (!isMounted) {
+          return
+        }
+        if (response.ok && payload?.success) {
+          setAiConfigured(Boolean(payload.data?.aiConfigured))
+        }
+      } catch (diagError) {
+        console.error("[panic-scan] diagnostics failed", diagError)
+      }
+    }
+
+    if (status === "authenticated") {
+      loadDiagnostics()
+    }
+
+    return () => {
+      isMounted = false
+    }
+  }, [status, getIdToken])
+
   const handleSubmit = async () => {
+    if (!aiConfigured) {
+      setError(t("config.aiMissingReason"))
+      return
+    }
+
     if (panicConfigMissing) {
       setError(t("panicScan.error.configMissing"))
       return
@@ -102,9 +146,14 @@ export default function PanicScanPage() {
         body: form,
       })
 
-      const payload = await response.json()
+      const payload = await response.json().catch(() => null)
       if (!response.ok || !payload?.success) {
-        throw new Error(payload?.error?.message || "Upload failed.")
+        const message =
+          payload?.error?.message ??
+          payload?.message ??
+          `Unknown error (HTTP ${response.status})`
+        setError(t("panicScan.error.analysisFailed", { message }))
+        return
       }
 
       router.push(`/panic-scan/${payload.data.scanId}`)
@@ -139,6 +188,11 @@ export default function PanicScanPage() {
           <h1 className="text-3xl font-semibold">{t("panicScanTitle")}</h1>
           <p className="text-sm text-white/70">{t("panicScanDescription")}</p>
         </div>
+        {!aiConfigured && (
+          <div className="rounded-2xl border border-amber-300/80 bg-amber-200/10 p-3 text-xs text-amber-200">
+            {t("config.aiMissingBanner")}
+          </div>
+        )}
 
         <div className="rounded-2xl border border-white/20 bg-white/5 p-6 space-y-4">
           <div className="space-y-2">

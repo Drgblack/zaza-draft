@@ -1,6 +1,13 @@
-﻿"use client"
+"use client"
 
-import { ChangeEvent, useState } from "react"
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ChangeEvent,
+} from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
@@ -15,6 +22,26 @@ const LANGUAGE_OPTIONS = [
   { label: "English (US)", value: "en-US" },
   { label: "Deutsch", value: "de-DE" },
 ]
+const MAX_RECORDING_SECONDS = 90
+
+function formatDuration(seconds: number) {
+  const mins = Math.floor(seconds / 60)
+  const secs = seconds % 60
+  return `${mins}:${secs.toString().padStart(2, "0")}`
+}
+
+function getFileExtension(mimeType: string) {
+  if (mimeType.includes("webm")) {
+    return "webm"
+  }
+  if (mimeType.includes("ogg")) {
+    return "ogg"
+  }
+  if (mimeType.includes("mpeg") || mimeType.includes("mp3")) {
+    return "mp3"
+  }
+  return "webm"
+}
 
 export default function VoiceCapturePage() {
   const router = useRouter()
@@ -22,21 +49,32 @@ export default function VoiceCapturePage() {
   const { t } = useLocale()
   const [file, setFile] = useState<File | null>(null)
   const [language, setLanguage] = useState("en-GB")
+  const [recordingFile, setRecordingFile] = useState<File | null>(null)
+  const [recordingUrl, setRecordingUrl] = useState<string | null>(null)
+  const [isRecording, setIsRecording] = useState(false)
+  const [recordingTime, setRecordingTime] = useState(0)
+  const [maxRecordingReached, setMaxRecordingReached] = useState(false)
+  const [recordingError, setRecordingError] = useState<string | null>(null)
   const [isUploading, setIsUploading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [mode, setMode] = useState<"record" | "upload">("record")
+  const [aiConfigured, setAiConfigured] = useState(true)
+  const recordingIntervalRef = useRef<number | null>(null)
+  const recordingTimeoutRef = useRef<number | null>(null)
+  const recorderRef = useRef<MediaRecorder | null>(null)
+  const streamRef = useRef<MediaStream | null>(null)
+  const recordedChunksRef = useRef<BlobPart[]>([])
   const voiceConfigMissing =
     !process.env.NEXT_PUBLIC_FIREBASE_API_KEY || !process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID
   const configError = voiceConfigMissing ? t("voice.error.configMissing") : null
-  const primaryButtonClass =
-    "w-full rounded-xl bg-indigo-900 px-4 py-3 text-base font-semibold text-white shadow-lg shadow-black/40 transition duration-200 hover:bg-indigo-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-indigo-400 focus-visible:ring-offset-slate-900 disabled:bg-indigo-600 disabled:text-white/70 disabled:cursor-not-allowed"
-  const selectedFileInfo = file
-    ? `${t("voiceSelected")}: ${file.name} - ${(file.size / 1024 / 1024).toFixed(2)} MB`
-    : null
-
-  const disableReason = voiceConfigMissing
+  const disableHint =
+    mode === "record" ? t("voice.recordNowHint") : t("voice.error.chooseFile")
+  const disableReason = !aiConfigured
+    ? t("config.aiMissingReason")
+    : voiceConfigMissing
     ? t("voice.error.configMissing")
-    : !file
-    ? t("voice.error.chooseFile")
+    : !recordingFile && !file
+    ? disableHint
     : isUploading
     ? t("voiceProcessing")
     : null
@@ -44,22 +82,190 @@ export default function VoiceCapturePage() {
   const debugHint =
     isDebugEnabled() && disableReason ? `${t("debug.disableHintPrefix")} ${disableReason}` : null
 
+  const selectedFileInfo = useMemo(() => {
+    if (recordingFile) {
+      return `${t("voice.recordedLabel")}: ${formatDuration(recordingTime)}`
+    }
+    if (file) {
+      return `${t("voiceSelected")}: ${file.name} - ${(file.size / 1024 / 1024).toFixed(2)} MB`
+    }
+    return null
+  }, [file, recordingFile, recordingTime, t])
+
+  const resetRecording = useCallback(() => {
+    if (recordingUrl) {
+      URL.revokeObjectURL(recordingUrl)
+    }
+    setRecordingUrl(null)
+    setRecordingFile(null)
+    setRecordingError(null)
+    setMaxRecordingReached(false)
+    setRecordingTime(0)
+    recordedChunksRef.current = []
+  }, [recordingUrl])
+
+  const cleanupRecording = () => {
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach((track) => track.stop())
+      streamRef.current = null
+    }
+    if (recordingIntervalRef.current) {
+      window.clearInterval(recordingIntervalRef.current)
+      recordingIntervalRef.current = null
+    }
+    if (recordingTimeoutRef.current) {
+      window.clearTimeout(recordingTimeoutRef.current)
+      recordingTimeoutRef.current = null
+    }
+    recorderRef.current = null
+  }
+
+  const stopRecording = useCallback(() => {
+    if (recorderRef.current && recorderRef.current.state !== "inactive") {
+      recorderRef.current.stop()
+    }
+    cleanupRecording()
+    setIsRecording(false)
+  }, [])
+
+  const startRecording = async () => {
+    if (isRecording) {
+      return
+    }
+    resetRecording()
+    setRecordingError(null)
+    setMaxRecordingReached(false)
+
+    if (!navigator.mediaDevices?.getUserMedia) {
+      setRecordingError(t("voice.error.recordingUnsupported"))
+      return
+    }
+
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+      streamRef.current = stream
+      recordedChunksRef.current = []
+      const preferredMime = MediaRecorder.isTypeSupported("audio/webm;codecs=opus")
+        ? "audio/webm;codecs=opus"
+        : MediaRecorder.isTypeSupported("audio/ogg;codecs=opus")
+        ? "audio/ogg;codecs=opus"
+        : "audio/webm"
+      const recorder = new MediaRecorder(stream, { mimeType: preferredMime })
+      recorderRef.current = recorder
+
+      recorder.addEventListener("dataavailable", (event) => {
+        if (event.data.size > 0) {
+          recordedChunksRef.current.push(event.data)
+        }
+      })
+
+      recorder.addEventListener("stop", () => {
+        const blob = new Blob(recordedChunksRef.current, {
+          type: recorder.mimeType || "audio/webm",
+        })
+        const extension = getFileExtension(blob.type || "audio/webm")
+        const recorded = new File([blob], `voice.${extension}`, {
+          type: blob.type || "audio/webm",
+        })
+        setRecordingFile(recorded)
+        setRecordingUrl(URL.createObjectURL(blob))
+        setFile(null)
+      })
+
+      recorder.start()
+      setIsRecording(true)
+      setRecordingTime(0)
+      recordingIntervalRef.current = window.setInterval(() => {
+        setRecordingTime((prev) => {
+          if (prev >= MAX_RECORDING_SECONDS) {
+            return prev
+          }
+          return prev + 1
+        })
+      }, 1000)
+      recordingTimeoutRef.current = window.setTimeout(() => {
+        setMaxRecordingReached(true)
+        stopRecording()
+      }, MAX_RECORDING_SECONDS * 1000)
+    } catch (recordError) {
+      console.error("[voice] recording failed", recordError)
+      setRecordingError(t("voice.error.recordingUnsupported"))
+    }
+  }
+
+  const handleRecordingAgain = () => {
+    stopRecording()
+    resetRecording()
+    setMode("record")
+  }
+
   const handleFileChange = (event: ChangeEvent<HTMLInputElement>) => {
     const nextFile = event.target.files?.[0] ?? null
     setFile(nextFile)
     if (nextFile) {
-      setError(null)
+      setRecordingFile(null)
+      setRecordingUrl(null)
+      setRecordingTime(0)
+      setRecordingError(null)
     }
   }
 
+  useEffect(() => {
+    return () => {
+      cleanupRecording()
+      if (recordingUrl) {
+        URL.revokeObjectURL(recordingUrl)
+      }
+    }
+  }, [recordingUrl])
+
+  useEffect(() => {
+    let isMounted = true
+    const loadDiagnostics = async () => {
+      try {
+        const token = await getIdToken()
+        if (!token) {
+          return
+        }
+        const response = await fetch("/api/diagnostics", {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+          cache: "no-store",
+        })
+        const payload = await response.json().catch(() => null)
+        if (!isMounted) {
+          return
+        }
+        if (response.ok && payload?.success) {
+          setAiConfigured(Boolean(payload.data?.aiConfigured))
+        }
+      } catch (diagError) {
+        console.error("[voice] diagnostics failed", diagError)
+      }
+    }
+
+    if (status === "authenticated") {
+      loadDiagnostics()
+    }
+
+    return () => {
+      isMounted = false
+    }
+  }, [status, getIdToken])
+
   const handleSubmit = async () => {
+    if (!aiConfigured) {
+      setError(t("config.aiMissingReason"))
+      return
+    }
     if (voiceConfigMissing) {
       setError(t("voice.error.configMissing"))
       return
     }
-
-    if (!file) {
-      setError(t("voice.error.chooseFile"))
+    const payloadFile = recordingFile ?? file
+    if (!payloadFile) {
+      setError(disableHint)
       return
     }
 
@@ -72,7 +278,7 @@ export default function VoiceCapturePage() {
       }
 
       const form = new FormData()
-      form.append("file", file)
+      form.append("file", payloadFile)
       form.append("language", language)
       form.append("sessionId", crypto.randomUUID())
 
@@ -84,14 +290,21 @@ export default function VoiceCapturePage() {
         body: form,
       })
 
-      const payload = await response.json()
+      const payload = await response.json().catch(() => null)
       if (!response.ok || !payload?.success) {
-        throw new Error(payload?.error?.message || "Upload failed.")
+        const message =
+          payload?.error?.message ??
+          payload?.message ??
+          `Upload failed (HTTP ${response.status})`
+        setError(message)
+        return
       }
 
       router.push(`/voice/${payload.data.voiceSessionId}`)
     } catch (recordError) {
-      setError(recordError instanceof Error ? recordError.message : t("voice.error.uploadFailed"))
+      setError(
+        recordError instanceof Error ? recordError.message : t("voice.error.uploadFailed"),
+      )
     } finally {
       setIsUploading(false)
     }
@@ -109,6 +322,8 @@ export default function VoiceCapturePage() {
     return <AuthScreen />
   }
 
+  const primaryButtonLabel = recordingFile ? t("voice.useRecording") : t("voiceButton")
+
   return (
     <div className="min-h-screen bg-gradient-to-b from-slate-950 to-black text-white">
       <div className="mx-auto flex min-h-[calc(100vh-160px)] max-w-4xl flex-col space-y-8 px-4 py-12">
@@ -119,7 +334,11 @@ export default function VoiceCapturePage() {
           <h1 className="text-3xl font-semibold">{t("voiceTitle")}</h1>
           <p className="text-sm text-white/70">{t("voiceDescription")}</p>
         </div>
-
+        {!aiConfigured && (
+          <div className="rounded-2xl border border-amber-300/80 bg-amber-200/10 p-3 text-xs text-amber-200">
+            {t("config.aiMissingBanner")}
+          </div>
+        )}
         <div className="rounded-2xl border border-white/20 bg-white/5 p-6 space-y-3 text-sm text-white/70">
           <p className="uppercase tracking-[0.3em] text-xs text-white/60">{t("voiceSupportedLabel")}</p>
           <p>{SUPPORTED_FORMATS.join(" / ")}</p>
@@ -127,45 +346,101 @@ export default function VoiceCapturePage() {
         </div>
 
         <div className="rounded-2xl border border-white/20 bg-black/40 p-6 space-y-4">
-          <div>
-            <label className="text-xs uppercase tracking-[0.3em] text-white/60">{t("voiceLanguageLabel")}</label>
-            <select
-              className="mt-1 w-full rounded-xl bg-white/80 px-4 py-3 text-gray-900 font-semibold shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-              value={language}
-              onChange={(event) => setLanguage(event.target.value)}
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={() => setMode("record")}
+              className={`flex-1 rounded-full px-4 py-2 text-sm font-semibold transition ${
+                mode === "record"
+                  ? "bg-indigo-900/80 text-white shadow-lg shadow-indigo-900/60"
+                  : "bg-white/10 text-white/70 hover:bg-white/20"
+              }`}
             >
-              {LANGUAGE_OPTIONS.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
+              {t("voice.tab.recordNow")}
+            </button>
+            <button
+              type="button"
+              onClick={() => setMode("upload")}
+              className={`flex-1 rounded-full px-4 py-2 text-sm font-semibold transition ${
+                mode === "upload"
+                  ? "bg-indigo-900/80 text-white shadow-lg shadow-indigo-900/60"
+                  : "bg-white/10 text-white/70 hover:bg-white/20"
+              }`}
+            >
+              {t("voice.tab.uploadFile")}
+            </button>
           </div>
-          <div>
-            <label className="block text-sm font-semibold text-white">{t("voiceUploadLabel")}</label>
-            {voiceConfigMissing && (
-              <div
-                className="mb-3 rounded-2xl border border-amber-300/80 bg-amber-200/10 p-3 text-xs text-amber-200"
-                role="alert"
-              >
-                {configError}
+          {mode === "record" ? (
+            <div className="space-y-3 rounded-xl border border-white/10 bg-white/5 p-4 text-sm text-white/70">
+              <p>{t("voice.recordNowHint")}</p>
+              {recordingError && (
+                <p className="text-xs text-rose-200">{recordingError}</p>
+              )}
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-semibold text-white">
+                    {isRecording
+                      ? t("voice.recordingTimer", { duration: formatDuration(recordingTime) })
+                      : recordingFile
+                      ? `${t("voice.recordedLabel")}: ${formatDuration(recordingTime)}`
+                      : t("voice.recordNowHint")}
+                  </span>
+                  {maxRecordingReached && (
+                    <span className="text-xs text-amber-200">{t("voice.maxRecordingReached")}</span>
+                  )}
+                </div>
+                <div className="flex gap-2">
+                  <Button
+                    variant="secondary"
+                    className="flex-1"
+                    onClick={isRecording ? stopRecording : startRecording}
+                    disabled={isUploading}
+                  >
+                    {isRecording ? t("voice.stopRecording") : t("voice.startRecording")}
+                  </Button>
+                  {recordingFile && (
+                    <Button
+                      variant="ghost"
+                      className="flex-1 border border-white/20 text-white"
+                      onClick={handleRecordingAgain}
+                      disabled={isRecording || isUploading}
+                    >
+                      {t("voice.recordAgain")}
+                    </Button>
+                  )}
+                </div>
+                {recordingUrl && (
+                  <audio
+                    className="w-full rounded-xl bg-white/10 p-1"
+                    controls
+                    src={recordingUrl}
+                  />
+                )}
               </div>
-            )}
-            <input
-              id="voice-file"
-              type="file"
-              accept="audio/wav,audio/mpeg,audio/mp4,audio/x-m4a,audio/m4a"
-              capture="environment"
-              className="sr-only"
-              onChange={handleFileChange}
-            />
-            <label
-              htmlFor="voice-file"
-              className="mt-2 inline-flex w-full cursor-pointer items-center justify-center rounded-xl border border-white/30 bg-white/10 px-4 py-3 text-sm font-semibold text-white shadow-lg shadow-black/40 transition hover:bg-white/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2"
-            >
-              {t("voiceUploadLabel")}
-            </label>
-          </div>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              <label className="text-xs uppercase tracking-[0.3em] text-white/60">
+                {t("voiceUploadLabel")}
+              </label>
+              <input
+                id="voice-file"
+                type="file"
+                accept="audio/wav,audio/mpeg,audio/mp4,audio/x-m4a,audio/m4a"
+                capture="environment"
+                className="sr-only"
+                onChange={(event) => {
+                  handleFileChange(event)
+                }}
+              />
+              <label
+                htmlFor="voice-file"
+                className="inline-flex w-full cursor-pointer items-center justify-center rounded-xl border border-white/30 bg-white/10 px-4 py-3 text-sm font-semibold text-white shadow-lg shadow-black/40 transition hover:bg-white/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2"
+              >
+                {t("voiceUploadLabel")}
+              </label>
+            </div>
+          )}
           {selectedFileInfo && (
             <p className="text-xs text-white/70">{selectedFileInfo}</p>
           )}
@@ -191,10 +466,10 @@ export default function VoiceCapturePage() {
               disabled={buttonDisabled}
               type="button"
               loading={isUploading}
-              className={primaryButtonClass}
-              aria-label={disableReason ?? t("voiceButton")}
+              className="w-full rounded-xl bg-indigo-900 px-4 py-3 text-base font-semibold text-white shadow-lg shadow-black/40 transition duration-200 hover:bg-indigo-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-indigo-400 focus-visible:ring-offset-slate-900 disabled:bg-indigo-600 disabled:text-white/70 disabled:cursor-not-allowed"
+              aria-label={disableReason ?? primaryButtonLabel}
             >
-              {isUploading ? t("voiceProcessing") : t("voiceButton")}
+              {isUploading ? t("voiceProcessing") : primaryButtonLabel}
             </Button>
             {isUploading && (
               <p className="text-center text-xs text-white/70" role="status">
@@ -219,9 +494,7 @@ export default function VoiceCapturePage() {
             </Link>
           </p>
         </div>
-
       </div>
     </div>
   )
 }
-

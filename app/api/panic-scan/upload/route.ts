@@ -8,6 +8,19 @@ import type { PanicScanDocument } from "@/lib/panic-scan/types"
 const MAX_IMAGE_SIZE_BYTES = 5 * 1024 * 1024
 const SCAN_TTL_MS = 24 * 60 * 60 * 1000
 
+function createErrorResponse(
+  code: string,
+  message: string,
+  status = 500,
+  details?: string,
+) {
+  const errorPayload: Record<string, string> = { code, message }
+  if (details) {
+    errorPayload.details = details
+  }
+  return NextResponse.json({ success: false, error: errorPayload }, { status })
+}
+
 function createMediaPath(scanId: string, fileName: string) {
   const timestamp = Date.now()
   const safeName = fileName.replace(/[^a-zA-Z0-9._-]/g, "_")
@@ -133,6 +146,19 @@ export async function POST(request: Request) {
     const bucket = storage.bucket(bucketName)
     await bucket.file(doc.mediaPath).save(buffer, { metadata: { contentType: file.type || "application/octet-stream" } })
 
+    if (!process.env.OPENAI_API_KEY) {
+      const message = "Missing OPENAI_API_KEY"
+      console.error("[panic-scan] missing AI key")
+      await scanRef.set(
+        {
+          status: "failed",
+          failureReason: message,
+        },
+        { merge: true },
+      )
+      return createErrorResponse("OPENAI_KEY_MISSING", message, 500)
+    }
+
     const extractedText = await performVisionOcr(buffer)
     const analysis = await analyzePanicMessage(extractedText)
     const processingTimeMs = Date.now() - createdAt.getTime()
@@ -148,21 +174,16 @@ export async function POST(request: Request) {
       { merge: true },
     )
   } catch (error) {
-    console.error("[panic-scan] processing failed", error)
+    const message = error instanceof Error ? error.message : "Processing error"
+    console.error("[panic-scan] processing failed", message)
     await scanRef.set(
       {
         status: "failed",
-        failureReason: (error instanceof Error ? error.message : "Processing error").slice(0, 1024),
+        failureReason: message.slice(0, 1024),
       },
       { merge: true },
     )
-    return NextResponse.json(
-      {
-        success: false,
-        error: { code: "PROCESSING_FAILED", message: "Unable to analyze the image right now." },
-      },
-      { status: 500 },
-    )
+    return createErrorResponse("PROCESSING_FAILED", message, 500)
   }
 
   return NextResponse.json({
