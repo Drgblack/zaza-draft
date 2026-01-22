@@ -249,4 +249,32 @@ Thank you for your email.`
     expect(formatted.paragraphs.join(" ")).not.toContain("Dear Mr Thank you")
   })
 
+  it("merges Ms greeting with a surname line that keeps inline body text", () => {
+    const draft = "Dear Ms.\n\nThompson, Thank you for reaching out."
+    const formatted = formatDraftText(draft, "en-GB")
+    expect(formatted.paragraphs[0]).toContain("Dear Ms Thompson,")
+    expect(formatted.paragraphs[1]).toContain("Thank you for reaching out.")
+  })
+
+  it("merges Ms greeting without a period before the surname line", () => {
+    const draft = "Dear Ms\n\nThompson,\n\nCan you let me know next steps?"
+    const formatted = formatDraftText(draft, "en-GB")
+    expect(formatted.paragraphs[0]).toContain("Dear Ms Thompson,")
+    expect(formatted.paragraphs.some((para) => para.includes("Can you let me know next steps?"))).toBe(true)
+  })
+
+  it("splits Mr greeting with inline body after surname", () => {
+    const draft = "Dear Mr.\n\nCollins, Thank you for your time."
+    const formatted = formatDraftText(draft, "en-GB")
+    expect(formatted.paragraphs[0]).toContain("Dear Mr Collins,")
+    expect(formatted.paragraphs[1]).toContain("Thank you for your time.")
+  })
+
+  it("keeps prose paragraphs separate when no surname line exists", () => {
+    const draft = "Dear Ms.\n\nThank you for your message."
+    const formatted = formatDraftText(draft, "en-GB")
+    expect(formatted.paragraphs[0]).toContain("Dear Ms")
+    expect(formatted.paragraphs[1]).toContain("Thank you for your message.")
+  })
+
 })

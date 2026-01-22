@@ -35,7 +35,8 @@ const SALUTATION_BREAK_RE = new RegExp(
   `^Dear(?:\\s+(${SALUTATION_TITLE_TITLES.join("|")})\\.?)?$`,
   "i",
 )
-const SALUTATION_NAME_LINE_RE = /^([A-Za-zÀ-ÖØ-öø-ÿ][A-Za-zÀ-ÖØ-öø-ÿ'.\-\s]{0,40}),\s*(.*)$/u
+const SALUTATION_NAME_LINE_RE =
+  /^([A-Za-zÀ-ÖØ-öø-ÿ][A-Za-zÀ-ÖØ-öø-ÿ'.\-\s]{0,40}),\s*(.*)$/u
 const SALUTATION_PARAGRAPH_RE = /^Dear\s+(Mr|Mrs|Ms|Miss|Dr|Prof|Mx|Sir|Madam|Teacher)\.?$/i
 const SALUTATION_NAME_PARAGRAPH_RE = /^([A-Za-zÀ-ÖØ-öø-ÿ][A-Za-zÀ-ÖØ-öø-ÿ'.\-\s]{0,40})(,?)$/u
 const SALUTATION_NAME_BLACKLIST = ["thank", "thanks", "please", "i", "we", "your", "could", "would", "hope", "happy"]
@@ -181,9 +182,6 @@ function getSentencesFromText(body: string, locale?: string) {
 }
 
 function splitLeadingGreeting(sentences: string[], trimmedBody: string, locale?: string) {
-  if (!locale?.toLowerCase().startsWith("de")) {
-    return sentences
-  }
   if (!sentences.length) {
     return sentences
   }
@@ -198,6 +196,11 @@ function splitLeadingGreeting(sentences: string[], trimmedBody: string, locale?:
   const greetingFragment = first.slice(0, commaIndex + 1).trim()
   const remainder = first.slice(commaIndex + 1).trim()
   if (!greetingFragment || !remainder) {
+    return sentences
+  }
+  const containsTitle = /\b(?:Mr|Mrs|Ms|Miss|Dr|Prof|Mx|Sir|Madam|Teacher)\b/i.test(greetingFragment)
+  const allowGermanSplit = locale?.toLowerCase().startsWith("de")
+  if (!allowGermanSplit && !containsTitle) {
     return sentences
   }
   const offset = trimmedBody.indexOf(greetingFragment)
@@ -370,7 +373,7 @@ function buildParagraphs(body: string, locale?: string): string[] {
 }
 
 function normalizeSalutationParagraphs(paragraphs: string[]): string[] {
-  if (!paragraphs.length || paragraphs.length < 2) {
+  if (paragraphs.length < 2) {
     return paragraphs
   }
   const first = paragraphs[0].trim()
@@ -379,22 +382,30 @@ function normalizeSalutationParagraphs(paragraphs: string[]): string[] {
     return paragraphs
   }
   const second = paragraphs[1].trim()
-  const nameMatch = second.match(SALUTATION_NAME_PARAGRAPH_RE)
+  const nameLineMatch = second.match(SALUTATION_NAME_LINE_RE)
+  const nameParagraphMatch = nameLineMatch ? null : second.match(SALUTATION_NAME_PARAGRAPH_RE)
+  const nameMatch = nameLineMatch ?? nameParagraphMatch
   if (!nameMatch) {
     return paragraphs
   }
-  const nameWords = nameMatch[1].trim().split(/\s+/).filter(Boolean)
+  const nameValue = nameMatch[1].trim()
+  const nameWords = nameValue.split(/\s+/).filter(Boolean)
   if (!nameWords.length || nameWords.length > 3) {
     return paragraphs
   }
-  const proseBlacklist = ["thank", "thanks", "please", "i", "we", "your", "could", "would", "hope", "happy"]
-  if (proseBlacklist.some((token) => nameMatch[1].trim().toLowerCase().startsWith(token))) {
+  if (/[!?]/.test(nameValue)) {
+    return paragraphs
+  }
+  const normalizedNameLower = nameValue.toLowerCase()
+  if (SALUTATION_NAME_BLACKLIST.some((token) => normalizedNameLower.startsWith(token))) {
     return paragraphs
   }
   const title = salutationMatch[1]
-  const commaToken = nameMatch[2] || ","
-  const combined = `Dear ${title} ${nameMatch[1].trim()}${commaToken}`
-  return [combined, ...paragraphs.slice(2)]
+  const commaToken = nameLineMatch ? "," : nameMatch[2] || ","
+  const combined = `Dear ${title} ${nameValue}${commaToken}`
+  const remainder = nameLineMatch?.[2]?.trim()
+  const rest = remainder ? [remainder, ...paragraphs.slice(2)] : paragraphs.slice(2)
+  return [combined, ...rest]
 }
 
 export function formatDraftText(text: string, locale?: string): DraftStructure {
