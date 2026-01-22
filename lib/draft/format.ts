@@ -35,12 +35,14 @@ const SALUTATION_BREAK_RE = new RegExp(
   `^Dear(?:\\s+(${SALUTATION_TITLE_TITLES.join("|")})\\.?)?$`,
   "i",
 )
-const SALUTATION_NAME_LINE_RE = /^([^,\n]{1,40}),\s*(.*)$/
+const SALUTATION_NAME_LINE_RE = /^([A-Za-zÀ-ÖØ-öø-ÿ][A-Za-zÀ-ÖØ-öø-ÿ'.\-\s]{0,40}),\s*(.*)$/u
 const SALUTATION_PARAGRAPH_RE = /^Dear\s+(Mr|Mrs|Ms|Miss|Dr|Prof|Mx|Sir|Madam|Teacher)\.?$/i
 const SALUTATION_NAME_PARAGRAPH_RE = /^([A-Za-zÀ-ÖØ-öø-ÿ][A-Za-zÀ-ÖØ-öø-ÿ'.\-\s]{0,40})(,?)$/u
 const SALUTATION_NAME_BLACKLIST = ["thank", "thanks", "please", "i", "we", "your", "could", "would", "hope", "happy"]
+const GERMAN_SALUTATION_RE =
+  /^(Sehr geehrte|Sehr geehrter|Liebe|Lieber|Guten Tag|Hallo)\s+(Frau|Herr)(?:\s+(Dr|Prof)\.?)?$/i
 
-function normalizeSalutationBreaks(text: string) {
+function normalizeSalutationBreaks(text: string, locale?: string) {
   const normalized = text.replace(/\r\n/g, "\n")
   const lines = normalized.split("\n")
 
@@ -52,8 +54,9 @@ function normalizeSalutationBreaks(text: string) {
       index += 1
       continue
     }
-    const currentMatch = trimmedLine.match(SALUTATION_BREAK_RE)
-    if (!currentMatch) {
+    const englishMatch = trimmedLine.match(SALUTATION_BREAK_RE)
+    const germanMatch = englishMatch ? null : trimmedLine.match(GERMAN_SALUTATION_RE)
+    if (!englishMatch && !germanMatch) {
       index += 1
       continue
     }
@@ -70,7 +73,30 @@ function normalizeSalutationBreaks(text: string) {
     if (!nameMatch) {
       break
     }
-    const title = currentMatch[1] ? currentMatch[1].replace(/\.\s*$/, "") : ""
+    let titleSegment = ""
+    let greetingPrefix = ""
+    if (englishMatch) {
+      titleSegment = englishMatch[1] ? englishMatch[1].replace(/\.\s*$/, "") : ""
+      greetingPrefix = "Dear"
+    } else if (germanMatch) {
+      const allowGermanMerge =
+        !!locale && locale.toLowerCase().startsWith("de") || /\bBetreff\b/i.test(text)
+      if (!allowGermanMerge) {
+        index += 1
+        continue
+      }
+      const greeting = germanMatch[1]
+      const role = germanMatch[2]
+      const extra = germanMatch[3]
+      const parts = [greeting, role]
+      if (extra) {
+        parts.push(extra.replace(/\.\s*$/, ""))
+      }
+      titleSegment = parts.filter(Boolean).join(" ")
+    }
+    if (!titleSegment) {
+      break
+    }
     const baseName = nameMatch[1].trim()
     const nameParts = baseName.split(/\s+/).filter(Boolean)
     if (!nameParts.length || nameParts.length > 3) {
@@ -80,8 +106,9 @@ function normalizeSalutationBreaks(text: string) {
     if (SALUTATION_NAME_BLACKLIST.some((token) => normalizedBaseName.startsWith(token))) {
       break
     }
-    const combinedName = title ? `${title} ${nameParts.join(" ")}` : nameParts.join(" ")
-    lines[index] = `Dear ${combinedName},`
+    const combinedName = titleSegment ? `${titleSegment} ${nameParts.join(" ")}` : nameParts.join(" ")
+    const salutationLine = greetingPrefix ? `${greetingPrefix} ${combinedName},` : `${combinedName},`
+    lines[index] = salutationLine
     const remainder = nameMatch[2]?.trim()
     if (remainder) {
       lines[nextIndex] = remainder
@@ -94,8 +121,8 @@ function normalizeSalutationBreaks(text: string) {
   return lines.join("\n")
 }
 
-function normalizeGreetingNewline(value: string) {
-  const salutationFixed = normalizeSalutationBreaks(value)
+function normalizeGreetingNewline(value: string, locale?: string) {
+  const salutationFixed = normalizeSalutationBreaks(value, locale)
   return salutationFixed.replace(
     SALUTATION_NORMALIZATION_REGEX,
     (match, prefix, name, comma) => {
@@ -371,7 +398,10 @@ function normalizeSalutationParagraphs(paragraphs: string[]): string[] {
 }
 
 export function formatDraftText(text: string, locale?: string): DraftStructure {
-  const normalized = normalizeGreetingNewline(stripMarkdown(text).replace(/\r\n/g, "\n")).trim()
+  const normalized = normalizeGreetingNewline(
+    stripMarkdown(text).replace(/\r\n/g, "\n"),
+    locale,
+  ).trim()
   if (!normalized) {
     return { paragraphs: [] }
   }

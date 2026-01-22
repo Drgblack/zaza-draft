@@ -107,7 +107,9 @@ export const localeMessages: Record<Locale, LocaleMessages> = {
     panicScanResultMessageLabel: "Message (cleaned)",
     panicScanResultCleanConfidence: "Clean confidence: {confidence}%",
     panicScanResultCleanLowWarning:
-      "Cleaned message may be incomplete. Expand Raw OCR if something feels missing.",
+      "Cleaned message may be incomplete. Expand Raw OCR or re-upload if something feels missing.",
+    panicScanResultCleanIncompleteFallbackMissing:
+      "Cleaned message may be incomplete and no additional text is available. Please expand Raw OCR or re-upload the screenshot.",
     panicScanResultRawLabel: "Show raw OCR",
     panicScanResultRawSummary: "Raw OCR may include UI chrome and navigation text.",
     panicScanResultExtractedTitle: "Extracted text",
@@ -1442,7 +1444,9 @@ export const localeMessages: Record<Locale, LocaleMessages> = {
     panicScanResultMessageLabel: "Nachricht (bereinigt)",
     panicScanResultCleanConfidence: "Bereinigungsgenauigkeit: {confidence}%",
     panicScanResultCleanLowWarning:
-      "Die bereinigte Nachricht wirkt unvollständig. Erweitern Sie Raw OCR, wenn etwas fehlt.",
+      "Die bereinigte Nachricht wirkt unvollständig. Erweitern Sie Raw OCR oder laden Sie den Scan erneut hoch, wenn etwas fehlt.",
+    panicScanResultCleanIncompleteFallbackMissing:
+      "Die bereinigte Nachricht wirkt unvollständig, und es steht kein längerer Text zur Verfügung. Erweitern Sie Raw OCR oder laden Sie die Datei erneut hoch.",
     panicScanResultRawLabel: "Rohes OCR anzeigen",
     panicScanResultRawSummary:
       "Das rohe OCR kann Interface-Elemente enthalten. Nur bei Bedarf öffnen.",
@@ -2400,6 +2404,7 @@ export function LanguageProvider({ children }: { children: React.ReactNode }) {
 
   return <LocaleContext.Provider value={value}>{children}</LocaleContext.Provider>
 }
+
 
 
 

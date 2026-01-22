@@ -11,6 +11,9 @@ import { sanitizeCleanedMessage } from "@/lib/panic-scan/sanitize-cleaned-messag
 
 const PREFILL_KEY = "zazaDraftPrefill"
 const CLEAN_MESSAGE_COLLAPSE_THRESHOLD = 420
+const MIN_CLEANED_CHARS = 120
+const MIN_CLEANED_LINES = 2
+const MIN_CLEAN_CONFIDENCE = 0.6
 
 type ScanStatus = "processing" | "completed" | "failed"
 
@@ -125,10 +128,10 @@ export default function PanicScanResultPage() {
   }, [scan?.status, t])
 
   const handleUseDraft = () => {
-    if (!displayedCleanMessage) {
+    if (!handoffMessage) {
       return
     }
-    sessionStorage.setItem(PREFILL_KEY, displayedCleanMessage)
+    sessionStorage.setItem(PREFILL_KEY, handoffMessage)
     router.push("/?panicScanReturn=1")
   }
 
@@ -149,8 +152,27 @@ export default function PanicScanResultPage() {
   )
   const displayedCleanMessage = sanitizedCleanMessage || cleanMessage || ""
   const showCleanMessage = Boolean(displayedCleanMessage)
-  const showLowConfidenceWarning =
-    showCleanConfidence && (scan?.cleanConfidence ?? 0) < 0.5 && showCleanMessage
+  const sanitizedTrimmed = sanitizedCleanMessage?.trim() ?? ""
+  const sanitizedLineCount = sanitizedTrimmed
+    ? sanitizedTrimmed.split(/\r?\n/).filter(Boolean).length
+    : 0
+  const cleanedIncomplete =
+    showCleanMessage &&
+    (!sanitizedTrimmed ||
+      sanitizedTrimmed.length < MIN_CLEANED_CHARS ||
+      sanitizedLineCount < MIN_CLEANED_LINES)
+  const lowConfidenceWarning =
+    showCleanConfidence && (scan?.cleanConfidence ?? 0) < MIN_CLEAN_CONFIDENCE
+  const showCleanWarning = showCleanMessage && (cleanedIncomplete || lowConfidenceWarning)
+  const rawFallbackText = scan?.extractedText?.trim() ?? ""
+  const fallbackCandidate =
+    cleanedIncomplete && rawFallbackText && rawFallbackText.length > sanitizedTrimmed.length
+      ? rawFallbackText
+      : cleanedIncomplete
+      ? ""
+      : displayedCleanMessage
+  const handoffMessage = cleanedIncomplete ? fallbackCandidate : displayedCleanMessage
+  const helpButtonDisabled = !isCompleted || !handoffMessage
   const cleanMessageIsLong =
     showCleanMessage && displayedCleanMessage.length > CLEAN_MESSAGE_COLLAPSE_THRESHOLD
 
@@ -292,9 +314,14 @@ export default function PanicScanResultPage() {
                       : t("panicScanResultExpandLabel")}
                   </button>
                 )}
-                {showLowConfidenceWarning && (
+                {showCleanWarning && (
                   <p className="text-xs text-amber-200">
                     {t("panicScanResultCleanLowWarning")}
+                  </p>
+                )}
+                {cleanedIncomplete && !rawFallbackText && (
+                  <p className="text-xs text-amber-200">
+                    {t("panicScanResultCleanIncompleteFallbackMissing")}
                   </p>
                 )}
               </div>
@@ -344,7 +371,7 @@ export default function PanicScanResultPage() {
             <div className="space-y-2">
               <Button
                 onClick={handleUseDraft}
-                disabled={!isCompleted}
+                disabled={helpButtonDisabled}
                 className="w-full bg-gradient-to-r from-purple-500 via-fuchsia-500 to-pink-500 text-white shadow-lg shadow-purple-500/50"
               >
                 {t("panicScanResultHelpButton")}

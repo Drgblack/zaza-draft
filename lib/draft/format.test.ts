@@ -190,12 +190,53 @@ Body line`
     expect(formatted.paragraphs.some((para) => para.includes("Body line"))).toBe(true)
   })
 
+  it("keeps the greeting on one line even when blank lines separate title and surname", () => {
+    const draft = "Dear Mr.\n\nCollins,\n\nThank you for the update."
+    const formatted = formatDraftText(draft, "en-GB")
+    expect(formatted.paragraphs[0]).toContain("Dear Mr Collins,")
+    expect(formatted.paragraphs.some((para) => para.includes("Thank you for the update."))).toBe(true)
+  })
+
   it("detaches body copy when surname line already contains text", () => {
     const draft = "Dear Mr.\n\nCollins, Thank you for your message.\n\nLet me know if you need anything."
     const formatted = formatDraftText(draft, "en-GB")
     expect(formatted.paragraphs[0]).toContain("Dear Mr Collins,")
     expect(formatted.paragraphs.some((para) => para.includes("Thank you for your message."))).toBe(true)
     expect(formatted.paragraphs.some((para) => para.includes("Let me know if you need anything."))).toBe(true)
+  })
+
+  it("also merges German salutations across blank lines", () => {
+    const draft = "Sehr geehrte Frau\n\nMüller,\n\nvielen Dank für Ihre Nachricht."
+    const formatted = formatDraftText(draft, "de-DE")
+    expect(formatted.paragraphs[0]).toContain("Sehr geehrte Frau Müller,")
+    expect(formatted.paragraphs.some((para) => para.includes("vielen Dank für Ihre Nachricht."))).toBe(true)
+  })
+
+  it("keeps trailing German body snippets after the comma", () => {
+    const draft = "Sehr geehrter Herr\nSchmidt, vielen Dank für Ihre Rückmeldung.\n\nWir melden uns."
+    const formatted = formatDraftText(draft, "de-DE")
+    expect(formatted.paragraphs[0]).toContain("Sehr geehrter Herr Schmidt,")
+    expect(formatted.paragraphs.some((para) => para.includes("vielen Dank für Ihre Rückmeldung."))).toBe(true)
+    expect(formatted.paragraphs.some((para) => para.includes("Wir melden uns."))).toBe(true)
+  })
+
+  it("does not merge German greetings without Frau/Herr", () => {
+    const draft = "Liebe Eltern,\n\nvielen Dank."
+    const formatted = formatDraftText(draft, "de-DE")
+    expect(formatted.paragraphs[0]).toContain("Liebe Eltern,")
+  })
+
+  it("skips risky German prefixes like Guten Tag when title is missing", () => {
+    const draft = "Guten Tag\n\nMüller,\n\nvielen Dank."
+    const formatted = formatDraftText(draft, "de-DE")
+    expect(formatted.paragraphs.join(" ")).toContain("Guten Tag")
+  })
+
+  it("does not merge German greeting text when locale is English", () => {
+    const draft = "Sehr geehrte Frau\n\nMüller,\n\nvielen Dank."
+    const formatted = formatDraftText(draft, "en-GB")
+    expect(formatted.paragraphs[0]).toContain("Sehr geehrte Frau")
+    expect(formatted.paragraphs.join(" ")).toContain("Müller")
   })
 
   it("does not merge salutation when the next paragraph is normal prose", () => {
