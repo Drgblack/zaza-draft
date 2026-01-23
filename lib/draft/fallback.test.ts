@@ -20,6 +20,7 @@ describe("fallback drafting signature hygiene", () => {
     const text = buildFallbackDraft(context)
     expect(text).not.toContain("Samantha")
     expect(text).not.toContain("[Lehrkraft Name]")
+    expect(text).not.toContain("Ã")
     expect(text.trim().endsWith("Mit freundlichen Grüßen")).toBe(true)
   })
 
