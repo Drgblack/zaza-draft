@@ -47,10 +47,22 @@ const UI_CHROME_KEYWORDS = [
   "reddit growth",
   "twitter growth",
   "catch-all",
+  "summarise this email",
+  "translate to english",
+  "it looks like this message is in german",
+  "open in gmail",
+  "gmail",
+  "meet",
+  "compose",
+  "inbox",
+  "starred",
+  "snoozed",
+  "sent",
+  "drafts",
 ]
 
-const GREETING_REGEX = /^(?:dear|hi|hello)\b/i
-const NAME_GREETING_REGEX = /^[A-Z][\p{L}\p{M}'’-]+(?: [A-Z][\p{L}\p{M}'’-]+){1,3},$/u
+const GREETING_REGEX = /^(?:dear|hi|hello|sehr geehrte(?:r)?|guten tag|hallo|liebe(?:r)?|frau|herr)\b/i
+const NAME_GREETING_REGEX = /^[A-Z][\p{L}\p{M}'Ã¢â‚¬â„¢-]+(?: [A-Z][\p{L}\p{M}'Ã¢â‚¬â„¢-]+){1,3},$/u
 const TITLE_GREETING_REGEX = /\b(?:miss|mr|mrs|ms|dr)\b.*,$/i
 const TITLE_COMMA_HELPER = /\b(?:miss|mr|mrs|ms|dr)\b.*,$/i
 const SIGNATURE_REGEX = /^(?:kind regards|regards|best regards|yours sincerely|sincerely|thanks|thank you),?$/i
@@ -299,3 +311,4 @@ export function cleanOcrText(raw: string): CleanOcrResult {
     },
   }
 }
+
