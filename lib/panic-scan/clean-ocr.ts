@@ -69,7 +69,7 @@ const UI_CHROME_KEYWORDS = [
   "drafts",
 ]
 const GREETING_REGEX = /^(?:dear|hi|hello|hey|guten\s+tag|hallo|liebe[rn]?|sehr\s+geehrte[rn]?|sehr\s+geehrter|sehr\s+geehrte\s+frau|sehr\s+geehrter\s+herr|frau|herr)\b/i
-const NAME_GREETING_REGEX = /^[A-Z][\p{L}\p{M}'Ã¢â‚¬â„¢-]+(?: [A-Z][\p{L}\p{M}'Ã¢â‚¬â„¢-]+){1,3},$/u
+const NAME_GREETING_REGEX = /^[A-Z][\p{L}\p{M}'’-]+(?: [A-Z][\p{L}\p{M}'’-]+){1,3},$/u
 const TITLE_GREETING_REGEX = /\b(?:miss|mr|mrs|ms|dr)\b.*,$/i
 const TITLE_COMMA_HELPER = /\b(?:miss|mr|mrs|ms|dr)\b.*,$/i
 const SIGNATURE_REGEX = /^(?:kind regards|regards|best regards|yours sincerely|sincerely|thanks|thank you),?$/i
