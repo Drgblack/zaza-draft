@@ -37,6 +37,7 @@ interface ProviderInput {
   forceLanguage?: boolean
   signatureBlock?: string
   uiLocale?: string
+  teacherSignatureName?: string
 }
 
 export interface ProviderMeta {
@@ -82,6 +83,24 @@ export function buildSystemPrompt(input: ProviderInput) {
     PRONOUN_INSTRUCTIONS[input.pronounPreference],
     MODE_PROMPT_INSTRUCTIONS[input.mode],
   ]
+
+  const teacherName = input.teacherSignatureName?.trim()
+  const hasTeacherName = Boolean(teacherName)
+  systemLines.push(
+    "Do not invent or infer the teacher’s name from the parent greeting or the recipient line.",
+    "Only use teacherSignatureName if provided; otherwise omit the name.",
+  )
+  if (hasTeacherName) {
+    systemLines.push(
+      `Use the provided teacherSignatureName (${teacherName}) in the closing and do not invent or modify any other teacher names.`,
+    )
+  } else {
+    const closingInstruction =
+      input.language === "de"
+        ? "Close with 'Mit freundlichen Grüßen' or 'Herzliche Grüße' on its own line and do not add a name afterwards."
+        : "Close with 'Kind regards,' or 'Best regards,' on its own line and do not add a name afterwards."
+    systemLines.push(closingInstruction)
+  }
 
   const requestText = input.originalSituation ?? input.situation
   const outOfScope = detectOutOfScopeRequest(requestText)
@@ -134,13 +153,13 @@ export function buildSystemPrompt(input: ProviderInput) {
       "Write 3-5 short paragraphs separated by blank lines; each paragraph should focus on calm observations, progress updates, and collaborative next steps, keeping sentences brief (2-3 sentences) and paragraphs short.",
     )
     systemLines.push(
-      "End with a blank line, then 'Herzliche Grüße,' or 'Freundliche Grüße,' on its own line, followed by the teacher's name; include a brief reassuring sentence before the closing.",
+      "End with a blank line, then 'Herzliche Grüße,' or 'Freundliche Grüße,' on its own line; include a brief reassuring sentence before the closing, and add the teacherSignatureName on the next line only if one is provided.",
     )
     systemLines.push(
       "German parent messages must always include EXACTLY 3-5 paragraphs separated by blank lines (two newline characters), keep 'Betreff: …' on the first line, and never collapse the response into a single block.",
     )
     systemLines.push(
-      "Always finish after a blank line with a polite closing (for example, 'Herzliche Grüße,' or 'Freundliche Grüße,' plus the teacher name) and never begin or end with refusal phrasing such as 'Es tut mir leid' or 'Ich kann nicht helfen'.",
+      "Always finish after a blank line with a polite closing (for example, 'Herzliche Grüße,' or 'Freundliche Grüße,'), add the teacherSignatureName on the following line if one is provided, and never begin or end with refusal phrasing such as 'Es tut mir leid' or 'Ich kann nicht helfen'.",
     )
   } else {
     systemLines.push(

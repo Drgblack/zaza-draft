@@ -38,6 +38,7 @@ import {
   resolveSignature,
   SignaturePayload,
 } from "@/lib/draft/signature"
+import { resolveTeacherSignatureName } from "@/lib/draft/teacher-signature"
 import { isValidDraftRequest, OUT_OF_SCOPE_REDIRECT_MESSAGE } from "./scope-guard"
 
 const TONE_DESCRIPTIONS: Record<ToneKey, string> = {
@@ -189,6 +190,8 @@ export async function POST(request: Request) {
       : ""
   const sanitizedStudentFirstName = cleanStudentName(studentFirstNameInput)
   const studentNameForPayload = sanitizedStudentFirstName || ""
+
+  const teacherSignatureName = resolveTeacherSignatureName(undefined, payload.signature?.line1)
 
   const resolvedSignature = resolveSignature({
     ...payload.signature,
@@ -479,6 +482,7 @@ export async function POST(request: Request) {
     studentFirstName: studentNameForPayload || undefined,
     resolvedPronounPreference,
     signatureBlock: resolvedSignature.block,
+    teacherSignatureName,
     uiLocale: normalizedUiLocale,
   }
   const fallbackContext: DraftFallbackContext = {
@@ -489,6 +493,7 @@ export async function POST(request: Request) {
     uidHash,
     studentFirstName: studentNameForPayload || undefined,
     studentPronounPreference: resolvedPronounPreference,
+    teacherSignatureName,
   }
   const finalizeDraft = (text: string) => {
     let curated = enforcePronouns(text, resolvedPronounPreference)

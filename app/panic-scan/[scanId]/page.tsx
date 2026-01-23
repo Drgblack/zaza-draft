@@ -89,9 +89,16 @@ const HIGH_TONES = new Set(["angry", "frustrated", "passive_aggressive", "demand
 const MEDIUM_TONES = new Set(["anxious"])
 const CALM_TONES = new Set(["supportive", "calm"])
 
-const formatClassificationValue = (key: string, value: string) => {
+const formatClassificationValue = (key: string, value: string, t: Translator) => {
   if (key === "confidenceScore") {
     return `${value}%`
+  }
+  const translationKey = `panicScan.classification.${key}.${value}`
+  const translated = t(translationKey)
+  const missingTranslation =
+    translated === translationKey || translated.startsWith("[[missing:")
+  if (!missingTranslation) {
+    return translated
   }
   return value
     .replace(/_/g, " ")
@@ -265,7 +272,7 @@ export default function PanicScanResultPage() {
     }
     return Object.entries(scan.classification).map(([key, value]) => {
       const stringValue = typeof value === "number" ? value.toFixed(0) : String(value)
-      const displayValue = formatClassificationValue(key, stringValue)
+      const displayValue = formatClassificationValue(key, stringValue, t)
       return {
         key,
         displayValue,

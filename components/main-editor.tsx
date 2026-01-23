@@ -28,6 +28,7 @@ import { Camera, FileText, Image, Info, Mail, MessageCircle, Mic, Sun, Target, U
 import type { LucideIcon } from "lucide-react"
 import { formatGreetingDisplay } from "@/lib/text/greeting-display"
 import { saveLastRunTimestamp } from "@/lib/diagnostics/local-storage"
+import { resolveTeacherSignatureName } from "@/lib/draft/teacher-signature"
 
 const TONE_OPTIONS = [
   { id: "warm", key: "tone.warm" },
@@ -216,6 +217,10 @@ export function MainEditor() {
   const searchParams = useSearchParams()
   const isReturningFromPanicScan = searchParams.get("panicScanReturn") === "1"
   const { user, getIdToken, signOut } = useAuth()
+  const teacherSignatureName = useMemo(
+    () => resolveTeacherSignatureName(user?.displayName, prefs.signatureLine1),
+    [user?.displayName, prefs.signatureLine1],
+  )
   const toneControlOptions = useMemo(
     () =>
       TONE_OPTIONS.map((tone) => {
@@ -577,7 +582,7 @@ export function MainEditor() {
     setOutOfScopeMessage("")
 
     const signaturePayload = {
-      line1: prefs.signatureLine1?.trim() || prefs.firstName,
+      line1: teacherSignatureName,
       line2: prefs.signatureLine2?.trim() || undefined,
       line3: prefs.signatureLine3?.trim() || undefined,
       autoAppendParentMessage: prefs.autoAppendSignatureParentMessage,

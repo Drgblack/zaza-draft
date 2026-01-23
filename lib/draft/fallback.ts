@@ -16,6 +16,16 @@ interface DraftFallbackContext {
   uidHash: string
   studentFirstName?: string
   studentPronounPreference: PronounPreference
+  teacherSignatureName?: string
+}
+
+function buildClosingBlock(language: LanguageKey, teacherSignatureName?: string) {
+  if (language === "de") {
+    const closing = "Mit freundlichen Grüßen"
+    return teacherSignatureName ? `${closing}\n${teacherSignatureName}` : closing
+  }
+  const closing = teacherSignatureName ? "Best regards," : "Kind regards,"
+  return teacherSignatureName ? `${closing}\n${teacherSignatureName}` : closing
 }
 
 const FALLBACK_TONE_TEXT: Record<ToneKey, { parent: string; report: string }> = {
@@ -51,19 +61,17 @@ const FALLBACK_LANGUAGE_COPY: Record<
     subject: "Subject: Your child's progress",
     parentGreeting: "Dear parent(s),",
     nextStep: "Please feel free to reach out if you'd like to discuss this further.",
-    closing: "Best regards,\n[Your Name]",
     reportSuffix: "I will continue to keep you posted.",
   },
   de: {
     subject: "Betreff: Rückmeldung zum Lernen",
     parentGreeting: "Liebe Eltern,",
     nextStep: "Melden Sie sich gern, wenn Sie sich austauschen möchten.",
-    closing: "Mit freundlichen Grüßen\n[Ihr Name]",
     reportSuffix: "Ich werde Sie weiter informieren.",
   },
 }
 
-function buildFallbackDraft(context: DraftFallbackContext) {
+export function buildFallbackDraft(context: DraftFallbackContext) {
   const toneText = FALLBACK_TONE_TEXT[context.tone]
   const langCopy = FALLBACK_LANGUAGE_COPY[context.language]
   const studentProps = {
@@ -74,8 +82,9 @@ function buildFallbackDraft(context: DraftFallbackContext) {
     ? `I'm referring to ${buildStudentNameForFallback(studentProps)} and following the ${context.studentPronounPreference} pronoun preference.`
     : "I'm referring to your child and keeping the wording professional and neutral."
   const instruction = buildStudentInstruction(studentProps)
+  const closingBlock = buildClosingBlock(context.language, context.teacherSignatureName)
   if (context.mode === "parent_message") {
-    return `${langCopy.subject}\n${langCopy.parentGreeting}\n${nameLine}\n${instruction}\n${toneText.parent}\n${langCopy.nextStep}\n${langCopy.closing}`
+    return `${langCopy.subject}\n${langCopy.parentGreeting}\n${nameLine}\n${instruction}\n${toneText.parent}\n${langCopy.nextStep}\n${closingBlock}`
   }
   return `${nameLine}\n${instruction}\n${toneText.report} ${langCopy.reportSuffix}`
 }
@@ -98,6 +107,7 @@ interface ProviderRequestInput {
   resolvedPronounPreference?: PronounPreference
   forceLanguage?: boolean
   uiLocale?: string
+  teacherSignatureName?: string
 }
 
 interface ProviderFallbackResult {
