@@ -365,10 +365,16 @@ export function MainEditor() {
     if (!prefillApplied || !content.trim()) {
       return
     }
-    textareaRef.current?.scrollIntoView({ behavior: "smooth", block: "center" })
-    focusEditor()
+    const textarea = textareaRef.current
+    textarea?.focus()
+    if (textarea) {
+      textarea.selectionStart = 0
+      textarea.selectionEnd = 0
+      textarea.scrollTop = 0
+    }
+    textarea?.scrollIntoView({ behavior: "smooth", block: "center" })
     setPanicScanReturnHandled(true)
-  }, [content, focusEditor, isReturningFromPanicScan, panicScanReturnHandled, prefillApplied])
+  }, [content, isReturningFromPanicScan, panicScanReturnHandled, prefillApplied])
 
   useEffect(() => {
     let isMounted = true

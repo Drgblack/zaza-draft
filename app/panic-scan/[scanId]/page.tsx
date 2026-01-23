@@ -35,7 +35,7 @@ const CLASSIFICATION_LABELS: Record<string, string> = {
   emotionalTone: "Emotional tone",
   riskLevel: "Risk level",
   urgency: "Urgency",
-  confidenceScore: "Confidence score",
+  confidenceScore: "Classification confidence",
 }
 
 const SEVERITY_STYLES: Record<SeverityKey, ClassificationAccent> = {
@@ -104,16 +104,16 @@ const toSeverityKey = (value: string): SeverityKey => {
   return "low"
 }
 
-const getClassificationAccent = (key: string, value: string): ClassificationAccent => {
+const getClassificationAccent = (key: string, rawValue: string, displayValue: string): ClassificationAccent => {
   if (key === "urgency" || key === "riskLevel") {
-    const severity = toSeverityKey(value)
+    const severity = toSeverityKey(rawValue)
     return {
       ...SEVERITY_STYLES[severity],
-      badgeText: `${value.charAt(0).toUpperCase()}${value.slice(1)} priority`,
+      badgeText: `${displayValue} priority`,
     }
   }
   if (key === "confidenceScore") {
-    const numericValue = Number(value)
+    const numericValue = Number(rawValue)
     const severity =
       Number.isNaN(numericValue) || numericValue < 70
         ? "low"
@@ -125,25 +125,17 @@ const getClassificationAccent = (key: string, value: string): ClassificationAcce
       badgeText: `${severity.charAt(0).toUpperCase()}${severity.slice(1)} confidence`,
     }
   }
-  if (key === "emotionalTone") {
-    const severity = getToneSeverity(value)
-    const toneLabel =
-      severity === "calm"
-        ? "Calm tone"
-        : severity === "neutral"
-        ? "Neutral tone"
-        : severity === "high"
-        ? "High-alert tone"
-        : "Elevated tone"
-    return {
-      ...SEVERITY_STYLES[severity],
-      badgeText: toneLabel,
+    if (key === "emotionalTone") {
+      const severity = getToneSeverity(rawValue)
+      return {
+        ...SEVERITY_STYLES[severity],
+        badgeText: displayValue,
+      }
     }
-  }
   if (key === "messageType") {
     return {
       ...SEVERITY_STYLES.neutral,
-      badgeText: "Message classification",
+      badgeText: displayValue,
       badgeClass: "bg-slate-700/20 text-white/80 border border-slate-500/40",
     }
   }
@@ -247,10 +239,11 @@ export default function PanicScanResultPage() {
     }
     return Object.entries(scan.classification).map(([key, value]) => {
       const stringValue = typeof value === "number" ? value.toFixed(0) : String(value)
+      const displayValue = formatClassificationValue(key, stringValue)
       return {
         key,
-        displayValue: formatClassificationValue(key, stringValue),
-        accent: getClassificationAccent(key, stringValue),
+        displayValue,
+        accent: getClassificationAccent(key, stringValue, displayValue),
       }
     })
   }, [scan?.classification])

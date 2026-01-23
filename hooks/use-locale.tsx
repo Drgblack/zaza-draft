@@ -105,7 +105,7 @@ export const localeMessages: Record<Locale, LocaleMessages> = {
     panicScanResultProcessingTime: "Processing time: {ms} ms",
     panicScanResultFailureLabel: "Reason: {reason}",
     panicScanResultMessageLabel: "Message (cleaned)",
-    panicScanResultCleanConfidence: "Clean confidence: {confidence}%",
+    panicScanResultCleanConfidence: "OCR confidence: {confidence}%",
     panicScanResultCleanLowWarning:
       "Cleaned message may be incomplete. Expand Raw OCR or re-upload if something feels missing.",
     panicScanResultCleanIncompleteFallbackMissing:
@@ -1424,7 +1424,7 @@ export const localeMessages: Record<Locale, LocaleMessages> = {
     panicScanResultProcessingTime: "Verarbeitungszeit: {ms} ms",
     panicScanResultFailureLabel: "Grund: {reason}",
     panicScanResultMessageLabel: "Nachricht (bereinigt)",
-    panicScanResultCleanConfidence: "Bereinigungsgenauigkeit: {confidence}%",
+    panicScanResultCleanConfidence: "OCR-Genauigkeit: {confidence}%",
     panicScanResultCleanLowWarning:
       "Die bereinigte Nachricht wirkt unvollständig. Erweitern Sie Raw OCR oder laden Sie den Scan erneut hoch, wenn etwas fehlt.",
     panicScanResultCleanIncompleteFallbackMissing:
