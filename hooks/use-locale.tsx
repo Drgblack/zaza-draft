@@ -106,6 +106,12 @@ export const localeMessages: Record<Locale, LocaleMessages> = {
     panicScanResultFailureLabel: "Reason: {reason}",
     panicScanResultMessageLabel: "Message (cleaned)",
     panicScanResultCleanConfidence: "OCR confidence: {confidence}%",
+    panicScanBadgeHighRisk: "HIGH RISK",
+    panicScanBadgeMediumRisk: "MEDIUM RISK",
+    panicScanBadgeLowRisk: "LOW RISK",
+    panicScanBadgeHighUrgency: "HIGH URGENCY",
+    panicScanBadgeMediumUrgency: "MEDIUM URGENCY",
+    panicScanBadgeLowUrgency: "LOW URGENCY",
     panicScanResultCleanLowWarning:
       "Cleaned message may be incomplete. Expand Raw OCR or re-upload if something feels missing.",
     panicScanResultCleanIncompleteFallbackMissing:
@@ -1425,6 +1431,12 @@ export const localeMessages: Record<Locale, LocaleMessages> = {
     panicScanResultFailureLabel: "Grund: {reason}",
     panicScanResultMessageLabel: "Nachricht (bereinigt)",
     panicScanResultCleanConfidence: "OCR-Genauigkeit: {confidence}%",
+    panicScanBadgeHighRisk: "HOCHES RISIKO",
+    panicScanBadgeMediumRisk: "MITTLERES RISIKO",
+    panicScanBadgeLowRisk: "GERINGES RISIKO",
+    panicScanBadgeHighUrgency: "HOHE DRINGLICHKEIT",
+    panicScanBadgeMediumUrgency: "MITTLERE DRINGLICHKEIT",
+    panicScanBadgeLowUrgency: "GERINGE DRINGLICHKEIT",
     panicScanResultCleanLowWarning:
       "Die bereinigte Nachricht wirkt unvollständig. Erweitern Sie Raw OCR oder laden Sie den Scan erneut hoch, wenn etwas fehlt.",
     panicScanResultCleanIncompleteFallbackMissing:

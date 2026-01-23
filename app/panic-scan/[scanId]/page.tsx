@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react"
 import { useRouter, useParams } from "next/navigation"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
+import { ChevronDown, ChevronLeft } from "lucide-react"
 import { useAuth } from "@/hooks/use-auth"
 import { AuthScreen } from "@/components/auth/auth-screen"
 import { useLocale } from "@/hooks/use-locale"
@@ -29,6 +30,24 @@ type ClassificationTile = {
 }
 
 type SeverityKey = "high" | "medium" | "low" | "calm" | "neutral"
+
+type Translator = (key: string, values?: Record<string, string | number>) => string
+
+const RISK_BADGE_KEYS: Record<SeverityKey, string> = {
+  high: "panicScanBadgeHighRisk",
+  medium: "panicScanBadgeMediumRisk",
+  low: "panicScanBadgeLowRisk",
+  calm: "panicScanBadgeLowRisk",
+  neutral: "panicScanBadgeLowRisk",
+}
+
+const URGENCY_BADGE_KEYS: Record<SeverityKey, string> = {
+  high: "panicScanBadgeHighUrgency",
+  medium: "panicScanBadgeMediumUrgency",
+  low: "panicScanBadgeLowUrgency",
+  calm: "panicScanBadgeLowUrgency",
+  neutral: "panicScanBadgeLowUrgency",
+}
 
 const CLASSIFICATION_LABELS: Record<string, string> = {
   messageType: "Message type",
@@ -104,12 +123,18 @@ const toSeverityKey = (value: string): SeverityKey => {
   return "low"
 }
 
-const getClassificationAccent = (key: string, rawValue: string, displayValue: string): ClassificationAccent => {
+const getClassificationAccent = (
+  t: Translator,
+  key: string,
+  rawValue: string,
+  displayValue: string,
+): ClassificationAccent => {
   if (key === "urgency" || key === "riskLevel") {
     const severity = toSeverityKey(rawValue)
+    const badgeKey = key === "urgency" ? URGENCY_BADGE_KEYS[severity] : RISK_BADGE_KEYS[severity]
     return {
       ...SEVERITY_STYLES[severity],
-      badgeText: `${displayValue} priority`,
+      badgeText: t(badgeKey),
     }
   }
   if (key === "confidenceScore") {
@@ -125,13 +150,13 @@ const getClassificationAccent = (key: string, rawValue: string, displayValue: st
       badgeText: `${severity.charAt(0).toUpperCase()}${severity.slice(1)} confidence`,
     }
   }
-    if (key === "emotionalTone") {
-      const severity = getToneSeverity(rawValue)
-      return {
-        ...SEVERITY_STYLES[severity],
-        badgeText: displayValue,
-      }
+  if (key === "emotionalTone") {
+    const severity = getToneSeverity(rawValue)
+    return {
+      ...SEVERITY_STYLES[severity],
+      badgeText: displayValue,
     }
+  }
   if (key === "messageType") {
     return {
       ...SEVERITY_STYLES.neutral,
@@ -175,8 +200,9 @@ export default function PanicScanResultPage() {
   const [scan, setScan] = useState<ScanResponse | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [cleanExpanded, setCleanExpanded] = useState(false)
-  const [copiedCleanMessage, setCopiedCleanMessage] = useState(false)
+    const [cleanExpanded, setCleanExpanded] = useState(false)
+    const [copiedCleanMessage, setCopiedCleanMessage] = useState(false)
+    const [rawOcrOpen, setRawOcrOpen] = useState(false)
   const copyTimeoutRef = useRef<number | null>(null)
 
   const isCompleted = scan?.status === "completed"
@@ -243,10 +269,10 @@ export default function PanicScanResultPage() {
       return {
         key,
         displayValue,
-        accent: getClassificationAccent(key, stringValue, displayValue),
+        accent: getClassificationAccent(t, key, stringValue, displayValue),
       }
     })
-  }, [scan?.classification])
+  }, [scan?.classification, t])
 
   const statusLabel = useMemo(() => {
     if (!scan?.status) {
@@ -351,9 +377,13 @@ export default function PanicScanResultPage() {
   return (
     <div className="min-h-screen bg-gradient-to-b from-purple-950/90 via-slate-950/80 to-slate-900 text-white">
       <div className="mx-auto max-w-5xl px-4 py-12 space-y-6">
-        <Link href="/panic-scan" className="text-sm text-white/80 underline">
-          {t("panicScanResultBackLink")}
-        </Link>
+          <Link
+            href="/panic-scan"
+            className="inline-flex items-center gap-1 text-sm font-semibold text-white/80 transition-colors hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70 focus-visible:ring-offset-2 focus-visible:ring-offset-transparent"
+          >
+            <ChevronLeft className="h-4 w-4 text-white/70" aria-hidden="true" />
+            <span>{t("panicScanResultBackLink")}</span>
+          </Link>
         <div className="space-y-2">
           <h1 className="text-3xl font-semibold">{t("panicScanResultTitle")}</h1>
           <p className="text-sm text-white/70">{t("panicScanResultDescription")}</p>
@@ -461,15 +491,22 @@ export default function PanicScanResultPage() {
               </div>
             )}
 
-            {scan.extractedText && (
-              <details className="rounded-[28px] border border-white/15 bg-white/5 p-4">
-                <summary className="text-sm uppercase tracking-[0.3em] text-slate-500">
-                  {t("panicScanResultRawLabel")}
-                </summary>
-                <p className="mt-2 text-sm text-slate-200 whitespace-pre-wrap">{scan.extractedText}</p>
-                <p className="mt-2 text-xs text-slate-400">{t("panicScanResultRawSummary")}</p>
-              </details>
-            )}
+              {scan.extractedText && (
+                <details
+                  className="rounded-[28px] border border-white/15 bg-white/5 p-4"
+                  onToggle={(event) => setRawOcrOpen(event.currentTarget.open)}
+                >
+                  <summary className="flex items-center justify-between gap-2 cursor-pointer rounded-xl bg-slate-900/40 px-3 py-2 text-sm uppercase tracking-[0.3em] text-white/70 transition hover:bg-slate-900/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950">
+                    <span>{t("panicScanResultRawLabel")}</span>
+                    <ChevronDown
+                      className={`h-4 w-4 text-white/70 transition-transform duration-200 ${rawOcrOpen ? "rotate-180" : ""}`}
+                      aria-hidden="true"
+                    />
+                  </summary>
+                  <p className="mt-2 text-sm text-slate-200 whitespace-pre-wrap">{scan.extractedText}</p>
+                  <p className="mt-2 text-xs text-slate-400">{t("panicScanResultRawSummary")}</p>
+                </details>
+              )}
 
             {classificationList.length > 0 && (
               <div className="grid gap-4 md:grid-cols-2">
