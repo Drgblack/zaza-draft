@@ -36,4 +36,24 @@ describe("fallback drafting signature hygiene", () => {
     expect(text).not.toContain("[Your Name]")
     expect(text.trim().endsWith("Kind regards,")).toBe(true)
   })
+
+  it("respects a final resolved greeting when fallback runs", () => {
+    const finalGreeting = "Guten Tag, Dr. Markus Schneider,"
+    const context: DraftFallbackContext = {
+      ...baseContext,
+      language: "de",
+      teacherSignatureName: undefined,
+      greeting: {
+        text: finalGreeting,
+        name: "Dr. Markus Schneider",
+      },
+      greetingFinal: true,
+    }
+
+    const text = buildFallbackDraft(context)
+    const lines = text.split("\n")
+    expect(lines[1]).toBe(finalGreeting)
+    expect(text).not.toContain("Liebe Eltern,")
+    expect(text).toContain("Mit freundlichen Grüßen")
+  })
 })

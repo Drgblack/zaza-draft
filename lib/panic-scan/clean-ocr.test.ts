@@ -93,13 +93,13 @@ it("strips Gmail UI chrome from OCR text", () => {
     "It looks like this message is in German",
     "Translate to English",
     "",
-    "Formelle Beschwerde bezÃ¼glich Leistungsbewertung",
+    "Formelle Beschwerde bezüglich Leistungsbewertung",
     "",
     "Sehr geehrte Frau Samantha,",
-    "hiermit mÃ¶chte ich formell Beschwerde Ã¼ber die Bewertung der letzten Klassenarbeit meines Sohnes Jonas einreichen.",
-    "Bitte lassen Sie mir die BewertungsmaÃŸstÃ¤be sowie eine schriftliche BegrÃ¼ndung zukommen.",
+    "hiermit möchte ich formell Beschwerde über die Bewertung der letzten Klassenarbeit meines Sohnes Jonas einreichen.",
+    "Bitte lassen Sie mir die Bewertungsmaßstäbe sowie eine schriftliche Begründung zukommen.",
     "",
-    "Mit freundlichen GrÃ¼ÃŸen",
+    "Mit freundlichen Grüßen",
     "Dr. Markus Schneider",
     "",
     "Open in Gmail",
@@ -108,7 +108,7 @@ it("strips Gmail UI chrome from OCR text", () => {
     const result = cleanOcrText(raw)
   const joined = result.cleanText
   expect(joined).toContain("Sehr geehrte Frau Samantha,")
-  expect(joined).toContain("hiermit mÃ¶chte ich formell Beschwerde")
+  expect(joined).toContain("hiermit möchte ich formell Beschwerde")
   expect(joined).not.toMatch(/Summarise this email|Translate to English|It looks like this message is in German|Open in Gmail|Gmail|Meet|Compose|Inbox|External/i)
 })
 

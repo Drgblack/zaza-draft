@@ -2,6 +2,12 @@ import type { DraftLanguage, DraftMode, DraftTone, PronounPreference } from "@/l
 import { MODE_DISPLAY_NAMES, MODE_PROMPT_INSTRUCTIONS } from "@/lib/draft-mode"
 import { buildStudentInstruction, PRONOUN_LABELS } from "@/lib/draft/student-policy"
 import { detectOutOfScopeRequest } from "@/lib/safety/out-of-scope"
+import {
+  logGreetingDecision,
+  type GreetingSource,
+  type GreetingDecision,
+  type NameConfidenceLevel,
+} from "@/lib/draft/greeting-resolution"
 
 function getOpenAiApiKey() {
   return process.env.OPENAI_API_KEY
@@ -37,6 +43,15 @@ interface ProviderInput {
   forceLanguage?: boolean
   signatureBlock?: string
   uiLocale?: string
+  greeting?: {
+    text: string
+    name?: string
+  }
+  greetingFinal?: boolean
+  greetingConfidence?: NameConfidenceLevel
+  greetingSource?: GreetingSource
+  messageType?: string
+  scanId?: string
   teacherSignatureName?: string
 }
 
@@ -146,9 +161,16 @@ export function buildSystemPrompt(input: ProviderInput) {
       "If no student name was supplied, refer to the child as 'Ihr Kind' (use 'Ihr Sohn' or 'Ihre Tochter' only when the teacher explicitly provides gender).",
     )
     if (input.mode === "parent_message") {
-    systemLines.push(
-      "German parent messages must mimic a concise professional email: start with 'Betreff: <short subject>' on the first line, add a blank line, and begin with a polite greeting such as 'Liebe Eltern,' or 'Liebe Erziehungsberechtigte,'.",
-    )
+      const hasFinalGreeting = Boolean(input.greetingFinal && input.greeting?.text)
+      if (hasFinalGreeting) {
+        systemLines.push(
+          "The greeting has been resolved upstream; keep the provided opening line, follow the subject/paragraph expectations, and do not replace it with 'Liebe Eltern,' or similar.",
+        )
+      } else {
+        systemLines.push(
+          "German parent messages must mimic a concise professional email: start with 'Betreff: <short subject>' on the first line, add a blank line, and begin with a polite greeting such as 'Liebe Eltern,' or 'Liebe Erziehungsberechtigte,'.",
+        )
+      }
     systemLines.push(
       "Write 3-5 short paragraphs separated by blank lines; each paragraph should focus on calm observations, progress updates, and collaborative next steps, keeping sentences brief (2-3 sentences) and paragraphs short.",
     )
@@ -172,6 +194,26 @@ export function buildSystemPrompt(input: ProviderInput) {
     )
   }
 
+  if (input.greeting?.text) {
+    const normalizedGreeting = input.greeting.text.replace(/\s+/g, " ").trim()
+    if (normalizedGreeting) {
+      systemLines.push(`Begin the message with "${normalizedGreeting}" and keep that line unchanged.`)
+      if (input.greetingFinal) {
+        systemLines.push(
+          `The very first line must be exactly "${normalizedGreeting}". Do not change spelling, punctuation, or academic titles such as "Dr." or "Prof.", and do not add any gendered honorifics like Herr/Frau/Mr/Ms.`,
+        )
+      }
+    }
+    if (input.greeting.name) {
+      const normalizedName = input.greeting.name.trim()
+      if (normalizedName) {
+        systemLines.push(
+          `Address the recipient as "${normalizedName}" in that greeting and do not invent or swap to any other addressee names.`,
+        )
+      }
+    }
+  }
+
   if (input.uiLocale?.toLowerCase().startsWith("de")) {
     systemLines.push(
       "DE tone contract: avoid moral judgement words such as 'L�gen', 'Ausreden', 'faul', or 'schlecht'; describe behaviour with neutral observations (for example, 'Es gab einige Situationen, in denen...'); frame collaboration with phrases like 'Ich m�chte gemeinsam mit Ihnen' and offer a clear next step such as 'K�nnen wir einen kurzen Termin vereinbaren?'; keep the tone calm, professional, and supportive without sounding accusatory.",
@@ -191,6 +233,17 @@ export function buildSystemPrompt(input: ProviderInput) {
     )
   }
 
+  const providerGreetingDecision: GreetingDecision = {
+    greeting: (input.greeting?.text ?? "").trim(),
+    safeParentName: input.greeting?.name ?? null,
+    confidence: input.greetingConfidence ?? "NONE",
+    source: input.greetingSource ?? "generic-fallback",
+    locale: input.language === "de" ? "de" : "en",
+    messageType: input.messageType,
+    scanId: input.scanId,
+    greetingFinal: Boolean(input.greetingFinal && (input.greeting?.text ?? "").trim()),
+  }
+  logGreetingDecision("provider-prompt", providerGreetingDecision)
   return systemLines.join(" ")
 }
 

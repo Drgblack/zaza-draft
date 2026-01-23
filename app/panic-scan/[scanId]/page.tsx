@@ -93,7 +93,8 @@ const formatClassificationValue = (key: string, value: string, t: Translator) =>
   if (key === "confidenceScore") {
     return `${value}%`
   }
-  const translationKey = `panicScan.classification.${key}.${value}`
+  const normalizedValue = value.toLowerCase()
+  const translationKey = `panicScan.classification.${key}.${normalizedValue}`
   const translated = t(translationKey)
   const missingTranslation =
     translated === translationKey || translated.startsWith("[[missing:")

@@ -1,5 +1,12 @@
 import { NextResponse, type NextRequest } from "next/server"
 import { authorizeFirebaseRequest } from "@/lib/firebase/server"
+import type { LanguageKey } from "@/lib/draft/fallback"
+import { isDebugEnabled } from "@/lib/debug"
+import {
+  resolveGreeting,
+  type GreetingDecision,
+  logGreetingDecision,
+} from "@/lib/draft/greeting-resolution"
 
 interface RequestPayload {
   tone?: string
@@ -79,12 +86,57 @@ export async function POST(request: NextRequest) {
     )
   }
 
-  const baseUrl = new URL(request.url).origin
+  const requestUrl = new URL(request.url)
+  const baseUrl = requestUrl.origin
   const situation = data.extractedTextClean ?? data.extractedText
+  const resolvedDraftLanguage: LanguageKey = payload.language === "de" ? "de" : "en"
+  const greetingResult = resolveGreeting({
+    cleanedOcrText: situation,
+    locale: resolvedDraftLanguage,
+    messageType: data?.classification?.messageType ?? null,
+  })
+  const normalizedGreeting = greetingResult.greeting.trim()
+  const hasSafeConfidence =
+    greetingResult.confidence === "MEDIUM" || greetingResult.confidence === "HIGH"
+  const greetingDidResolveName = greetingResult.source === "resolved-name"
+  let greetingFinal =
+    hasSafeConfidence && greetingDidResolveName && normalizedGreeting.length > 0
+  const debugEnabled =
+    isDebugEnabled(requestUrl.searchParams) || request.headers.get("x-debug") === "1"
+  if (hasSafeConfidence && greetingDidResolveName && normalizedGreeting.length === 0 && debugEnabled) {
+    console.debug("[panic-scan] resolved name confidence high, but greeting text is empty; forcing fallback", {
+      scanId,
+    })
+  }
+  if (!normalizedGreeting) {
+    greetingFinal = false
+  }
+  const greetingDecision: GreetingDecision = {
+    greeting: normalizedGreeting || greetingResult.greeting,
+    safeParentName: greetingResult.safeName ?? null,
+    confidence: greetingResult.confidence,
+    source: greetingResult.source,
+    locale: resolvedDraftLanguage,
+    messageType: data?.classification?.messageType ?? undefined,
+    scanId,
+    greetingFinal,
+  }
+  if (debugEnabled) {
+    logGreetingDecision("panic-scan", greetingDecision, requestUrl.searchParams)
+  }
   const draftPayload = {
     situation,
     tone: payload.tone ?? "professional",
-    language: payload.language ?? "en",
+    language: resolvedDraftLanguage,
+    messageType: data?.classification?.messageType ?? null,
+    scanId,
+    greeting: {
+      text: normalizedGreeting || greetingResult.greeting,
+      name: greetingResult.safeName,
+    },
+    greetingFinal,
+    greetingConfidence: greetingResult.confidence,
+    greetingSource: greetingResult.source,
   }
 
   const draftResponse = await fetch(`${baseUrl}/api/draft/generate`, {

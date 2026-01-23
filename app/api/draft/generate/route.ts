@@ -40,6 +40,13 @@ import {
 } from "@/lib/draft/signature"
 import { resolveTeacherSignatureName } from "@/lib/draft/teacher-signature"
 import { isValidDraftRequest, OUT_OF_SCOPE_REDIRECT_MESSAGE } from "./scope-guard"
+import { isDebugEnabled } from "@/lib/debug"
+import {
+  GreetingDecision,
+  type GreetingSource,
+  type NameConfidenceLevel,
+  logGreetingDecision,
+} from "@/lib/draft/greeting-resolution"
 
 const TONE_DESCRIPTIONS: Record<ToneKey, string> = {
   warm: "Warm & Encouraging",
@@ -75,6 +82,15 @@ interface GenerateDraftRequest {
   preferredLanguage?: string
   uiLocale?: string
   signature?: SignaturePayload
+  greeting?: {
+    text: string
+    name?: string
+  }
+  greetingFinal?: boolean
+  greetingConfidence?: NameConfidenceLevel
+  greetingSource?: GreetingSource
+  messageType?: string
+  scanId?: string
 }
 
 function buildContextLine(context?: GenerateDraftRequest["context"]) {
@@ -146,6 +162,7 @@ async function reRunWithRewrite(
 export async function POST(request: Request) {
   const requestedAt = new Date()
   const requestStart = Date.now()
+  const requestUrl = new URL(request.url)
 
   let payload: GenerateDraftRequest
   try {
@@ -181,6 +198,29 @@ export async function POST(request: Request) {
   const canonicalUiLocale = canonicalizeLocaleIdentifier(uiLocale)
   const normalizedUiLocale = canonicalUiLocale ?? uiLocale
   const mode = resolveDraftMode(payload?.mode)
+  const debugEnabled =
+    isDebugEnabled(requestUrl.searchParams) || request.headers.get("x-debug") === "1"
+
+  const rawGreetingText = (payload.greeting?.text ?? "").trim()
+  const hasFinalGreeting = Boolean(payload.greetingFinal && rawGreetingText)
+  if (payload.greetingFinal && !rawGreetingText && debugEnabled) {
+    console.debug("[draft] greetingFinal was true but greeting text missing; ignoring final flag", {
+      scanId: payload.scanId ?? null,
+    })
+  }
+  const greetingDecision: GreetingDecision = {
+    greeting: rawGreetingText,
+    safeParentName: payload.greeting?.name ?? null,
+    confidence: payload.greetingConfidence ?? "NONE",
+    source: payload.greetingSource ?? "generic-fallback",
+    locale: language?.toLowerCase().startsWith("de") ? "de" : "en",
+    messageType: payload.messageType ?? undefined,
+    scanId: payload.scanId ?? undefined,
+    greetingFinal: hasFinalGreeting,
+  }
+  if (debugEnabled) {
+    logGreetingDecision("draft-receive", greetingDecision, requestUrl.searchParams)
+  }
 
   const studentFirstNameInput =
     typeof payload?.studentFirstName === "string"
@@ -469,6 +509,13 @@ export async function POST(request: Request) {
   const originalSituationForPrompt = preRewriteSituation
 
   const generationStart = Date.now()
+  const providerGreeting =
+    rawGreetingText.length > 0
+      ? {
+          text: rawGreetingText,
+          name: payload.greeting?.name,
+        }
+      : undefined
   const providerInput: ProviderRequestInput = {
     situation: currentSituation,
     originalSituation: originalSituationForPrompt,
@@ -483,6 +530,12 @@ export async function POST(request: Request) {
     resolvedPronounPreference,
     signatureBlock: resolvedSignature.block,
     teacherSignatureName,
+    greeting: providerGreeting,
+    greetingFinal: hasFinalGreeting,
+    greetingConfidence: payload.greetingConfidence,
+    greetingSource: payload.greetingSource,
+    messageType: payload.messageType,
+    scanId: payload.scanId,
     uiLocale: normalizedUiLocale,
   }
   const fallbackContext: DraftFallbackContext = {
@@ -494,6 +547,8 @@ export async function POST(request: Request) {
     studentFirstName: studentNameForPayload || undefined,
     studentPronounPreference: resolvedPronounPreference,
     teacherSignatureName,
+    greeting: providerGreeting,
+    greetingFinal: hasFinalGreeting,
   }
   const finalizeDraft = (text: string) => {
     let curated = enforcePronouns(text, resolvedPronounPreference)

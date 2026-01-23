@@ -2,6 +2,7 @@ import { generateDraft, ProviderMeta, ProviderResult } from "@/lib/ai/provider"
 import type { PronounPreference } from "@/lib/types"
 import { DraftMode } from "@/lib/types"
 import { buildStudentInstruction, buildStudentNameForFallback } from "@/lib/draft/student-policy"
+import type { GreetingSource, NameConfidenceLevel } from "@/lib/draft/greeting-resolution"
 
 export const ALLOWED_TONES = ["warm", "professional", "direct", "empathetic"] as const
 export const ALLOWED_LANGUAGES = ["en", "de"] as const
@@ -17,6 +18,11 @@ interface DraftFallbackContext {
   studentFirstName?: string
   studentPronounPreference: PronounPreference
   teacherSignatureName?: string
+  greeting?: {
+    text: string
+    name?: string
+  }
+  greetingFinal?: boolean
 }
 
 function buildClosingBlock(language: LanguageKey, teacherSignatureName?: string) {
@@ -128,6 +134,14 @@ export function buildFallbackDraft(context: DraftFallbackContext) {
   const nameLine = buildNameLine(context, studentProps)
   const instruction = buildInstructionLine(context, studentProps)
   const closingBlock = buildClosingBlock(context.language, context.teacherSignatureName)
+  const finalGreetingLine = context.greetingFinal && context.greeting?.text?.trim()
+  if (finalGreetingLine) {
+    // Final greeting - do not override
+    if (context.mode === "parent_message") {
+      return `${langCopy.subject}\n${finalGreetingLine}\n${nameLine}\n${instruction}\n${toneText.parent}\n${langCopy.nextStep}\n${closingBlock}`
+    }
+    return `${finalGreetingLine}\n${nameLine}\n${instruction}\n${toneText.report} ${langCopy.reportSuffix}`
+  }
   if (context.mode === "parent_message") {
     return `${langCopy.subject}\n${langCopy.parentGreeting}\n${nameLine}\n${instruction}\n${toneText.parent}\n${langCopy.nextStep}\n${closingBlock}`
   }
@@ -153,6 +167,15 @@ interface ProviderRequestInput {
   forceLanguage?: boolean
   uiLocale?: string
   teacherSignatureName?: string
+  greeting?: {
+    text: string
+    name?: string
+  }
+  greetingFinal?: boolean
+  greetingConfidence?: NameConfidenceLevel
+  greetingSource?: GreetingSource
+  messageType?: string
+  scanId?: string
 }
 
 interface ProviderFallbackResult {
