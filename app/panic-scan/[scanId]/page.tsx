@@ -15,6 +15,144 @@ const MIN_CLEANED_CHARS = 120
 const MIN_CLEANED_LINES = 2
 const MIN_CLEAN_CONFIDENCE = 0.6
 
+type ClassificationAccent = {
+  borderClass: string
+  badgeClass: string
+  valueClass: string
+  badgeText?: string
+}
+
+type ClassificationTile = {
+  key: string
+  displayValue: string
+  accent: ClassificationAccent
+}
+
+type SeverityKey = "high" | "medium" | "low" | "calm" | "neutral"
+
+const CLASSIFICATION_LABELS: Record<string, string> = {
+  messageType: "Message type",
+  emotionalTone: "Emotional tone",
+  riskLevel: "Risk level",
+  urgency: "Urgency",
+  confidenceScore: "Confidence score",
+}
+
+const SEVERITY_STYLES: Record<SeverityKey, ClassificationAccent> = {
+  high: {
+    borderClass: "border-l-4 border-rose-500/80",
+    badgeClass: "bg-rose-500/10 text-rose-200 border border-rose-500/30",
+    valueClass: "text-rose-100",
+  },
+  medium: {
+    borderClass: "border-l-4 border-amber-400/80",
+    badgeClass: "bg-amber-500/10 text-amber-200 border border-amber-400/30",
+    valueClass: "text-amber-100",
+  },
+  low: {
+    borderClass: "border-l-4 border-emerald-500/80",
+    badgeClass: "bg-emerald-500/10 text-emerald-200 border border-emerald-500/30",
+    valueClass: "text-emerald-100",
+  },
+  calm: {
+    borderClass: "border-l-4 border-teal-500/80",
+    badgeClass: "bg-teal-500/10 text-teal-200 border border-teal-500/30",
+    valueClass: "text-teal-100",
+  },
+  neutral: {
+    borderClass: "border-l-4 border-slate-500/60",
+    badgeClass: "bg-white/10 text-white/70 border border-white/10",
+    valueClass: "text-white",
+  },
+}
+
+const HIGH_TONES = new Set(["angry", "frustrated", "passive_aggressive", "demanding"])
+const MEDIUM_TONES = new Set(["anxious"])
+const CALM_TONES = new Set(["supportive", "calm"])
+
+const formatClassificationValue = (key: string, value: string) => {
+  if (key === "confidenceScore") {
+    return `${value}%`
+  }
+  return value
+    .replace(/_/g, " ")
+    .replace(/\b\w/g, (char) => char.toUpperCase())
+}
+
+const getToneSeverity = (value: string): SeverityKey => {
+  const normalized = value.toLowerCase()
+  if (HIGH_TONES.has(normalized)) {
+    return "high"
+  }
+  if (MEDIUM_TONES.has(normalized)) {
+    return "medium"
+  }
+  if (CALM_TONES.has(normalized)) {
+    return "calm"
+  }
+  return "neutral"
+}
+
+const toSeverityKey = (value: string): SeverityKey => {
+  const normalized = value.toLowerCase()
+  if (normalized === "high") {
+    return "high"
+  }
+  if (normalized === "medium") {
+    return "medium"
+  }
+  return "low"
+}
+
+const getClassificationAccent = (key: string, value: string): ClassificationAccent => {
+  if (key === "urgency" || key === "riskLevel") {
+    const severity = toSeverityKey(value)
+    return {
+      ...SEVERITY_STYLES[severity],
+      badgeText: `${value.charAt(0).toUpperCase()}${value.slice(1)} priority`,
+    }
+  }
+  if (key === "confidenceScore") {
+    const numericValue = Number(value)
+    const severity =
+      Number.isNaN(numericValue) || numericValue < 70
+        ? "low"
+        : numericValue >= 85
+        ? "high"
+        : "medium"
+    return {
+      ...SEVERITY_STYLES[severity],
+      badgeText: `${severity.charAt(0).toUpperCase()}${severity.slice(1)} confidence`,
+    }
+  }
+  if (key === "emotionalTone") {
+    const severity = getToneSeverity(value)
+    const toneLabel =
+      severity === "calm"
+        ? "Calm tone"
+        : severity === "neutral"
+        ? "Neutral tone"
+        : severity === "high"
+        ? "High-alert tone"
+        : "Elevated tone"
+    return {
+      ...SEVERITY_STYLES[severity],
+      badgeText: toneLabel,
+    }
+  }
+  if (key === "messageType") {
+    return {
+      ...SEVERITY_STYLES.neutral,
+      badgeText: "Message classification",
+      badgeClass: "bg-slate-700/20 text-white/80 border border-slate-500/40",
+    }
+  }
+  return {
+    ...SEVERITY_STYLES.neutral,
+    badgeClass: "bg-white/10 text-white/70 border border-white/10",
+    badgeText: undefined,
+  }
+}
 type ScanStatus = "processing" | "completed" | "failed"
 
 interface PanicScanAnalysis {
@@ -103,16 +241,19 @@ export default function PanicScanResultPage() {
     }
   }, [scanId, getIdToken, t])
 
-  const classificationList = useMemo(
-    () =>
-      scan?.classification
-        ? Object.entries(scan.classification).map(([key, value]) => ({
-            label: key,
-            value: typeof value === "number" ? value.toFixed(0) : String(value),
-          }))
-        : [],
-    [scan?.classification],
-  )
+  const classificationList = useMemo<ClassificationTile[]>(() => {
+    if (!scan?.classification) {
+      return []
+    }
+    return Object.entries(scan.classification).map(([key, value]) => {
+      const stringValue = typeof value === "number" ? value.toFixed(0) : String(value)
+      return {
+        key,
+        displayValue: formatClassificationValue(key, stringValue),
+        accent: getClassificationAccent(key, stringValue),
+      }
+    })
+  }, [scan?.classification])
 
   const statusLabel = useMemo(() => {
     if (!scan?.status) {
@@ -339,12 +480,27 @@ export default function PanicScanResultPage() {
 
             {classificationList.length > 0 && (
               <div className="grid gap-4 md:grid-cols-2">
-                {classificationList.map((item) => (
-                  <div key={item.label} className="rounded-2xl border border-white/10 bg-white/5 p-4">
-                    <p className="text-xs text-white/60 uppercase tracking-[0.3em]">{item.label}</p>
-                    <p className="text-lg font-semibold">{item.value}</p>
-                  </div>
-                ))}
+                {classificationList.map((item) => {
+                  const label = CLASSIFICATION_LABELS[item.key] ?? item.key
+                  return (
+                    <article
+                      key={item.key}
+                      className={`rounded-2xl border border-white/10 bg-white/5 p-4 space-y-2 ${item.accent.borderClass}`}
+                    >
+                      <div className="flex items-center justify-between gap-3">
+                        <p className="text-xs uppercase tracking-[0.3em] text-white/60">{label}</p>
+                        {item.accent.badgeText && (
+                          <span
+                            className={`rounded-full px-2 py-0.5 text-[11px] font-semibold uppercase tracking-[0.2em] ${item.accent.badgeClass}`}
+                          >
+                            {item.accent.badgeText}
+                          </span>
+                        )}
+                      </div>
+                      <p className={`text-2xl font-semibold ${item.accent.valueClass}`}>{item.displayValue}</p>
+                    </article>
+                  )
+                })}
               </div>
             )}
 

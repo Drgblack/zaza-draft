@@ -11,6 +11,7 @@ import { cn } from "@/lib/utils"
 import type { Document } from "@/lib/types"
 import { useI18n } from "./providers/i18n-provider"
 import Image from "next/image"
+import Link from "next/link"
 
 interface LeftNavProps {
   documents: Document[]
@@ -42,13 +43,19 @@ export function LeftNav({ documents, currentDocId, onDocumentSelect, onCollapse 
       >
         <div className="p-4 border-b border-border">
           <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-3">
-              <Image src="/z-logo.png" alt="Zaza Draft Logo" width={40} height={40} className="rounded-lg" />
-              <div>
-                <h2 className="text-xl font-semibold text-primary">Zaza Draft</h2>
-                <p className="text-xs text-muted-foreground">by Zaza Technologies</p>
-              </div>
-            </div>
+          <div className="flex items-center gap-3">
+            <Image src="/z-logo.png" alt="Zaza Draft Logo" width={40} height={40} className="rounded-lg" />
+            <Link
+              href="/"
+              aria-label="Go to the Zaza Draft editor"
+              className="flex flex-col gap-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 focus-visible:ring-offset-transparent"
+            >
+              <span className="text-xl font-semibold text-primary transition-colors hover:text-primary/80 focus-visible:text-primary/90">
+                Zaza Draft
+              </span>
+              <span className="text-xs text-muted-foreground">by Zaza Technologies</span>
+            </Link>
+          </div>
             <Button variant="ghost" size="icon" onClick={onCollapse} aria-label="Collapse navigation panel">
               <ChevronLeft className="h-4 w-4" />
             </Button>

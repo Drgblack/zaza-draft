@@ -119,7 +119,7 @@ export const localeMessages: Record<Locale, LocaleMessages> = {
     panicScanResultCopyButton: "Copy cleaned message",
     panicScanResultExpandLabel: "Expand message",
     panicScanResultCollapseLabel: "Collapse message",
-    panicScanReturnNote: "Continuing from Panic Scan—your draft is ready.",
+    panicScanReturnNote: "Continuing from Panic Scan—your draft is ready in the editor.",
     panicScanResultInvalidId: "Invalid scan identifier.",
     panicScanResultAuthError: "Sign in again to view this scan.",
     panicScanResultLoadError: "Unable to load scan.",
@@ -193,7 +193,7 @@ export const localeMessages: Record<Locale, LocaleMessages> = {
     voiceSessionRewriteError: "Unable to create a safe rewrite.",
     docsTitle: "Documentation",
     docsDescription: "Find product and technical documentation related to Zaza Draft.",
-    docsLinkLabel: "View the technical specification",
+    docsLinkLabel: "View the Voice-to-Calm guide",
     docsSectionLabelInput: "Zero-cognitive-load inputs",
     docsSectionPanicScanTitle: "Panic Scan workflow",
     docsSectionPanicScanDescription:
@@ -202,24 +202,6 @@ export const localeMessages: Record<Locale, LocaleMessages> = {
     docsSectionVoiceDescription:
       "Record a 90-second note, analyze emotions, and generate a safe rewrite to continue in the editor.",
     docsSpecBackLink: "Back to documentation overview",
-    docsPanicSpecTitle: "Panic Scan technical specification",
-    docsPanicSpecOverview:
-      "Panic Scan securely ingests screenshots, classifies risk, and proposes a calm reply recommendation.",
-    docsPanicSpecInputs: "Inputs",
-    docsPanicSpecInputsDetail:
-      "Upload JPG, PNG, or HEIC screenshots (no PDFs). We validate file size and MIME type before processing.",
-    docsPanicSpecProcessing: "Processing pipeline",
-    docsPanicSpecProcessingDetail:
-      "OCR runs directly on raw bytes via Google Vision, then AI analyzes tone and suggests a response.",
-    docsPanicSpecPrivacy: "Privacy",
-    docsPanicSpecPrivacyDetail:
-      "Only extracted text and metadata persist for 24h; images are dropped unless storage is configured.",
-    docsPanicSpecFailureModes: "Failure modes",
-    docsPanicSpecFailureModesDetail:
-      "Rate limits, missing OCR/AI keys, or bucket issues surface structured diagnostics in the UI.",
-    docsPanicSpecConfig: "Required configuration",
-    docsPanicSpecConfigDetail:
-      "Set GOOGLE_VISION_API_KEY and OPENAI_API_KEY; FIREBASE_STORAGE_BUCKET is optional for persistence.",
     docsVoiceSpecTitle: "Voice-to-Calm technical specification",
     docsVoiceSpecOverview:
       "Record up to 90 seconds, transcribe via Google Speech-to-Text, and analyze tone before rewriting safely.",
@@ -1457,7 +1439,7 @@ export const localeMessages: Record<Locale, LocaleMessages> = {
     panicScanResultCopyButton: "Bereinigte Nachricht kopieren",
     panicScanResultExpandLabel: "Nachricht erweitern",
     panicScanResultCollapseLabel: "Nachricht einklappen",
-    panicScanReturnNote: "Weiterleitung von Panic Scan – dein Entwurf ist bereit.",
+    panicScanReturnNote: "Weiterleitung von Panic Scan – dein Entwurf wartet im Editor.",
     panicScanResultInvalidId: "Ungültige Scan-ID.",
     panicScanResultAuthError: "Bitte melden Sie sich erneut an, um diesen Scan zu sehen.",
     panicScanResultLoadError: "Scan konnte nicht geladen werden.",
@@ -1531,7 +1513,7 @@ export const localeMessages: Record<Locale, LocaleMessages> = {
     voiceSessionRewriteError: "Umschreibung konnte nicht erstellt werden.",
     docsTitle: "Dokumentation",
     docsDescription: "Finden Sie Produkt- und technische Dokumentation zu Zaza Draft.",
-    docsLinkLabel: "Technische Spezifikation ansehen",
+    docsLinkLabel: "Voice-to-Calm-Leitfaden anzeigen",
     docsSectionLabelInput: "Eingaben ohne kognitive Last",
     docsSectionPanicScanTitle: "Panic Scan Workflow",
     docsSectionPanicScanDescription:
@@ -1540,24 +1522,6 @@ export const localeMessages: Record<Locale, LocaleMessages> = {
     docsSectionVoiceDescription:
       "90 Sekunden Sprachnotiz aufnehmen, Emotionen analysieren und eine sichere Umschreibung erstellen.",
     docsSpecBackLink: "Zurück zur Dokumentationsübersicht",
-    docsPanicSpecTitle: "Panic Scan technische Spezifikation",
-    docsPanicSpecOverview:
-      "Panic Scan verarbeitet Screenshots sicher, klassifiziert Risiken und schlägt eine ruhige Antwort vor.",
-    docsPanicSpecInputs: "Eingaben",
-    docsPanicSpecInputsDetail:
-      "Laden Sie JPG-, PNG- oder HEIC-Screenshots hoch (keine PDFs). Größe und MIME-Typ werden geprüft.",
-    docsPanicSpecProcessing: "Verarbeitungspipeline",
-    docsPanicSpecProcessingDetail:
-      "OCR läuft über Google Vision auf den Rohdaten, danach analysiert KI den Ton und schlägt eine Antwort vor.",
-    docsPanicSpecPrivacy: "Datenschutz",
-    docsPanicSpecPrivacyDetail:
-      "Text und Metadaten bleiben 24 Stunden, Bilder werden verworfen, wenn kein Speicher konfiguriert ist.",
-    docsPanicSpecFailureModes: "Fehlerfälle",
-    docsPanicSpecFailureModesDetail:
-      "Rate Limits, fehlende OCR/AI-Keys oder Bucket-Probleme zeigen strukturierte Diagnosen.",
-    docsPanicSpecConfig: "Erforderliche Konfiguration",
-    docsPanicSpecConfigDetail:
-      "Setzen Sie GOOGLE_VISION_API_KEY und OPENAI_API_KEY; FIREBASE_STORAGE_BUCKET ist optional.",
     docsVoiceSpecTitle: "Voice-to-Calm technische Spezifikation",
     docsVoiceSpecOverview:
       "Bis zu 90 Sekunden aufzeichnen, Google Speech-to-Text transkribieren lassen und den Ton analysieren, bevor eine sichere Umschreibung erstellt wird.",

@@ -249,7 +249,6 @@ export function MainEditor() {
   const [draftMetadata, setDraftMetadata] = useState<any>(null)
   const [draftStructure, setDraftStructure] = useState<DraftStructure | null>(null)
   const [deescalationSummary, setDeescalationSummary] = useState<DeescalationSummary | null>(null)
-  const [isEditing, setIsEditing] = useState(false)
   const [subject, setSubject] = useState("")
   const [gradeLevel, setGradeLevel] = useState("")
   const [studentFirstNameInput, setStudentFirstNameInput] = useState("")
@@ -321,6 +320,7 @@ export function MainEditor() {
     textareaRef.current?.focus()
   }, [])
   const [prefillApplied, setPrefillApplied] = useState(false)
+  const [panicScanReturnHandled, setPanicScanReturnHandled] = useState(false)
   const adjustTextareaHeight = useCallback(() => {
     const el = textareaRef.current
     if (!el) return
@@ -357,6 +357,18 @@ export function MainEditor() {
 
     setPrefillApplied(true)
   }, [content, prefillApplied])
+
+  useEffect(() => {
+    if (!isReturningFromPanicScan || panicScanReturnHandled) {
+      return
+    }
+    if (!prefillApplied || !content.trim()) {
+      return
+    }
+    textareaRef.current?.scrollIntoView({ behavior: "smooth", block: "center" })
+    focusEditor()
+    setPanicScanReturnHandled(true)
+  }, [content, focusEditor, isReturningFromPanicScan, panicScanReturnHandled, prefillApplied])
 
   useEffect(() => {
     let isMounted = true
@@ -794,8 +806,11 @@ export function MainEditor() {
   }
 
   const handleEditDraft = () => {
-    setIsEditing(true)
-    // TODO: Implement inline editing functionality
+    if (!generatedDraft) {
+      return
+    }
+    setContent(generatedDraft)
+    focusEditor()
   }
 
   const handleRegenerateDraft = () => {
@@ -855,39 +870,39 @@ export function MainEditor() {
 
           <section className="space-y-4">
             <div className="grid gap-3 md:grid-cols-3">
-          {INPUT_MODE_CARD_DEFINITIONS.map((card) => {
-            const Icon = card.icon
-            const title = t(card.titleKey)
-            const description = t(card.descriptionKey)
-            const buttonLabel = t(card.action.labelKey)
-            const tileButtonClass =
-              "w-full rounded-xl bg-indigo-900 px-4 py-3 text-sm font-semibold text-white shadow-lg shadow-black/40 transition duration-200 hover:bg-indigo-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-indigo-400 focus-visible:ring-offset-slate-900 disabled:bg-indigo-600 disabled:text-white/70 disabled:cursor-not-allowed"
-            return (
+            {INPUT_MODE_CARD_DEFINITIONS.map((card) => {
+              const Icon = card.icon
+              const title = t(card.titleKey)
+              const description = t(card.descriptionKey)
+              const buttonLabel = t(card.action.labelKey)
+              const tileButtonClass =
+                "w-full rounded-xl px-4 py-3 text-sm font-semibold transition duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-transparent bg-slate-900 text-white hover:bg-slate-800 disabled:bg-slate-700 disabled:text-white/70 disabled:cursor-not-allowed"
+              return (
                 <article
                   key={card.id}
-                  className="flex flex-col justify-between rounded-2xl border border-white/15 bg-gradient-to-b from-slate-950/80 to-slate-900/60 p-4 text-sm text-white shadow-lg shadow-black/40 backdrop-blur"
+                  className="flex flex-col justify-between rounded-2xl border border-white/30 bg-white/90 p-4 text-sm text-slate-900 shadow-lg shadow-black/30 backdrop-blur transition duration-200 hover:-translate-y-0.5 dark:border-white/20 dark:bg-white/10 dark:text-white"
                 >
-                <div className="space-y-2">
-                  <Icon className="h-6 w-6 text-purple-300" aria-hidden="true" />
-                  <p className="text-base font-semibold text-white">{title}</p>
-                  <p className="text-xs text-white/70">{description}</p>
-                </div>
-                <div>
-                  {card.action.type === "focus" ? (
-                    <Button size="sm" variant="ghost" onClick={focusEditor} className={tileButtonClass}>
-                      {buttonLabel}
-                    </Button>
-                  ) : (
-                    <Link href={card.action.href}>
-                      <Button size="sm" variant="ghost" className={tileButtonClass}>
+                  <div className="space-y-2">
+                    <Icon className="h-6 w-6 text-indigo-600 dark:text-purple-300" aria-hidden="true" />
+                    <p className="text-base font-semibold">{title}</p>
+                    <p className="text-xs text-slate-600 dark:text-white/70">{description}</p>
+                  </div>
+                  <div>
+                    {card.action.type === "focus" ? (
+                      <Button size="sm" variant="ghost" onClick={focusEditor} className={tileButtonClass}>
                         {buttonLabel}
                       </Button>
-                    </Link>
-                  )}
-                </div>
-              </article>
-            )
-          })}
+                    ) : (
+                      <Link href={card.action.href}>
+                        <Button size="sm" variant="ghost" className={tileButtonClass}>
+                          {buttonLabel}
+                        </Button>
+                      </Link>
+                    )}
+                  </div>
+                </article>
+              )
+            })}
             </div>
             <section className="glass shadow-lg rounded-xl p-6 sm:p-8 transition-all duration-200 border border-white/40 dark:border-white/30 bg-white/90 dark:bg-white/15 backdrop-blur-[32px]">
               <textarea
