@@ -42,6 +42,25 @@ If you prefer pointing to the JSON file instead of inlining it:
 * Set `FIREBASE_PROJECT_ID` for server-only usage. If you need the project ID in the browser, also set `NEXT_PUBLIC_FIREBASE_PROJECT_ID`.
 * The server throws an error at startup if neither is defined, so check the message before running `pnpm dev`.
 
+## 5. Authorize Vercel domains for Google sign-in
+
+1. Open the Firebase Console → Authentication → Settings → Authorized domains.
+2. Add every host that teachers might hit:
+   * `localhost`
+   * `localhost:3000`
+   * `zaza-draft-28d67g61r.vercel.app` (active preview build)
+   * `zaza-draft.vercel.app` (production alias)
+   * Any other custom domain you publish the app under (e.g., `your-school.zazadraft.com`).
+3. If you’re unsure which domains to add, open Vercel → Deployments → your project and copy the `Preview` / `Production` URLs shown at the top; paste those exact hostnames into the authorized list.
+
+Unauthorized-domain errors show up before the Google popup closes; keep an eye on your browser console while signing in and make sure there are no `auth/unauthorized-domain` messages.
+
+## 6. Prod sanity check
+
+1. Deploy to Vercel (production or preview), open the live site, and sign in with Google.
+2. After sign-in completes, call `/api/bootstrap` (via the UI or `curl https://<your-domain>/api/bootstrap` with the Google token) and confirm it returns `200`.
+3. Watch the server logs or terminal for `metadata.google.internal` requests; the Firebase Admin SDK should not print any metadata lookup errors anymore.
+4. If either step fails, re-check the authorized domains list, ensure the service account credentials are available to the server, and verify `FIREBASE_PROJECT_ID` plus credentials are set before rerunning the build.
 ## 5. Troubleshooting
 
 * If you see `Missing FIREBASE_SERVICE_ACCOUNT_JSON or GOOGLE_APPLICATION_CREDENTIALS` in your logs, set one of the credentials variables.

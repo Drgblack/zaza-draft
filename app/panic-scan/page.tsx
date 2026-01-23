@@ -382,12 +382,6 @@ export default function PanicScanPage() {
 
         <div className="space-y-1 text-sm text-white/70">
           <p>{t("panicScanExpiryNote")}</p>
-          <p>
-            {t("panicScanDocsLink")}{" "}
-            <Link href="/docs/panic-scan" className="underline">
-              {t("docsLinkLabel")}
-            </Link>
-          </p>
         </div>
 
       </div>
