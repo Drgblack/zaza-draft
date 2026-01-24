@@ -306,8 +306,39 @@ describe("/api/draft/generate greeting handoff", () => {
     const response = await POST(request)
     expect(response.status).toBe(200)
     const json = await response.json()
+    expect(json.success).toBe(true)
     expect(json.data?.metadata?.userId).toBe("dev-user")
+    expect(response.headers.get("x-request-id")).toBeTruthy()
     expect(authorizeFirebaseRequest).not.toHaveBeenCalled()
+  })
+
+  it("returns a structured validation error when payload fields are invalid", async () => {
+    const payload = {
+      situation: 123,
+      tone: "professional",
+      language: "de",
+      mode: "parent_message",
+    }
+    const request = new Request("https://example.com/api/draft/generate", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: "Bearer token",
+      },
+      body: JSON.stringify(payload),
+    })
+
+    const response = await POST(request)
+    expect(response.status).toBe(422)
+    const json = await response.json()
+    expect(json).toEqual({
+      success: false,
+      error: {
+        code: "VALIDATION",
+        message: "The situation field must be text.",
+      },
+    })
+    expect(response.headers.get("x-request-id")).toBeTruthy()
   })
 
   it("preserves titles such as Dr. Markus Schneider in the greeting", async () => {

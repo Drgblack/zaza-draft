@@ -1,21 +1,23 @@
 ﻿import { NextResponse } from "next/server"
-import { authorizeFirebaseRequest, FirebaseAuthorizationError } from "@/lib/firebase/server"
 import {
   detectSensitiveContent,
   detectBlockedLanguage,
   reframeBlockedLanguage,
   BlockedLanguageTier,
 } from "@/lib/safety"
-import { logServerEvent } from "@/lib/analytics"
-import { buildUsageResponse, incrementUsage, MonthlyUsageRecord } from "@/lib/usage"
-import { getUserEntitlements } from "@/lib/entitlements"
 import type { DraftLanguage, DraftMode, PronounPreference } from "@/lib/types"
 import { generateDraft, ProviderMeta, ProviderResult } from "@/lib/ai/provider"
 import { enforcePronouns, inferPronounResolution } from "@/lib/text/pronouns"
 import { enforceDraftRateLimit, RateLimitError } from "@/lib/rate-limit"
-import { createHash } from "crypto"
-import { FieldValue } from "firebase-admin/firestore"
+import { createHash, randomUUID } from "crypto"
 import { resolveDraftMode } from "@/lib/draft-mode"
+import {
+  buildUsageResponse,
+  incrementUsage,
+  type MonthlyUsageRecord,
+} from "@/lib/usage"
+import { logServerEvent } from "@/lib/analytics"
+import { getUserEntitlements } from "@/lib/entitlements"
 import {
   ALLOWED_TONES,
   DraftFallbackContext,
@@ -52,7 +54,6 @@ import {
   scoreSafeName,
   type NameConfidenceLevel,
 } from "@/lib/draft/greeting-resolution"
-import { getFirebaseAdmin } from "@/lib/firebase/admin"
 
 const TONE_DESCRIPTIONS: Record<ToneKey, string> = {
   warm: "Warm & Encouraging",
@@ -302,13 +303,9 @@ function resolveGreetingFromRawText(
 
 function buildUsageLimitError(usage: ReturnType<typeof buildUsageResponse>) {
   return {
-    success: false,
+    message: "You have reached your monthly draft limit. Upgrade to unlock Draft Pro for unlimited generations.",
     data: {
       usage,
-    },
-    error: {
-      code: "USAGE_LIMIT_EXCEEDED",
-      message: "You have reached your monthly draft limit. Upgrade to unlock Draft Pro for unlimited generations.",
     },
   }
 }
@@ -338,25 +335,57 @@ async function reRunWithRewrite(
 }
 
 export async function POST(request: Request) {
-  const requestedAt = new Date()
-  const requestStart = Date.now()
-  const requestUrl = new URL(request.url)
-
-  let payload: GenerateDraftRequest
-  try {
-    payload = await request.json()
-  } catch (error) {
-    return NextResponse.json(
-      {
-        success: false,
-        error: {
-          code: "INVALID_JSON",
-          message: "Payload must be JSON.",
-        },
-      },
-      { status: 400 },
-    )
+  const requestId = randomUUID()
+  const responseHeaders = {
+    "x-request-id": requestId,
   }
+  const ok = (data: unknown, status = 200) =>
+    NextResponse.json({ success: true, data }, { status, headers: responseHeaders })
+  const fail = (
+    status: number,
+    code: string,
+    message: string,
+    extra?: Record<string, unknown>,
+  ) => {
+    const payload: Record<string, unknown> = {
+      success: false,
+      error: {
+        code,
+        message,
+      },
+    }
+    if (extra) {
+      const { error: extraError, ...rest } = extra
+      if (extraError && typeof extraError === "object") {
+        payload.error = {
+          ...payload.error,
+          ...extraError,
+        }
+      }
+      Object.assign(payload, rest)
+    }
+    return NextResponse.json(payload, { status, headers: responseHeaders })
+  }
+
+  try {
+    const requestedAt = new Date()
+    const requestStart = Date.now()
+    const requestUrl = new URL(request.url)
+
+    let payload: GenerateDraftRequest
+    try {
+      payload = await request.json()
+    } catch (error) {
+      return fail(400, "INVALID_JSON", "Payload must be JSON.")
+    }
+
+    if (!payload || typeof payload !== "object") {
+      return fail(422, "VALIDATION", "Payload must be a JSON object.")
+    }
+
+    if (payload.situation !== undefined && typeof payload.situation !== "string") {
+      return fail(422, "VALIDATION", "The situation field must be text.")
+    }
 
   const situation = typeof payload?.situation === "string" ? payload.situation.trim() : ""
   const promptTooLong = situation.length > 2000
@@ -451,68 +480,23 @@ export async function POST(request: Request) {
   })
 
   if (mode === null) {
-    return NextResponse.json(
-      {
-        success: false,
-        error: {
-          code: "INVALID_MODE",
-          message: "Please select a valid mode option.",
-        },
-      },
-      { status: 400 },
-    )
+    return fail(400, "INVALID_MODE", "Please select a valid mode option.")
   }
 
   if (promptTooLong) {
-    return NextResponse.json(
-      {
-        success: false,
-        error: {
-          code: "PROMPT_TOO_LONG",
-          message: "Please keep prompts under 2000 characters.",
-        },
-      },
-      { status: 400 },
-    )
+    return fail(400, "PROMPT_TOO_LONG", "Please keep prompts under 2000 characters.")
   }
 
   if (!situation) {
-    return NextResponse.json(
-      {
-        success: false,
-        error: {
-          code: "MISSING_INPUT",
-          message: "Please describe the classroom situation before generating a draft.",
-        },
-      },
-      { status: 400 },
-    )
+    return fail(400, "MISSING_INPUT", "Please describe the classroom situation before generating a draft.")
   }
 
   if (!tone || !ALLOWED_TONES.includes(tone)) {
-    return NextResponse.json(
-      {
-        success: false,
-        error: {
-          code: "INVALID_TONE",
-          message: "Select one of the supported tone options.",
-        },
-      },
-      { status: 400 },
-    )
+    return fail(400, "INVALID_TONE", "Select one of the supported tone options.")
   }
 
   if (!language) {
-    return NextResponse.json(
-      {
-        success: false,
-        error: {
-          code: "INVALID_LANGUAGE",
-          message: "Language must be English or German (EN/DE).",
-        },
-      },
-      { status: 400 },
-    )
+    return fail(400, "INVALID_LANGUAGE", "Language must be English or German (EN/DE).")
   }
 
   const pronounPreference = parsePronounPreference(payload?.pronounPreference)
@@ -523,49 +507,31 @@ export async function POST(request: Request) {
   )
   const resolvedPronounPreference = pronounResolution.resolvedPreference
 
-  let authContext
-  const bypassHeader = request.headers.get(DEV_BYPASS_HEADER)
-  const allowDevBypass = DEV_ENV_ALLOWED.has(process.env.NODE_ENV ?? "")
-  if (allowDevBypass && bypassHeader === "1") {
-    const firebaseAdmin = getFirebaseAdmin()
-    if (!firebaseAdmin.firestore) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: {
-            code: "FIRESTORE_UNAVAILABLE",
-            message: "Unable to access Firestore.",
-          },
-        },
-        { status: 500 },
+    const bypassHeader = request.headers.get(DEV_BYPASS_HEADER)
+    const devBypassActive = DEV_ENV_ALLOWED.has(process.env.NODE_ENV ?? "") && bypassHeader === "1"
+    let authContext
+    if (devBypassActive) {
+      authContext = {
+        uid: DEV_BYPASS_UID,
+        auth: null,
+        firestore: null,
+        storage: null,
+      }
+    } else {
+      const { authorizeFirebaseRequest, FirebaseAuthorizationError } = await import(
+        "@/lib/firebase/server",
       )
+      try {
+        authContext = await authorizeFirebaseRequest(request)
+      } catch (error) {
+        const status =
+          error instanceof FirebaseAuthorizationError ? error.statusCode : 401
+        return fail(status, "UNAUTHORIZED", (error as Error).message || "Unauthorized")
+      }
     }
-    authContext = {
-      uid: DEV_BYPASS_UID,
-      auth: firebaseAdmin.auth,
-      firestore: firebaseAdmin.firestore,
-      storage: firebaseAdmin.storage,
-    }
-  } else {
-    try {
-      authContext = await authorizeFirebaseRequest(request)
-    } catch (error) {
-      const status =
-        error instanceof FirebaseAuthorizationError ? error.statusCode : 401
-      return NextResponse.json(
-        {
-          success: false,
-          error: {
-            code: "UNAUTHORIZED",
-            message: (error as Error).message || "Unauthorized",
-          },
-        },
-        { status },
-      )
-    }
-  }
 
   const { uid, firestore } = authContext
+  const isDevBypassRequest = devBypassActive
   const uidHash = createHash("sha256").update(uid).digest("hex").slice(0, 12)
   const logDraftOutcome = (
     outcomeCode: string,
@@ -580,27 +546,48 @@ export async function POST(request: Request) {
       ...extras,
     })
   }
-  if (!firestore) {
-    return NextResponse.json(
-      {
-        success: false,
-        error: {
-          code: "FIRESTORE_UNAVAILABLE",
-          message: "Unable to access Firestore.",
-        },
-      },
-      { status: 500 },
-    )
+  const maybeLogServerEvent = (eventName: string, payload: Record<string, unknown>) => {
+    if (!isDevBypassRequest) {
+      logServerEvent(eventName, payload)
+    }
+  }
+  if (!firestore && !isDevBypassRequest) {
+    return fail(500, "FIRESTORE_UNAVAILABLE", "Unable to access Firestore.")
+  }
+  let FieldValue: typeof import("firebase-admin/firestore").FieldValue | null = null
+  if (firestore) {
+    const firestoreModule = await import("firebase-admin/firestore")
+    FieldValue = firestoreModule.FieldValue
   }
   const isQaUser = isInternalQaUid(uid)
-  const entitlements = await getUserEntitlements(uid, firestore)
-  const { plan, usage: initialUsage, usageRecord, isProSubscriber } = entitlements
-  const enforceUsageLimits = shouldRespectUsageLimit(uid)
+  const defaultUsage = {
+    currentMonthUsage: 0,
+    limit: null,
+    remaining: null,
+  }
+  const defaultUsageRecord = { generationCount: 0 }
+  const {
+    plan,
+    usage: initialUsage,
+    usageRecord,
+    isProSubscriber,
+  } = isDevBypassRequest
+    ? {
+        plan: "dev",
+        usage: defaultUsage,
+        usageRecord: defaultUsageRecord,
+        isProSubscriber: false,
+      }
+    : await getUserEntitlements(uid, firestore)
+  const enforceUsageLimits = isDevBypassRequest ? false : shouldRespectUsageLimit(uid)
 
-  const userRef = firestore.collection("users").doc(uid)
-  const diagnosticsRef = userRef.collection("diagnostics").doc("status")
-  const insightsSummaryRef = userRef.collection("insights").doc("summary")
+  const userRef = firestore ? firestore.collection("users").doc(uid) : null
+  const diagnosticsRef = userRef?.collection("diagnostics").doc("status") ?? null
+  const insightsSummaryRef = userRef?.collection("insights").doc("summary") ?? null
   const recordDiagnostic = async (fields: Record<string, unknown>) => {
+    if (!diagnosticsRef || !FieldValue) {
+      return
+    }
     try {
       await diagnosticsRef.set({ ...fields, updatedAt: FieldValue.serverTimestamp() }, { merge: true })
     } catch (error) {
@@ -608,34 +595,34 @@ export async function POST(request: Request) {
     }
   }
 
-  if (enforceUsageLimits && plan === "free" && initialUsage.remaining !== null && initialUsage.remaining <= 0) {
-    logServerEvent("draft_generation_denied_limit", { uid, plan })
+  if (
+    !isDevBypassRequest &&
+    enforceUsageLimits &&
+    plan === "free" &&
+    initialUsage.remaining !== null &&
+    initialUsage.remaining <= 0
+  ) {
+    maybeLogServerEvent("draft_generation_denied_limit", { uid, plan })
     logDraftOutcome("RATE_LIMITED", { errorCode: "USAGE_LIMIT_EXCEEDED" })
-    return NextResponse.json(buildUsageLimitError(initialUsage), { status: 429 })
+    const usageLimitError = buildUsageLimitError(initialUsage)
+    return fail(429, "USAGE_LIMIT_EXCEEDED", usageLimitError.message, { data: usageLimitError.data })
   }
 
-  try {
-    await enforceDraftRateLimit(uid, firestore)
-  } catch (error) {
-    if (error instanceof RateLimitError) {
-      logServerEvent("draft_generation_rate_limited", { uid, plan })
-      logDraftOutcome("RATE_LIMITED", { errorCode: "RATE_LIMITED" })
-      void recordDiagnostic({ lastErrorCode: "RATE_LIMITED" })
-      const waitSeconds = Math.ceil(error.retryAfterMs / 1000)
-      return NextResponse.json(
-        {
-          success: false,
-          error: {
-            code: "RATE_LIMITED",
-            message: `You can generate a new draft in ${waitSeconds} seconds.`,
-          },
-        },
-        { status: 429 },
-      )
-    }
+  if (!isDevBypassRequest) {
+    try {
+      await enforceDraftRateLimit(uid, firestore!)
+    } catch (error) {
+      if (error instanceof RateLimitError) {
+        maybeLogServerEvent("draft_generation_rate_limited", { uid, plan })
+        logDraftOutcome("RATE_LIMITED", { errorCode: "RATE_LIMITED" })
+        void recordDiagnostic({ lastErrorCode: "RATE_LIMITED" })
+        const waitSeconds = Math.ceil(error.retryAfterMs / 1000)
+        return fail(429, "RATE_LIMITED", `You can generate a new draft in ${waitSeconds} seconds.`)
+      }
 
-    console.error("[draft] Rate limit transaction failed", error)
-    throw error
+      console.error("[draft] Rate limit transaction failed", error)
+      throw error
+    }
   }
 
   const sanitizedContext = {
@@ -643,9 +630,15 @@ export async function POST(request: Request) {
     gradeLevel: payload.context?.gradeLevel ? payload.context.gradeLevel.trim() : undefined,
   }
 
-  const snippetCollection = firestore.collection("users").doc(uid).collection("snippets")
-  const snippetDoc = snippetCollection.doc()
-  const requestId = snippetDoc.id
+  const snippetCollection = firestore
+    ? firestore.collection("users").doc(uid).collection("snippets")
+    : null
+  const snippetDoc = snippetCollection
+    ? snippetCollection.doc(requestId)
+    : {
+        id: requestId,
+        set: async () => null,
+      }
 
   const detection = detectSensitiveContent(situation)
   let sanitizedSituation = detection.sanitized
@@ -653,62 +646,33 @@ export async function POST(request: Request) {
   if (detection.matches.length > 0) {
     detection.matches.forEach((match) => safetyFlags.add(`input-${match.type}`))
     void recordDiagnostic({ lastErrorCode: "SENSITIVE_CONTENT" })
-    return NextResponse.json(
-      {
-        success: false,
-        data: {
-          redactedPreview: detection.sanitized,
-        },
-        error: {
-          code: "SENSITIVE_CONTENT",
-          message:
-            "Please remove emails, phone numbers, and addresses from the prompt before generating. The redacted preview can guide you.",
-        },
+    return fail(422, "SENSITIVE_CONTENT", "Please remove emails, phone numbers, and addresses from the prompt before generating. The redacted preview can guide you.", {
+      data: {
+        redactedPreview: detection.sanitized,
       },
-      { status: 422 },
-    )
+    })
   }
 
   let currentSituation = sanitizedSituation
   if (!isValidDraftRequest(currentSituation, mode)) {
-    return NextResponse.json(
-      {
-        ok: false,
-        success: false,
-        code: "OUT_OF_SCOPE",
-        message: OUT_OF_SCOPE_REDIRECT_MESSAGE,
-        error: {
-          code: "OUT_OF_SCOPE",
-          message: OUT_OF_SCOPE_REDIRECT_MESSAGE,
-        },
-      },
-      { status: 422 },
-    )
+    return fail(422, "OUT_OF_SCOPE", OUT_OF_SCOPE_REDIRECT_MESSAGE)
   }
   let inputReframed = false
   let inputReframedTier: BlockedLanguageTier | null = null
 
   const sendBlockedLanguageError = (tier: BlockedLanguageTier) => {
-    logServerEvent("draft_generation_blocked_language", { uid, plan, tier })
+    maybeLogServerEvent("draft_generation_blocked_language", { uid, plan, tier })
     logDraftOutcome("INVALID_REQUEST", { errorCode: "BLOCKED_LANGUAGE" })
     void recordDiagnostic({
       lastErrorCode: "BLOCKED_LANGUAGE",
       lastBlockedLanguageTier: tier,
     })
     const blockedResponse = buildBlockedLanguageResponse(tier)
-    return NextResponse.json(
-      {
-        success: false,
-        data: {
-          blockedLanguage: blockedResponse,
-        },
-        error: {
-          code: "BLOCKED_LANGUAGE",
-          message: blockedResponse.message,
-        },
+    return fail(422, "BLOCKED_LANGUAGE", blockedResponse.message, {
+      data: {
+        blockedLanguage: blockedResponse,
       },
-      { status: 422 },
-    )
+    })
   }
 
   const blockedInput = detectBlockedLanguage(currentSituation)
@@ -895,18 +859,15 @@ export async function POST(request: Request) {
   if (outputDetection.matches.length > 0 && detection.matches.length === 0) {
     logDraftOutcome("INVALID_REQUEST", { errorCode: "INVALID_REQUEST" })
     void recordDiagnostic({ lastErrorCode: "INVALID_REQUEST" })
-    return NextResponse.json(
+    return fail(
+      422,
+      "INVALID_REQUEST",
+      "Generated content included sensitive information that cannot be returned.",
       {
-        success: false,
         data: {
           redactedPreview: outputDetection.sanitized,
         },
-        error: {
-          code: "INVALID_REQUEST",
-          message: "Generated content included sensitive information that cannot be returned.",
-        },
       },
-      { status: 422 },
     )
   }
   let blockedDetection = detectBlockedLanguage(generatedDraft)
@@ -942,12 +903,15 @@ export async function POST(request: Request) {
   }
 
   let updatedUsage: MonthlyUsageRecord = usageRecord
-  if (!isQaUser) {
+  if (!isQaUser && !isDevBypassRequest) {
     try {
-      updatedUsage = await incrementUsage(uid, firestore, plan === "pro")
+      updatedUsage = await incrementUsage(uid, firestore!, plan === "pro")
     } catch (error) {
       if (error instanceof Error && error.message === "USAGE_LIMIT_EXCEEDED") {
-        return NextResponse.json(buildUsageLimitError(initialUsage), { status: 429 })
+        const usageLimitError = buildUsageLimitError(initialUsage)
+        return fail(429, "USAGE_LIMIT_EXCEEDED", usageLimitError.message, {
+          data: usageLimitError.data,
+        })
       }
       console.error("[draft] Usage increment failed", error)
       throw error
@@ -997,7 +961,7 @@ export async function POST(request: Request) {
     source: greetingDecision.source,
   }
 
-  logServerEvent("draft_generation", {
+  maybeLogServerEvent("draft_generation", {
     uid,
     plan,
     tone,
@@ -1014,7 +978,9 @@ export async function POST(request: Request) {
   })
 
   let snippetId: string | null = null
-  const usageAfterGeneration = buildUsageResponse(updatedUsage, plan, { unlimited: isQaUser })
+  const usageAfterGeneration = buildUsageResponse(updatedUsage, plan, {
+    unlimited: isQaUser || isDevBypassRequest,
+  })
   console.info("[draft] usage", {
     uid,
     isQaUser,
@@ -1047,12 +1013,12 @@ export async function POST(request: Request) {
 
   try {
     await snippetDoc.set(snippetPayload)
-    logServerEvent("snippet_saved", { uid, snippetId })
+    maybeLogServerEvent("snippet_saved", { uid, snippetId })
   } catch (error) {
     console.error("[draft] Failed to persist snippet", error)
-    logServerEvent("snippet_save_failed", { uid, error: (error as Error).message })
+    maybeLogServerEvent("snippet_save_failed", { uid, error: (error as Error).message })
   }
-  void recordDiagnostic({
+  const diagnosticFields: Record<string, unknown> = {
     lastModelUsed: metadata.modelUsed,
     lastPronounPreference: pronounPreference,
     lastResolvedPronounPreference: resolvedPronounPreference,
@@ -1062,23 +1028,30 @@ export async function POST(request: Request) {
     lastInputReframedTier: inputReframedTier,
     lastErrorCode: null,
     lastUsage: usageAfterGeneration,
-    lastRunAt: FieldValue.serverTimestamp(),
-  })
-  try {
-    await userRef.set({ lastDiagnosticsRunAt: FieldValue.serverTimestamp() }, { merge: true })
-  } catch (error) {
-    console.error("[draft] Failed to update diagnostics timestamp on user doc", error)
   }
-  try {
-    await insightsSummaryRef.set(
-      {
-        draftsCreated: FieldValue.increment(1),
-        lastDraftAt: FieldValue.serverTimestamp(),
-      },
-      { merge: true },
-    )
-  } catch (error) {
-    console.error("[draft] Failed to update insights summary", error)
+  if (FieldValue) {
+    diagnosticFields.lastRunAt = FieldValue.serverTimestamp()
+  }
+  void recordDiagnostic(diagnosticFields)
+  if (userRef && FieldValue) {
+    try {
+      await userRef.set({ lastDiagnosticsRunAt: FieldValue.serverTimestamp() }, { merge: true })
+    } catch (error) {
+      console.error("[draft] Failed to update diagnostics timestamp on user doc", error)
+    }
+  }
+  if (insightsSummaryRef && FieldValue) {
+    try {
+      await insightsSummaryRef.set(
+        {
+          draftsCreated: FieldValue.increment(1),
+          lastDraftAt: FieldValue.serverTimestamp(),
+        },
+        { merge: true },
+      )
+    } catch (error) {
+      console.error("[draft] Failed to update insights summary", error)
+    }
   }
   logDraftOutcome("SUCCESS", {
     latencyMs: generationTime,
@@ -1086,19 +1059,20 @@ export async function POST(request: Request) {
     tokensUsed: providerMeta.tokensUsed,
   })
 
-  return NextResponse.json({
-    success: true,
-    data: {
-      generatedDraft,
-      formattedDraft: formattedDraftStructure,
-      greeting: responseGreeting,
-      metadata,
-      meta: responseMeta,
-      usage: usageAfterGeneration,
-      snippetId,
-      deescalationSummary,
-    },
+  return ok({
+    generatedDraft,
+    formattedDraft: formattedDraftStructure,
+    greeting: responseGreeting,
+    metadata,
+    meta: responseMeta,
+    usage: usageAfterGeneration,
+    snippetId,
+    deescalationSummary,
   })
+  } catch (error) {
+    console.error("[draft] Unexpected error", error)
+    return fail(500, "INTERNAL", "An unexpected error occurred.")
+  }
 }
 
 export async function GET() {
