@@ -47,6 +47,16 @@ describe("resolveGreeting", () => {
     })
     expect(greeting.greeting).toBe("Hello,")
   })
+
+  it("recognizes Mit Nachdruck signing name", () => {
+    const text = "Mit Nachdruck\nFrank Weber\n"
+    const greeting = resolveGreeting({
+      cleanedOcrText: text,
+      locale: "de",
+    })
+    expect(greeting.greeting).toBe("Guten Tag, Frank Weber,")
+    expect(greeting.confidence).toBe("HIGH")
+  })
 })
 
 describe("scoreSafeName", () => {

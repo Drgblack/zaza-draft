@@ -88,10 +88,13 @@ export async function POST(request: NextRequest) {
 
   const requestUrl = new URL(request.url)
   const baseUrl = requestUrl.origin
-  const situation = data.extractedTextClean ?? data.extractedText
+  const rawOcrText = data.extractedText ?? ""
+  const cleanedDisplayText = data.extractedTextClean ?? rawOcrText
+  const textForGreeting = rawOcrText || cleanedDisplayText
+  const situation = cleanedDisplayText
   const resolvedDraftLanguage: LanguageKey = payload.language === "de" ? "de" : "en"
   const greetingResult = resolveGreeting({
-    cleanedOcrText: situation,
+    cleanedOcrText: textForGreeting,
     locale: resolvedDraftLanguage,
     messageType: data?.classification?.messageType ?? null,
   })
@@ -122,6 +125,17 @@ export async function POST(request: NextRequest) {
     greetingFinal,
   }
   if (debugEnabled) {
+    const rawLines = textForGreeting
+      .split("\n")
+      .map((line: string) => line.trim())
+      .filter(Boolean)
+    const rawPreview = rawLines.slice(-4).join(" | ")
+    console.debug("[panic-scan] raw greeting input", {
+      scanId,
+      rawPreview,
+      signatureDetected: Boolean(greetingResult.safeName),
+      textUsedForGreeting: textForGreeting,
+    })
     logGreetingDecision("panic-scan", greetingDecision, requestUrl.searchParams)
   }
   const draftPayload = {
