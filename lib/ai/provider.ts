@@ -41,6 +41,7 @@ interface ProviderInput {
   studentFirstName?: string
   resolvedPronounPreference?: PronounPreference
   forceLanguage?: boolean
+  forceContinuation?: boolean
   signatureBlock?: string
   uiLocale?: string
   greeting?: {
@@ -227,6 +228,12 @@ export function buildSystemPrompt(input: ProviderInput) {
   if (input.uiLocale?.toLowerCase().startsWith("de")) {
     systemLines.push(
       "DE tone contract: avoid moral judgement words such as 'L�gen', 'Ausreden', 'faul', or 'schlecht'; describe behaviour with neutral observations (for example, 'Es gab einige Situationen, in denen...'); frame collaboration with phrases like 'Ich m�chte gemeinsam mit Ihnen' and offer a clear next step such as 'K�nnen wir einen kurzen Termin vereinbaren?'; keep the tone calm, professional, and supportive without sounding accusatory.",
+    )
+  }
+
+  if (input.forceContinuation) {
+    systemLines.push(
+      "This greeting needs a full reply; after the opening line, provide at least three short paragraphs that acknowledge the concern, outline a practical next step, and invite a calm discussion.",
     )
   }
 

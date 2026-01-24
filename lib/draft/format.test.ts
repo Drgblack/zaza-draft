@@ -277,4 +277,11 @@ Thank you for your email.`
     expect(formatted.paragraphs[1]).toContain("Thank you for your message.")
   })
 
+  it("keeps German greeting with comma intact as a single paragraph", () => {
+    const draft = "Guten Tag, Frank Weber,\n\nVielen Dank für Ihre Nachricht."
+    const formatted = formatDraftText(draft, "de-DE")
+    expect(formatted.paragraphs[0]).toBe("Guten Tag, Frank Weber,")
+    expect(formatted.paragraphs.some((para) => para.includes("Vielen Dank für Ihre Nachricht."))).toBe(true)
+  })
+
 })

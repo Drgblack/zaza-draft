@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server"
+﻿import { NextResponse } from "next/server"
 import { authorizeFirebaseRequest, FirebaseAuthorizationError } from "@/lib/firebase/server"
 import {
   detectSensitiveContent,
@@ -116,7 +116,7 @@ function buildContextLine(context?: GenerateDraftRequest["context"]) {
     return ""
   }
 
-  return pieces.join(" · ") + "."
+  return pieces.join(" Â· ") + "."
 }
 
 const GENERIC_GREETING_TEXTS = new Set([
@@ -137,6 +137,72 @@ function containsStrongEnglishSignals(text: string) {
 
 function countWords(text: string) {
   return text.split(/\s+/).filter(Boolean).length
+}
+
+const MIN_BODY_WORDS = 60
+const MIN_BODY_PARAGRAPHS = 2
+const DUPLICATE_GREETING_WINDOW = 5
+
+function removeDuplicateGreeting(body: string, greetingLine?: string | null) {
+  if (!greetingLine) {
+    return body
+  }
+  const normalizedGreeting = greetingLine.trim()
+  if (!normalizedGreeting) {
+    return body
+  }
+  const lines = body.split(/\r?\n/)
+  let firstInstanceReached = false
+  let nonEmptyCount = 0
+  for (let i = 0; i < lines.length; i += 1) {
+    const trimmed = lines[i].trim()
+    if (!trimmed) {
+      continue
+    }
+    nonEmptyCount += 1
+    if (!(trimmed === normalizedGreeting || trimmed.startsWith(normalizedGreeting))) { continue }
+    if (!firstInstanceReached) {
+      firstInstanceReached = true
+      continue
+    }
+    if (nonEmptyCount <= DUPLICATE_GREETING_WINDOW) {
+      lines[i] = ""
+    }
+  }
+  return lines.join("\n").replace(/\n{3,}/g, "\n\n")
+}
+
+function getParagraphCountExcludingGreeting(structure: DraftStructure, greetingLine?: string | null) {
+  if (!structure.paragraphs.length) {
+    return 0
+  }
+  const normalizedGreeting = greetingLine?.trim() ?? ""
+  return structure.paragraphs.filter((paragraph, index) => {
+    const trimmed = paragraph.trim()
+    if (!trimmed) {
+      return false
+    }
+    if (index === 0 && normalizedGreeting && trimmed === normalizedGreeting) {
+      return false
+    }
+    return true
+  }).length
+}
+
+function buildDeterministicTemplateBody(greetingLine: string, language?: string) {
+  const isGerman = language?.toLowerCase().startsWith("de")
+  const paragraphs = isGerman
+    ? [
+        "Vielen Dank, dass Sie Ihre Perspektive geteilt haben; mir ist wichtig, dass wir diesen Punkt gemeinsam ernst nehmen.",
+        "Als nÃ¤chsten Schritt werde ich das Verhalten weiterhin dokumentieren und ein kurzes ReflexionsgesprÃ¤ch mit dem Kind vorbereiten, das wir danach mit Ihnen reflektieren kÃ¶nnen.",
+        "Bitte schlagen Sie zwei kurze Termine vor, an denen wir telefonisch oder per Videocall die nÃ¤chsten Schritte besprechen und offene Fragen beantworten.",
+      ]
+    : [
+        "Thank you for sharing your concern; my priority is to address it calmly and respectfully.",
+        "As a next step, I will gather the details, summarize the key observations, and prepare a practical plan we can work through together.",
+        "Please let me know a couple of times that work for you so we can have a quick phone or video call to stay aligned.",
+      ]
+  return `${greetingLine}\n\n${paragraphs.join("\n\n")}`
 }
 
 function detectExtraSignoffName(raw: string, locale: GreetingLocale) {
@@ -671,14 +737,19 @@ export async function POST(request: Request) {
   }
   const finalizeDraftWithSignature = (text: string) =>
     applySignatureToDraft(finalizeDraft(text), resolvedSignature, mode)
-  const runDraft = (forceLanguage = false) =>
-    generateDraftWithFallback({ ...providerInput, forceLanguage }, fallbackContext)
+  const finalizeWithGreeting = (text: string) =>
+    removeDuplicateGreeting(finalizeDraftWithSignature(text), finalGreetingLine)
+  const runDraft = (forceLanguage = false, forceContinuation = false) =>
+    generateDraftWithFallback(
+      { ...providerInput, forceLanguage, forceContinuation },
+      fallbackContext,
+    )
 
   let draftAttempt = await runDraft()
   let providerResult = draftAttempt.result
   let usedFallback = draftAttempt.usedFallback
   let fallbackErrorCode = draftAttempt.errorCode
-  let generatedDraft = finalizeDraftWithSignature(providerResult.text)
+  let generatedDraft = finalizeWithGreeting(providerResult.text)
   let providerMeta = providerResult.providerMeta
 
   let forcedLanguageAttempted = false
@@ -688,7 +759,7 @@ export async function POST(request: Request) {
     providerResult = draftAttempt.result
     usedFallback = draftAttempt.usedFallback
     fallbackErrorCode = draftAttempt.errorCode
-    generatedDraft = finalizeDraftWithSignature(providerResult.text)
+    generatedDraft = finalizeWithGreeting(providerResult.text)
     providerMeta = providerResult.providerMeta
   }
 
@@ -696,9 +767,12 @@ export async function POST(request: Request) {
     mode === "parent_message" &&
     (language?.toLowerCase().startsWith("de") || normalizedUiLocale?.toLowerCase().startsWith("de"))
 
-  if (shouldNormalizeGermanParentMessage) {
-    const germanNormalization = normalizeGermanParentMessage(generatedDraft)
-    generatedDraft = germanNormalization.text
+  const applyGermanNormalization = (draft: string) => {
+    if (!shouldNormalizeGermanParentMessage) {
+      return draft
+    }
+    const germanNormalization = normalizeGermanParentMessage(draft)
+    let normalizedText = germanNormalization.text
     if (germanNormalization.neutralized) {
       inputReframed = true
       if (!inputReframedTier) {
@@ -706,10 +780,53 @@ export async function POST(request: Request) {
         safetyFlags.add(`input-reframed-${inputReframedTier}`)
       }
     }
-    generatedDraft = applyFinalGreetingGuard(generatedDraft, finalGreetingLine)
+    const guarded = applyFinalGreetingGuard(normalizedText, finalGreetingLine)
+    return removeDuplicateGreeting(guarded, finalGreetingLine)
   }
 
-  const formattedDraftStructure = formatDraftText(generatedDraft, language)
+  if (shouldNormalizeGermanParentMessage) {
+    generatedDraft = applyGermanNormalization(generatedDraft)
+  }
+
+  let formattedDraftStructure = formatDraftText(generatedDraft, language)
+  let bodyParagraphCount = getParagraphCountExcludingGreeting(formattedDraftStructure, finalGreetingLine)
+  let bodyWordCount = countWords(generatedDraft)
+  const evaluateBodyNeedsRetry = () =>
+    Boolean(
+      finalGreetingLine &&
+        (bodyWordCount < MIN_BODY_WORDS || bodyParagraphCount < MIN_BODY_PARAGRAPHS),
+    )
+
+  if (evaluateBodyNeedsRetry()) {
+    const continuationAttempt = await runDraft(forcedLanguageAttempted, true)
+    providerResult = continuationAttempt.result
+    usedFallback = continuationAttempt.usedFallback
+    fallbackErrorCode = continuationAttempt.errorCode
+    providerMeta = providerResult.providerMeta
+    generatedDraft = finalizeWithGreeting(providerResult.text)
+    generatedDraft = applyGermanNormalization(generatedDraft)
+    formattedDraftStructure = formatDraftText(generatedDraft, language)
+    bodyParagraphCount = getParagraphCountExcludingGreeting(formattedDraftStructure, finalGreetingLine)
+    bodyWordCount = countWords(generatedDraft)
+    if (evaluateBodyNeedsRetry()) {
+      const templateDraft = buildDeterministicTemplateBody(finalGreetingLine, language)
+      const guardedTemplate = removeDuplicateGreeting(
+        applyFinalGreetingGuard(templateDraft, finalGreetingLine),
+        finalGreetingLine,
+      )
+      generatedDraft = guardedTemplate
+      formattedDraftStructure = formatDraftText(generatedDraft, language)
+      bodyParagraphCount = getParagraphCountExcludingGreeting(formattedDraftStructure, finalGreetingLine)
+      bodyWordCount = countWords(generatedDraft)
+      usedFallback = true
+      fallbackErrorCode = fallbackErrorCode ?? "GREETING_BODY_FALLBACK"
+      providerMeta = {
+        modelUsed: "greeting-body-template",
+        latencyMs: 0,
+      }
+    }
+  }
+
   let rewriteAttempted = false
   const generationTime = providerMeta.latencyMs ?? Date.now() - generationStart
 
@@ -936,3 +1053,4 @@ export async function GET() {
     { status: 405 },
   )
 }
+
