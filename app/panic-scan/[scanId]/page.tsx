@@ -303,10 +303,13 @@ export default function PanicScanResultPage() {
     }
     const extractedRaw = scan?.extractedText ?? ""
     const normalizedText = extractedRaw || (scan?.extractedTextClean ?? "")
+    const messageTypeField = scan?.classification?.messageType
+    const messageTypeValue: string | undefined =
+      typeof messageTypeField === "string" ? messageTypeField : undefined
     const greetingResult = resolveGreeting({
       cleanedOcrText: normalizedText,
       locale: greetingLocale,
-      messageType: scan?.classification?.messageType ?? undefined,
+      messageType: messageTypeValue,
     })
     const trimmedGreeting = greetingResult.greeting.trim()
     const hasSafeConfidence =
