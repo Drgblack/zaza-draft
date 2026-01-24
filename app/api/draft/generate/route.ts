@@ -52,6 +52,7 @@ import {
   scoreSafeName,
   type NameConfidenceLevel,
 } from "@/lib/draft/greeting-resolution"
+import { getFirebaseAdmin } from "@/lib/firebase/admin"
 
 const TONE_DESCRIPTIONS: Record<ToneKey, string> = {
   warm: "Warm & Encouraging",
@@ -68,6 +69,10 @@ function parsePronounPreference(value: unknown): PronounPreference {
   }
   return "auto"
 }
+
+const DEV_BYPASS_HEADER = "x-zaza-dev-bypass"
+const DEV_BYPASS_UID = "dev-user"
+const DEV_ENV_ALLOWED = new Set(["development", "test"])
 
 interface GenerateDraftRequest {
   situation: string
@@ -519,21 +524,45 @@ export async function POST(request: Request) {
   const resolvedPronounPreference = pronounResolution.resolvedPreference
 
   let authContext
-  try {
-    authContext = await authorizeFirebaseRequest(request)
-  } catch (error) {
-    const status =
-      error instanceof FirebaseAuthorizationError ? error.statusCode : 401
-    return NextResponse.json(
-      {
-        success: false,
-        error: {
-          code: "UNAUTHORIZED",
-          message: (error as Error).message || "Unauthorized",
+  const bypassHeader = request.headers.get(DEV_BYPASS_HEADER)
+  const allowDevBypass = DEV_ENV_ALLOWED.has(process.env.NODE_ENV ?? "")
+  if (allowDevBypass && bypassHeader === "1") {
+    const firebaseAdmin = getFirebaseAdmin()
+    if (!firebaseAdmin.firestore) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: {
+            code: "FIRESTORE_UNAVAILABLE",
+            message: "Unable to access Firestore.",
+          },
         },
-      },
-      { status },
-    )
+        { status: 500 },
+      )
+    }
+    authContext = {
+      uid: DEV_BYPASS_UID,
+      auth: firebaseAdmin.auth,
+      firestore: firebaseAdmin.firestore,
+      storage: firebaseAdmin.storage,
+    }
+  } else {
+    try {
+      authContext = await authorizeFirebaseRequest(request)
+    } catch (error) {
+      const status =
+        error instanceof FirebaseAuthorizationError ? error.statusCode : 401
+      return NextResponse.json(
+        {
+          success: false,
+          error: {
+            code: "UNAUTHORIZED",
+            message: (error as Error).message || "Unauthorized",
+          },
+        },
+        { status },
+      )
+    }
   }
 
   const { uid, firestore } = authContext

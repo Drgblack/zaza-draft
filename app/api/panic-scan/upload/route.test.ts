@@ -90,4 +90,28 @@ describe("panic scan upload route", () => {
     expect(body.requestId).toBeDefined()
     expect(response.headers.get("x-request-id")).toBe(body.requestId)
   })
+
+  it("rejects suspicious client paths instead of an uploaded file", async () => {
+    const fakeFormData = {
+      get: (key: string) => {
+        if (key === "file") return "C:\\Users\\User\\Downloads\\zaza-draft-app-123.json"
+        if (key === "platform") return "web"
+        return null
+      },
+    }
+
+    const request = {
+      formData: async () => fakeFormData,
+      headers: new Headers({
+        Authorization: "Bearer token",
+      }),
+    } as unknown as Request
+
+    const response = await POST(request)
+    expect(response.status).toBe(400)
+    const body = await response.json()
+    expect(body.error.code).toBe("INVALID_FILE_PATH")
+    expect(body.stage).toBe("parse")
+    expect(authorizeFirebaseRequest).not.toHaveBeenCalled()
+  })
 })

@@ -10,6 +10,12 @@ import type { PanicScanDocument } from "@/lib/panic-scan/types"
 const MAX_IMAGE_SIZE_BYTES = 10 * 1024 * 1024
 const SCAN_TTL_MS = 24 * 60 * 60 * 1000
 
+const SUSPICIOUS_PATH_PATTERNS = [/^[A-Za-z]:[\\/]/, /^file:\/\//i]
+
+function isSuspiciousClientPath(value: string) {
+  return SUSPICIOUS_PATH_PATTERNS.some((pattern) => pattern.test(value))
+}
+
 type ResponseStage =
   | "auth"
   | "parse"
@@ -129,6 +135,17 @@ export async function POST(request: Request) {
     const file = form.get("file")
     const platform = (form.get("platform") as string) ?? "web"
     const sessionId = form.get("sessionId") as string | null
+
+    if (typeof file === "string" && isSuspiciousClientPath(file)) {
+      return createErrorResponse({
+        code: "INVALID_FILE_PATH",
+        message: "Upload the screenshot directly instead of providing a local path.",
+        stage: "parse",
+        status: 400,
+        diagnostics,
+        requestId,
+      })
+    }
 
     if (!file || typeof file === "string") {
       return createErrorResponse({

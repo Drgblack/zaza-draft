@@ -1,31 +1,52 @@
-import { describe, expect, it, vi } from "vitest"
+import { describe, expect, it, vi, beforeAll, afterAll } from "vitest"
+import { getFirebaseAdmin } from "@/lib/firebase/admin"
+import { authorizeFirebaseRequest } from "@/lib/firebase/server"
+import { POST } from "@/app/api/draft/generate/route"
 
-vi.mock("@/lib/firebase/server", () => {
-  const createMockCollection = () => {
-    let counter = 0
-    const buildDoc = (id?: string) => {
-      const docId = id ?? `doc-${++counter}`
-      return {
-        id: docId,
-        set: vi.fn().mockResolvedValue(undefined),
-        collection: () => createMockCollection(),
-      }
-    }
-    return {
-      doc: (id?: string) => buildDoc(id),
-    }
-  }
-  const createFirestoreStub = () => ({
-    collection: () => createMockCollection(),
-  })
-  return {
-    authorizeFirebaseRequest: vi.fn().mockResolvedValue({
-      uid: "test-uid",
-      firestore: createFirestoreStub(),
-    }),
-    FirebaseAuthorizationError: class FirebaseAuthorizationError extends Error {},
-  }
+const ORIGINAL_NODE_ENV = process.env.NODE_ENV
+beforeAll(() => {
+  process.env.NODE_ENV = "development"
 })
+afterAll(() => {
+  process.env.NODE_ENV = ORIGINAL_NODE_ENV
+})
+
+function createMockCollection() {
+  let counter = 0
+  const buildDoc = (id?: string) => {
+    const docId = id ?? `doc-${++counter}`
+    return {
+      id: docId,
+      set: vi.fn().mockResolvedValue(undefined),
+      collection: () => createMockCollection(),
+    }
+  }
+  return {
+    doc: (id?: string) => buildDoc(id),
+  }
+}
+
+function createFirestoreStub() {
+  return {
+    collection: () => createMockCollection(),
+  }
+}
+
+vi.mock("@/lib/firebase/server", () => ({
+  authorizeFirebaseRequest: vi.fn().mockResolvedValue({
+    uid: "test-uid",
+    firestore: createFirestoreStub(),
+  }),
+  FirebaseAuthorizationError: class FirebaseAuthorizationError extends Error {},
+}))
+
+vi.mock("@/lib/firebase/admin", () => ({
+  getFirebaseAdmin: vi.fn().mockReturnValue({
+    auth: null,
+    firestore: createFirestoreStub(),
+    storage: null,
+  }),
+}))
 
 vi.mock("@/lib/safety", () => ({
   detectSensitiveContent: vi.fn().mockImplementation((text) => ({ sanitized: text, matches: [] })),
@@ -177,8 +198,6 @@ vi.mock("@/lib/draft/greeting-resolution", async () => {
   }
 })
 
-import { POST } from "@/app/api/draft/generate/route"
-
 describe("/api/draft/generate greeting handoff", () => {
   it("resolves greeting from raw situation and enforces the line", async () => {
     const payload = {
@@ -265,6 +284,30 @@ describe("/api/draft/generate greeting handoff", () => {
     expect(occurrenceCount).toBe(1)
     const wordCount = json.data?.metadata?.wordCount ?? 0
     expect(wordCount).toBeGreaterThanOrEqual(60)
+  })
+
+  it("allows the dev bypass header to authenticate a stable dev uid", async () => {
+    const payload = {
+      situation: "Die Beschwerde in eigenen Worten.",
+      tone: "professional",
+      language: "de",
+      mode: "parent_message",
+    }
+    const request = new Request("https://example.com/api/draft/generate", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-zaza-dev-bypass": "1",
+      },
+      body: JSON.stringify(payload),
+    })
+
+    vi.mocked(authorizeFirebaseRequest).mockClear()
+    const response = await POST(request)
+    expect(response.status).toBe(200)
+    const json = await response.json()
+    expect(json.data?.metadata?.userId).toBe("dev-user")
+    expect(authorizeFirebaseRequest).not.toHaveBeenCalled()
   })
 
   it("preserves titles such as Dr. Markus Schneider in the greeting", async () => {
