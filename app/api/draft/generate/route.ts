@@ -1,4 +1,4 @@
-﻿import { NextResponse } from "next/server"
+import { NextResponse } from "next/server"
 import {
   detectSensitiveContent,
   detectBlockedLanguage,
@@ -347,7 +347,7 @@ export async function POST(request: Request) {
     message: string,
     extra?: Record<string, unknown>,
   ) => {
-    const payload: Record<string, unknown> = {
+    const payload: { success: false; error: Record<string, unknown> } & Record<string, unknown> = {
       success: false,
       error: {
         code,
@@ -358,10 +358,11 @@ export async function POST(request: Request) {
       const { error: extraError, ...rest } = extra
       if (extraError && typeof extraError === "object") {
         payload.error = {
-          ...payload.error,
-          ...extraError,
-        }
-      }
+  ...((payload.error && typeof payload.error === "object" && !Array.isArray(payload.error))
+    ? (payload.error as Record<string, unknown>)
+    : {}),
+  ...(extraError as Record<string, unknown>),
+}}
       Object.assign(payload, rest)
     }
     return NextResponse.json(payload, { status, headers: responseHeaders })
