@@ -809,7 +809,7 @@ export async function POST(request: Request) {
     bodyParagraphCount = getParagraphCountExcludingGreeting(formattedDraftStructure, finalGreetingLine)
     bodyWordCount = countWords(generatedDraft)
     if (evaluateBodyNeedsRetry()) {
-      const templateDraft = buildDeterministicTemplateBody(finalGreetingLine, language)
+      const templateDraft = buildDeterministicTemplateBody(finalGreetingLine ?? "", language)
       const guardedTemplate = removeDuplicateGreeting(
         applyFinalGreetingGuard(templateDraft, finalGreetingLine),
         finalGreetingLine,
