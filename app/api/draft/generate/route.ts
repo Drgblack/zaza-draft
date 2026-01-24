@@ -562,16 +562,12 @@ export async function POST(request: Request) {
     FieldValue = firestoreModule.FieldValue
   }
   const isQaUser = isInternalQaUid(uid)
-  const defaultUsage = {
-    currentMonthUsage: 0,
-    limit: null,
-    remaining: null,
-  }
   const defaultUsageRecord: MonthlyUsageRecord = {
     month: getCurrentMonthKey(),
     generationCount: 0,
     lastReset: new Date().toISOString(),
   }
+  const defaultUsage = buildUsageResponse(defaultUsageRecord, "free")
   const {
     plan,
     usage: initialUsage,
