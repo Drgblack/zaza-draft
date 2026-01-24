@@ -71,6 +71,7 @@ vi.mock("@/lib/usage", () => ({
     plan: "free",
   }),
   incrementUsage: vi.fn().mockResolvedValue({ generationCount: 1 }),
+  getCurrentMonthKey: () => "2025-01",
 }))
 
 vi.mock("@/lib/entitlements", () => ({

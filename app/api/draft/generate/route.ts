@@ -13,6 +13,7 @@ import { createHash, randomUUID } from "crypto"
 import { resolveDraftMode } from "@/lib/draft-mode"
 import {
   buildUsageResponse,
+  getCurrentMonthKey,
   incrementUsage,
   type MonthlyUsageRecord,
 } from "@/lib/usage"
@@ -566,7 +567,11 @@ export async function POST(request: Request) {
     limit: null,
     remaining: null,
   }
-  const defaultUsageRecord = { generationCount: 0 }
+  const defaultUsageRecord: MonthlyUsageRecord = {
+    month: getCurrentMonthKey(),
+    generationCount: 0,
+    lastReset: new Date().toISOString(),
+  }
   const {
     plan,
     usage: initialUsage,
