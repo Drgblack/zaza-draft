@@ -306,7 +306,7 @@ export default function PanicScanResultPage() {
     const greetingResult = resolveGreeting({
       cleanedOcrText: normalizedText,
       locale: greetingLocale,
-      messageType: scan?.classification?.messageType ?? null,
+      messageType: scan?.classification?.messageType ?? undefined,
     })
     const trimmedGreeting = greetingResult.greeting.trim()
     const hasSafeConfidence =
