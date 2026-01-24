@@ -302,7 +302,7 @@ export default function PanicScanResultPage() {
       return
     }
     const extractedRaw = scan?.extractedText ?? ""
-    const normalizedText = extractedRaw || scan?.extractedTextClean ?? ""
+    const normalizedText = extractedRaw || (scan?.extractedTextClean ?? "")
     const greetingResult = resolveGreeting({
       cleanedOcrText: normalizedText,
       locale: greetingLocale,

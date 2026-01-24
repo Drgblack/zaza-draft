@@ -197,4 +197,53 @@ describe("/api/draft/generate greeting handoff", () => {
     expect(json.data?.greeting?.final).toBe(true)
     expect(json.data?.generatedDraft.startsWith("Guten Tag, Thomas Berger,")).toBe(true)
   })
+
+  it("enforces a resolved greeting when Elena Martínez appears in the raw text", async () => {
+    const payload = {
+      situation: "Die Beschwerde in eigenen Worten.",
+      tone: "professional",
+      language: "de",
+      mode: "parent_message",
+      situationRaw: "Beschwerde über das Verhalten.\nMit freundlichen Grüßen\nElena Martínez\n",
+    }
+    const request = new Request("https://example.com/api/draft/generate", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: "Bearer token",
+      },
+      body: JSON.stringify(payload),
+    })
+
+    const response = await POST(request)
+    expect(response.status).toBe(200)
+    const json = await response.json()
+    expect(json.data?.greeting?.final).toBe(true)
+    expect(["MEDIUM", "HIGH"]).toContain(json.data?.greeting?.confidence)
+    expect(json.data?.generatedDraft.startsWith("Guten Tag, Elena Martínez,")).toBe(true)
+  })
+
+  it("preserves titles such as Dr. Markus Schneider in the greeting", async () => {
+    const payload = {
+      situation: "Anfrage bezüglich des Stundenplans.",
+      tone: "professional",
+      language: "de",
+      mode: "parent_message",
+      situationRaw: "Kurze Nachricht zum Termin.\nMit freundlichen Grüßen\nDr. Markus Schneider\n",
+    }
+    const request = new Request("https://example.com/api/draft/generate", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: "Bearer token",
+      },
+      body: JSON.stringify(payload),
+    })
+
+    const response = await POST(request)
+    expect(response.status).toBe(200)
+    const json = await response.json()
+    expect(json.data?.greeting?.final).toBe(true)
+    expect(json.data?.generatedDraft.startsWith("Guten Tag, Dr. Markus Schneider,")).toBe(true)
+  })
 })
