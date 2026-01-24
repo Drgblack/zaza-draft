@@ -87,9 +87,16 @@ vi.mock("@/lib/draft-mode", () => ({
 }))
 
 vi.mock("@/lib/draft/fallback", () => {
+  const longDraft = [
+    "Liebe Eltern,",
+    "Wir beobachten den Lernfortschritt aufmerksam und möchten ein kurzes Update geben, damit wir alle an einem Strang ziehen.",
+    "Die Schülerin zeigt ermutigende Fortschritte in den Hausaufgaben, aber ein konkreter nächster Schritt wären regelmäßige kurze Übungseinheiten zu Hause.",
+    "Bitte schlagen Sie zwei Termine vor, an denen wir per Telefon oder Teams den Plan besprechen und offene Fragen klären können.",
+    "Vielen Dank für Ihre Kooperation und Ihr Vertrauen; gemeinsam finden wir die beste Unterstützung.",
+  ].join("\n\n")
   const fallbackGenerator = vi.fn().mockResolvedValue({
     result: {
-      text: "Liebe Eltern,\nWir kümmern uns.",
+      text: longDraft,
       providerMeta: {
         modelUsed: "test-model",
         latencyMs: 10,
@@ -275,5 +282,11 @@ describe("/api/draft/generate greeting handoff", () => {
     expect(json.data?.greeting?.final).toBe(true)
     expect(json.data?.greeting?.text).toBe("Guten Tag, Frank Weber,")
     expect(json.data?.generatedDraft.startsWith("Guten Tag, Frank Weber,")).toBe(true)
+    const generatedDraft = json.data?.generatedDraft ?? ""
+    const greetingLine = "Guten Tag, Frank Weber,"
+    const occurrenceCount = generatedDraft.split(greetingLine).length - 1
+    expect(occurrenceCount).toBe(1)
+    const wordCount = json.data?.metadata?.wordCount ?? 0
+    expect(wordCount).toBeGreaterThanOrEqual(60)
   })
 })

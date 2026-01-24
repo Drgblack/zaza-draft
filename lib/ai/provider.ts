@@ -203,6 +203,13 @@ export function buildSystemPrompt(input: ProviderInput) {
           `Start the email body with EXACTLY this line (verbatim): ${normalizedGreeting}`,
         )
         systemLines.push(
+          "Then continue writing the email normally in 2-5 short paragraphs.",
+        )
+        systemLines.push("Do NOT repeat the greeting line anywhere else.")
+        systemLines.push(
+          "The email must include at least: acknowledgement, one practical next step, and a calm invitation to discuss.",
+        )
+        systemLines.push(
           `The very first line must be exactly "${normalizedGreeting}". Do not change spelling, punctuation, or academic titles such as "Dr." or "Prof.", and do not add any gendered honorifics like Herr/Frau/Mr/Ms.`,
         )
       }

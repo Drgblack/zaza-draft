@@ -47,4 +47,18 @@ describe("buildSystemPrompt", () => {
     })
     expect(prompt).toContain(`Start the email body with EXACTLY this line (verbatim): ${greeting}`)
   })
+
+  it("adds continuation instructions immediately after the final greeting lock", () => {
+    const greeting = "Guten Tag, Dr. Schneider,"
+    const prompt = buildSystemPrompt({
+      ...baseInput,
+      greeting: { text: greeting },
+      greetingFinal: true,
+    })
+    expect(prompt).toContain("Then continue writing the email normally in 2-5 short paragraphs.")
+    expect(prompt).toContain("Do NOT repeat the greeting line anywhere else.")
+    expect(prompt).toContain(
+      "The email must include at least: acknowledgement, one practical next step, and a calm invitation to discuss.",
+    )
+  })
 })
