@@ -44,10 +44,13 @@ import { isDebugEnabled } from "@/lib/debug"
 import { applyFinalGreetingGuard } from "@/lib/draft/final-greeting"
 import {
   GreetingDecision,
+  greetingWithName,
+  type GreetingLocale,
   type GreetingSource,
-  type NameConfidenceLevel,
   logGreetingDecision,
   resolveGreeting,
+  scoreSafeName,
+  type NameConfidenceLevel,
 } from "@/lib/draft/greeting-resolution"
 
 const TONE_DESCRIPTIONS: Record<ToneKey, string> = {
@@ -116,6 +119,15 @@ function buildContextLine(context?: GenerateDraftRequest["context"]) {
   return pieces.join(" · ") + "."
 }
 
+const GENERIC_GREETING_TEXTS = new Set([
+  "Liebe Eltern,",
+  "Liebe Eltern",
+  "Liebe Erziehungsberechtigte,",
+  "Liebe Erziehungsberechtigte",
+])
+
+const EXTRA_SIGNOFF_PATTERNS = [/mit nachdruck/i]
+
 const STRONG_ENGLISH_PATTERNS = [/Subject:/i, /\bDear\b/i, /\bKind regards\b/i, /\bBest regards\b/i, /\bThank you\b/i, /\bPlease\b/i]
 
 function containsStrongEnglishSignals(text: string) {
@@ -125,6 +137,31 @@ function containsStrongEnglishSignals(text: string) {
 
 function countWords(text: string) {
   return text.split(/\s+/).filter(Boolean).length
+}
+
+function detectExtraSignoffName(raw: string, locale: GreetingLocale) {
+  const lines = raw
+    .split(/\n+/)
+    .map((line) => line.trim())
+    .filter(Boolean)
+
+  for (const pattern of EXTRA_SIGNOFF_PATTERNS) {
+    const index = lines.findIndex((line) => pattern.test(line))
+    if (index >= 0 && index + 1 < lines.length) {
+      const candidate = lines[index + 1]
+      const score = scoreSafeName(candidate, locale)
+      if (score.level === "MEDIUM" || score.level === "HIGH") {
+        return {
+          greeting: greetingWithName(locale, candidate),
+          confidence: score.level,
+          safeName: candidate,
+          source: "resolved-name" as GreetingSource,
+          final: true,
+        }
+      }
+    }
+  }
+  return null
 }
 
 function resolveGreetingFromRawText(
@@ -137,6 +174,10 @@ function resolveGreetingFromRawText(
     return null
   }
   const locale = language?.toLowerCase().startsWith("de") ? "de" : "en"
+  const extraSignoff = detectExtraSignoffName(trimmed, locale)
+  if (extraSignoff) {
+    return extraSignoff
+  }
   const greetingResult = resolveGreeting({
     cleanedOcrText: trimmed,
     locale,
@@ -241,6 +282,19 @@ export async function POST(request: Request) {
   let greetingSource = payload.greetingSource ?? payload.greeting?.source ?? "generic-fallback"
   let greetingName = payload.greeting?.name ?? null
   let greetingFinal = Boolean(payload.greetingFinal && greetingText)
+  const normalizedRequestGreeting = greetingText.replace(/\s+/g, " ").trim()
+  const shouldResetGreeting =
+    Boolean(greetingText) &&
+    (greetingSource === "generic-fallback" ||
+      greetingConfidence === "NONE" ||
+      GENERIC_GREETING_TEXTS.has(normalizedRequestGreeting))
+  if (shouldResetGreeting) {
+    greetingText = ""
+    greetingConfidence = "NONE"
+    greetingSource = "generic-fallback"
+    greetingName = null
+    greetingFinal = false
+  }
 
   if (!greetingText && payload.situationRaw) {
     const resolvedGreeting = resolveGreetingFromRawText(

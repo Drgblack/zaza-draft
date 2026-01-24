@@ -246,4 +246,34 @@ describe("/api/draft/generate greeting handoff", () => {
     expect(json.data?.greeting?.final).toBe(true)
     expect(json.data?.generatedDraft.startsWith("Guten Tag, Dr. Markus Schneider,")).toBe(true)
   })
+
+  it("replaces a fallback greeting when Mit Nachdruck signature is present", async () => {
+    const payload = {
+      situation: "Problematisches Verhalten dokumentiert.",
+      tone: "professional",
+      language: "de",
+      mode: "parent_message",
+      greeting: {
+        text: "Liebe Eltern,",
+        confidence: "NONE",
+        source: "generic-fallback",
+      },
+      situationRaw: "Vorfall im Unterricht.\nMit Nachdruck\nFrank Weber\n",
+    }
+    const request = new Request("https://example.com/api/draft/generate", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: "Bearer token",
+      },
+      body: JSON.stringify(payload),
+    })
+
+    const response = await POST(request)
+    expect(response.status).toBe(200)
+    const json = await response.json()
+    expect(json.data?.greeting?.final).toBe(true)
+    expect(json.data?.greeting?.text).toBe("Guten Tag, Frank Weber,")
+    expect(json.data?.generatedDraft.startsWith("Guten Tag, Frank Weber,")).toBe(true)
+  })
 })
