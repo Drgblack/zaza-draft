@@ -575,7 +575,7 @@ export async function POST(request: Request) {
     isProSubscriber,
   } = isDevBypassRequest
     ? {
-        plan: "dev",
+        plan: "free",
         usage: defaultUsage,
         usageRecord: defaultUsageRecord,
         isProSubscriber: false,
