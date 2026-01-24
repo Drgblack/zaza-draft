@@ -165,6 +165,7 @@ interface ProviderRequestInput {
   studentFirstName?: string
   resolvedPronounPreference?: PronounPreference
   forceLanguage?: boolean
+  forceContinuation?: boolean
   uiLocale?: string
   teacherSignatureName?: string
   greeting?: {
