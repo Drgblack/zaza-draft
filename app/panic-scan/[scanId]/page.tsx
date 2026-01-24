@@ -8,6 +8,7 @@ import { ChevronDown, ChevronLeft } from "lucide-react"
 import { useAuth } from "@/hooks/use-auth"
 import { AuthScreen } from "@/components/auth/auth-screen"
 import { useLocale } from "@/hooks/use-locale"
+import { resolveGreeting } from "@/lib/draft/greeting-resolution"
 import { sanitizeCleanedMessage } from "@/lib/panic-scan/sanitize-cleaned-message"
 
 const PREFILL_KEY = "zazaDraftPrefill"
@@ -203,7 +204,7 @@ export default function PanicScanResultPage() {
   const router = useRouter()
   const params = useParams()
   const { status, getIdToken } = useAuth()
-  const { t } = useLocale()
+  const { t, locale } = useLocale()
   const scanId = params?.scanId
   const [scan, setScan] = useState<ScanResponse | null>(null)
   const [loading, setLoading] = useState(true)
@@ -295,11 +296,39 @@ export default function PanicScanResultPage() {
     return t("panicScanResultStatusFailed")
   }, [scan?.status, t])
 
+  const greetingLocale = locale?.toLowerCase().startsWith("de") ? "de" : "en"
   const handleUseDraft = () => {
     if (!handoffMessage) {
       return
     }
-    sessionStorage.setItem(PREFILL_KEY, handoffMessage)
+    const extractedRaw = scan?.extractedText ?? ""
+    const normalizedText = extractedRaw || scan?.extractedTextClean ?? ""
+    const greetingResult = resolveGreeting({
+      cleanedOcrText: normalizedText,
+      locale: greetingLocale,
+      messageType: scan?.classification?.messageType ?? null,
+    })
+    const trimmedGreeting = greetingResult.greeting.trim()
+    const hasSafeConfidence =
+      greetingResult.confidence === "MEDIUM" || greetingResult.confidence === "HIGH"
+    const greetingDidResolveName = greetingResult.source === "resolved-name"
+    const greetingFinal =
+      hasSafeConfidence && greetingDidResolveName && trimmedGreeting.length > 0
+    const greetingPayload = {
+      text: trimmedGreeting || greetingResult.greeting,
+      confidence: greetingResult.confidence,
+      final: greetingFinal,
+      name: greetingResult.safeName,
+      source: greetingResult.source,
+    }
+    sessionStorage.setItem(
+      PREFILL_KEY,
+      JSON.stringify({
+        cleaned: handoffMessage,
+        raw: extractedRaw,
+        greeting: greetingPayload,
+      }),
+    )
     router.push("/?panicScanReturn=1")
   }
 

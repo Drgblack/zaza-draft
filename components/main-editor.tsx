@@ -264,6 +264,7 @@ export function MainEditor() {
   const [draftStructure, setDraftStructure] = useState<DraftStructure | null>(null)
   const [deescalationSummary, setDeescalationSummary] = useState<DeescalationSummary | null>(null)
   const [enforcedGreeting, setEnforcedGreeting] = useState<EnforcedGreeting | null>(null)
+  const [pendingSituationRaw, setPendingSituationRaw] = useState<string | null>(null)
   const [subject, setSubject] = useState("")
   const [gradeLevel, setGradeLevel] = useState("")
   const [studentFirstNameInput, setStudentFirstNameInput] = useState("")
@@ -366,7 +367,29 @@ export function MainEditor() {
 
     const stored = sessionStorage.getItem(PREFILL_STORAGE_KEY)
     if (stored) {
-      setContent(stored)
+      let parsed: unknown
+      try {
+        parsed = JSON.parse(stored)
+      } catch {
+        setContent(stored)
+        sessionStorage.removeItem(PREFILL_STORAGE_KEY)
+        setPrefillApplied(true)
+        return
+      }
+      if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+        const maybePayload = parsed as { cleaned?: string; raw?: string; greeting?: EnforcedGreeting }
+        if (typeof maybePayload.cleaned === "string") {
+          setContent(maybePayload.cleaned)
+        } else {
+          setContent(stored)
+        }
+        setPendingSituationRaw(maybePayload.raw ?? null)
+        if (maybePayload.greeting?.text) {
+          setEnforcedGreeting(maybePayload.greeting)
+        }
+      } else {
+        setContent(stored)
+      }
       sessionStorage.removeItem(PREFILL_STORAGE_KEY)
     }
 
@@ -643,6 +666,8 @@ export function MainEditor() {
         payload.greetingSource = enforcedGreeting.source
       }
     }
+
+    payload.situationRaw = pendingSituationRaw?.trim() || trimmedContent
 
     if (options.rewrite) {
       payload.rewrite = true

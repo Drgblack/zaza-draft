@@ -47,6 +47,7 @@ import {
   type GreetingSource,
   type NameConfidenceLevel,
   logGreetingDecision,
+  resolveGreeting,
 } from "@/lib/draft/greeting-resolution"
 
 const TONE_DESCRIPTIONS: Record<ToneKey, string> = {
@@ -84,12 +85,15 @@ interface GenerateDraftRequest {
   uiLocale?: string
   signature?: SignaturePayload
   greeting?: {
-    text: string
+    text?: string
     name?: string
+    confidence?: NameConfidenceLevel
+    source?: GreetingSource
   }
   greetingFinal?: boolean
   greetingConfidence?: NameConfidenceLevel
   greetingSource?: GreetingSource
+  situationRaw?: string
   messageType?: string
   scanId?: string
 }
@@ -121,6 +125,36 @@ function containsStrongEnglishSignals(text: string) {
 
 function countWords(text: string) {
   return text.split(/\s+/).filter(Boolean).length
+}
+
+function resolveGreetingFromRawText(
+  raw: string,
+  language: string | undefined,
+  messageType?: string,
+) {
+  const trimmed = raw.trim()
+  if (!trimmed) {
+    return null
+  }
+  const locale = language?.toLowerCase().startsWith("de") ? "de" : "en"
+  const greetingResult = resolveGreeting({
+    cleanedOcrText: trimmed,
+    locale,
+    messageType,
+  })
+  const normalizedGreeting = greetingResult.greeting.trim()
+  const hasSafeConfidence =
+    greetingResult.confidence === "MEDIUM" || greetingResult.confidence === "HIGH"
+  const greetingDidResolveName = greetingResult.source === "resolved-name"
+  const greetingFinal =
+    hasSafeConfidence && greetingDidResolveName && normalizedGreeting.length > 0
+  return {
+    greeting: normalizedGreeting || greetingResult.greeting,
+    confidence: greetingResult.confidence,
+    safeName: greetingResult.safeName ?? null,
+    source: greetingResult.source,
+    final: greetingFinal,
+  }
 }
 
 function buildUsageLimitError(usage: ReturnType<typeof buildUsageResponse>) {
@@ -202,23 +236,43 @@ export async function POST(request: Request) {
   const debugEnabled =
     isDebugEnabled(requestUrl.searchParams) || request.headers.get("x-debug") === "1"
 
-  const rawGreetingText = (payload.greeting?.text ?? "").trim()
-  const hasFinalGreeting = Boolean(payload.greetingFinal && rawGreetingText)
-  const finalGreetingLine = hasFinalGreeting ? rawGreetingText : null
-  if (payload.greetingFinal && !rawGreetingText && debugEnabled) {
+  let greetingText = (payload.greeting?.text ?? "").trim()
+  let greetingConfidence = payload.greetingConfidence ?? payload.greeting?.confidence ?? "NONE"
+  let greetingSource = payload.greetingSource ?? payload.greeting?.source ?? "generic-fallback"
+  let greetingName = payload.greeting?.name ?? null
+  let greetingFinal = Boolean(payload.greetingFinal && greetingText)
+
+  if (!greetingText && payload.situationRaw) {
+    const resolvedGreeting = resolveGreetingFromRawText(
+      payload.situationRaw,
+      language,
+      payload.messageType,
+    )
+    if (resolvedGreeting) {
+      greetingText = resolvedGreeting.greeting
+      greetingConfidence = resolvedGreeting.confidence
+      greetingSource = resolvedGreeting.source
+      greetingName = greetingName ?? resolvedGreeting.safeName
+      greetingFinal = resolvedGreeting.final
+    }
+  }
+
+  const finalGreetingLine = greetingFinal ? greetingText : null
+  if (payload.greetingFinal && !greetingText && debugEnabled) {
     console.debug("[draft] greetingFinal was true but greeting text missing; ignoring final flag", {
       scanId: payload.scanId ?? null,
     })
   }
+  const hasFinalGreeting = Boolean(finalGreetingLine)
   const greetingDecision: GreetingDecision = {
-    greeting: rawGreetingText,
-    safeParentName: payload.greeting?.name ?? null,
-    confidence: payload.greetingConfidence ?? "NONE",
-    source: payload.greetingSource ?? "generic-fallback",
+    greeting: greetingText,
+    safeParentName: greetingName,
+    confidence: greetingConfidence,
+    source: greetingSource,
     locale: language?.toLowerCase().startsWith("de") ? "de" : "en",
     messageType: payload.messageType ?? undefined,
     scanId: payload.scanId ?? undefined,
-    greetingFinal: hasFinalGreeting,
+    greetingFinal: Boolean(finalGreetingLine && greetingText),
   }
   if (debugEnabled) {
     logGreetingDecision("draft-receive", greetingDecision, requestUrl.searchParams)
@@ -512,10 +566,10 @@ export async function POST(request: Request) {
 
   const generationStart = Date.now()
   const providerGreeting =
-    rawGreetingText.length > 0
+    greetingText.length > 0
       ? {
-          text: rawGreetingText,
-          name: payload.greeting?.name,
+          text: greetingText,
+          name: greetingName ?? undefined,
         }
       : undefined
   const providerInput: ProviderRequestInput = {
