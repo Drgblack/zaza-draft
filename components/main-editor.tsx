@@ -22,6 +22,7 @@ import { resolveLanguageChoiceFromLocale } from "@/lib/draft/language"
 import type { DraftLanguage, DraftMode, PronounPreference } from "@/lib/types"
 import { MODE_LABEL_KEYS, DEFAULT_DRAFT_MODE } from "@/lib/draft-mode"
 import { isValidDraftRequest, OUT_OF_SCOPE_REDIRECT_MESSAGE } from "@/lib/draft/scope-guard"
+import type { GreetingSource, NameConfidenceLevel } from "@/lib/draft/greeting-resolution"
 import Link from "next/link"
 import { useSearchParams } from "next/navigation"
 import { Camera, FileText, Image, Info, Mail, MessageCircle, Mic, Sun, Target, Users } from "lucide-react"
@@ -86,6 +87,14 @@ const TONE_STYLES: Record<
     base: "bg-purple-100 border-purple-400 text-purple-700 hover:bg-purple-200 dark:bg-purple-900/40 dark:border-purple-600 dark:text-purple-200",
     ring: "ring-purple-400 dark:ring-purple-200",
   },
+}
+
+type EnforcedGreeting = {
+  text: string
+  final: boolean
+  confidence: NameConfidenceLevel
+  name?: string | null
+  source?: GreetingSource | null
 }
 const LOADING_MESSAGES = [
   "Analyzing your request...",
@@ -254,6 +263,7 @@ export function MainEditor() {
   const [draftMetadata, setDraftMetadata] = useState<any>(null)
   const [draftStructure, setDraftStructure] = useState<DraftStructure | null>(null)
   const [deescalationSummary, setDeescalationSummary] = useState<DeescalationSummary | null>(null)
+  const [enforcedGreeting, setEnforcedGreeting] = useState<EnforcedGreeting | null>(null)
   const [subject, setSubject] = useState("")
   const [gradeLevel, setGradeLevel] = useState("")
   const [studentFirstNameInput, setStudentFirstNameInput] = useState("")
@@ -622,6 +632,18 @@ export function MainEditor() {
 
     payload.signature = signaturePayload
 
+    if (enforcedGreeting?.text?.trim()) {
+      payload.greeting = {
+        text: enforcedGreeting.text,
+        name: enforcedGreeting.name ?? undefined,
+      }
+      payload.greetingFinal = enforcedGreeting.final
+      payload.greetingConfidence = enforcedGreeting.confidence
+      if (enforcedGreeting.source) {
+        payload.greetingSource = enforcedGreeting.source
+      }
+    }
+
     if (options.rewrite) {
       payload.rewrite = true
     }
@@ -718,6 +740,7 @@ export function MainEditor() {
       setDraftMetadata(data.data.metadata)
       setDraftStructure(data.data.formattedDraft ?? null)
       setDeescalationSummary(data.data.deescalationSummary ?? null)
+      setEnforcedGreeting(data.data.greeting ?? null)
       setUsage(data.data.usage)
       const now = new Date()
       saveLastRunTimestamp(now)

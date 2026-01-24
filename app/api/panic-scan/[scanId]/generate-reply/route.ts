@@ -163,5 +163,22 @@ export async function POST(request: NextRequest) {
   })
 
   const dataResponse = await draftResponse.json()
-  return NextResponse.json(dataResponse, { status: draftResponse.status })
+  const baseData = dataResponse.data ?? {}
+  const greetingInfo = {
+    text: normalizedGreeting || greetingResult.greeting,
+    confidence: greetingResult.confidence,
+    final: greetingFinal,
+    name: greetingResult.safeName,
+    source: greetingResult.source,
+  }
+  return NextResponse.json(
+    {
+      ...dataResponse,
+      data: {
+        ...baseData,
+        greeting: greetingInfo,
+      },
+    },
+    { status: draftResponse.status },
+  )
 }

@@ -37,4 +37,14 @@ describe("buildSystemPrompt", () => {
     const prompt = buildSystemPrompt(baseInput)
     expect(prompt).toContain("never begin with a refusal such as 'Es tut mir leid'")
   })
+
+  it("forces the provider to honor a final greeting line", () => {
+    const greeting = "Guten Tag, Dr. Schneider,"
+    const prompt = buildSystemPrompt({
+      ...baseInput,
+      greeting: { text: greeting },
+      greetingFinal: true,
+    })
+    expect(prompt).toContain(`Start the email body with EXACTLY this line (verbatim): ${greeting}`)
+  })
 })

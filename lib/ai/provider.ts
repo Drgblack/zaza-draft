@@ -200,6 +200,9 @@ export function buildSystemPrompt(input: ProviderInput) {
       systemLines.push(`Begin the message with "${normalizedGreeting}" and keep that line unchanged.`)
       if (input.greetingFinal) {
         systemLines.push(
+          `Start the email body with EXACTLY this line (verbatim): ${normalizedGreeting}`,
+        )
+        systemLines.push(
           `The very first line must be exactly "${normalizedGreeting}". Do not change spelling, punctuation, or academic titles such as "Dr." or "Prof.", and do not add any gendered honorifics like Herr/Frau/Mr/Ms.`,
         )
       }

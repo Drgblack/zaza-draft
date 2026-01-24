@@ -41,6 +41,7 @@ import {
 import { resolveTeacherSignatureName } from "@/lib/draft/teacher-signature"
 import { isValidDraftRequest, OUT_OF_SCOPE_REDIRECT_MESSAGE } from "./scope-guard"
 import { isDebugEnabled } from "@/lib/debug"
+import { applyFinalGreetingGuard } from "@/lib/draft/final-greeting"
 import {
   GreetingDecision,
   type GreetingSource,
@@ -203,6 +204,7 @@ export async function POST(request: Request) {
 
   const rawGreetingText = (payload.greeting?.text ?? "").trim()
   const hasFinalGreeting = Boolean(payload.greetingFinal && rawGreetingText)
+  const finalGreetingLine = hasFinalGreeting ? rawGreetingText : null
   if (payload.greetingFinal && !rawGreetingText && debugEnabled) {
     console.debug("[draft] greetingFinal was true but greeting text missing; ignoring final flag", {
       scanId: payload.scanId ?? null,
@@ -557,7 +559,7 @@ export async function POST(request: Request) {
       pronounPreference: resolvedPronounPreference,
       resolvedPronounPreference: resolvedPronounPreference,
     })
-    return curated
+    return applyFinalGreetingGuard(curated, finalGreetingLine)
   }
   const finalizeDraftWithSignature = (text: string) =>
     applySignatureToDraft(finalizeDraft(text), resolvedSignature, mode)
@@ -596,6 +598,7 @@ export async function POST(request: Request) {
         safetyFlags.add(`input-reframed-${inputReframedTier}`)
       }
     }
+    generatedDraft = applyFinalGreetingGuard(generatedDraft, finalGreetingLine)
   }
 
   const formattedDraftStructure = formatDraftText(generatedDraft, language)
@@ -701,6 +704,14 @@ export async function POST(request: Request) {
     requestId,
   }
 
+  const responseGreeting = {
+    text: greetingDecision.greeting,
+    name: greetingDecision.safeParentName,
+    confidence: greetingDecision.confidence,
+    final: Boolean(greetingDecision.greetingFinal),
+    source: greetingDecision.source,
+  }
+
   logServerEvent("draft_generation", {
     uid,
     plan,
@@ -795,6 +806,7 @@ export async function POST(request: Request) {
     data: {
       generatedDraft,
       formattedDraft: formattedDraftStructure,
+      greeting: responseGreeting,
       metadata,
       meta: responseMeta,
       usage: usageAfterGeneration,
