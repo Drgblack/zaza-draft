@@ -579,7 +579,7 @@ export async function POST(request: Request) {
         usageRecord: defaultUsageRecord,
         isProSubscriber: false,
       }
-    : await getUserEntitlements(uid, firestore)
+    : await getUserEntitlements(uid, firestore!)
   const enforceUsageLimits = isDevBypassRequest ? false : shouldRespectUsageLimit(uid)
 
   const userRef = firestore ? firestore.collection("users").doc(uid) : null
