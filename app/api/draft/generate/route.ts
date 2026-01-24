@@ -130,6 +130,33 @@ const EXTRA_SIGNOFF_PATTERNS = [/mit nachdruck/i]
 
 const STRONG_ENGLISH_PATTERNS = [/Subject:/i, /\bDear\b/i, /\bKind regards\b/i, /\bBest regards\b/i, /\bThank you\b/i, /\bPlease\b/i]
 
+function detectTrailingName(raw: string, locale: GreetingLocale) {
+  const lines = raw
+    .split(/\n+/)
+    .map((line) => line.trim())
+    .filter(Boolean)
+
+  for (let i = lines.length - 1; i >= 0; i -= 1) {
+    const candidate = lines[i]
+    if (!candidate) {
+      continue
+    }
+    const score = scoreSafeName(candidate, locale)
+    if (score.level === "NONE") {
+      continue
+    }
+    return {
+      greeting: greetingWithName(locale, candidate),
+      confidence: score.level,
+      safeName: candidate,
+      source: "resolved-name" as GreetingSource,
+      final: true,
+    }
+  }
+
+  return null
+}
+
 function containsStrongEnglishSignals(text: string) {
   const snippet = text.slice(0, 200)
   return STRONG_ENGLISH_PATTERNS.some((pattern) => pattern.test(snippet))
@@ -194,8 +221,8 @@ function buildDeterministicTemplateBody(greetingLine: string, language?: string)
   const paragraphs = isGerman
     ? [
         "Vielen Dank, dass Sie Ihre Perspektive geteilt haben; mir ist wichtig, dass wir diesen Punkt gemeinsam ernst nehmen.",
-        "Als nÃ¤chsten Schritt werde ich das Verhalten weiterhin dokumentieren und ein kurzes ReflexionsgesprÃ¤ch mit dem Kind vorbereiten, das wir danach mit Ihnen reflektieren kÃ¶nnen.",
-        "Bitte schlagen Sie zwei kurze Termine vor, an denen wir telefonisch oder per Videocall die nÃ¤chsten Schritte besprechen und offene Fragen beantworten.",
+        "Als nächsten Schritt werde ich das Verhalten weiterhin dokumentieren und ein kurzes Reflexionsgespräch mit dem Kind vorbereiten, das wir danach mit Ihnen reflektieren können.",
+        "Bitte schlagen Sie zwei kurze Termine vor, an denen wir telefonisch oder per Videocall die nächsten Schritte besprechen und offene Fragen beantworten.",
       ]
     : [
         "Thank you for sharing your concern; my priority is to address it calmly and respectfully.",
@@ -243,6 +270,10 @@ function resolveGreetingFromRawText(
   const extraSignoff = detectExtraSignoffName(trimmed, locale)
   if (extraSignoff) {
     return extraSignoff
+  }
+  const trailingName = detectTrailingName(trimmed, locale)
+  if (trailingName) {
+    return trailingName
   }
   const greetingResult = resolveGreeting({
     cleanedOcrText: trimmed,

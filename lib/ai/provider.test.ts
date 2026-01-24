@@ -61,4 +61,15 @@ describe("buildSystemPrompt", () => {
       "The email must include at least: acknowledgement, one practical next step, and a calm invitation to discuss.",
     )
   })
+
+  it("keeps German umlauts intact in the system prompt", () => {
+    const prompt = buildSystemPrompt({
+      ...baseInput,
+      uiLocale: "de-DE",
+    })
+    expect(prompt).toContain("Ich möchte")
+    expect(prompt).toContain("Können wir einen kurzen Termin vereinbaren?")
+    expect(prompt).toContain("Schülers")
+    expect(prompt).not.toMatch(/[Ã�]/)
+  })
 })

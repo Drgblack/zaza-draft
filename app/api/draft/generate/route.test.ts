@@ -230,6 +230,43 @@ describe("/api/draft/generate greeting handoff", () => {
     expect(json.data?.generatedDraft.startsWith("Guten Tag, Elena Martínez,")).toBe(true)
   })
 
+  it("re-resolves a trailing name when a generic greeting is provided", async () => {
+    const payload = {
+      situation: "Die Beschwerde in eigenen Worten.",
+      tone: "professional",
+      language: "de",
+      mode: "parent_message",
+      greeting: {
+        text: "Liebe Erziehungsberechtigte,",
+        confidence: "NONE",
+        source: "generic-fallback",
+      },
+      greetingFinal: true,
+      situationRaw: "Beschwerde über das Verhalten.\nElena Martínez\n",
+    }
+    const request = new Request("https://example.com/api/draft/generate", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: "Bearer token",
+      },
+      body: JSON.stringify(payload),
+    })
+
+    const response = await POST(request)
+    expect(response.status).toBe(200)
+    const json = await response.json()
+    expect(json.data?.greeting?.final).toBe(true)
+    expect(json.data?.greeting?.confidence).toBe("HIGH")
+    const generatedDraft = json.data?.generatedDraft ?? ""
+    const greetingLine = "Guten Tag, Elena Martínez,"
+    expect(generatedDraft.startsWith(greetingLine)).toBe(true)
+    const occurrenceCount = generatedDraft.split(greetingLine).length - 1
+    expect(occurrenceCount).toBe(1)
+    const wordCount = json.data?.metadata?.wordCount ?? 0
+    expect(wordCount).toBeGreaterThanOrEqual(60)
+  })
+
   it("preserves titles such as Dr. Markus Schneider in the greeting", async () => {
     const payload = {
       situation: "Anfrage bezüglich des Stundenplans.",

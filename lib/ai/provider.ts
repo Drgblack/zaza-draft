@@ -157,7 +157,7 @@ export function buildSystemPrompt(input: ProviderInput) {
     systemLines.push(
       "When writing in German, keep the sentences warm, calm, and professional; favour the Sie form and avoid bureaucratic labels such as 'Fach:' unless they are explicitly part of the request.",
     )
-    systemLines.push("Avoid placeholders like [Name des Sch�lers], [Parent Name], or [Student Name].")
+    systemLines.push("Avoid placeholders like [Name des Schülers], [Parent Name], or [Student Name].")
     systemLines.push(
       "If no student name was supplied, refer to the child as 'Ihr Kind' (use 'Ihr Sohn' or 'Ihre Tochter' only when the teacher explicitly provides gender).",
     )
@@ -227,7 +227,7 @@ export function buildSystemPrompt(input: ProviderInput) {
 
   if (input.uiLocale?.toLowerCase().startsWith("de")) {
     systemLines.push(
-      "DE tone contract: avoid moral judgement words such as 'L�gen', 'Ausreden', 'faul', or 'schlecht'; describe behaviour with neutral observations (for example, 'Es gab einige Situationen, in denen...'); frame collaboration with phrases like 'Ich m�chte gemeinsam mit Ihnen' and offer a clear next step such as 'K�nnen wir einen kurzen Termin vereinbaren?'; keep the tone calm, professional, and supportive without sounding accusatory.",
+      "DE tone contract: avoid moral judgement words such as 'Lügen', 'Ausreden', 'faul', or 'schlecht'; describe behaviour with neutral observations (for example, 'Es gab einige Situationen, in denen...'); frame collaboration with phrases like 'Ich möchte gemeinsam mit Ihnen' and offer a clear next step such as 'Können wir einen kurzen Termin vereinbaren?'; keep the tone calm, professional, and supportive without sounding accusatory.",
     )
   }
 
