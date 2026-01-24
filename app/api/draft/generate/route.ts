@@ -568,19 +568,21 @@ export async function POST(request: Request) {
     lastReset: new Date().toISOString(),
   }
   const defaultUsage = buildUsageResponse(defaultUsageRecord, "free")
+  const devDefaults = {
+    plan: "free" as const,
+    usage: defaultUsage,
+    usageRecord: defaultUsageRecord,
+    isProSubscriber: false,
+  }
+  const entitlements = isDevBypassRequest
+    ? devDefaults
+    : await getUserEntitlements(uid, firestore!)
   const {
     plan,
     usage: initialUsage,
     usageRecord,
     isProSubscriber,
-  } = isDevBypassRequest
-    ? {
-        plan: "free",
-        usage: defaultUsage,
-        usageRecord: defaultUsageRecord,
-        isProSubscriber: false,
-      }
-    : await getUserEntitlements(uid, firestore!)
+  } = entitlements
   const enforceUsageLimits = isDevBypassRequest ? false : shouldRespectUsageLimit(uid)
 
   const userRef = firestore ? firestore.collection("users").doc(uid) : null
