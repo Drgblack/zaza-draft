@@ -41,6 +41,7 @@ import {
   applySignatureToDraft,
   resolveSignature,
   SignaturePayload,
+  type ResolvedSignature,
 } from "@/lib/draft/signature"
 import { resolveTeacherSignatureName } from "@/lib/draft/teacher-signature"
 import { isValidDraftRequest, OUT_OF_SCOPE_REDIRECT_MESSAGE } from "./scope-guard"
@@ -265,39 +266,54 @@ function detectExtraSignoffName(raw: string, locale: GreetingLocale) {
   return null
 }
 
+  function normalizeName(value?: string | null) {
+    if (!value) {
+      return ""
+    }
+    const collapsed = value.replace(/[\r\n]+/g, " ").replace(/\s+/g, " ").trim()
+    return collapsed.replace(/([,;:.!?])\1+$/, "$1")
+  }
+
+  function normalizeGreetingValue(value: string) {
+    return normalizeName(value)
+  }
+
 function resolveGreetingFromRawText(
   raw: string,
   language: string | undefined,
   messageType?: string,
 ) {
-  const trimmed = raw.trim()
-  if (!trimmed) {
+  const sanitized = sanitizeEmailText(raw)
+  const cleaned = sanitized.cleanText.trim()
+  if (!cleaned) {
     return null
   }
   const locale = language?.toLowerCase().startsWith("de") ? "de" : "en"
-  const extraSignoff = detectExtraSignoffName(trimmed, locale)
+  const extraSignoff = detectExtraSignoffName(cleaned, locale)
   if (extraSignoff) {
     return extraSignoff
   }
-  const trailingName = detectTrailingName(trimmed, locale)
+  const trailingName = detectTrailingName(cleaned, locale)
   if (trailingName) {
     return trailingName
   }
   const greetingResult = resolveGreeting({
-    cleanedOcrText: trimmed,
+    cleanedOcrText: cleaned,
     locale,
     messageType,
   })
-  const normalizedGreeting = greetingResult.greeting.trim()
+  const normalizedGreeting = normalizeGreetingValue(greetingResult.greeting)
+    const normalizedSafeName = greetingResult.safeName
+      ? normalizeName(greetingResult.safeName)
+      : null
   const hasSafeConfidence =
     greetingResult.confidence === "MEDIUM" || greetingResult.confidence === "HIGH"
   const greetingDidResolveName = greetingResult.source === "resolved-name"
-  const greetingFinal =
-    hasSafeConfidence && greetingDidResolveName && normalizedGreeting.length > 0
+  const greetingFinal = hasSafeConfidence && greetingDidResolveName && normalizedGreeting.length > 0
   return {
     greeting: normalizedGreeting || greetingResult.greeting,
     confidence: greetingResult.confidence,
-    safeName: greetingResult.safeName ?? null,
+    safeName: normalizedSafeName ?? null,
     source: greetingResult.source,
     final: greetingFinal,
   }
@@ -411,10 +427,13 @@ export async function POST(request: Request) {
   const debugEnabled =
     isDebugEnabled(requestUrl.searchParams) || request.headers.get("x-debug") === "1"
 
-  let greetingText = (payload.greeting?.text ?? "").trim()
+  let greetingText = normalizeGreetingValue(payload.greeting?.text ?? "")
   let greetingConfidence = payload.greetingConfidence ?? payload.greeting?.confidence ?? "NONE"
   let greetingSource = payload.greetingSource ?? payload.greeting?.source ?? "generic-fallback"
-  let greetingName = payload.greeting?.name ?? null
+  let greetingName = payload.greeting?.name ? normalizeName(payload.greeting.name) : null
+  if (!greetingName) {
+    greetingName = null
+  }
   let greetingFinal = Boolean(payload.greetingFinal && greetingText)
   const normalizedRequestGreeting = greetingText.replace(/\s+/g, " ").trim()
   const shouldResetGreeting =
@@ -437,10 +456,15 @@ export async function POST(request: Request) {
       payload.messageType,
     )
     if (resolvedGreeting) {
-      greetingText = resolvedGreeting.greeting
+      greetingText = normalizeGreetingValue(resolvedGreeting.greeting)
       greetingConfidence = resolvedGreeting.confidence
       greetingSource = resolvedGreeting.source
-      greetingName = greetingName ?? resolvedGreeting.safeName
+      const normalizedResolvedName = resolvedGreeting.safeName
+        ? normalizeName(resolvedGreeting.safeName)
+        : null
+      if (normalizedResolvedName) {
+        greetingName = greetingName || normalizedResolvedName
+      }
       greetingFinal = resolvedGreeting.final
     }
   }
@@ -786,6 +810,43 @@ export async function POST(request: Request) {
     applySignatureToDraft(finalizeDraft(text), resolvedSignature, mode)
   const finalizeWithGreeting = (text: string) =>
     removeDuplicateGreeting(finalizeDraftWithSignature(text), finalGreetingLine)
+
+  const DEFAULT_CLOSINGS = {
+    en: "Kind regards",
+    de: "Mit freundlichen Grüßen",
+  }
+  const FALLBACK_SIGNATURES = {
+    en: "Your child's teacher",
+    de: "Ihre Klassenlehrkraft",
+  }
+
+  function ensureClosingAndSignature(text: string, language?: string, teacherName?: string) {
+    const normalizedLanguage = language?.toLowerCase() ?? "en"
+    const closingLine = normalizedLanguage.startsWith("de")
+      ? DEFAULT_CLOSINGS.de
+      : DEFAULT_CLOSINGS.en
+    const signatureLine =
+      (teacherName?.trim()) || (normalizedLanguage.startsWith("de") ? FALLBACK_SIGNATURES.de : FALLBACK_SIGNATURES.en)
+    const trimmed = text.trim()
+    const lines = trimmed
+      .split(/\n+/)
+      .map((line) => line.trim())
+      .filter(Boolean)
+    const normalizeMatch = (value: string) => value.replace(/[.,;:]+$/, "").trim().toLowerCase()
+    const closingMatch = normalizeMatch(closingLine)
+    const signatureMatch = normalizeMatch(signatureLine)
+    const hasClosing = lines.some((line) => normalizeMatch(line) === closingMatch)
+    const hasSignature =
+      Boolean(signatureLine) && lines.some((line) => normalizeMatch(line) === signatureMatch)
+    let result = trimmed
+    if (!hasClosing) {
+      result = `${result}\n\n${closingLine}`
+    }
+    if (!hasSignature && signatureLine) {
+      result = `${result}\n${signatureLine}`
+    }
+    return result
+  }
   const runDraft = (forceLanguage = false, forceContinuation = false) =>
     generateDraftWithFallback(
       { ...providerInput, forceLanguage, forceContinuation },
@@ -831,11 +892,13 @@ export async function POST(request: Request) {
     return removeDuplicateGreeting(guarded, finalGreetingLine)
   }
 
-  if (shouldNormalizeGermanParentMessage) {
-    generatedDraft = applyGermanNormalization(generatedDraft)
-  }
+    if (shouldNormalizeGermanParentMessage) {
+      generatedDraft = applyGermanNormalization(generatedDraft)
+    }
 
-  let formattedDraftStructure = formatDraftText(generatedDraft, language)
+    generatedDraft = ensureClosingAndSignature(generatedDraft, language, teacherSignatureName)
+
+    let formattedDraftStructure = formatDraftText(generatedDraft, language)
   let bodyParagraphCount = getParagraphCountExcludingGreeting(formattedDraftStructure, finalGreetingLine)
   let bodyWordCount = countWords(generatedDraft)
   const evaluateBodyNeedsRetry = () =>

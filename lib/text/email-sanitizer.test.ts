@@ -5,7 +5,8 @@ import { sanitizeEmailText } from "./email-sanitizer"
 describe("sanitizeEmailText", () => {
   it("drops Gmail UI chrome while keeping the actual parent concern", () => {
     const rawLines = [
-      "Gmail",
+      "Sans Serif",
+      "Compose",
       "Inbox",
       "99+",
       "Sehr geehrte Eltern,",
@@ -16,8 +17,32 @@ describe("sanitizeEmailText", () => {
     const result = sanitizeEmailText(raw)
 
     expect(result.cleanText).toContain("Hausaufgabenmenge")
-    expect(result.cleanText).not.toContain("Gmail")
-    expect(result.removedLines).toEqual(expect.arrayContaining(["Gmail", "Inbox", "99+"]))
+    expect(result.cleanText).not.toContain("Sans Serif")
+    expect(result.cleanText).not.toContain("Compose")
+    expect(result.cleanText).not.toContain("Inbox")
+    expect(result.removedLines).toEqual(
+      expect.arrayContaining(["Sans Serif", "Compose", "Inbox", "99+"]),
+    )
     expect(result.substantiveLines).toBeGreaterThan(0)
+  })
+
+  it("retains the message body even when menu fragments appear", () => {
+    const raw = [
+      "Search mail",
+      "Meet",
+      "Toolbar buttons",
+      "Inbox",
+      "Sehr geehrte Eltern,",
+      "Lukas schreibt, dass die vielen Hausaufgaben ihn stark beanspruchen.",
+      "Wir möchten gern gemeinsam über eine Lösung sprechen.",
+    ].join("\n")
+    const result = sanitizeEmailText(raw)
+
+    expect(result.cleanText).toContain("Lukas schreibt")
+    expect(result.cleanText).toContain("Hausaufgaben")
+    expect(result.cleanText).not.toContain("Search mail")
+    expect(result.removedLines).toEqual(
+      expect.arrayContaining(["Search mail", "Meet", "Toolbar buttons", "Inbox"]),
+    )
   })
 })

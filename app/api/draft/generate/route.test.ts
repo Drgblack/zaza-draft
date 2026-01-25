@@ -1,6 +1,7 @@
-import { describe, expect, it, vi, beforeAll, afterAll } from "vitest"
+import { describe, expect, it, vi, beforeAll, afterAll, beforeEach } from "vitest"
 import { getFirebaseAdmin } from "@/lib/firebase/admin"
 import { authorizeFirebaseRequest } from "@/lib/firebase/server"
+import { generateDraftWithFallback } from "@/lib/draft/fallback"
 import { POST } from "@/app/api/draft/generate/route"
 
 const ORIGINAL_NODE_ENV = process.env.NODE_ENV
@@ -35,10 +36,10 @@ function createFirestoreStub() {
 function getLongDraft() {
   return [
     "Liebe Eltern,",
-    "Die Menge der Hausaufgaben ist zuletzt spürbar gewachsen, und wir möchten in diesem ersten Absatz neutral wiedergeben, was Sie beschreiben, bevor wir zu nächsten Schritten kommen.",
-    "Die Schülerin zeigt ermutigende Fortschritte in den Hausaufgaben, aber ein konkreter nächster Schritt wären regelmäßige kurze Übungseinheiten zu Hause.",
-    "Bitte schlagen Sie zwei Termine vor, an denen wir per Telefon oder Teams den Plan besprechen und offene Fragen klären können.",
-    "Vielen Dank für Ihre Kooperation und Ihr Vertrauen; gemeinsam finden wir die beste Unterstützung.",
+    "Lukas hat beschrieben, dass die Hausaufgabenmenge und die zusätzlichen Übungsaufträge ihn zuletzt stark beansprucht haben, deshalb möchte ich diesen Punkt im ersten Absatz neutral zusammenfassen.",
+    "Der Schüler zeigt weiterhin Fortschritte, aber wir benötigen einen klaren Plan für regelmäßige kurze Übungseinheiten zu Hause, damit er wieder Sicherheit gewinnt.",
+    "Bitte schlagen Sie zwei Termine vor, an denen wir telefonisch oder per Teams die nächsten Schritte besprechen und offene Fragen klären können.",
+    "Vielen Dank für Ihre Kooperation; gemeinsam unterstützen wir Lukas dabei, wieder Ruhe im Alltag zu finden.",
   ].join("\n\n")
 }
 
@@ -51,6 +52,18 @@ const homeworkSituation = [
   "Die Eltern schreiben, dass die Menge an Hausaufgaben und Übungsaufträgen zuletzt zu groß geworden ist.",
   "Sie wünschen sich eine gemeinsame Lösung und konkrete nächste Schritte, damit Lukas wieder Ruhe im Alltag findet.",
 ].join(" ")
+
+const buildFallbackResult = (text: string) => ({
+  result: {
+    text,
+    providerMeta: {
+      modelUsed: "test-model",
+      latencyMs: 10,
+    },
+  },
+  usedFallback: false,
+  errorCode: null,
+})
 
 vi.mock("@/lib/firebase/server", () => ({
   authorizeFirebaseRequest: vi.fn().mockResolvedValue({
@@ -128,22 +141,16 @@ vi.mock("@/lib/draft-mode", () => ({
   resolveDraftMode: (mode: string | undefined) => mode ?? "parent_message",
 }))
 
-vi.mock("@/lib/draft/fallback", () => {
-  const fallbackGenerator = vi.fn().mockResolvedValue({
-    result: {
-      text: getLongDraft(),
-      providerMeta: {
-        modelUsed: "test-model",
-        latencyMs: 10,
-      },
-    },
-    usedFallback: false,
-    errorCode: null,
-  })
-  return {
-    ALLOWED_TONES: ["warm", "professional", "direct", "empathetic"],
-    generateDraftWithFallback: fallbackGenerator,
-  }
+vi.mock("@/lib/draft/fallback", () => ({
+  ALLOWED_TONES: ["warm", "professional", "direct", "empathetic"],
+  generateDraftWithFallback: vi.fn(),
+}))
+
+const fallbackGenerator = vi.mocked(generateDraftWithFallback)
+
+beforeEach(() => {
+  fallbackGenerator.mockReset()
+  fallbackGenerator.mockResolvedValue(buildFallbackResult(getLongDraft()))
 })
 
 vi.mock("@/lib/auth/internal-qa", () => ({
@@ -181,7 +188,23 @@ vi.mock("@/lib/deescalation/rewrite", () => ({
 
 vi.mock("@/lib/draft/language", () => ({
   canonicalizeLocaleIdentifier: (locale: string | undefined) => locale,
-  resolveOutputLanguage: () => "de",
+  resolveOutputLanguage: ({
+    explicit,
+    preferred,
+    uiLocale,
+  }: {
+    explicit?: string
+    preferred?: string
+    uiLocale?: string
+    acceptLanguage?: string | null
+  }) => {
+    if (explicit) return explicit
+    if (preferred) return preferred
+    if (uiLocale) {
+      return uiLocale.toLowerCase().startsWith("de") ? "de" : "en"
+    }
+    return "de"
+  },
 }))
 
 vi.mock("@/lib/draft/signature", () => ({
@@ -408,9 +431,102 @@ describe("/api/draft/generate greeting handoff", () => {
     const firstContentParagraph =
       paragraphs.find((para) => !/^Liebe|^Guten Tag|^Sehr geehrte/i.test(para)) ?? ""
     expect(firstContentParagraph.toLowerCase()).toContain("hausaufgaben")
+    expect(firstContentParagraph.toLowerCase()).toContain("lukas")
     expect(generatedDraft).not.toContain("Verhalten dokumentieren")
     expect(generatedDraft).not.toMatch(/[Ã�]/)
     expect(response.headers.get("x-request-id")).toBe(json.requestId)
+  })
+
+  it("ignores Gmail chrome noise when resolving the parent's name", async () => {
+    const payload = {
+      situation: detailedSituation,
+      tone: "professional",
+      language: "de",
+      mode: "parent_message",
+      situationRaw: "Sans Serif\nCompose\nMit freundlichen Grüßen\nLukas Breuer\n",
+    }
+    const request = new Request("https://example.com/api/draft/generate", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: "Bearer token",
+      },
+      body: JSON.stringify(payload),
+    })
+
+    const response = await POST(request)
+    expect(response.status).toBe(200)
+    const json = await response.json()
+    const greetingText = json.data?.greeting?.text ?? ""
+    expect(greetingText).toContain("Lukas Breuer")
+    expect(greetingText).not.toContain("Sans Serif")
+    expect(json.data?.generatedDraft.startsWith("Guten Tag, Lukas Breuer,")).toBe(true)
+  })
+
+  it("appends the closing line and fallback signature when the draft lacks them", async () => {
+    const fallbackText = ["Liebe Eltern,", "Vielen Dank für Ihr Vertrauen; ich nehme Ihr Anliegen ernst."].join(
+      "\n\n",
+    )
+    fallbackGenerator.mockResolvedValueOnce(buildFallbackResult(fallbackText))
+    const payload = {
+      situation: detailedSituation,
+      tone: "professional",
+      language: "de",
+      mode: "parent_message",
+    }
+    const request = new Request("https://example.com/api/draft/generate", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: "Bearer token",
+      },
+      body: JSON.stringify(payload),
+    })
+
+    const response = await POST(request)
+    expect(response.status).toBe(200)
+    const json = await response.json()
+    const generatedDraft = json.data?.generatedDraft ?? ""
+    expect(generatedDraft).toContain("Mit freundlichen Grüßen")
+    expect(generatedDraft.trim().endsWith("Ihre Klassenlehrkraft")).toBe(true)
+  })
+
+  it("anchors the English concern for Ella in the first paragraph", async () => {
+    const englishOutput = [
+      "Dear family,",
+      "Ella feels singled out and embarrassed in class discussions, and I want to restate this concern before proposing next steps.",
+      "I will prepare a calm plan for a brief call so we can align on how to support her.",
+    ].join("\n\n")
+    fallbackGenerator.mockResolvedValue(buildFallbackResult(englishOutput))
+    const payload = {
+      situation: englishOutput,
+      tone: "professional",
+      language: "en",
+      mode: "parent_message",
+    }
+    const request = new Request("https://example.com/api/draft/generate", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: "Bearer token",
+      },
+      body: JSON.stringify(payload),
+    })
+
+    const response = await POST(request)
+    expect(response.status).toBe(200)
+    const json = await response.json()
+    const generatedDraft = json.data?.generatedDraft ?? ""
+    expect(generatedDraft).toContain("Kind regards")
+    expect(generatedDraft.trim().endsWith("Your child's teacher")).toBe(true)
+    const paragraphs = generatedDraft
+      .split(/\n{2,}/)
+      .map((paragraph) => paragraph.trim())
+      .filter(Boolean)
+    const firstContentParagraph =
+      paragraphs.find((para) => !/^Dear|^Hello|^Liebe|^Guten Tag/i.test(para)) ?? ""
+    expect(firstContentParagraph).toContain("Ella")
+    expect(firstContentParagraph).toContain("singled out")
   })
 
   it("preserves titles such as Dr. Markus Schneider in the greeting", async () => {

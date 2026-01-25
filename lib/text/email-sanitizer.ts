@@ -1,5 +1,5 @@
 const UI_LINE_PATTERNS: RegExp[] = [
-  /^\s*(?:\|\|\||III|I{1,5}|l{1,5}|››|»»|<<|>>)\s*$/i,
+  /^\s*(?:\|\|\||III|I{1,5}|l{1,5}|››|»»|<<|>>|\.{3,}|···|───)\s*$/i,
   /^\s*\d+\+\s*$/i,
   /^\s*99\+\s*$/i,
   /^\s*[|!\\\/\-]{2,}\s*$/i,
@@ -32,14 +32,56 @@ const MENU_KEYWORDS = new Set([
   "to",
   "english",
   "open",
-  "inbox",
   "google",
+  "sans",
+  "serif",
+  "toolbar",
+  "menu",
+  "icons",
+  "settings",
 ])
 
 const GREETING_REGEX = /^(?:dear|hi|hello|hey|guten\s+tag|hallo|liebe[rn]?|sehr\s+geehrte[rn]?|sehr\s+geehrter|frau|herr)\b/i
 const SIGNATURE_REGEX = /^(?:kind regards|regards|best regards|sincerely|yours sincerely|thanks|thank you),?$/i
 const SIGNOFF_REGEX = /^(?:kind regards|regards|best regards|sincerely|yours sincerely|yours faithfully|mit freundlichen grüßen|freundliche grüße|viele grüße|beste grüße|hochachtungsvoll)\b/i
 const SIGNATURE_NAME_REGEX = /^(?:mr|mrs|ms|miss|dr)\b.*$/i
+
+const UI_LINE_KEYWORDS = [
+  "sans serif",
+  "search mail",
+  "compose",
+  "drafts",
+  "meet",
+  "chat",
+  "inbox",
+  "toolbar",
+  "toolbar buttons",
+  "read/write",
+  "summarise this email",
+  "summarize this email",
+  "translation",
+  "translate",
+  "open in gmail",
+  "search",
+  "gmail",
+  "labels",
+  "more",
+  "starred",
+  "assistant",
+  "sans",
+  "serif",
+]
+
+function containsUiNoise(line: string) {
+  const lower = line.toLowerCase()
+  if (UI_LINE_KEYWORDS.some((phrase) => lower.includes(phrase))) {
+    return true
+  }
+  if (/^(?:sans serif|search mail|compose|inbox|drafts|meet|chat|toolbar)$/i.test(line)) {
+    return true
+  }
+  return false
+}
 
 function normalizeLine(raw: string) {
   return raw.replace(/\s+/g, " ").trim()
@@ -71,6 +113,9 @@ function shouldDropLine(line: string) {
     return false
   }
   if (UI_LINE_PATTERNS.some((pattern) => pattern.test(line))) {
+    return true
+  }
+  if (containsUiNoise(line)) {
     return true
   }
   if (isMenuFragment(line)) {
