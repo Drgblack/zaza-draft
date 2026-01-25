@@ -32,6 +32,26 @@ function createFirestoreStub() {
   }
 }
 
+function getLongDraft() {
+  return [
+    "Liebe Eltern,",
+    "Die Menge der Hausaufgaben ist zuletzt spürbar gewachsen, und wir möchten in diesem ersten Absatz neutral wiedergeben, was Sie beschreiben, bevor wir zu nächsten Schritten kommen.",
+    "Die Schülerin zeigt ermutigende Fortschritte in den Hausaufgaben, aber ein konkreter nächster Schritt wären regelmäßige kurze Übungseinheiten zu Hause.",
+    "Bitte schlagen Sie zwei Termine vor, an denen wir per Telefon oder Teams den Plan besprechen und offene Fragen klären können.",
+    "Vielen Dank für Ihre Kooperation und Ihr Vertrauen; gemeinsam finden wir die beste Unterstützung.",
+  ].join("\n\n")
+}
+
+const detailedSituation = [
+  "Die Eltern schreiben, dass die Hausaufgabenlast und die zusätzlichen Übungsaufträge zuletzt deutlich zugenommen haben.",
+  "Sie fragen, ob ihr Kind mit der Pensen Schritt halten kann, und bitten um konkrete Unterstützung.",
+].join(" ")
+
+const homeworkSituation = [
+  "Die Eltern schreiben, dass die Menge an Hausaufgaben und Übungsaufträgen zuletzt zu groß geworden ist.",
+  "Sie wünschen sich eine gemeinsame Lösung und konkrete nächste Schritte, damit Lukas wieder Ruhe im Alltag findet.",
+].join(" ")
+
 vi.mock("@/lib/firebase/server", () => ({
   authorizeFirebaseRequest: vi.fn().mockResolvedValue({
     uid: "test-uid",
@@ -109,16 +129,9 @@ vi.mock("@/lib/draft-mode", () => ({
 }))
 
 vi.mock("@/lib/draft/fallback", () => {
-  const longDraft = [
-    "Liebe Eltern,",
-    "Wir beobachten den Lernfortschritt aufmerksam und möchten ein kurzes Update geben, damit wir alle an einem Strang ziehen.",
-    "Die Schülerin zeigt ermutigende Fortschritte in den Hausaufgaben, aber ein konkreter nächster Schritt wären regelmäßige kurze Übungseinheiten zu Hause.",
-    "Bitte schlagen Sie zwei Termine vor, an denen wir per Telefon oder Teams den Plan besprechen und offene Fragen klären können.",
-    "Vielen Dank für Ihre Kooperation und Ihr Vertrauen; gemeinsam finden wir die beste Unterstützung.",
-  ].join("\n\n")
   const fallbackGenerator = vi.fn().mockResolvedValue({
     result: {
-      text: longDraft,
+      text: getLongDraft(),
       providerMeta: {
         modelUsed: "test-model",
         latencyMs: 10,
@@ -202,7 +215,7 @@ vi.mock("@/lib/draft/greeting-resolution", async () => {
 describe("/api/draft/generate greeting handoff", () => {
   it("resolves greeting from raw situation and enforces the line", async () => {
     const payload = {
-      situation: "Die Notiz ohne Gruß.",
+      situation: detailedSituation,
       tone: "professional",
       language: "de",
       mode: "parent_message",
@@ -227,7 +240,7 @@ describe("/api/draft/generate greeting handoff", () => {
 
   it("enforces a resolved greeting when Elena Martínez appears in the raw text", async () => {
     const payload = {
-      situation: "Die Beschwerde in eigenen Worten.",
+      situation: `${detailedSituation} Die Beschwerde in eigenen Worten.`,
       tone: "professional",
       language: "de",
       mode: "parent_message",
@@ -252,7 +265,7 @@ describe("/api/draft/generate greeting handoff", () => {
 
   it("re-resolves a trailing name when a generic greeting is provided", async () => {
     const payload = {
-      situation: "Die Beschwerde in eigenen Worten.",
+      situation: `${detailedSituation} Die Beschwerde in eigenen Worten.`,
       tone: "professional",
       language: "de",
       mode: "parent_message",
@@ -289,7 +302,7 @@ describe("/api/draft/generate greeting handoff", () => {
 
   it("allows the dev bypass header to authenticate a stable dev uid", async () => {
     const payload = {
-      situation: "Die Beschwerde in eigenen Worten.",
+      situation: detailedSituation,
       tone: "professional",
       language: "de",
       mode: "parent_message",
@@ -310,6 +323,7 @@ describe("/api/draft/generate greeting handoff", () => {
     expect(json.success).toBe(true)
     expect(json.data?.metadata?.userId).toBe("dev-user")
     expect(response.headers.get("x-request-id")).toBeTruthy()
+    expect(json.requestId).toBe(response.headers.get("x-request-id"))
     expect(authorizeFirebaseRequest).not.toHaveBeenCalled()
   })
 
@@ -332,19 +346,76 @@ describe("/api/draft/generate greeting handoff", () => {
     const response = await POST(request)
     expect(response.status).toBe(422)
     const json = await response.json()
-    expect(json).toEqual({
-      success: false,
-      error: {
-        code: "VALIDATION",
-        message: "The situation field must be text.",
-      },
+    expect(json.success).toBe(false)
+    expect(json.error).toEqual({
+      code: "VALIDATION",
+      message: "The situation field must be text.",
     })
-    expect(response.headers.get("x-request-id")).toBeTruthy()
+    expect(typeof json.requestId).toBe("string")
+    expect(response.headers.get("x-request-id")).toBe(json.requestId)
+  })
+
+  it("rejects notes that are only greetings after sanitization", async () => {
+    const payload = {
+      situation: "Guten Tag,\nMit freundlichen Grüßen",
+      tone: "professional",
+      language: "de",
+      mode: "parent_message",
+    }
+    const request = new Request("https://example.com/api/draft/generate", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: "Bearer token",
+      },
+      body: JSON.stringify(payload),
+    })
+
+    const response = await POST(request)
+    expect(response.status).toBe(422)
+    const json = await response.json()
+    expect(json.success).toBe(false)
+    expect(json.error.code).toBe("INSUFFICIENT_INPUT")
+    expect(json.data?.substantiveLines).toBe(0)
+    expect(json.data?.wordCount).toBeGreaterThanOrEqual(0)
+    expect(response.headers.get("x-request-id")).toBe(json.requestId)
+  })
+
+  it("anchors a homework complaint in the first paragraph without behaviour documentation language", async () => {
+    const payload = {
+      situation: homeworkSituation,
+      tone: "professional",
+      language: "de",
+      mode: "parent_message",
+    }
+    const request = new Request("https://example.com/api/draft/generate", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: "Bearer token",
+      },
+      body: JSON.stringify(payload),
+    })
+
+    const response = await POST(request)
+    expect(response.status).toBe(200)
+    const json = await response.json()
+    const generatedDraft = json.data?.generatedDraft ?? ""
+    const paragraphs = generatedDraft
+      .split(/\n{2,}/)
+      .map((paragraph) => paragraph.trim())
+      .filter(Boolean)
+    const firstContentParagraph =
+      paragraphs.find((para) => !/^Liebe|^Guten Tag|^Sehr geehrte/i.test(para)) ?? ""
+    expect(firstContentParagraph.toLowerCase()).toContain("hausaufgaben")
+    expect(generatedDraft).not.toContain("Verhalten dokumentieren")
+    expect(generatedDraft).not.toMatch(/[Ã�]/)
+    expect(response.headers.get("x-request-id")).toBe(json.requestId)
   })
 
   it("preserves titles such as Dr. Markus Schneider in the greeting", async () => {
     const payload = {
-      situation: "Anfrage bezüglich des Stundenplans.",
+      situation: `${detailedSituation} Die Anfrage bezüglich des Stundenplans wurde mehrfach angesprochen und soll kurzfristig geklärt werden.`,
       tone: "professional",
       language: "de",
       mode: "parent_message",
@@ -368,7 +439,7 @@ describe("/api/draft/generate greeting handoff", () => {
 
   it("replaces a fallback greeting when Mit Nachdruck signature is present", async () => {
     const payload = {
-      situation: "Problematisches Verhalten dokumentiert.",
+      situation: `${detailedSituation} Problematisches Verhalten dokumentiert.`,
       tone: "professional",
       language: "de",
       mode: "parent_message",

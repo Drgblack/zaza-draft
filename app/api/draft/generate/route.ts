@@ -35,6 +35,7 @@ import { cleanStudentName } from "@/lib/draft/student-name"
 import { normalizeGermanParentMessage } from "@/lib/draft/german-normalizer"
 import { detectHighEmotionPhrases } from "@/lib/deescalation/detect"
 import { rewriteHighEmotionText } from "@/lib/deescalation/rewrite"
+import { sanitizeEmailText } from "@/lib/text/email-sanitizer"
 import { canonicalizeLocaleIdentifier, resolveOutputLanguage } from "@/lib/draft/language"
 import {
   applySignatureToDraft,
@@ -341,15 +342,16 @@ export async function POST(request: Request) {
     "x-request-id": requestId,
   }
   const ok = (data: unknown, status = 200) =>
-    NextResponse.json({ success: true, data }, { status, headers: responseHeaders })
+    NextResponse.json({ success: true, requestId, data }, { status, headers: responseHeaders })
   const fail = (
     status: number,
     code: string,
     message: string,
     extra?: Record<string, unknown>,
   ) => {
-    const payload: { success: false; error: Record<string, unknown> } & Record<string, unknown> = {
+    const payload: Record<string, unknown> = {
       success: false,
+      requestId,
       error: {
         code,
         message,
@@ -357,13 +359,12 @@ export async function POST(request: Request) {
     }
     if (extra) {
       const { error: extraError, ...rest } = extra
-      if (extraError && typeof extraError === "object") {
+      if (extraError && typeof extraError === "object" && !Array.isArray(extraError)) {
         payload.error = {
-  ...((payload.error && typeof payload.error === "object" && !Array.isArray(payload.error))
-    ? (payload.error as Record<string, unknown>)
-    : {}),
-  ...(extraError as Record<string, unknown>),
-}}
+          ...(payload.error as Record<string, unknown>),
+          ...extraError,
+        }
+      }
       Object.assign(payload, rest)
     }
     return NextResponse.json(payload, { status, headers: responseHeaders })
@@ -508,6 +509,24 @@ export async function POST(request: Request) {
     situation,
   )
   const resolvedPronounPreference = pronounResolution.resolvedPreference
+  const sanitizedInput = sanitizeEmailText(situation)
+  const cleanedSituationText = sanitizedInput.cleanText
+  const insufficientInput =
+    sanitizedInput.wordCount < 20 || sanitizedInput.substantiveLines === 0
+  if (insufficientInput) {
+    return fail(
+      422,
+      "INSUFFICIENT_INPUT",
+      "After removing Gmail UI noise, the note doesn’t include enough detail to craft a responsible reply. Please describe the parent concern in at least 20 words.",
+      {
+        data: {
+          wordCount: sanitizedInput.wordCount,
+          substantiveLines: sanitizedInput.substantiveLines,
+          removedLines: sanitizedInput.removedLines,
+        },
+      },
+    )
+  }
 
     const bypassHeader = request.headers.get(DEV_BYPASS_HEADER)
     const devBypassActive = DEV_ENV_ALLOWED.has(process.env.NODE_ENV ?? "") && bypassHeader === "1"
@@ -644,7 +663,7 @@ export async function POST(request: Request) {
         set: async () => null,
       }
 
-  const detection = detectSensitiveContent(situation)
+  const detection = detectSensitiveContent(cleanedSituationText)
   let sanitizedSituation = detection.sanitized
   const safetyFlags = new Set<string>()
   if (detection.matches.length > 0) {
@@ -946,6 +965,12 @@ export async function POST(request: Request) {
     requestedAt: requestedAt.toISOString(),
     contextUsed: sanitizedContext,
     signatureBlock: resolvedSignature.block,
+    sanitizedInput: {
+      wordCount: sanitizedInput.wordCount,
+      substantiveLines: sanitizedInput.substantiveLines,
+      nonEmptyLines: sanitizedInput.nonEmptyLines,
+      removedLines: sanitizedInput.removedLines.length,
+    },
   }
 
   const responseMeta = {

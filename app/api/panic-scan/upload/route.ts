@@ -4,6 +4,7 @@ import { authorizeFirebaseRequest } from "@/lib/firebase/server"
 import { enforcePerUserRateLimit, RateLimitError } from "@/lib/rate-limit"
 import { analyzePanicMessage } from "@/lib/panic-scan/analysis"
 import { cleanOcrText } from "@/lib/panic-scan/clean-ocr"
+import { sanitizeEmailText } from "@/lib/text/email-sanitizer"
 import { performVisionOcr } from "@/lib/panic-scan/ocr"
 import type { PanicScanDocument } from "@/lib/panic-scan/types"
 
@@ -326,10 +327,35 @@ export async function POST(request: Request) {
     try {
       diagnostics.ocrPerformed = true
       const extractedText = await performVisionOcr(buffer)
+      const sanitized = sanitizeEmailText(extractedText)
+      if (sanitized.wordCount < 20 || sanitized.greetingOrSignatureOnly) {
+        diagnostics.ocrSucceeded = false
+        await scanRef.set(
+          {
+            extractedText,
+            extractedTextClean: sanitized.cleanText,
+            cleanConfidence: 0,
+            status: "insufficient_input",
+            failureReason: "INSUFFICIENT_OCR",
+          },
+          { merge: true },
+        )
+
+        logStage(requestId, "ocr", false, "insufficient OCR data")
+        return createErrorResponse({
+          code: "INSUFFICIENT_OCR",
+          message: "OCR did not capture enough of the message; please try again or type the note manually.",
+          stage: "ocr",
+          status: 422,
+          diagnostics,
+          requestId,
+        })
+      }
+
       diagnostics.ocrSucceeded = true
       logStage(requestId, "ocr", true)
 
-      const cleaned = cleanOcrText(extractedText)
+      const cleaned = cleanOcrText(sanitized.cleanText)
 
       const analysis = await analyzePanicMessage(extractedText)
       diagnostics.analysisSucceeded = true

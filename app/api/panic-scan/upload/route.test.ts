@@ -40,7 +40,13 @@ describe("panic scan upload route", () => {
       },
     })
     vi.mocked(enforcePerUserRateLimit).mockResolvedValue(undefined)
-    vi.mocked(performVisionOcr).mockResolvedValue("extracted")
+    vi.mocked(performVisionOcr).mockResolvedValue(
+      [
+        "Sehr geehrte Eltern,",
+        "Die Hausaufgabenmenge ist zuletzt gestiegen und die Schülerin arbeitet engagiert weiter.",
+        "Wir möchten gemeinsam einen klaren Plan entwickeln und die Unterstützung transparent machen.",
+      ].join("\n"),
+    )
     vi.mocked(cleanOcrText).mockReturnValue({
       cleanText: "text",
       confidence: 1,
@@ -113,5 +119,38 @@ describe("panic scan upload route", () => {
     expect(body.error.code).toBe("INVALID_FILE_PATH")
     expect(body.stage).toBe("parse")
     expect(authorizeFirebaseRequest).not.toHaveBeenCalled()
+  })
+
+  it("returns insufficient OCR when only UI chrome and a greeting are found", async () => {
+    vi.mocked(performVisionOcr).mockResolvedValue(
+      ["Gmail", "Inbox", "99+", "Sehr geehrte Eltern,", "Mit freundlichen Grüßen"].join("\n"),
+    )
+    const fakeFile = {
+      arrayBuffer: async () => Buffer.from("data"),
+      name: "panic.png",
+      type: "image/png",
+      size: 4,
+    }
+    const fakeFormData = {
+      get: (key: string) => {
+        if (key === "file") return fakeFile
+        if (key === "platform") return "web"
+        return null
+      },
+    }
+
+    const request = {
+      formData: async () => fakeFormData,
+      headers: new Headers({
+        Authorization: "Bearer token",
+      }),
+    } as unknown as Request
+
+    const response = await POST(request)
+    expect(response.status).toBe(422)
+    const body = await response.json()
+    expect(body.error.code).toBe("INSUFFICIENT_OCR")
+    expect(body.error.stage).toBe("ocr")
+    expect(response.headers.get("x-request-id")).toBe(body.requestId)
   })
 })
