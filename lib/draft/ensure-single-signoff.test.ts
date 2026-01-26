@@ -34,4 +34,24 @@ describe("ensureSingleSignOff", () => {
     expect(out.endsWith("Kind regards,\nDr Greg Blackburn")).toBe(true)
     expect((out.match(/Kind regards,/gi) ?? []).length).toBe(1)
   })
+
+  it("deduplicates concatenated inline sign-offs", () => {
+    const input =
+      "Hello,\n\nThanks for your patience.\n\nBest regards, Dr Greg Blackburn Kind regards, Dr Greg Blackburn"
+    const out = ensureSingleSignOff(input, "Dr Greg Blackburn", "en")
+
+    expect(out.endsWith("Kind regards,\nDr Greg Blackburn")).toBe(true)
+    expect((out.match(/Best regards/gi) ?? []).length).toBe(0)
+  })
+
+  it("preserves umlauts and avoids mojibake", () => {
+    const input =
+      "Liebe Familie,\n\nDie Schüler grüßen die neue Lehrerin und freuen sich auf die Förderung.\n\nMit freundlichen Grüßen,\nFrau Müller"
+    const out = ensureSingleSignOff(input, "Frau Müller", "de")
+
+    expect(out).toContain("Schüler")
+    expect(out).toContain("grüßen")
+    expect(out).toContain("Mit freundlichen Grüßen,\nFrau Müller")
+    expect(out).not.toMatch(/Ã./)
+  })
 })

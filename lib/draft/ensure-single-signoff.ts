@@ -10,6 +10,8 @@ const SIGNOFF_STARTERS = [
   "herzliche grüße",
 ]
 
+const STARTER_PATTERN = SIGNOFF_STARTERS.map((starter) => starter.replace(/\s+/g, "\\s+")).join("|")
+
 function isClosingLine(line: string) {
   const normalized = line.replace(/[.,;:]+$/, "").trim().toLowerCase()
   return SIGNOFF_STARTERS.some((starter) => normalized.startsWith(starter))
@@ -67,10 +69,23 @@ function stripTrailingSignOff(text: string) {
   return lines.join("\n").trimEnd()
 }
 
+function removeInlineSignOffs(text: string) {
+  const pattern = new RegExp(`(?:\\s*(?:${STARTER_PATTERN})[.,!]?\\s*[^\\n]+)+\\s*$`, "i")
+  let result = text
+  while (true) {
+    const trimmed = result.trimEnd()
+    const match = pattern.exec(trimmed)
+    if (!match || match.index === undefined) {
+      return trimmed
+    }
+    result = trimmed.slice(0, match.index)
+  }
+}
+
 export function ensureSingleSignOff(raw: string | undefined | null, teacherName?: string, locale?: string) {
   const name = (teacherName?.trim() || "").trim()
   const fallbackName = name || "Class teacher"
-  const base = stripTrailingSignOff(raw ?? "")
+  const base = removeInlineSignOffs(stripTrailingSignOff(raw ?? ""))
   const content = base.trimEnd()
   const separator = content ? "\n\n" : ""
   const normalizedLocale = locale?.toLowerCase() ?? "en"
