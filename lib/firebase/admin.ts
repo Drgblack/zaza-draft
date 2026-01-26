@@ -1,3 +1,5 @@
+import fs from "fs"
+import path from "path"
 import admin from "firebase-admin"
 
 let cachedApp: admin.app.App | null = null
@@ -7,6 +9,9 @@ const ERR_PROJECT_ID =
 
 const ERR_CREDENTIALS =
   "Missing FIREBASE_SERVICE_ACCOUNT_JSON or GOOGLE_APPLICATION_CREDENTIALS. Provide a service account JSON string via FIREBASE_SERVICE_ACCOUNT_JSON or point GOOGLE_APPLICATION_CREDENTIALS at a JSON file."
+
+const GEO_CREDENTIAL_GUIDANCE =
+  "Ensure GOOGLE_APPLICATION_CREDENTIALS points to a valid service-account JSON with 'type': 'service_account' and a 'client_email'."
 
 export function getProjectId() {
   const projectId = process.env.FIREBASE_PROJECT_ID ?? process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID
@@ -56,6 +61,7 @@ function getAdminApp() {
   if (useServiceAccount) {
     credential = admin.credential.cert(serviceAccount!)
   } else if (process.env.GOOGLE_APPLICATION_CREDENTIALS) {
+    validateApplicationDefaultCredential(process.env.GOOGLE_APPLICATION_CREDENTIALS)
     credential = admin.credential.applicationDefault()
   } else {
     throw new Error(ERR_CREDENTIALS)
@@ -84,9 +90,58 @@ export function getFirebaseAdmin() {
     }
   }
 
+  const firestore = admin.firestore(app)
+  ensureFirestoreSettings(firestore)
+
   return {
     auth: admin.auth(app),
-    firestore: admin.firestore(app),
+    firestore,
     storage: admin.storage(app),
+  }
+}
+
+function ensureFirestoreSettings(firestore: admin.firestore.Firestore) {
+  const SETTINGS_KEY = "__ignoreUndefinedPropertiesConfigured"
+  if ((firestore as any)[SETTINGS_KEY]) {
+    return
+  }
+
+  firestore.settings({ ignoreUndefinedProperties: true })
+  ;(firestore as any)[SETTINGS_KEY] = true
+}
+
+function validateApplicationDefaultCredential(filePath: string) {
+  if (process.env.NODE_ENV === "production") {
+    return
+  }
+
+  const resolvedPath = path.resolve(filePath)
+  if (!fs.existsSync(resolvedPath)) {
+    throw new Error(`GOOGLE_APPLICATION_CREDENTIALS path missing: ${resolvedPath}`)
+  }
+
+  const raw = fs.readFileSync(resolvedPath, "utf8")
+  let parsed: Record<string, unknown>
+
+  try {
+    parsed = JSON.parse(raw)
+  } catch (error) {
+    throw new Error(`Failed to parse JSON at ${resolvedPath}: ${(error as Error).message}. ${GEO_CREDENTIAL_GUIDANCE}`)
+  }
+
+  const missingFields: string[] = []
+  if (parsed.type !== "service_account") {
+    missingFields.push("type=service_account")
+  }
+  if (!parsed.client_email) {
+    missingFields.push("client_email")
+  }
+
+  if (missingFields.length) {
+    throw new Error(
+      `Invalid service-account JSON at ${resolvedPath}. Missing ${missingFields.join(
+        " & ",
+      )}. ${GEO_CREDENTIAL_GUIDANCE}`,
+    )
   }
 }
