@@ -3,6 +3,7 @@ import path from "path"
 import admin from "firebase-admin"
 
 let cachedApp: admin.app.App | null = null
+let credentialError: string | null = null
 
 const ERR_PROJECT_ID =
   "Missing FIREBASE_PROJECT_ID or NEXT_PUBLIC_FIREBASE_PROJECT_ID. Set FIREBASE_PROJECT_ID for server-only usage or expose the project through NEXT_PUBLIC_FIREBASE_PROJECT_ID."
@@ -50,6 +51,7 @@ function getAdminApp() {
     return cachedApp
   }
 
+  credentialError = null
   const projectId = getProjectId()
   const serviceAccount = parseServiceAccountJson()
   const useServiceAccount = Boolean(serviceAccount)
@@ -61,8 +63,15 @@ function getAdminApp() {
   if (useServiceAccount) {
     credential = admin.credential.cert(serviceAccount!)
   } else if (process.env.GOOGLE_APPLICATION_CREDENTIALS) {
-    validateApplicationDefaultCredential(process.env.GOOGLE_APPLICATION_CREDENTIALS)
-    credential = admin.credential.applicationDefault()
+    try {
+      validateApplicationDefaultCredential(process.env.GOOGLE_APPLICATION_CREDENTIALS)
+      credential = admin.credential.applicationDefault()
+    } catch (error) {
+      credentialError =
+        error instanceof Error ? error.message : "Invalid GOOGLE_APPLICATION_CREDENTIALS"
+      console.error("[firebase-admin] Invalid application default credentials", credentialError)
+      return null
+    }
   } else {
     throw new Error(ERR_CREDENTIALS)
   }
@@ -144,4 +153,8 @@ function validateApplicationDefaultCredential(filePath: string) {
       )}. ${GEO_CREDENTIAL_GUIDANCE}`,
     )
   }
+}
+
+export function getFirebaseCredentialError() {
+  return credentialError
 }

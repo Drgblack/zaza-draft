@@ -1,5 +1,5 @@
-﻿import { describe, expect, it, vi, beforeEach } from \ vitest\
-import { POST } from \@/app/api/draft/generate/route\
+import { describe, expect, it, vi, beforeEach } from "vitest"
+import { POST } from "@/app/api/draft/generate/route"
 
 const snippetDocSet = vi.fn().mockResolvedValue(undefined)
 const diagnosticsSet = vi.fn().mockResolvedValue(undefined)
@@ -7,31 +7,31 @@ const insightsSet = vi.fn().mockResolvedValue(undefined)
 const userDocSet = vi.fn().mockResolvedValue(undefined)
 
 const snippetDoc = {
-  id: \snippet-id\,
+  id: "snippet-id",
   set: snippetDocSet,
   collection: () => ({ doc: () => snippetDoc }),
 }
 
 const userDoc = {
-  id: \user-id\,
+  id: "user-id",
   set: userDocSet,
   collection: (name: string) => {
-    if (name === \snippets\) {
+    if (name === "snippets") {
       return { doc: () => snippetDoc }
     }
-    if (name === \diagnostics\) {
-      return { doc: () => ({ id: \status\, set: diagnosticsSet }) }
+    if (name === "diagnostics") {
+      return { doc: () => ({ id: "status", set: diagnosticsSet }) }
     }
-    if (name === \insights\) {
-      return { doc: () => ({ id: \summary\, set: insightsSet }) }
+    if (name === "insights") {
+      return { doc: () => ({ id: "summary", set: insightsSet }) }
     }
     return { doc: () => snippetDoc }
   },
 }
 
-vi.mock(\@/lib/firebase/server\, () => ({
+vi.mock("@/lib/firebase/server", () => ({
   authorizeFirebaseRequest: vi.fn().mockResolvedValue({
-    uid: \test-user\,
+    uid: "test-user",
     firestore: {
       collection: () => ({
         doc: () => userDoc,
@@ -41,162 +41,162 @@ vi.mock(\@/lib/firebase/server\, () => ({
   FirebaseAuthorizationError: class FirebaseAuthorizationError extends Error {},
 }))
 
-vi.mock(\@/lib/safety\, () => ({
+vi.mock("@/lib/safety", () => ({
   detectSensitiveContent: (text: string) => ({ sanitized: text, matches: [] }),
   detectBlockedLanguage: () => ({ detected: false }),
   reframeBlockedLanguage: () => ({ applied: false }),
   BlockedLanguageTier: {
-    tier1: \tier1\,
-    tier2: \tier2\,
-    tier3: \tier3\,
+    tier1: "tier1",
+    tier2: "tier2",
+    tier3: "tier3",
   },
 }))
 
-vi.mock(\@/lib/analytics\, () => ({
+vi.mock("@/lib/analytics", () => ({
   logServerEvent: vi.fn(),
 }))
 
-vi.mock(\@/lib/usage\, () => ({
+vi.mock("@/lib/usage", () => ({
   buildUsageResponse: () => ({
     currentMonthUsage: 1,
     limit: 10,
     remaining: 9,
-    plan: \free\,
+    plan: "free",
   }),
   incrementUsage: vi.fn().mockResolvedValue({ generationCount: 1 }),
 }))
 
-vi.mock(\@/lib/entitlements\, () => ({
+vi.mock("@/lib/entitlements", () => ({
   getUserEntitlements: () =>
     Promise.resolve({
-      plan: \free\,
+      plan: "free",
       usage: { currentMonthUsage: 0, limit: 10, remaining: 10 },
       usageRecord: { generationCount: 0 },
       isProSubscriber: false,
     }),
 }))
 
-vi.mock(\@/lib/ai/provider\, () => ({
+vi.mock("@/lib/ai/provider", () => ({
   generateDraft: vi.fn(),
   ProviderMeta: class {},
   ProviderResult: class {},
 }))
 
-vi.mock(\@/lib/text/pronouns\, () => ({
+vi.mock("@/lib/text/pronouns", () => ({
   enforcePronouns: (text: string) => text,
   inferPronounResolution: () => ({
-    resolvedPreference: \auto\,
+    resolvedPreference: "auto",
     reason: null,
     source: null,
   }),
 }))
 
-vi.mock(\@/lib/rate-limit\, () => ({
+vi.mock("@/lib/rate-limit", () => ({
   enforceDraftRateLimit: vi.fn().mockResolvedValue(undefined),
   RateLimitError: class RateLimitError extends Error {},
 }))
 
-vi.mock(\firebase-admin/firestore\, () => ({
+vi.mock("firebase-admin/firestore", () => ({
   FieldValue: {
-    serverTimestamp: () => \timestamp\,
+    serverTimestamp: () => "timestamp",
     increment: (value: number) => value,
   },
 }))
 
-vi.mock(\@/lib/draft-mode\, () => ({
-  resolveDraftMode: (mode?: string) => (mode ? mode : \parent_message\),
+vi.mock("@/lib/draft-mode", () => ({
+  resolveDraftMode: (mode?: string) => (mode ? mode : "parent_message"),
 }))
 
-vi.mock(\@/lib/draft/fallback\, () => ({
-  ALLOWED_TONES: [\warm\, \professional\, \direct\, \empathetic\],
+vi.mock("@/lib/draft/fallback", () => ({
+  ALLOWED_TONES: ["warm", "professional", "direct", "empathetic"],
   generateDraftWithFallback: vi.fn().mockResolvedValue({
     result: {
-      text: \Dear family,\\n\\nThank you for reaching out.\,
-      providerMeta: { modelUsed: \test\, latencyMs: 1 },
+      text: "Dear family,\n\nThank you for reaching out.",
+      providerMeta: { modelUsed: "test", latencyMs: 1 },
     },
     usedFallback: false,
     errorCode: null,
   }),
 }))
 
-vi.mock(\@/lib/auth/internal-qa\, () => ({
+vi.mock("@/lib/auth/internal-qa", () => ({
   isInternalQaUid: () => false,
   shouldRespectUsageLimit: () => true,
 }))
 
-vi.mock(\@/lib/draft/blocked-response\, () => ({
-  buildBlockedLanguageResponse: () => ({ message: \blocked\ }),
+vi.mock("@/lib/draft/blocked-response", () => ({
+  buildBlockedLanguageResponse: () => ({ message: "blocked" }),
 }))
 
-vi.mock(\@/lib/draft/teacher-language\, () => ({
+vi.mock("@/lib/draft/teacher-language", () => ({
   enforceTeacherNameStyle: (text: string) => text,
 }))
 
-vi.mock(\@/lib/draft/format\, () => ({
-  formatDraftText: () => ({ paragraphs: [\\] }),
+vi.mock("@/lib/draft/format", () => ({
+  formatDraftText: () => ({ paragraphs: [""] }),
 }))
 
-vi.mock(\@/lib/draft/student-name\, () => ({
+vi.mock("@/lib/draft/student-name", () => ({
   cleanStudentName: (value: string) => value.trim(),
 }))
 
-vi.mock(\@/lib/draft/german-normalizer\, () => ({
-  normalizeGermanParentMessage: () => ({ text: \\, neutralized: false }),
+vi.mock("@/lib/draft/german-normalizer", () => ({
+  normalizeGermanParentMessage: () => ({ text: "", neutralized: false }),
 }))
 
-vi.mock(\@/lib/deescalation/detect\, () => ({
+vi.mock("@/lib/deescalation/detect", () => ({
   detectHighEmotionPhrases: () => ({}),
 }))
 
-vi.mock(\@/lib/deescalation/rewrite\, () => ({
+vi.mock("@/lib/deescalation/rewrite", () => ({
   rewriteHighEmotionText: (text: string) => ({ cleanedText: text, summary: null }),
 }))
 
-vi.mock(\@/lib/draft/language\, () => ({
+vi.mock("@/lib/draft/language", () => ({
   canonicalizeLocaleIdentifier: (locale?: string) => locale,
   resolveOutputLanguage: ({ explicit, preferred }: { explicit?: string; preferred?: string }) =>
-    explicit ?? preferred ?? \de\,
+    explicit ?? preferred ?? "de",
 }))
 
-vi.mock(\@/lib/draft/signature\, () => ({
+vi.mock("@/lib/draft/signature", () => ({
   applySignatureToDraft: (text: string) => text,
   resolveSignature: () => ({
-    block: \\,
+    block: "",
     placeholders: {},
     appendForMode: { parent_message: true, report_comment: false },
   }),
 }))
 
-vi.mock(\./scope-guard\, () => ({
+vi.mock("./scope-guard", () => ({
   isValidDraftRequest: () => true,
-  OUT_OF_SCOPE_REDIRECT_MESSAGE: \out of scope\,
+  OUT_OF_SCOPE_REDIRECT_MESSAGE: "out of scope",
 }))
 
-vi.mock(\@/lib/debug\, () => ({
+vi.mock("@/lib/debug", () => ({
   isDebugEnabled: () => false,
 }))
 
-describe(\snippet persistence guard\, () => {
+describe("snippet persistence guard", () => {
   beforeEach(() => {
     vi.clearAllMocks()
   })
 
-  it(\sends back a success response and writes a snippet even when context subject is absent\, async () => {
+  it("sends back a success response and writes a snippet even when context subject is absent", async () => {
     const payload = {
       situation:
-        \Liebe Lehrerin, ich bin besorgt, dass meine Tochter mit den Hausaufgaben nicht mehr nachkommt. Die Menge scheint sehr umfangreich zu sein und belastet unsere Woche.\,
-      tone: \professional\,
-      language: \de\,
-      mode: \parent_message\,
+        "Liebe Lehrerin, ich bin besorgt, dass meine Tochter mit den Hausaufgaben nicht mehr nachkommt. Die Menge scheint sehr umfangreich zu sein und belastet unsere Woche.",
+      tone: "professional",
+      language: "de",
+      mode: "parent_message",
       context: {
-        gradeLevel: \Year 4\,
+        gradeLevel: "Year 4",
       },
     }
-    const request = new Request(\https://example.com/api/draft/generate\, {
-      method: \POST\,
+    const request = new Request("https://example.com/api/draft/generate", {
+      method: "POST",
       headers: {
-        \Content-Type\: \application/json\,
-        Authorization: \Bearer token\,
+        "Content-Type": "application/json",
+        Authorization: "Bearer token",
       },
       body: JSON.stringify(payload),
     })

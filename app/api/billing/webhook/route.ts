@@ -1,11 +1,9 @@
 import { NextRequest, NextResponse } from "next/server"
 import Stripe from "stripe"
 import type { Firestore } from "firebase-admin/firestore"
-import { getFirebaseAdmin } from "@/lib/firebase/admin"
+import { getFirebaseAdmin, getFirebaseCredentialError } from "@/lib/firebase/admin"
 import { createStripeClient, getStripeWebhookSecret } from "@/lib/stripe"
 import { logServerEvent } from "@/lib/analytics"
-
-const adminContext = getFirebaseAdmin()
 
 async function resolveUidByCustomerId(customerId: string, firestore: Firestore) {
   const doc = await firestore.collection("stripeCustomers").doc(customerId).get()
@@ -84,10 +82,16 @@ export async function POST(request: NextRequest) {
 
   logServerEvent("billing_webhook_received", { type: event.type })
 
+  const adminContext = getFirebaseAdmin()
   const adminFirestore = adminContext.firestore
   if (!adminFirestore) {
-    console.warn("[stripe] Firestore is not configured for webhook handling.")
-    return NextResponse.json({ received: true })
+    const message =
+      getFirebaseCredentialError() ?? "[stripe] Firestore is not configured for webhook handling."
+    console.warn("[stripe] Firestore unavailable", message)
+    return NextResponse.json(
+      { received: false, error: message },
+      { status: 503 },
+    )
   }
 
   const handleSubscription = async (subscription: Stripe.Subscription) => {

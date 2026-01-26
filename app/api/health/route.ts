@@ -1,16 +1,17 @@
 import { NextResponse } from "next/server"
-import { getFirebaseAdmin } from "@/lib/firebase/admin"
+import { getFirebaseAdmin, getFirebaseCredentialError } from "@/lib/firebase/admin"
 import { FieldValue } from "firebase-admin/firestore"
 import { getConfiguredModelNames } from "@/lib/ai/provider"
 
 export async function GET() {
   const { auth, firestore } = getFirebaseAdmin()
+  const credentialError = getFirebaseCredentialError()
   if (!auth || !firestore) {
     return NextResponse.json(
       {
         success: false,
         status: "degraded",
-        message: "Firebase Admin is not initialized.",
+        message: credentialError ?? "Firebase Admin is not initialized.",
       },
       { status: 503 },
     )
