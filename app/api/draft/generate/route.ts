@@ -39,6 +39,7 @@ import {
   SignaturePayload,
 } from "@/lib/draft/signature"
 import { isValidDraftRequest, OUT_OF_SCOPE_REDIRECT_MESSAGE } from "./scope-guard"
+import { DraftContext, DraftLocale, stripUndefined } from "@/lib/draft/types/draft-context"
 
 const TONE_DESCRIPTIONS: Record<ToneKey, string> = {
   warm: "Warm & Encouraging",
@@ -368,6 +369,16 @@ export async function POST(request: Request) {
   const snippetDoc = snippetCollection.doc()
   const requestId = snippetDoc.id
 
+  const draftLocale: DraftLocale = 
+    normalizedUiLocale?.toLowerCase().startsWith("de") ? "de-DE" : "en-GB"
+  const rawSnippetContext: DraftContext = {
+    requestId,
+    locale: draftLocale,
+    mode,
+    subject: sanitizedContext.subject,
+  }
+  const snippetContext = stripUndefined(rawSnippetContext)
+
   const detection = detectSensitiveContent(situation)
   let sanitizedSituation = detection.sanitized
   const safetyFlags = new Set<string>()
@@ -628,7 +639,7 @@ export async function POST(request: Request) {
     safetyFlags: safetyFlagList,
     generatedAt: new Date().toISOString(),
     requestedAt: requestedAt.toISOString(),
-    contextUsed: sanitizedContext,
+    contextUsed: snippetContext,
     signatureBlock: resolvedSignature.block,
   }
 
@@ -674,7 +685,7 @@ export async function POST(request: Request) {
     language,
     pronounPreference,
     pronounResolution: metadata.pronounResolution,
-    contextUsed: sanitizedContext,
+    contextUsed: snippetContext,
     mode,
     wordCount: metadata.wordCount,
     modelUsed: metadata.modelUsed,
