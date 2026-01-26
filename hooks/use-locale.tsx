@@ -106,7 +106,6 @@ export const localeMessages: Record<Locale, LocaleMessages> = {
     panicScanResultFailureLabel: "Reason: {reason}",
     panicScanResultMessageLabel: "Message (cleaned)",
     panicScanResultCleanConfidence: "OCR confidence: {confidence}%",
-panic-scan-ui-stable
 
     "panicScan.classification.riskLevel.high": "High",
     "panicScan.classification.riskLevel.medium": "Medium",
@@ -127,8 +126,6 @@ panic-scan-ui-stable
     "panicScan.classification.emotionalTone.demanding": "Demanding",
     "panicScan.classification.emotionalTone.anxious": "Anxious",
     "panicScan.classification.emotionalTone.neutral": "Neutral",
-    "panicScan.classification.emotionalTone.supportive": "Supportive",
-main
     panicScanBadgeHighRisk: "HIGH RISK",
     panicScanBadgeMediumRisk: "MEDIUM RISK",
     panicScanBadgeLowRisk: "LOW RISK",
@@ -1454,7 +1451,6 @@ main
     panicScanResultFailureLabel: "Grund: {reason}",
     panicScanResultMessageLabel: "Nachricht (bereinigt)",
     panicScanResultCleanConfidence: "OCR-Genauigkeit: {confidence}%",
-panic-scan-ui-stable
 
     "panicScan.classification.riskLevel.high": "Hoch",
     "panicScan.classification.riskLevel.medium": "Mittel",
@@ -1475,8 +1471,6 @@ panic-scan-ui-stable
     "panicScan.classification.emotionalTone.demanding": "Fordernd",
     "panicScan.classification.emotionalTone.anxious": "Besorgt",
     "panicScan.classification.emotionalTone.neutral": "Neutral",
-    "panicScan.classification.emotionalTone.supportive": "Unterstützend",
-main
     panicScanBadgeHighRisk: "HOCHES RISIKO",
     panicScanBadgeMediumRisk: "MITTLERES RISIKO",
     panicScanBadgeLowRisk: "GERINGES RISIKO",

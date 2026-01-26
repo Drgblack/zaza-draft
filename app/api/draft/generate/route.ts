@@ -535,8 +535,9 @@ export async function POST(request: Request) {
   const resolvedPronounPreference = pronounResolution.resolvedPreference
   const sanitizedInput = sanitizeEmailText(situation)
   const cleanedSituationText = sanitizedInput.cleanText
+  const requiresSubjectDetail = Boolean(payload.context?.subject)
   const insufficientInput =
-    sanitizedInput.wordCount < 20 || sanitizedInput.substantiveLines === 0
+    sanitizedInput.wordCount < 20 || (requiresSubjectDetail && sanitizedInput.substantiveLines === 0)
   if (insufficientInput) {
     return fail(
       422,

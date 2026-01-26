@@ -274,11 +274,7 @@ export default function PanicScanResultPage() {
     }
     return Object.entries(scan.classification).map(([key, value]) => {
       const stringValue = typeof value === "number" ? value.toFixed(0) : String(value)
-panic-scan-ui-stable
-      const displayValue = formatClassificationValue(key, stringValue)
-
       const displayValue = formatClassificationValue(key, stringValue, t)
-main
       return {
         key,
         displayValue,
