@@ -5,44 +5,25 @@ const SIGNOFF_STARTERS = [
   "yours sincerely",
   "yours faithfully",
   "sincerely",
-  "mit freundlichen",
   "mit freundlichen grüßen",
   "freundliche grüße",
   "herzliche grüße",
 ]
 
-function normalizeForComparison(value: string) {
-  return value
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .replace(/[^A-Za-z\s]/g, " ")
-    .replace(/\s+/g, " ")
-    .trim()
-    .toLowerCase()
+function isClosingLine(line: string) {
+  const normalized = line.replace(/[.,;:]+$/, "").trim().toLowerCase()
+  return SIGNOFF_STARTERS.some((starter) => normalized.startsWith(starter))
 }
 
-const NORMALIZED_SIGNOFFS = SIGNOFF_STARTERS.map(normalizeForComparison).filter(Boolean)
-
-function isSignoffLine(line: string) {
-  const normalized = normalizeForComparison(line)
-  if (!normalized) {
+function looksLikeName(line: string) {
+  if (!line) {
     return false
   }
-  return NORMALIZED_SIGNOFFS.some((starter) => normalized.startsWith(starter))
-}
-
-function isLikelyNameLine(value: string) {
-  if (!value) {
+  const trimmed = line.trim()
+  if (!trimmed) {
     return false
   }
-  const cleaned = value.replace(/[^A-Za-zÄÖÜäöüß'\-\.\s]/g, "").trim()
-  if (!cleaned) {
-    return false
-  }
-  if (cleaned.length > 60) {
-    return false
-  }
-  return /[A-Za-zÄÖÜäöüß]/.test(cleaned)
+  return /[A-Za-zÄÖÜäöüß]/.test(trimmed)
 }
 
 function stripTrailingSignOff(text: string) {
@@ -62,20 +43,20 @@ function stripTrailingSignOff(text: string) {
       break
     }
     const lastLine = lines[lines.length - 1].trim()
-    if (isSignoffLine(lastLine)) {
+    if (isClosingLine(lastLine)) {
       lines.pop()
       changed = true
       while (lines.length && !lines[lines.length - 1].trim()) {
         lines.pop()
       }
-      if (lines.length && isLikelyNameLine(lines[lines.length - 1].trim())) {
+      if (lines.length && looksLikeName(lines[lines.length - 1])) {
         lines.pop()
       }
       continue
     }
     if (lines.length >= 2) {
       const penultimate = lines[lines.length - 2].trim()
-      if (isSignoffLine(penultimate) && isLikelyNameLine(lastLine)) {
+      if (isClosingLine(penultimate) && looksLikeName(lastLine)) {
         lines.pop()
         lines.pop()
         changed = true
@@ -86,12 +67,13 @@ function stripTrailingSignOff(text: string) {
   return lines.join("\n").trimEnd()
 }
 
-export function ensureSingleSignOff(raw: string | undefined | null, teacherName?: string) {
-  const safeTeacher = (teacherName?.trim() || "").trim()
-  const fallbackName = safeTeacher || "Class teacher"
-  const baseText = stripTrailingSignOff(raw ?? "")
-  const trimmedBody = baseText.trimEnd()
-  const separator = trimmedBody ? "\n\n" : ""
-  const signOff = `Kind regards,\n${fallbackName}`
-  return `${trimmedBody}${separator}${signOff}`.trimEnd()
+export function ensureSingleSignOff(raw: string | undefined | null, teacherName?: string, locale?: string) {
+  const name = (teacherName?.trim() || "").trim()
+  const fallbackName = name || "Class teacher"
+  const base = stripTrailingSignOff(raw ?? "")
+  const content = base.trimEnd()
+  const separator = content ? "\n\n" : ""
+  const normalizedLocale = locale?.toLowerCase() ?? "en"
+  const closing = normalizedLocale.startsWith("de") ? "Mit freundlichen Grüßen" : "Kind regards"
+  return `${content}${separator}${closing},\n${fallbackName}`.trimEnd()
 }

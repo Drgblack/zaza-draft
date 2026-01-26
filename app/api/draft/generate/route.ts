@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server"
+﻿import { NextResponse } from "next/server"
 import {
   detectSensitiveContent,
   detectBlockedLanguage,
@@ -126,7 +126,7 @@ function buildContextLine(context?: GenerateDraftRequest["context"]) {
     return ""
   }
 
-  return pieces.join(" ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â· ") + "."
+  return pieces.join(" ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Â¦Ãƒâ€šÃ‚Â¡ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â· ") + "."
 }
 
 const GENERIC_GREETING_TEXTS = new Set([
@@ -231,8 +231,8 @@ function buildDeterministicTemplateBody(greetingLine: string, language?: string)
   const paragraphs = isGerman
     ? [
         "Vielen Dank, dass Sie Ihre Perspektive geteilt haben; mir ist wichtig, dass wir diesen Punkt gemeinsam ernst nehmen.",
-        "Als nÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¤chsten Schritt werde ich das Verhalten weiterhin dokumentieren und ein kurzes ReflexionsgesprÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¤ch mit dem Kind vorbereiten, das wir danach mit Ihnen reflektieren kÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¶nnen.",
-        "Bitte schlagen Sie zwei kurze Termine vor, an denen wir telefonisch oder per Videocall die nÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¤chsten Schritte besprechen und offene Fragen beantworten.",
+        "Als nÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¤chsten Schritt werde ich das Verhalten weiterhin dokumentieren und ein kurzes ReflexionsgesprÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¤ch mit dem Kind vorbereiten, das wir danach mit Ihnen reflektieren kÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¶nnen.",
+        "Bitte schlagen Sie zwei kurze Termine vor, an denen wir telefonisch oder per Videocall die nÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¤chsten Schritte besprechen und offene Fragen beantworten.",
       ]
     : [
         "Thank you for sharing your concern; my priority is to address it calmly and respectfully.",
@@ -543,7 +543,7 @@ export async function POST(request: Request) {
     return fail(
       422,
       "INSUFFICIENT_INPUT",
-      "After removing Gmail UI noise, the note doesnÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¾Ãƒâ€šÃ‚Â¢t include enough detail to craft a responsible reply. Please describe the parent concern in at least 20 words.",
+      "After removing Gmail UI noise, the note doesnÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¾ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢t include enough detail to craft a responsible reply. Please describe the parent concern in at least 20 words.",
       {
         data: {
           wordCount: sanitizedInput.wordCount,
@@ -652,7 +652,7 @@ export async function POST(request: Request) {
     initialUsage.remaining <= 0
   ) {
     maybeLogServerEvent("draft_generation_denied_limit", { uid, plan })
-    logDraftOutcome("RATE_LIMITED", { errorCode: "Mit freundlichen GrÃƒÂ¼ÃƒÅ¸en" })
+    logDraftOutcome("RATE_LIMITED", { errorCode: "Mit freundlichen GrÃƒÆ’Ã‚Â¼ÃƒÆ’Ã…Â¸en" })
     const usageLimitError = buildUsageLimitError(initialUsage)
     return fail(429, "USAGE_LIMIT_EXCEEDED", usageLimitError.message, { data: usageLimitError.data })
   }
@@ -823,7 +823,7 @@ export async function POST(request: Request) {
 
   const DEFAULT_CLOSINGS = {
     en: "Kind regards",
-    de: "Mit freundlichen GrÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¼ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â¦Ãƒâ€šÃ‚Â¸en",
+    de: "Mit freundlichen Grüßen",
   }
   const FALLBACK_SIGNATURES = {
     en: "Your child's teacher",
@@ -907,10 +907,12 @@ export async function POST(request: Request) {
     }
 
     generatedDraft = ensureClosingAndSignature(generatedDraft, language, teacherSignatureName)
-    const normalizedSignoffLanguage = (language?.toLowerCase() ?? 'en')
-    const fallbackSignatureName = normalizedSignoffLanguage.startsWith('de') ? FALLBACK_SIGNATURES.de : FALLBACK_SIGNATURES.en
+    const normalizedSignoffLanguage = (language?.toLowerCase() ?? "en")
+    const fallbackSignatureName = normalizedSignoffLanguage.startsWith("de")
+      ? FALLBACK_SIGNATURES.de
+      : FALLBACK_SIGNATURES.en
     const finalSignatureName = (teacherSignatureName?.trim()) || fallbackSignatureName
-    generatedDraft = ensureSingleSignOff(generatedDraft, finalSignatureName)
+    generatedDraft = ensureSingleSignOff(generatedDraft, finalSignatureName, normalizedSignoffLanguage)
 
     let formattedDraftStructure = formatDraftText(generatedDraft, language)
   let bodyParagraphCount = getParagraphCountExcludingGreeting(formattedDraftStructure, finalGreetingLine)
