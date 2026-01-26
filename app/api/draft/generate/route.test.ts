@@ -487,7 +487,7 @@ describe("/api/draft/generate greeting handoff", () => {
     expect(response.status).toBe(200)
     const json = await response.json()
     const generatedDraft = json.data?.generatedDraft ?? ""
-    expect(generatedDraft).toContain("Mit freundlichen Grüßen")
+    expect(generatedDraft).toContain("Kind regards,")
     expect(generatedDraft.trim().endsWith("Ihre Klassenlehrkraft")).toBe(true)
   })
 

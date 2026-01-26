@@ -10,7 +10,7 @@ export function shouldRequireAuth(pathname: string) {
   )
 }
 
-export function middleware(request: NextRequest) {
+export default function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
 
   if (!shouldRequireAuth(pathname)) {
