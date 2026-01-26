@@ -1168,6 +1168,29 @@ Request:
 
 This endpoint reuses the existing Draft rewrite engine with injected OCR context.
 
+#### Panic Scan Greeting Resolution
+
+Panic Scan replies are sensitive to the original parent greeting, so we run a lightweight, deterministic `resolveGreeting` pipeline before calling `/api/draft/generate`. The pipeline follows a signature-aware extraction and safe-name scoring flow, and it **never allows fallback logic to override a name once the confidence reaches MEDIUM or HIGH**. The final result is sent to the rewrite engine in the `greeting` payload, which also carries the exact name so the model cannot invent, translate, or guess honorifics.
+
+1. **Signature-aware extraction.** We scan the cleaned OCR bottom-up for known closings (`Mit freundlichen Grüßen`, `Kind regards`, `Sincerely`, etc.). The 1–2 lines that immediately follow the closing become the primary candidate. When no sign-off is present, we still inspect the last non-empty line(s) before UI chrome text, ignoring lines that look like labels, email addresses, or role descriptors (e.g., “Lehrerin:” or “Support”).
+2. **Safe-name scoring.** Each candidate is normalised (trim, collapse whitespace, strip punctuation) and rejected if it contains digits, URLs, email markers, UI keywords, or only honorifics. Positive signals (2–4 capitalised tokens, titles such as Dr/Prof, accented characters, hyphen/apostrophes) add points, while long uppercase phrases and misplaced commas subtract. Scores map to `HIGH` (≥5), `MEDIUM` (3–4), `LOW` (1–2), and `NONE`. Only `MEDIUM` or `HIGH` names are trusted.
+3. **Greeting decision tree.** If a safe name is available we stop; the pipeline returns `Guten Tag, {FullName},` for German and `Hello {FullName},` for English, and no later logic may replace that line. When no safe name is found, the tree falls back as follows:
+
+| Locale | Context | Greeting |
+| --- | --- | --- |
+| DE | `formal_complaint` | Sehr geehrte Damen und Herren, |
+| DE | `parent_message` | Liebe Eltern, |
+| DE | otherwise | Liebe Erziehungsberechtigte, |
+| EN | `parent_message` | Dear Parent / Carer, |
+| EN | otherwise | Hello, |
+
+`messageType` values such as `parent_complaint`/`urgent_request`/`official_notice` are normalised to `formal_complaint`, while `student_concern` routes the tree toward `parent_message`.
+4. **Prompt enforcement.** The resolved greeting text and safe name (when present) are forwarded to `/api/draft/generate`, and the system prompt explicitly instructs the model to start with that line, keep that name, and avoid inventing or gendering recipients.
+
+`greetingFinal` is set to `true` whenever the name confidence reaches `MEDIUM` or `HIGH`, and when that flag is present the downstream fallback and prompt layers must treat the greeting as immutable—no recomputation, no translation, no honorific guessing.
+
+This deterministic logic ensures that Panic Scan replies echo the parent's name whenever the OCR signature is reliable, yet fall back to safe, neutral greetings when the name confidence is low.
+
 #### Panic Scan Storage Model
 
 Firestore Collection

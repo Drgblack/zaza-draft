@@ -8,6 +8,7 @@ import { ChevronDown, ChevronLeft } from "lucide-react"
 import { useAuth } from "@/hooks/use-auth"
 import { AuthScreen } from "@/components/auth/auth-screen"
 import { useLocale } from "@/hooks/use-locale"
+import { resolveGreeting } from "@/lib/draft/greeting-resolution"
 import { sanitizeCleanedMessage } from "@/lib/panic-scan/sanitize-cleaned-message"
 
 const PREFILL_KEY = "zazaDraftPrefill"
@@ -89,9 +90,17 @@ const HIGH_TONES = new Set(["angry", "frustrated", "passive_aggressive", "demand
 const MEDIUM_TONES = new Set(["anxious"])
 const CALM_TONES = new Set(["supportive", "calm"])
 
-const formatClassificationValue = (key: string, value: string) => {
+const formatClassificationValue = (key: string, value: string, t: Translator) => {
   if (key === "confidenceScore") {
     return `${value}%`
+  }
+  const normalizedValue = value.toLowerCase()
+  const translationKey = `panicScan.classification.${key}.${normalizedValue}`
+  const translated = t(translationKey)
+  const missingTranslation =
+    translated === translationKey || translated.startsWith("[[missing:")
+  if (!missingTranslation) {
+    return translated
   }
   return value
     .replace(/_/g, " ")
@@ -195,7 +204,7 @@ export default function PanicScanResultPage() {
   const router = useRouter()
   const params = useParams()
   const { status, getIdToken } = useAuth()
-  const { t } = useLocale()
+  const { t, locale } = useLocale()
   const scanId = params?.scanId
   const [scan, setScan] = useState<ScanResponse | null>(null)
   const [loading, setLoading] = useState(true)
@@ -265,7 +274,11 @@ export default function PanicScanResultPage() {
     }
     return Object.entries(scan.classification).map(([key, value]) => {
       const stringValue = typeof value === "number" ? value.toFixed(0) : String(value)
+panic-scan-ui-stable
       const displayValue = formatClassificationValue(key, stringValue)
+
+      const displayValue = formatClassificationValue(key, stringValue, t)
+main
       return {
         key,
         displayValue,
@@ -287,11 +300,42 @@ export default function PanicScanResultPage() {
     return t("panicScanResultStatusFailed")
   }, [scan?.status, t])
 
+  const greetingLocale = locale?.toLowerCase().startsWith("de") ? "de" : "en"
   const handleUseDraft = () => {
     if (!handoffMessage) {
       return
     }
-    sessionStorage.setItem(PREFILL_KEY, handoffMessage)
+    const extractedRaw = scan?.extractedText ?? ""
+    const normalizedText = extractedRaw || (scan?.extractedTextClean ?? "")
+    const messageTypeField = scan?.classification?.messageType
+    const messageTypeValue: string | undefined =
+      typeof messageTypeField === "string" ? messageTypeField : undefined
+    const greetingResult = resolveGreeting({
+      cleanedOcrText: normalizedText,
+      locale: greetingLocale,
+      messageType: messageTypeValue,
+    })
+    const trimmedGreeting = greetingResult.greeting.trim()
+    const hasSafeConfidence =
+      greetingResult.confidence === "MEDIUM" || greetingResult.confidence === "HIGH"
+    const greetingDidResolveName = greetingResult.source === "resolved-name"
+    const greetingFinal =
+      hasSafeConfidence && greetingDidResolveName && trimmedGreeting.length > 0
+    const greetingPayload = {
+      text: trimmedGreeting || greetingResult.greeting,
+      confidence: greetingResult.confidence,
+      final: greetingFinal,
+      name: greetingResult.safeName,
+      source: greetingResult.source,
+    }
+    sessionStorage.setItem(
+      PREFILL_KEY,
+      JSON.stringify({
+        cleaned: handoffMessage,
+        raw: extractedRaw,
+        greeting: greetingPayload,
+      }),
+    )
     router.push("/?panicScanReturn=1")
   }
 

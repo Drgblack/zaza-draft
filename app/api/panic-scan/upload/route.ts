@@ -4,11 +4,18 @@ import { authorizeFirebaseRequest } from "@/lib/firebase/server"
 import { enforcePerUserRateLimit, RateLimitError } from "@/lib/rate-limit"
 import { analyzePanicMessage } from "@/lib/panic-scan/analysis"
 import { cleanOcrText } from "@/lib/panic-scan/clean-ocr"
+import { sanitizeEmailText } from "@/lib/text/email-sanitizer"
 import { performVisionOcr } from "@/lib/panic-scan/ocr"
 import type { PanicScanDocument } from "@/lib/panic-scan/types"
 
 const MAX_IMAGE_SIZE_BYTES = 10 * 1024 * 1024
 const SCAN_TTL_MS = 24 * 60 * 60 * 1000
+
+const SUSPICIOUS_PATH_PATTERNS = [/^[A-Za-z]:[\\/]/, /^file:\/\//i]
+
+function isSuspiciousClientPath(value: string) {
+  return SUSPICIOUS_PATH_PATTERNS.some((pattern) => pattern.test(value))
+}
 
 type ResponseStage =
   | "auth"
@@ -129,6 +136,17 @@ export async function POST(request: Request) {
     const file = form.get("file")
     const platform = (form.get("platform") as string) ?? "web"
     const sessionId = form.get("sessionId") as string | null
+
+    if (typeof file === "string" && isSuspiciousClientPath(file)) {
+      return createErrorResponse({
+        code: "INVALID_FILE_PATH",
+        message: "Upload the screenshot directly instead of providing a local path.",
+        stage: "parse",
+        status: 400,
+        diagnostics,
+        requestId,
+      })
+    }
 
     if (!file || typeof file === "string") {
       return createErrorResponse({
@@ -309,10 +327,35 @@ export async function POST(request: Request) {
     try {
       diagnostics.ocrPerformed = true
       const extractedText = await performVisionOcr(buffer)
+      const sanitized = sanitizeEmailText(extractedText)
+      if (sanitized.wordCount < 20 || sanitized.greetingOrSignatureOnly) {
+        diagnostics.ocrSucceeded = false
+        await scanRef.set(
+          {
+            extractedText,
+            extractedTextClean: sanitized.cleanText,
+            cleanConfidence: 0,
+            status: "insufficient_input",
+            failureReason: "INSUFFICIENT_OCR",
+          },
+          { merge: true },
+        )
+
+        logStage(requestId, "ocr", false, "insufficient OCR data")
+        return createErrorResponse({
+          code: "INSUFFICIENT_OCR",
+          message: "OCR did not capture enough of the message; please try again or type the note manually.",
+          stage: "ocr",
+          status: 422,
+          diagnostics,
+          requestId,
+        })
+      }
+
       diagnostics.ocrSucceeded = true
       logStage(requestId, "ocr", true)
 
-      const cleaned = cleanOcrText(extractedText)
+      const cleaned = cleanOcrText(sanitized.cleanText)
 
       const analysis = await analyzePanicMessage(extractedText)
       diagnostics.analysisSucceeded = true

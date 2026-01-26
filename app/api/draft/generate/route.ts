@@ -1,21 +1,24 @@
 import { NextResponse } from "next/server"
-import { authorizeFirebaseRequest, FirebaseAuthorizationError } from "@/lib/firebase/server"
 import {
   detectSensitiveContent,
   detectBlockedLanguage,
   reframeBlockedLanguage,
   BlockedLanguageTier,
 } from "@/lib/safety"
-import { logServerEvent } from "@/lib/analytics"
-import { buildUsageResponse, incrementUsage, MonthlyUsageRecord } from "@/lib/usage"
-import { getUserEntitlements } from "@/lib/entitlements"
 import type { DraftLanguage, DraftMode, PronounPreference } from "@/lib/types"
 import { generateDraft, ProviderMeta, ProviderResult } from "@/lib/ai/provider"
 import { enforcePronouns, inferPronounResolution } from "@/lib/text/pronouns"
 import { enforceDraftRateLimit, RateLimitError } from "@/lib/rate-limit"
-import { createHash } from "crypto"
-import { FieldValue } from "firebase-admin/firestore"
+import { createHash, randomUUID } from "crypto"
 import { resolveDraftMode } from "@/lib/draft-mode"
+import {
+  buildUsageResponse,
+  getCurrentMonthKey,
+  incrementUsage,
+  type MonthlyUsageRecord,
+} from "@/lib/usage"
+import { logServerEvent } from "@/lib/analytics"
+import { getUserEntitlements } from "@/lib/entitlements"
 import {
   ALLOWED_TONES,
   DraftFallbackContext,
@@ -32,13 +35,28 @@ import { cleanStudentName } from "@/lib/draft/student-name"
 import { normalizeGermanParentMessage } from "@/lib/draft/german-normalizer"
 import { detectHighEmotionPhrases } from "@/lib/deescalation/detect"
 import { rewriteHighEmotionText } from "@/lib/deescalation/rewrite"
+import { sanitizeEmailText } from "@/lib/text/email-sanitizer"
 import { canonicalizeLocaleIdentifier, resolveOutputLanguage } from "@/lib/draft/language"
 import {
   applySignatureToDraft,
   resolveSignature,
   SignaturePayload,
+  type ResolvedSignature,
 } from "@/lib/draft/signature"
+import { resolveTeacherSignatureName } from "@/lib/draft/teacher-signature"
 import { isValidDraftRequest, OUT_OF_SCOPE_REDIRECT_MESSAGE } from "./scope-guard"
+import { isDebugEnabled } from "@/lib/debug"
+import { applyFinalGreetingGuard } from "@/lib/draft/final-greeting"
+import {
+  GreetingDecision,
+  greetingWithName,
+  type GreetingLocale,
+  type GreetingSource,
+  logGreetingDecision,
+  resolveGreeting,
+  scoreSafeName,
+  type NameConfidenceLevel,
+} from "@/lib/draft/greeting-resolution"
 
 const TONE_DESCRIPTIONS: Record<ToneKey, string> = {
   warm: "Warm & Encouraging",
@@ -55,6 +73,10 @@ function parsePronounPreference(value: unknown): PronounPreference {
   }
   return "auto"
 }
+
+const DEV_BYPASS_HEADER = "x-zaza-dev-bypass"
+const DEV_BYPASS_UID = "dev-user"
+const DEV_ENV_ALLOWED = new Set(["development", "test"])
 
 interface GenerateDraftRequest {
   situation: string
@@ -74,6 +96,18 @@ interface GenerateDraftRequest {
   preferredLanguage?: string
   uiLocale?: string
   signature?: SignaturePayload
+  greeting?: {
+    text?: string
+    name?: string
+    confidence?: NameConfidenceLevel
+    source?: GreetingSource
+  }
+  greetingFinal?: boolean
+  greetingConfidence?: NameConfidenceLevel
+  greetingSource?: GreetingSource
+  situationRaw?: string
+  messageType?: string
+  scanId?: string
 }
 
 function buildContextLine(context?: GenerateDraftRequest["context"]) {
@@ -91,10 +125,46 @@ function buildContextLine(context?: GenerateDraftRequest["context"]) {
     return ""
   }
 
-  return pieces.join(" · ") + "."
+  return pieces.join(" Â· ") + "."
 }
 
+const GENERIC_GREETING_TEXTS = new Set([
+  "Liebe Eltern,",
+  "Liebe Eltern",
+  "Liebe Erziehungsberechtigte,",
+  "Liebe Erziehungsberechtigte",
+])
+
+const EXTRA_SIGNOFF_PATTERNS = [/mit nachdruck/i]
+
 const STRONG_ENGLISH_PATTERNS = [/Subject:/i, /\bDear\b/i, /\bKind regards\b/i, /\bBest regards\b/i, /\bThank you\b/i, /\bPlease\b/i]
+
+function detectTrailingName(raw: string, locale: GreetingLocale) {
+  const lines = raw
+    .split(/\n+/)
+    .map((line) => line.trim())
+    .filter(Boolean)
+
+  for (let i = lines.length - 1; i >= 0; i -= 1) {
+    const candidate = lines[i]
+    if (!candidate) {
+      continue
+    }
+    const score = scoreSafeName(candidate, locale)
+    if (score.level === "NONE") {
+      continue
+    }
+    return {
+      greeting: greetingWithName(locale, candidate),
+      confidence: score.level,
+      safeName: candidate,
+      source: "resolved-name" as GreetingSource,
+      final: true,
+    }
+  }
+
+  return null
+}
 
 function containsStrongEnglishSignals(text: string) {
   const snippet = text.slice(0, 200)
@@ -105,15 +175,155 @@ function countWords(text: string) {
   return text.split(/\s+/).filter(Boolean).length
 }
 
+const MIN_BODY_WORDS = 60
+const MIN_BODY_PARAGRAPHS = 2
+const DUPLICATE_GREETING_WINDOW = 5
+
+function removeDuplicateGreeting(body: string, greetingLine?: string | null) {
+  if (!greetingLine) {
+    return body
+  }
+  const normalizedGreeting = greetingLine.trim()
+  if (!normalizedGreeting) {
+    return body
+  }
+  const lines = body.split(/\r?\n/)
+  let firstInstanceReached = false
+  let nonEmptyCount = 0
+  for (let i = 0; i < lines.length; i += 1) {
+    const trimmed = lines[i].trim()
+    if (!trimmed) {
+      continue
+    }
+    nonEmptyCount += 1
+    if (!(trimmed === normalizedGreeting || trimmed.startsWith(normalizedGreeting))) { continue }
+    if (!firstInstanceReached) {
+      firstInstanceReached = true
+      continue
+    }
+    if (nonEmptyCount <= DUPLICATE_GREETING_WINDOW) {
+      lines[i] = ""
+    }
+  }
+  return lines.join("\n").replace(/\n{3,}/g, "\n\n")
+}
+
+function getParagraphCountExcludingGreeting(structure: DraftStructure, greetingLine?: string | null) {
+  if (!structure.paragraphs.length) {
+    return 0
+  }
+  const normalizedGreeting = greetingLine?.trim() ?? ""
+  return structure.paragraphs.filter((paragraph, index) => {
+    const trimmed = paragraph.trim()
+    if (!trimmed) {
+      return false
+    }
+    if (index === 0 && normalizedGreeting && trimmed === normalizedGreeting) {
+      return false
+    }
+    return true
+  }).length
+}
+
+function buildDeterministicTemplateBody(greetingLine: string, language?: string) {
+  const isGerman = language?.toLowerCase().startsWith("de")
+  const paragraphs = isGerman
+    ? [
+        "Vielen Dank, dass Sie Ihre Perspektive geteilt haben; mir ist wichtig, dass wir diesen Punkt gemeinsam ernst nehmen.",
+        "Als nächsten Schritt werde ich das Verhalten weiterhin dokumentieren und ein kurzes Reflexionsgespräch mit dem Kind vorbereiten, das wir danach mit Ihnen reflektieren können.",
+        "Bitte schlagen Sie zwei kurze Termine vor, an denen wir telefonisch oder per Videocall die nächsten Schritte besprechen und offene Fragen beantworten.",
+      ]
+    : [
+        "Thank you for sharing your concern; my priority is to address it calmly and respectfully.",
+        "As a next step, I will gather the details, summarize the key observations, and prepare a practical plan we can work through together.",
+        "Please let me know a couple of times that work for you so we can have a quick phone or video call to stay aligned.",
+      ]
+  return `${greetingLine}\n\n${paragraphs.join("\n\n")}`
+}
+
+function detectExtraSignoffName(raw: string, locale: GreetingLocale) {
+  const lines = raw
+    .split(/\n+/)
+    .map((line) => line.trim())
+    .filter(Boolean)
+
+  for (const pattern of EXTRA_SIGNOFF_PATTERNS) {
+    const index = lines.findIndex((line) => pattern.test(line))
+    if (index >= 0 && index + 1 < lines.length) {
+      const candidate = lines[index + 1]
+      const score = scoreSafeName(candidate, locale)
+      if (score.level === "MEDIUM" || score.level === "HIGH") {
+        return {
+          greeting: greetingWithName(locale, candidate),
+          confidence: score.level,
+          safeName: candidate,
+          source: "resolved-name" as GreetingSource,
+          final: true,
+        }
+      }
+    }
+  }
+  return null
+}
+
+  function normalizeName(value?: string | null) {
+    if (!value) {
+      return ""
+    }
+    const collapsed = value.replace(/[\r\n]+/g, " ").replace(/\s+/g, " ").trim()
+    return collapsed.replace(/([,;:.!?])\1+$/, "$1")
+  }
+
+  function normalizeGreetingValue(value: string) {
+    return normalizeName(value)
+  }
+
+function resolveGreetingFromRawText(
+  raw: string,
+  language: string | undefined,
+  messageType?: string,
+) {
+  const sanitized = sanitizeEmailText(raw)
+  const cleaned = sanitized.cleanText.trim()
+  if (!cleaned) {
+    return null
+  }
+  const locale = language?.toLowerCase().startsWith("de") ? "de" : "en"
+  const extraSignoff = detectExtraSignoffName(cleaned, locale)
+  if (extraSignoff) {
+    return extraSignoff
+  }
+  const trailingName = detectTrailingName(cleaned, locale)
+  if (trailingName) {
+    return trailingName
+  }
+  const greetingResult = resolveGreeting({
+    cleanedOcrText: cleaned,
+    locale,
+    messageType,
+  })
+  const normalizedGreeting = normalizeGreetingValue(greetingResult.greeting)
+    const normalizedSafeName = greetingResult.safeName
+      ? normalizeName(greetingResult.safeName)
+      : null
+  const hasSafeConfidence =
+    greetingResult.confidence === "MEDIUM" || greetingResult.confidence === "HIGH"
+  const greetingDidResolveName = greetingResult.source === "resolved-name"
+  const greetingFinal = hasSafeConfidence && greetingDidResolveName && normalizedGreeting.length > 0
+  return {
+    greeting: normalizedGreeting || greetingResult.greeting,
+    confidence: greetingResult.confidence,
+    safeName: normalizedSafeName ?? null,
+    source: greetingResult.source,
+    final: greetingFinal,
+  }
+}
+
 function buildUsageLimitError(usage: ReturnType<typeof buildUsageResponse>) {
   return {
-    success: false,
+    message: "You have reached your monthly draft limit. Upgrade to unlock Draft Pro for unlimited generations.",
     data: {
       usage,
-    },
-    error: {
-      code: "USAGE_LIMIT_EXCEEDED",
-      message: "You have reached your monthly draft limit. Upgrade to unlock Draft Pro for unlimited generations.",
     },
   }
 }
@@ -143,24 +353,58 @@ async function reRunWithRewrite(
 }
 
 export async function POST(request: Request) {
-  const requestedAt = new Date()
-  const requestStart = Date.now()
-
-  let payload: GenerateDraftRequest
-  try {
-    payload = await request.json()
-  } catch (error) {
-    return NextResponse.json(
-      {
-        success: false,
-        error: {
-          code: "INVALID_JSON",
-          message: "Payload must be JSON.",
-        },
-      },
-      { status: 400 },
-    )
+  const requestId = randomUUID()
+  const responseHeaders = {
+    "x-request-id": requestId,
   }
+  const ok = (data: unknown, status = 200) =>
+    NextResponse.json({ success: true, requestId, data }, { status, headers: responseHeaders })
+  const fail = (
+    status: number,
+    code: string,
+    message: string,
+    extra?: Record<string, unknown>,
+  ) => {
+    const payload: Record<string, unknown> = {
+      success: false,
+      requestId,
+      error: {
+        code,
+        message,
+      },
+    }
+    if (extra) {
+      const { error: extraError, ...rest } = extra
+      if (extraError && typeof extraError === "object" && !Array.isArray(extraError)) {
+        payload.error = {
+          ...(payload.error as Record<string, unknown>),
+          ...extraError,
+        }
+      }
+      Object.assign(payload, rest)
+    }
+    return NextResponse.json(payload, { status, headers: responseHeaders })
+  }
+
+  try {
+    const requestedAt = new Date()
+    const requestStart = Date.now()
+    const requestUrl = new URL(request.url)
+
+    let payload: GenerateDraftRequest
+    try {
+      payload = await request.json()
+    } catch (error) {
+      return fail(400, "INVALID_JSON", "Payload must be JSON.")
+    }
+
+    if (!payload || typeof payload !== "object") {
+      return fail(422, "VALIDATION", "Payload must be a JSON object.")
+    }
+
+    if (payload.situation !== undefined && typeof payload.situation !== "string") {
+      return fail(422, "VALIDATION", "The situation field must be text.")
+    }
 
   const situation = typeof payload?.situation === "string" ? payload.situation.trim() : ""
   const promptTooLong = situation.length > 2000
@@ -180,6 +424,71 @@ export async function POST(request: Request) {
   const canonicalUiLocale = canonicalizeLocaleIdentifier(uiLocale)
   const normalizedUiLocale = canonicalUiLocale ?? uiLocale
   const mode = resolveDraftMode(payload?.mode)
+  const debugEnabled =
+    isDebugEnabled(requestUrl.searchParams) || request.headers.get("x-debug") === "1"
+
+  let greetingText = normalizeGreetingValue(payload.greeting?.text ?? "")
+  let greetingConfidence = payload.greetingConfidence ?? payload.greeting?.confidence ?? "NONE"
+  let greetingSource = payload.greetingSource ?? payload.greeting?.source ?? "generic-fallback"
+  let greetingName = payload.greeting?.name ? normalizeName(payload.greeting.name) : null
+  if (!greetingName) {
+    greetingName = null
+  }
+  let greetingFinal = Boolean(payload.greetingFinal && greetingText)
+  const normalizedRequestGreeting = greetingText.replace(/\s+/g, " ").trim()
+  const shouldResetGreeting =
+    Boolean(greetingText) &&
+    (greetingSource === "generic-fallback" ||
+      greetingConfidence === "NONE" ||
+      GENERIC_GREETING_TEXTS.has(normalizedRequestGreeting))
+  if (shouldResetGreeting) {
+    greetingText = ""
+    greetingConfidence = "NONE"
+    greetingSource = "generic-fallback"
+    greetingName = null
+    greetingFinal = false
+  }
+
+  if (!greetingText && payload.situationRaw) {
+    const resolvedGreeting = resolveGreetingFromRawText(
+      payload.situationRaw,
+      language,
+      payload.messageType,
+    )
+    if (resolvedGreeting) {
+      greetingText = normalizeGreetingValue(resolvedGreeting.greeting)
+      greetingConfidence = resolvedGreeting.confidence
+      greetingSource = resolvedGreeting.source
+      const normalizedResolvedName = resolvedGreeting.safeName
+        ? normalizeName(resolvedGreeting.safeName)
+        : null
+      if (normalizedResolvedName) {
+        greetingName = greetingName || normalizedResolvedName
+      }
+      greetingFinal = resolvedGreeting.final
+    }
+  }
+
+  const finalGreetingLine = greetingFinal ? greetingText : null
+  if (payload.greetingFinal && !greetingText && debugEnabled) {
+    console.debug("[draft] greetingFinal was true but greeting text missing; ignoring final flag", {
+      scanId: payload.scanId ?? null,
+    })
+  }
+  const hasFinalGreeting = Boolean(finalGreetingLine)
+  const greetingDecision: GreetingDecision = {
+    greeting: greetingText,
+    safeParentName: greetingName,
+    confidence: greetingConfidence,
+    source: greetingSource,
+    locale: language?.toLowerCase().startsWith("de") ? "de" : "en",
+    messageType: payload.messageType ?? undefined,
+    scanId: payload.scanId ?? undefined,
+    greetingFinal: Boolean(finalGreetingLine && greetingText),
+  }
+  if (debugEnabled) {
+    logGreetingDecision("draft-receive", greetingDecision, requestUrl.searchParams)
+  }
 
   const studentFirstNameInput =
     typeof payload?.studentFirstName === "string"
@@ -190,74 +499,31 @@ export async function POST(request: Request) {
   const sanitizedStudentFirstName = cleanStudentName(studentFirstNameInput)
   const studentNameForPayload = sanitizedStudentFirstName || ""
 
+  const teacherSignatureName = resolveTeacherSignatureName(undefined, payload.signature?.line1)
+
   const resolvedSignature = resolveSignature({
     ...payload.signature,
     fallbackName: studentNameForPayload || undefined,
   })
 
   if (mode === null) {
-    return NextResponse.json(
-      {
-        success: false,
-        error: {
-          code: "INVALID_MODE",
-          message: "Please select a valid mode option.",
-        },
-      },
-      { status: 400 },
-    )
+    return fail(400, "INVALID_MODE", "Please select a valid mode option.")
   }
 
   if (promptTooLong) {
-    return NextResponse.json(
-      {
-        success: false,
-        error: {
-          code: "PROMPT_TOO_LONG",
-          message: "Please keep prompts under 2000 characters.",
-        },
-      },
-      { status: 400 },
-    )
+    return fail(400, "PROMPT_TOO_LONG", "Please keep prompts under 2000 characters.")
   }
 
   if (!situation) {
-    return NextResponse.json(
-      {
-        success: false,
-        error: {
-          code: "MISSING_INPUT",
-          message: "Please describe the classroom situation before generating a draft.",
-        },
-      },
-      { status: 400 },
-    )
+    return fail(400, "MISSING_INPUT", "Please describe the classroom situation before generating a draft.")
   }
 
   if (!tone || !ALLOWED_TONES.includes(tone)) {
-    return NextResponse.json(
-      {
-        success: false,
-        error: {
-          code: "INVALID_TONE",
-          message: "Select one of the supported tone options.",
-        },
-      },
-      { status: 400 },
-    )
+    return fail(400, "INVALID_TONE", "Select one of the supported tone options.")
   }
 
   if (!language) {
-    return NextResponse.json(
-      {
-        success: false,
-        error: {
-          code: "INVALID_LANGUAGE",
-          message: "Language must be English or German (EN/DE).",
-        },
-      },
-      { status: 400 },
-    )
+    return fail(400, "INVALID_LANGUAGE", "Language must be English or German (EN/DE).")
   }
 
   const pronounPreference = parsePronounPreference(payload?.pronounPreference)
@@ -267,26 +533,50 @@ export async function POST(request: Request) {
     situation,
   )
   const resolvedPronounPreference = pronounResolution.resolvedPreference
-
-  let authContext
-  try {
-    authContext = await authorizeFirebaseRequest(request)
-  } catch (error) {
-    const status =
-      error instanceof FirebaseAuthorizationError ? error.statusCode : 401
-    return NextResponse.json(
+  const sanitizedInput = sanitizeEmailText(situation)
+  const cleanedSituationText = sanitizedInput.cleanText
+  const insufficientInput =
+    sanitizedInput.wordCount < 20 || sanitizedInput.substantiveLines === 0
+  if (insufficientInput) {
+    return fail(
+      422,
+      "INSUFFICIENT_INPUT",
+      "After removing Gmail UI noise, the note doesn’t include enough detail to craft a responsible reply. Please describe the parent concern in at least 20 words.",
       {
-        success: false,
-        error: {
-          code: "UNAUTHORIZED",
-          message: (error as Error).message || "Unauthorized",
+        data: {
+          wordCount: sanitizedInput.wordCount,
+          substantiveLines: sanitizedInput.substantiveLines,
+          removedLines: sanitizedInput.removedLines,
         },
       },
-      { status },
     )
   }
 
+    const bypassHeader = request.headers.get(DEV_BYPASS_HEADER)
+    const devBypassActive = DEV_ENV_ALLOWED.has(process.env.NODE_ENV ?? "") && bypassHeader === "1"
+    let authContext
+    if (devBypassActive) {
+      authContext = {
+        uid: DEV_BYPASS_UID,
+        auth: null,
+        firestore: null,
+        storage: null,
+      }
+    } else {
+      const { authorizeFirebaseRequest, FirebaseAuthorizationError } = await import(
+        "@/lib/firebase/server",
+      )
+      try {
+        authContext = await authorizeFirebaseRequest(request)
+      } catch (error) {
+        const status =
+          error instanceof FirebaseAuthorizationError ? error.statusCode : 401
+        return fail(status, "UNAUTHORIZED", (error as Error).message || "Unauthorized")
+      }
+    }
+
   const { uid, firestore } = authContext
+  const isDevBypassRequest = devBypassActive
   const uidHash = createHash("sha256").update(uid).digest("hex").slice(0, 12)
   const logDraftOutcome = (
     outcomeCode: string,
@@ -301,27 +591,50 @@ export async function POST(request: Request) {
       ...extras,
     })
   }
-  if (!firestore) {
-    return NextResponse.json(
-      {
-        success: false,
-        error: {
-          code: "FIRESTORE_UNAVAILABLE",
-          message: "Unable to access Firestore.",
-        },
-      },
-      { status: 500 },
-    )
+  const maybeLogServerEvent = (eventName: string, payload: Record<string, unknown>) => {
+    if (!isDevBypassRequest) {
+      logServerEvent(eventName, payload)
+    }
+  }
+  if (!firestore && !isDevBypassRequest) {
+    return fail(500, "FIRESTORE_UNAVAILABLE", "Unable to access Firestore.")
+  }
+  let FieldValue: typeof import("firebase-admin/firestore").FieldValue | null = null
+  if (firestore) {
+    const firestoreModule = await import("firebase-admin/firestore")
+    FieldValue = firestoreModule.FieldValue
   }
   const isQaUser = isInternalQaUid(uid)
-  const entitlements = await getUserEntitlements(uid, firestore)
-  const { plan, usage: initialUsage, usageRecord, isProSubscriber } = entitlements
-  const enforceUsageLimits = shouldRespectUsageLimit(uid)
+  const defaultUsageRecord: MonthlyUsageRecord = {
+    month: getCurrentMonthKey(),
+    generationCount: 0,
+    lastReset: new Date().toISOString(),
+  }
+  const defaultUsage = buildUsageResponse(defaultUsageRecord, "free")
+  const devDefaults = {
+    plan: "free" as const,
+    usage: defaultUsage,
+    usageRecord: defaultUsageRecord,
+    isProSubscriber: false,
+  }
+  const entitlements = isDevBypassRequest
+    ? devDefaults
+    : await getUserEntitlements(uid, firestore!)
+  const {
+    plan,
+    usage: initialUsage,
+    usageRecord,
+    isProSubscriber,
+  } = entitlements
+  const enforceUsageLimits = isDevBypassRequest ? false : shouldRespectUsageLimit(uid)
 
-  const userRef = firestore.collection("users").doc(uid)
-  const diagnosticsRef = userRef.collection("diagnostics").doc("status")
-  const insightsSummaryRef = userRef.collection("insights").doc("summary")
+  const userRef = firestore ? firestore.collection("users").doc(uid) : null
+  const diagnosticsRef = userRef?.collection("diagnostics").doc("status") ?? null
+  const insightsSummaryRef = userRef?.collection("insights").doc("summary") ?? null
   const recordDiagnostic = async (fields: Record<string, unknown>) => {
+    if (!diagnosticsRef || !FieldValue) {
+      return
+    }
     try {
       await diagnosticsRef.set({ ...fields, updatedAt: FieldValue.serverTimestamp() }, { merge: true })
     } catch (error) {
@@ -329,34 +642,34 @@ export async function POST(request: Request) {
     }
   }
 
-  if (enforceUsageLimits && plan === "free" && initialUsage.remaining !== null && initialUsage.remaining <= 0) {
-    logServerEvent("draft_generation_denied_limit", { uid, plan })
+  if (
+    !isDevBypassRequest &&
+    enforceUsageLimits &&
+    plan === "free" &&
+    initialUsage.remaining !== null &&
+    initialUsage.remaining <= 0
+  ) {
+    maybeLogServerEvent("draft_generation_denied_limit", { uid, plan })
     logDraftOutcome("RATE_LIMITED", { errorCode: "USAGE_LIMIT_EXCEEDED" })
-    return NextResponse.json(buildUsageLimitError(initialUsage), { status: 429 })
+    const usageLimitError = buildUsageLimitError(initialUsage)
+    return fail(429, "USAGE_LIMIT_EXCEEDED", usageLimitError.message, { data: usageLimitError.data })
   }
 
-  try {
-    await enforceDraftRateLimit(uid, firestore)
-  } catch (error) {
-    if (error instanceof RateLimitError) {
-      logServerEvent("draft_generation_rate_limited", { uid, plan })
-      logDraftOutcome("RATE_LIMITED", { errorCode: "RATE_LIMITED" })
-      void recordDiagnostic({ lastErrorCode: "RATE_LIMITED" })
-      const waitSeconds = Math.ceil(error.retryAfterMs / 1000)
-      return NextResponse.json(
-        {
-          success: false,
-          error: {
-            code: "RATE_LIMITED",
-            message: `You can generate a new draft in ${waitSeconds} seconds.`,
-          },
-        },
-        { status: 429 },
-      )
-    }
+  if (!isDevBypassRequest) {
+    try {
+      await enforceDraftRateLimit(uid, firestore!)
+    } catch (error) {
+      if (error instanceof RateLimitError) {
+        maybeLogServerEvent("draft_generation_rate_limited", { uid, plan })
+        logDraftOutcome("RATE_LIMITED", { errorCode: "RATE_LIMITED" })
+        void recordDiagnostic({ lastErrorCode: "RATE_LIMITED" })
+        const waitSeconds = Math.ceil(error.retryAfterMs / 1000)
+        return fail(429, "RATE_LIMITED", `You can generate a new draft in ${waitSeconds} seconds.`)
+      }
 
-    console.error("[draft] Rate limit transaction failed", error)
-    throw error
+      console.error("[draft] Rate limit transaction failed", error)
+      throw error
+    }
   }
 
   const sanitizedContext: {
@@ -372,72 +685,49 @@ export async function POST(request: Request) {
     sanitizedContext.gradeLevel = payload.context.gradeLevel.trim()
   }
 
-  const snippetCollection = firestore.collection("users").doc(uid).collection("snippets")
-  const snippetDoc = snippetCollection.doc()
-  const requestId = snippetDoc.id
+  const snippetCollection = firestore
+    ? firestore.collection("users").doc(uid).collection("snippets")
+    : null
+  const snippetDoc = snippetCollection
+    ? snippetCollection.doc(requestId)
+    : {
+        id: requestId,
+        set: async () => null,
+      }
 
-  const detection = detectSensitiveContent(situation)
+  const detection = detectSensitiveContent(cleanedSituationText)
   let sanitizedSituation = detection.sanitized
   const safetyFlags = new Set<string>()
   if (detection.matches.length > 0) {
     detection.matches.forEach((match) => safetyFlags.add(`input-${match.type}`))
     void recordDiagnostic({ lastErrorCode: "SENSITIVE_CONTENT" })
-    return NextResponse.json(
-      {
-        success: false,
-        data: {
-          redactedPreview: detection.sanitized,
-        },
-        error: {
-          code: "SENSITIVE_CONTENT",
-          message:
-            "Please remove emails, phone numbers, and addresses from the prompt before generating. The redacted preview can guide you.",
-        },
+    return fail(422, "SENSITIVE_CONTENT", "Please remove emails, phone numbers, and addresses from the prompt before generating. The redacted preview can guide you.", {
+      data: {
+        redactedPreview: detection.sanitized,
       },
-      { status: 422 },
-    )
+    })
   }
 
   let currentSituation = sanitizedSituation
   if (!isValidDraftRequest(currentSituation, mode)) {
-    return NextResponse.json(
-      {
-        ok: false,
-        success: false,
-        code: "OUT_OF_SCOPE",
-        message: OUT_OF_SCOPE_REDIRECT_MESSAGE,
-        error: {
-          code: "OUT_OF_SCOPE",
-          message: OUT_OF_SCOPE_REDIRECT_MESSAGE,
-        },
-      },
-      { status: 422 },
-    )
+    return fail(422, "OUT_OF_SCOPE", OUT_OF_SCOPE_REDIRECT_MESSAGE)
   }
   let inputReframed = false
   let inputReframedTier: BlockedLanguageTier | null = null
 
   const sendBlockedLanguageError = (tier: BlockedLanguageTier) => {
-    logServerEvent("draft_generation_blocked_language", { uid, plan, tier })
+    maybeLogServerEvent("draft_generation_blocked_language", { uid, plan, tier })
     logDraftOutcome("INVALID_REQUEST", { errorCode: "BLOCKED_LANGUAGE" })
     void recordDiagnostic({
       lastErrorCode: "BLOCKED_LANGUAGE",
       lastBlockedLanguageTier: tier,
     })
     const blockedResponse = buildBlockedLanguageResponse(tier)
-    return NextResponse.json(
-      {
-        success: false,
-        data: {
-          blockedLanguage: blockedResponse,
-        },
-        error: {
-          code: "BLOCKED_LANGUAGE",
-          message: blockedResponse.message,
-        },
+    return fail(422, "BLOCKED_LANGUAGE", blockedResponse.message, {
+      data: {
+        blockedLanguage: blockedResponse,
       },
-      { status: 422 },
-    )
+    })
   }
 
   const blockedInput = detectBlockedLanguage(currentSituation)
@@ -474,6 +764,13 @@ export async function POST(request: Request) {
   const originalSituationForPrompt = preRewriteSituation
 
   const generationStart = Date.now()
+  const providerGreeting =
+    greetingText.length > 0
+      ? {
+          text: greetingText,
+          name: greetingName ?? undefined,
+        }
+      : undefined
   const providerInput: ProviderRequestInput = {
     situation: currentSituation,
     originalSituation: originalSituationForPrompt,
@@ -487,6 +784,13 @@ export async function POST(request: Request) {
     studentFirstName: studentNameForPayload || undefined,
     resolvedPronounPreference,
     signatureBlock: resolvedSignature.block,
+    teacherSignatureName,
+    greeting: providerGreeting,
+    greetingFinal: hasFinalGreeting,
+    greetingConfidence: payload.greetingConfidence,
+    greetingSource: payload.greetingSource,
+    messageType: payload.messageType,
+    scanId: payload.scanId,
     uiLocale: normalizedUiLocale,
   }
   const fallbackContext: DraftFallbackContext = {
@@ -497,6 +801,9 @@ export async function POST(request: Request) {
     uidHash,
     studentFirstName: studentNameForPayload || undefined,
     studentPronounPreference: resolvedPronounPreference,
+    teacherSignatureName,
+    greeting: providerGreeting,
+    greetingFinal: hasFinalGreeting,
   }
   const finalizeDraft = (text: string) => {
     let curated = enforcePronouns(text, resolvedPronounPreference)
@@ -505,18 +812,60 @@ export async function POST(request: Request) {
       pronounPreference: resolvedPronounPreference,
       resolvedPronounPreference: resolvedPronounPreference,
     })
-    return curated
+    return applyFinalGreetingGuard(curated, finalGreetingLine)
   }
   const finalizeDraftWithSignature = (text: string) =>
     applySignatureToDraft(finalizeDraft(text), resolvedSignature, mode)
-  const runDraft = (forceLanguage = false) =>
-    generateDraftWithFallback({ ...providerInput, forceLanguage }, fallbackContext)
+  const finalizeWithGreeting = (text: string) =>
+    removeDuplicateGreeting(finalizeDraftWithSignature(text), finalGreetingLine)
+
+  const DEFAULT_CLOSINGS = {
+    en: "Kind regards",
+    de: "Mit freundlichen Grüßen",
+  }
+  const FALLBACK_SIGNATURES = {
+    en: "Your child's teacher",
+    de: "Ihre Klassenlehrkraft",
+  }
+
+  function ensureClosingAndSignature(text: string, language?: string, teacherName?: string) {
+    const normalizedLanguage = language?.toLowerCase() ?? "en"
+    const closingLine = normalizedLanguage.startsWith("de")
+      ? DEFAULT_CLOSINGS.de
+      : DEFAULT_CLOSINGS.en
+    const signatureLine =
+      (teacherName?.trim()) || (normalizedLanguage.startsWith("de") ? FALLBACK_SIGNATURES.de : FALLBACK_SIGNATURES.en)
+    const trimmed = text.trim()
+    const lines = trimmed
+      .split(/\n+/)
+      .map((line) => line.trim())
+      .filter(Boolean)
+    const normalizeMatch = (value: string) => value.replace(/[.,;:]+$/, "").trim().toLowerCase()
+    const closingMatch = normalizeMatch(closingLine)
+    const signatureMatch = normalizeMatch(signatureLine)
+    const hasClosing = lines.some((line) => normalizeMatch(line) === closingMatch)
+    const hasSignature =
+      Boolean(signatureLine) && lines.some((line) => normalizeMatch(line) === signatureMatch)
+    let result = trimmed
+    if (!hasClosing) {
+      result = `${result}\n\n${closingLine}`
+    }
+    if (!hasSignature && signatureLine) {
+      result = `${result}\n${signatureLine}`
+    }
+    return result
+  }
+  const runDraft = (forceLanguage = false, forceContinuation = false) =>
+    generateDraftWithFallback(
+      { ...providerInput, forceLanguage, forceContinuation },
+      fallbackContext,
+    )
 
   let draftAttempt = await runDraft()
   let providerResult = draftAttempt.result
   let usedFallback = draftAttempt.usedFallback
   let fallbackErrorCode = draftAttempt.errorCode
-  let generatedDraft = finalizeDraftWithSignature(providerResult.text)
+  let generatedDraft = finalizeWithGreeting(providerResult.text)
   let providerMeta = providerResult.providerMeta
 
   let forcedLanguageAttempted = false
@@ -526,7 +875,7 @@ export async function POST(request: Request) {
     providerResult = draftAttempt.result
     usedFallback = draftAttempt.usedFallback
     fallbackErrorCode = draftAttempt.errorCode
-    generatedDraft = finalizeDraftWithSignature(providerResult.text)
+    generatedDraft = finalizeWithGreeting(providerResult.text)
     providerMeta = providerResult.providerMeta
   }
 
@@ -534,9 +883,12 @@ export async function POST(request: Request) {
     mode === "parent_message" &&
     (language?.toLowerCase().startsWith("de") || normalizedUiLocale?.toLowerCase().startsWith("de"))
 
-  if (shouldNormalizeGermanParentMessage) {
-    const germanNormalization = normalizeGermanParentMessage(generatedDraft)
-    generatedDraft = germanNormalization.text
+  const applyGermanNormalization = (draft: string) => {
+    if (!shouldNormalizeGermanParentMessage) {
+      return draft
+    }
+    const germanNormalization = normalizeGermanParentMessage(draft)
+    let normalizedText = germanNormalization.text
     if (germanNormalization.neutralized) {
       inputReframed = true
       if (!inputReframedTier) {
@@ -544,9 +896,55 @@ export async function POST(request: Request) {
         safetyFlags.add(`input-reframed-${inputReframedTier}`)
       }
     }
+    const guarded = applyFinalGreetingGuard(normalizedText, finalGreetingLine)
+    return removeDuplicateGreeting(guarded, finalGreetingLine)
   }
 
-  const formattedDraftStructure = formatDraftText(generatedDraft, language)
+    if (shouldNormalizeGermanParentMessage) {
+      generatedDraft = applyGermanNormalization(generatedDraft)
+    }
+
+    generatedDraft = ensureClosingAndSignature(generatedDraft, language, teacherSignatureName)
+
+    let formattedDraftStructure = formatDraftText(generatedDraft, language)
+  let bodyParagraphCount = getParagraphCountExcludingGreeting(formattedDraftStructure, finalGreetingLine)
+  let bodyWordCount = countWords(generatedDraft)
+  const evaluateBodyNeedsRetry = () =>
+    Boolean(
+      finalGreetingLine &&
+        (bodyWordCount < MIN_BODY_WORDS || bodyParagraphCount < MIN_BODY_PARAGRAPHS),
+    )
+
+  if (evaluateBodyNeedsRetry()) {
+    const continuationAttempt = await runDraft(forcedLanguageAttempted, true)
+    providerResult = continuationAttempt.result
+    usedFallback = continuationAttempt.usedFallback
+    fallbackErrorCode = continuationAttempt.errorCode
+    providerMeta = providerResult.providerMeta
+    generatedDraft = finalizeWithGreeting(providerResult.text)
+    generatedDraft = applyGermanNormalization(generatedDraft)
+    formattedDraftStructure = formatDraftText(generatedDraft, language)
+    bodyParagraphCount = getParagraphCountExcludingGreeting(formattedDraftStructure, finalGreetingLine)
+    bodyWordCount = countWords(generatedDraft)
+    if (evaluateBodyNeedsRetry()) {
+      const templateDraft = buildDeterministicTemplateBody(finalGreetingLine ?? "", language)
+      const guardedTemplate = removeDuplicateGreeting(
+        applyFinalGreetingGuard(templateDraft, finalGreetingLine),
+        finalGreetingLine,
+      )
+      generatedDraft = guardedTemplate
+      formattedDraftStructure = formatDraftText(generatedDraft, language)
+      bodyParagraphCount = getParagraphCountExcludingGreeting(formattedDraftStructure, finalGreetingLine)
+      bodyWordCount = countWords(generatedDraft)
+      usedFallback = true
+      fallbackErrorCode = fallbackErrorCode ?? "GREETING_BODY_FALLBACK"
+      providerMeta = {
+        modelUsed: "greeting-body-template",
+        latencyMs: 0,
+      }
+    }
+  }
+
   let rewriteAttempted = false
   const generationTime = providerMeta.latencyMs ?? Date.now() - generationStart
 
@@ -555,18 +953,15 @@ export async function POST(request: Request) {
   if (outputDetection.matches.length > 0 && detection.matches.length === 0) {
     logDraftOutcome("INVALID_REQUEST", { errorCode: "INVALID_REQUEST" })
     void recordDiagnostic({ lastErrorCode: "INVALID_REQUEST" })
-    return NextResponse.json(
+    return fail(
+      422,
+      "INVALID_REQUEST",
+      "Generated content included sensitive information that cannot be returned.",
       {
-        success: false,
         data: {
           redactedPreview: outputDetection.sanitized,
         },
-        error: {
-          code: "INVALID_REQUEST",
-          message: "Generated content included sensitive information that cannot be returned.",
-        },
       },
-      { status: 422 },
     )
   }
   let blockedDetection = detectBlockedLanguage(generatedDraft)
@@ -602,12 +997,15 @@ export async function POST(request: Request) {
   }
 
   let updatedUsage: MonthlyUsageRecord = usageRecord
-  if (!isQaUser) {
+  if (!isQaUser && !isDevBypassRequest) {
     try {
-      updatedUsage = await incrementUsage(uid, firestore, plan === "pro")
+      updatedUsage = await incrementUsage(uid, firestore!, plan === "pro")
     } catch (error) {
       if (error instanceof Error && error.message === "USAGE_LIMIT_EXCEEDED") {
-        return NextResponse.json(buildUsageLimitError(initialUsage), { status: 429 })
+        const usageLimitError = buildUsageLimitError(initialUsage)
+        return fail(429, "USAGE_LIMIT_EXCEEDED", usageLimitError.message, {
+          data: usageLimitError.data,
+        })
       }
       console.error("[draft] Usage increment failed", error)
       throw error
@@ -638,6 +1036,12 @@ export async function POST(request: Request) {
     requestedAt: requestedAt.toISOString(),
     contextUsed: sanitizedContext,
     signatureBlock: resolvedSignature.block,
+    sanitizedInput: {
+      wordCount: sanitizedInput.wordCount,
+      substantiveLines: sanitizedInput.substantiveLines,
+      nonEmptyLines: sanitizedInput.nonEmptyLines,
+      removedLines: sanitizedInput.removedLines.length,
+    },
   }
 
   const responseMeta = {
@@ -649,7 +1053,15 @@ export async function POST(request: Request) {
     requestId,
   }
 
-  logServerEvent("draft_generation", {
+  const responseGreeting = {
+    text: greetingDecision.greeting,
+    name: greetingDecision.safeParentName,
+    confidence: greetingDecision.confidence,
+    final: Boolean(greetingDecision.greetingFinal),
+    source: greetingDecision.source,
+  }
+
+  maybeLogServerEvent("draft_generation", {
     uid,
     plan,
     tone,
@@ -666,7 +1078,9 @@ export async function POST(request: Request) {
   })
 
   let snippetId: string | null = null
-  const usageAfterGeneration = buildUsageResponse(updatedUsage, plan, { unlimited: isQaUser })
+  const usageAfterGeneration = buildUsageResponse(updatedUsage, plan, {
+    unlimited: isQaUser || isDevBypassRequest,
+  })
   console.info("[draft] usage", {
     uid,
     isQaUser,
@@ -699,12 +1113,12 @@ export async function POST(request: Request) {
 
   try {
     await snippetDoc.set(snippetPayload)
-    logServerEvent("snippet_saved", { uid, snippetId })
+    maybeLogServerEvent("snippet_saved", { uid, snippetId })
   } catch (error) {
     console.error("[draft] Failed to persist snippet", error)
-    logServerEvent("snippet_save_failed", { uid, error: (error as Error).message })
+    maybeLogServerEvent("snippet_save_failed", { uid, error: (error as Error).message })
   }
-  void recordDiagnostic({
+  const diagnosticFields: Record<string, unknown> = {
     lastModelUsed: metadata.modelUsed,
     lastPronounPreference: pronounPreference,
     lastResolvedPronounPreference: resolvedPronounPreference,
@@ -714,23 +1128,30 @@ export async function POST(request: Request) {
     lastInputReframedTier: inputReframedTier,
     lastErrorCode: null,
     lastUsage: usageAfterGeneration,
-    lastRunAt: FieldValue.serverTimestamp(),
-  })
-  try {
-    await userRef.set({ lastDiagnosticsRunAt: FieldValue.serverTimestamp() }, { merge: true })
-  } catch (error) {
-    console.error("[draft] Failed to update diagnostics timestamp on user doc", error)
   }
-  try {
-    await insightsSummaryRef.set(
-      {
-        draftsCreated: FieldValue.increment(1),
-        lastDraftAt: FieldValue.serverTimestamp(),
-      },
-      { merge: true },
-    )
-  } catch (error) {
-    console.error("[draft] Failed to update insights summary", error)
+  if (FieldValue) {
+    diagnosticFields.lastRunAt = FieldValue.serverTimestamp()
+  }
+  void recordDiagnostic(diagnosticFields)
+  if (userRef && FieldValue) {
+    try {
+      await userRef.set({ lastDiagnosticsRunAt: FieldValue.serverTimestamp() }, { merge: true })
+    } catch (error) {
+      console.error("[draft] Failed to update diagnostics timestamp on user doc", error)
+    }
+  }
+  if (insightsSummaryRef && FieldValue) {
+    try {
+      await insightsSummaryRef.set(
+        {
+          draftsCreated: FieldValue.increment(1),
+          lastDraftAt: FieldValue.serverTimestamp(),
+        },
+        { merge: true },
+      )
+    } catch (error) {
+      console.error("[draft] Failed to update insights summary", error)
+    }
   }
   logDraftOutcome("SUCCESS", {
     latencyMs: generationTime,
@@ -738,18 +1159,20 @@ export async function POST(request: Request) {
     tokensUsed: providerMeta.tokensUsed,
   })
 
-  return NextResponse.json({
-    success: true,
-    data: {
-      generatedDraft,
-      formattedDraft: formattedDraftStructure,
-      metadata,
-      meta: responseMeta,
-      usage: usageAfterGeneration,
-      snippetId,
-      deescalationSummary,
-    },
+  return ok({
+    generatedDraft,
+    formattedDraft: formattedDraftStructure,
+    greeting: responseGreeting,
+    metadata,
+    meta: responseMeta,
+    usage: usageAfterGeneration,
+    snippetId,
+    deescalationSummary,
   })
+  } catch (error) {
+    console.error("[draft] Unexpected error", error)
+    return fail(500, "INTERNAL", "An unexpected error occurred.")
+  }
 }
 
 export async function GET() {
@@ -764,3 +1187,4 @@ export async function GET() {
     { status: 405 },
   )
 }
+

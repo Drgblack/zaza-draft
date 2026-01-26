@@ -189,18 +189,31 @@ function splitLeadingGreeting(sentences: string[], trimmedBody: string, locale?:
   if (!GREETING_REGEX.test(first)) {
     return sentences
   }
-  const commaIndex = first.indexOf(",")
-  if (commaIndex < 0) {
+  const firstCommaIndex = first.indexOf(",")
+  if (firstCommaIndex < 0) {
     return sentences
   }
-  const greetingFragment = first.slice(0, commaIndex + 1).trim()
-  const remainder = first.slice(commaIndex + 1).trim()
-  if (!greetingFragment || !remainder) {
-    return sentences
-  }
-  const containsTitle = /\b(?:Mr|Mrs|Ms|Miss|Dr|Prof|Mx|Sir|Madam|Teacher)\b/i.test(greetingFragment)
+  const containsTitle = /\b(?:Mr|Mrs|Ms|Miss|Dr|Prof|Mx|Sir|Madam|Teacher)\b/i.test(first)
   const allowGermanSplit = locale?.toLowerCase().startsWith("de")
   if (!allowGermanSplit && !containsTitle) {
+    return sentences
+  }
+  let greetingEndIndex = firstCommaIndex + 1
+  const secondCommaIndex = first.indexOf(",", greetingEndIndex)
+  if (secondCommaIndex > 0) {
+    const between = first.slice(firstCommaIndex + 1, secondCommaIndex).trim()
+    const betweenWords = between.split(/\s+/).filter(Boolean)
+    const looksLikeName =
+      betweenWords.length > 0 &&
+      betweenWords.length <= 4 &&
+      /^[A-ZÄÖÜẞÀÁÂÃÄÅÆÇÈÉÊËÌÍÎÏÐÑÒÓÔÕÖØÙÚÛÜÝŸ]/.test(betweenWords[0])
+    if (looksLikeName) {
+      greetingEndIndex = secondCommaIndex + 1
+    }
+  }
+  const greetingFragment = first.slice(0, greetingEndIndex).trim()
+  const remainder = first.slice(greetingEndIndex).trim()
+  if (!greetingFragment || !remainder) {
     return sentences
   }
   const offset = trimmedBody.indexOf(greetingFragment)

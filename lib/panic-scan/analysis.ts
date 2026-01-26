@@ -5,6 +5,12 @@ import type { MessageClassification, PanicScanAnalysis } from "./types"
 const SYSTEM_PROMPT = `
 You are a safety-first assistant tasked with analyzing emotionally intense teacher messages for Zaza Draft.
 Return exactly one JSON object with two keys: "classification" and "analysis".
+
+CRITICAL LANGUAGE RULE:
+- Write ALL analysis field values (summary, emotionalInterpretation, professionalRisk, likelyMeaning, suggestedResponse) in the SAME language as the original message text.
+- If the message is German, output German only (no English sentences).
+- If the message is English, output English only.
+- Do NOT mix languages.
 The classification object must include: messageType, emotionalTone, riskLevel, urgency, and confidenceScore (0-100).
 The analysis object must include: summary, emotionalInterpretation, professionalRisk, likelyMeaning, and suggestedResponse.
 Use only the allowed values for each field. Do not include extra text outside the JSON object.
@@ -45,3 +51,4 @@ export async function analyzePanicMessage(message: string): Promise<{
     analysis: body.analysis as PanicScanAnalysis,
   }
 }
+
