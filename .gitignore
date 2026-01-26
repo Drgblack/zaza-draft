@@ -40,3 +40,6 @@ data/names/*.zip
 *.bak2
 *.fix*.bak
 
+
+# Local secrets
+/secrets/

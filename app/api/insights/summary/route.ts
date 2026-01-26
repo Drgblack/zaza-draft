@@ -1,13 +1,9 @@
-﻿import { NextResponse } from "next/server"
+import { NextResponse } from "next/server"
 import { authorizeFirebaseRequest, FirebaseAuthorizationError } from "@/lib/firebase/server"
-import { getFirebaseAdmin } from "@/lib/firebase/admin"
 
 export async function GET(req: Request) {
   try {
-    const { uid } = await authorizeFirebaseRequest(req)
-
-    const admin = getFirebaseAdmin()
-    const firestore = admin?.firestore
+    const { uid, firestore } = await authorizeFirebaseRequest(req)
 
     if (!firestore) {
       throw new FirebaseAuthorizationError("Firebase admin not configured", 500)
@@ -44,7 +40,7 @@ export async function GET(req: Request) {
         success: false,
         error: { code: "INSIGHTS_SUMMARY_ERROR", message: (error as Error)?.message || "Unauthorised" },
       },
-      { status }
+      { status },
     )
   }
 }

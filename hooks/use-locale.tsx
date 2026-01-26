@@ -106,6 +106,8 @@ export const localeMessages: Record<Locale, LocaleMessages> = {
     panicScanResultFailureLabel: "Reason: {reason}",
     panicScanResultMessageLabel: "Message (cleaned)",
     panicScanResultCleanConfidence: "OCR confidence: {confidence}%",
+panic-scan-ui-stable
+
     "panicScan.classification.riskLevel.high": "High",
     "panicScan.classification.riskLevel.medium": "Medium",
     "panicScan.classification.riskLevel.low": "Low",
@@ -126,6 +128,7 @@ export const localeMessages: Record<Locale, LocaleMessages> = {
     "panicScan.classification.emotionalTone.anxious": "Anxious",
     "panicScan.classification.emotionalTone.neutral": "Neutral",
     "panicScan.classification.emotionalTone.supportive": "Supportive",
+main
     panicScanBadgeHighRisk: "HIGH RISK",
     panicScanBadgeMediumRisk: "MEDIUM RISK",
     panicScanBadgeLowRisk: "LOW RISK",
@@ -1451,6 +1454,8 @@ export const localeMessages: Record<Locale, LocaleMessages> = {
     panicScanResultFailureLabel: "Grund: {reason}",
     panicScanResultMessageLabel: "Nachricht (bereinigt)",
     panicScanResultCleanConfidence: "OCR-Genauigkeit: {confidence}%",
+panic-scan-ui-stable
+
     "panicScan.classification.riskLevel.high": "Hoch",
     "panicScan.classification.riskLevel.medium": "Mittel",
     "panicScan.classification.riskLevel.low": "Gering",
@@ -1471,6 +1476,7 @@ export const localeMessages: Record<Locale, LocaleMessages> = {
     "panicScan.classification.emotionalTone.anxious": "Besorgt",
     "panicScan.classification.emotionalTone.neutral": "Neutral",
     "panicScan.classification.emotionalTone.supportive": "Unterstützend",
+main
     panicScanBadgeHighRisk: "HOCHES RISIKO",
     panicScanBadgeMediumRisk: "MITTLERES RISIKO",
     panicScanBadgeLowRisk: "GERINGES RISIKO",

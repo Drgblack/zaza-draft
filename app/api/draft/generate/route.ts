@@ -672,9 +672,17 @@ export async function POST(request: Request) {
     }
   }
 
-  const sanitizedContext = {
-    subject: payload.context?.subject ? payload.context.subject.trim() : undefined,
-    gradeLevel: payload.context?.gradeLevel ? payload.context.gradeLevel.trim() : undefined,
+  const sanitizedContext: {
+    subject?: string
+    gradeLevel?: string
+  } = {}
+
+  if (payload.context?.subject?.trim()) {
+    sanitizedContext.subject = payload.context.subject.trim()
+  }
+
+  if (payload.context?.gradeLevel?.trim()) {
+    sanitizedContext.gradeLevel = payload.context.gradeLevel.trim()
   }
 
   const snippetCollection = firestore
