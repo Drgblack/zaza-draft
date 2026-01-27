@@ -2,6 +2,12 @@ import type { DraftLanguage, DraftMode, DraftTone, PronounPreference } from "@/l
 import { MODE_DISPLAY_NAMES, MODE_PROMPT_INSTRUCTIONS } from "@/lib/draft-mode"
 import { buildStudentInstruction, PRONOUN_LABELS } from "@/lib/draft/student-policy"
 import { detectOutOfScopeRequest } from "@/lib/safety/out-of-scope"
+import {
+  logGreetingDecision,
+  type GreetingSource,
+  type GreetingDecision,
+  type NameConfidenceLevel,
+} from "@/lib/draft/greeting-resolution"
 
 function getOpenAiApiKey() {
   return process.env.OPENAI_API_KEY
@@ -35,8 +41,19 @@ interface ProviderInput {
   studentFirstName?: string
   resolvedPronounPreference?: PronounPreference
   forceLanguage?: boolean
+  forceContinuation?: boolean
   signatureBlock?: string
   uiLocale?: string
+  greeting?: {
+    text: string
+    name?: string
+  }
+  greetingFinal?: boolean
+  greetingConfidence?: NameConfidenceLevel
+  greetingSource?: GreetingSource
+  messageType?: string
+  scanId?: string
+  teacherSignatureName?: string
 }
 
 export interface ProviderMeta {
@@ -75,13 +92,34 @@ export function buildSystemPrompt(input: ProviderInput) {
     "Avoid gendered pronouns unless the teacher explicitly specifies them in the prompt; default to inclusive wording.",
     "Never include student PII (full names, emails, phone numbers, addresses). If the prompt is disallowed, explain politely that you cannot help.",
     "Do not include blocked language such as insults, diagnostic labels, or emotionally charged terms; redirect toward behaviour, effort, and growth.",
-  "Use the student's first name sparingly (once or twice) and then switch to inclusive pronouns or neutral wording; avoid repeating 'your child' in adjacent sentences.",
-  "Describe engagement challenges as calm observations (has found it difficult to stay focused, has had a few moments where...) rather than writing 'instances of disruption' or accusatory language.",
-  "Close parent messages with a short reassurance about aiming to support the student positively and helping them feel confident and successful at school.",
-  "Prefer the student's first name once or twice, then use the provided pronouns naturally; avoid repeating 'the student'.",
+    "In the first paragraph (after any resolved greeting), restate the parent's stated concern in neutral language (for example, 'Sie schreiben, dass Lukas gestern fast zwei Stunden an den Hausaufgaben sass ...') before moving toward next steps.",
+    "Unless the parent is explicitly discussing behaviour, avoid generic 'behavior documentation' phrasing (e.g., 'Verhalten dokumentieren') and keep the focus on the actual concern being raised.",
+    "If cleaned notes mention escalation, complaints about policy, or threats such as 'Schulträger einschalten', acknowledge the concern, commit to investigating, suggest a calm next step (call or meeting), and keep the tone calm and bounded.",
+    "Use the student's first name sparingly (once or twice) and then switch to inclusive pronouns or neutral wording; avoid repeating 'your child' in adjacent sentences.",
+    "Describe engagement challenges as calm observations (has found it difficult to stay focused, has had a few moments where...) rather than writing 'instances of disruption' or accusatory language.",
+    "Close parent messages with a short reassurance about aiming to support the student positively and helping them feel confident and successful at school.",
+    "Prefer the student's first name once or twice, then use the provided pronouns naturally; avoid repeating 'the student'.",
     PRONOUN_INSTRUCTIONS[input.pronounPreference],
     MODE_PROMPT_INSTRUCTIONS[input.mode],
   ]
+
+  const teacherName = input.teacherSignatureName?.trim()
+  const hasTeacherName = Boolean(teacherName)
+  systemLines.push(
+    "Do not invent or infer the teacher’s name from the parent greeting or the recipient line.",
+    "Only use teacherSignatureName if provided; otherwise omit the name.",
+  )
+  if (hasTeacherName) {
+    systemLines.push(
+      `Use the provided teacherSignatureName (${teacherName}) in the closing and do not invent or modify any other teacher names.`,
+    )
+  } else {
+    const closingInstruction =
+      input.language === "de"
+        ? "Close with 'Mit freundlichen Grüßen' or 'Herzliche Grüße' on its own line and do not add a name afterwards."
+        : "Close with 'Kind regards,' or 'Best regards,' on its own line and do not add a name afterwards."
+    systemLines.push(closingInstruction)
+  }
 
   const requestText = input.originalSituation ?? input.situation
   const outOfScope = detectOutOfScopeRequest(requestText)
@@ -122,25 +160,32 @@ export function buildSystemPrompt(input: ProviderInput) {
     systemLines.push(
       "When writing in German, keep the sentences warm, calm, and professional; favour the Sie form and avoid bureaucratic labels such as 'Fach:' unless they are explicitly part of the request.",
     )
-    systemLines.push("Avoid placeholders like [Name des Sch�lers], [Parent Name], or [Student Name].")
+    systemLines.push("Avoid placeholders like [Name des Schülers], [Parent Name], or [Student Name].")
     systemLines.push(
       "If no student name was supplied, refer to the child as 'Ihr Kind' (use 'Ihr Sohn' or 'Ihre Tochter' only when the teacher explicitly provides gender).",
     )
     if (input.mode === "parent_message") {
-    systemLines.push(
-      "German parent messages must mimic a concise professional email: start with 'Betreff: <short subject>' on the first line, add a blank line, and begin with a polite greeting such as 'Liebe Eltern,' or 'Liebe Erziehungsberechtigte,'.",
-    )
+      const hasFinalGreeting = Boolean(input.greetingFinal && input.greeting?.text)
+      if (hasFinalGreeting) {
+        systemLines.push(
+          "The greeting has been resolved upstream; keep the provided opening line, follow the subject/paragraph expectations, and do not replace it with 'Liebe Eltern,' or similar.",
+        )
+      } else {
+        systemLines.push(
+          "German parent messages must mimic a concise professional email: start with 'Betreff: <short subject>' on the first line, add a blank line, and begin with a polite greeting such as 'Liebe Eltern,' or 'Liebe Erziehungsberechtigte,'.",
+        )
+      }
     systemLines.push(
       "Write 3-5 short paragraphs separated by blank lines; each paragraph should focus on calm observations, progress updates, and collaborative next steps, keeping sentences brief (2-3 sentences) and paragraphs short.",
     )
     systemLines.push(
-      "End with a blank line, then 'Herzliche Grüße,' or 'Freundliche Grüße,' on its own line, followed by the teacher's name; include a brief reassuring sentence before the closing.",
+      "End with a blank line, then 'Herzliche Grüße,' or 'Freundliche Grüße,' on its own line; include a brief reassuring sentence before the closing, and add the teacherSignatureName on the next line only if one is provided.",
     )
     systemLines.push(
       "German parent messages must always include EXACTLY 3-5 paragraphs separated by blank lines (two newline characters), keep 'Betreff: …' on the first line, and never collapse the response into a single block.",
     )
     systemLines.push(
-      "Always finish after a blank line with a polite closing (for example, 'Herzliche Grüße,' or 'Freundliche Grüße,' plus the teacher name) and never begin or end with refusal phrasing such as 'Es tut mir leid' or 'Ich kann nicht helfen'.",
+      "Always finish after a blank line with a polite closing (for example, 'Herzliche Grüße,' or 'Freundliche Grüße,'), add the teacherSignatureName on the following line if one is provided, and never begin or end with refusal phrasing such as 'Es tut mir leid' or 'Ich kann nicht helfen'.",
     )
   } else {
     systemLines.push(
@@ -153,9 +198,45 @@ export function buildSystemPrompt(input: ProviderInput) {
     )
   }
 
+  if (input.greeting?.text) {
+    const normalizedGreeting = input.greeting.text.replace(/\s+/g, " ").trim()
+    if (normalizedGreeting) {
+      systemLines.push(`Begin the message with "${normalizedGreeting}" and keep that line unchanged.`)
+      if (input.greetingFinal) {
+        systemLines.push(
+          `Start the email body with EXACTLY this line (verbatim): ${normalizedGreeting}`,
+        )
+        systemLines.push(
+          "Then continue writing the email normally in 2-5 short paragraphs.",
+        )
+        systemLines.push("Do NOT repeat the greeting line anywhere else.")
+        systemLines.push(
+          "The email must include at least: acknowledgement, one practical next step, and a calm invitation to discuss.",
+        )
+        systemLines.push(
+          `The very first line must be exactly "${normalizedGreeting}". Do not change spelling, punctuation, or academic titles such as "Dr." or "Prof.", and do not add any gendered honorifics like Herr/Frau/Mr/Ms.`,
+        )
+      }
+    }
+    if (input.greeting.name) {
+      const normalizedName = input.greeting.name.trim()
+      if (normalizedName) {
+        systemLines.push(
+          `Address the recipient as "${normalizedName}" in that greeting and do not invent or swap to any other addressee names.`,
+        )
+      }
+    }
+  }
+
   if (input.uiLocale?.toLowerCase().startsWith("de")) {
     systemLines.push(
-      "DE tone contract: avoid moral judgement words such as 'L�gen', 'Ausreden', 'faul', or 'schlecht'; describe behaviour with neutral observations (for example, 'Es gab einige Situationen, in denen...'); frame collaboration with phrases like 'Ich m�chte gemeinsam mit Ihnen' and offer a clear next step such as 'K�nnen wir einen kurzen Termin vereinbaren?'; keep the tone calm, professional, and supportive without sounding accusatory.",
+      "DE tone contract: avoid moral judgement words such as 'Lügen', 'Ausreden', 'faul', or 'schlecht'; describe behaviour with neutral observations (for example, 'Es gab einige Situationen, in denen...'); frame collaboration with phrases like 'Ich möchte gemeinsam mit Ihnen' and offer a clear next step such as 'Können wir einen kurzen Termin vereinbaren?'; keep the tone calm, professional, and supportive without sounding accusatory.",
+    )
+  }
+
+  if (input.forceContinuation) {
+    systemLines.push(
+      "This greeting needs a full reply; after the opening line, provide at least three short paragraphs that acknowledge the concern, outline a practical next step, and invite a calm discussion.",
     )
   }
 
@@ -172,6 +253,17 @@ export function buildSystemPrompt(input: ProviderInput) {
     )
   }
 
+  const providerGreetingDecision: GreetingDecision = {
+    greeting: (input.greeting?.text ?? "").trim(),
+    safeParentName: input.greeting?.name ?? null,
+    confidence: input.greetingConfidence ?? "NONE",
+    source: input.greetingSource ?? "generic-fallback",
+    locale: input.language === "de" ? "de" : "en",
+    messageType: input.messageType,
+    scanId: input.scanId,
+    greetingFinal: Boolean(input.greetingFinal && (input.greeting?.text ?? "").trim()),
+  }
+  logGreetingDecision("provider-prompt", providerGreetingDecision)
   return systemLines.join(" ")
 }
 

@@ -81,3 +81,34 @@ Ms Lee
     expect(result.cleanText).not.toContain("Inbox")
   })
 })
+
+it("strips Gmail UI chrome from OCR text", () => {
+  const raw = [
+    "Gmail",
+    "Compose",
+    "Inbox",
+    "External",
+    "Support @ ZazaTeach",
+    "Summarise this email",
+    "It looks like this message is in German",
+    "Translate to English",
+    "",
+    "Formelle Beschwerde bezüglich Leistungsbewertung",
+    "",
+    "Sehr geehrte Frau Samantha,",
+    "hiermit möchte ich formell Beschwerde über die Bewertung der letzten Klassenarbeit meines Sohnes Jonas einreichen.",
+    "Bitte lassen Sie mir die Bewertungsmaßstäbe sowie eine schriftliche Begründung zukommen.",
+    "",
+    "Mit freundlichen Grüßen",
+    "Dr. Markus Schneider",
+    "",
+    "Open in Gmail",
+  ].join("\n")
+
+    const result = cleanOcrText(raw)
+  const joined = result.cleanText
+  expect(joined).toContain("Sehr geehrte Frau Samantha,")
+  expect(joined).toContain("hiermit möchte ich formell Beschwerde")
+  expect(joined).not.toMatch(/Summarise this email|Translate to English|It looks like this message is in German|Open in Gmail|Gmail|Meet|Compose|Inbox|External/i)
+})
+

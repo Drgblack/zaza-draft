@@ -22,12 +22,14 @@ import { resolveLanguageChoiceFromLocale } from "@/lib/draft/language"
 import type { DraftLanguage, DraftMode, PronounPreference } from "@/lib/types"
 import { MODE_LABEL_KEYS, DEFAULT_DRAFT_MODE } from "@/lib/draft-mode"
 import { isValidDraftRequest, OUT_OF_SCOPE_REDIRECT_MESSAGE } from "@/lib/draft/scope-guard"
+import type { GreetingSource, NameConfidenceLevel } from "@/lib/draft/greeting-resolution"
 import Link from "next/link"
 import { useSearchParams } from "next/navigation"
 import { Camera, FileText, Image, Info, Mail, MessageCircle, Mic, Sun, Target, Users } from "lucide-react"
 import type { LucideIcon } from "lucide-react"
 import { formatGreetingDisplay } from "@/lib/text/greeting-display"
 import { saveLastRunTimestamp } from "@/lib/diagnostics/local-storage"
+import { resolveTeacherSignatureName } from "@/lib/draft/teacher-signature"
 
 const TONE_OPTIONS = [
   { id: "warm", key: "tone.warm" },
@@ -85,6 +87,14 @@ const TONE_STYLES: Record<
     base: "bg-purple-100 border-purple-400 text-purple-700 hover:bg-purple-200 dark:bg-purple-900/40 dark:border-purple-600 dark:text-purple-200",
     ring: "ring-purple-400 dark:ring-purple-200",
   },
+}
+
+type EnforcedGreeting = {
+  text: string
+  final: boolean
+  confidence: NameConfidenceLevel
+  name?: string | null
+  source?: GreetingSource | null
 }
 const LOADING_MESSAGES = [
   "Analyzing your request...",
@@ -216,6 +226,10 @@ export function MainEditor() {
   const searchParams = useSearchParams()
   const isReturningFromPanicScan = searchParams.get("panicScanReturn") === "1"
   const { user, getIdToken, signOut } = useAuth()
+  const teacherSignatureName = useMemo(
+    () => resolveTeacherSignatureName(user?.displayName, prefs.signatureLine1),
+    [user?.displayName, prefs.signatureLine1],
+  )
   const toneControlOptions = useMemo(
     () =>
       TONE_OPTIONS.map((tone) => {
@@ -249,6 +263,8 @@ export function MainEditor() {
   const [draftMetadata, setDraftMetadata] = useState<any>(null)
   const [draftStructure, setDraftStructure] = useState<DraftStructure | null>(null)
   const [deescalationSummary, setDeescalationSummary] = useState<DeescalationSummary | null>(null)
+  const [enforcedGreeting, setEnforcedGreeting] = useState<EnforcedGreeting | null>(null)
+  const [pendingSituationRaw, setPendingSituationRaw] = useState<string | null>(null)
   const [subject, setSubject] = useState("")
   const [gradeLevel, setGradeLevel] = useState("")
   const [studentFirstNameInput, setStudentFirstNameInput] = useState("")
@@ -351,7 +367,29 @@ export function MainEditor() {
 
     const stored = sessionStorage.getItem(PREFILL_STORAGE_KEY)
     if (stored) {
-      setContent(stored)
+      let parsed: unknown
+      try {
+        parsed = JSON.parse(stored)
+      } catch {
+        setContent(stored)
+        sessionStorage.removeItem(PREFILL_STORAGE_KEY)
+        setPrefillApplied(true)
+        return
+      }
+      if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+        const maybePayload = parsed as { cleaned?: string; raw?: string; greeting?: EnforcedGreeting }
+        if (typeof maybePayload.cleaned === "string") {
+          setContent(maybePayload.cleaned)
+        } else {
+          setContent(stored)
+        }
+        setPendingSituationRaw(maybePayload.raw ?? null)
+        if (maybePayload.greeting?.text) {
+          setEnforcedGreeting(maybePayload.greeting)
+        }
+      } else {
+        setContent(stored)
+      }
       sessionStorage.removeItem(PREFILL_STORAGE_KEY)
     }
 
@@ -365,10 +403,16 @@ export function MainEditor() {
     if (!prefillApplied || !content.trim()) {
       return
     }
-    textareaRef.current?.scrollIntoView({ behavior: "smooth", block: "center" })
-    focusEditor()
+    const textarea = textareaRef.current
+    textarea?.focus()
+    if (textarea) {
+      textarea.selectionStart = 0
+      textarea.selectionEnd = 0
+      textarea.scrollTop = 0
+    }
+    textarea?.scrollIntoView({ behavior: "smooth", block: "center" })
     setPanicScanReturnHandled(true)
-  }, [content, focusEditor, isReturningFromPanicScan, panicScanReturnHandled, prefillApplied])
+  }, [content, isReturningFromPanicScan, panicScanReturnHandled, prefillApplied])
 
   useEffect(() => {
     let isMounted = true
@@ -571,7 +615,7 @@ export function MainEditor() {
     setOutOfScopeMessage("")
 
     const signaturePayload = {
-      line1: prefs.signatureLine1?.trim() || prefs.firstName,
+      line1: teacherSignatureName,
       line2: prefs.signatureLine2?.trim() || undefined,
       line3: prefs.signatureLine3?.trim() || undefined,
       autoAppendParentMessage: prefs.autoAppendSignatureParentMessage,
@@ -610,6 +654,20 @@ export function MainEditor() {
     payload.mode = mode
 
     payload.signature = signaturePayload
+
+    if (enforcedGreeting?.text?.trim()) {
+      payload.greeting = {
+        text: enforcedGreeting.text,
+        name: enforcedGreeting.name ?? undefined,
+      }
+      payload.greetingFinal = enforcedGreeting.final
+      payload.greetingConfidence = enforcedGreeting.confidence
+      if (enforcedGreeting.source) {
+        payload.greetingSource = enforcedGreeting.source
+      }
+    }
+
+    payload.situationRaw = pendingSituationRaw?.trim() || trimmedContent
 
     if (options.rewrite) {
       payload.rewrite = true
@@ -707,6 +765,7 @@ export function MainEditor() {
       setDraftMetadata(data.data.metadata)
       setDraftStructure(data.data.formattedDraft ?? null)
       setDeescalationSummary(data.data.deescalationSummary ?? null)
+      setEnforcedGreeting(data.data.greeting ?? null)
       setUsage(data.data.usage)
       const now = new Date()
       saveLastRunTimestamp(now)

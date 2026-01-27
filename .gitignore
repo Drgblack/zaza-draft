@@ -18,6 +18,7 @@ yarn-error.log*
 
 # env files
 .env*
+!.env.example
 
 # vercel
 .vercel
@@ -39,3 +40,6 @@ data/names/*.zip
 *.bak2
 *.fix*.bak
 
+
+# Local secrets
+/secrets/

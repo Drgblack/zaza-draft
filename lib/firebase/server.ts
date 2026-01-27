@@ -1,5 +1,5 @@
 import type { NextRequest } from "next/server"
-import { getFirebaseAdmin } from "@/lib/firebase/admin"
+import { getFirebaseAdmin, getFirebaseCredentialError } from "@/lib/firebase/admin"
 
 type FirebaseAdminContext = ReturnType<typeof getFirebaseAdmin>
 
@@ -21,7 +21,8 @@ export async function authorizeFirebaseRequest(
   const { auth, firestore, storage } = getFirebaseAdmin()
 
   if (!auth || !firestore) {
-    throw new FirebaseAuthorizationError("Missing Firebase Admin configuration", 500)
+    const message = getFirebaseCredentialError() ?? "Missing Firebase Admin configuration"
+    throw new FirebaseAuthorizationError(message, 500)
   }
 
   const authHeader = request.headers.get("authorization") || request.headers.get("Authorization")

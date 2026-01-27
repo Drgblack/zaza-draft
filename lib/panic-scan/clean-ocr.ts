@@ -22,6 +22,14 @@ type DetectionResult =
 
 // Gmail/Google UI fragments and generic chrome we know we can drop safely.
 // Expand this list whenever new navigation/label text appears in OCR output.
+const CHROME_LINE_REGEXES: RegExp[] = [
+  // icon-like fragments / counters / junk tokens
+  /^\s*(?:\|\|\||III|I{1,5}|l{1,5}|››|»»|<<|>>)\s*$/i,
+  /^\s*\d+\+\s*$/i,
+  /^\s*[A-Za-z]\s+Gmail\s*$/i,
+  /^\s*(?:mail|gmail|meet|chat|compose|inbox|starred|snoozed|sent|drafts|labels|search mail|upgrade|reply|forward|share in chat)\s*$/i,
+  /^\s*(?:summarise this email|translate to english|it looks like this message is in german|open in gmail)\s*$/i,
+];
 const UI_CHROME_KEYWORDS = [
   "inbox",
   "starred",
@@ -47,13 +55,25 @@ const UI_CHROME_KEYWORDS = [
   "reddit growth",
   "twitter growth",
   "catch-all",
+  "summarise this email",
+  "translate to english",
+  "it looks like this message is in german",
+  "open in gmail",
+  "gmail",
+  "meet",
+  "compose",
+  "inbox",
+  "starred",
+  "snoozed",
+  "sent",
+  "drafts",
 ]
-
-const GREETING_REGEX = /^(?:dear|hi|hello)\b/i
+const GREETING_REGEX = /^(?:dear|hi|hello|hey|guten\s+tag|hallo|liebe[rn]?|sehr\s+geehrte[rn]?|sehr\s+geehrter|sehr\s+geehrte\s+frau|sehr\s+geehrter\s+herr|frau|herr)\b/i
 const NAME_GREETING_REGEX = /^[A-Z][\p{L}\p{M}'’-]+(?: [A-Z][\p{L}\p{M}'’-]+){1,3},$/u
 const TITLE_GREETING_REGEX = /\b(?:miss|mr|mrs|ms|dr)\b.*,$/i
 const TITLE_COMMA_HELPER = /\b(?:miss|mr|mrs|ms|dr)\b.*,$/i
 const SIGNATURE_REGEX = /^(?:kind regards|regards|best regards|yours sincerely|sincerely|thanks|thank you),?$/i
+const SIGNOFF_REGEX = /^(?:kind regards|regards|best regards|sincerely|yours sincerely|yours faithfully|mit freundlichen grüßen|freundliche grüße|viele grüße|beste grüße|hochachtungsvoll)\b/i
 const SIGNATURE_NAME_REGEX = /^(?:mr|mrs|ms|miss|dr)\b.*$/i
 
 const DATE_PREFIX_REGEX = /^(?:mon|tue|wed|thu|fri|sat|sun)\b/i
@@ -207,6 +227,12 @@ export function cleanOcrText(raw: string): CleanOcrResult {
 
   for (let index = 0; index < lines.length; index += 1) {
     const trimmed = lines[index].trim()
+    if (CHROME_LINE_REGEXES.some((re) => re.test(trimmed))) {
+      removalDetails.push({ text: trimmed, reason: "ui-chrome-regex" })
+      reasonCounts["ui-chrome-regex"] = (reasonCounts["ui-chrome-regex"] ?? 0) + 1
+      blankStreak = 0
+      continue
+    }
     if (!trimmed) {
       blankStreak += 1
       continue
@@ -299,3 +325,4 @@ export function cleanOcrText(raw: string): CleanOcrResult {
     },
   }
 }
+
