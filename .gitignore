@@ -43,3 +43,7 @@ data/names/*.zip
 
 # Local secrets
 /secrets/
+# scratch/temporary files
+*.corrupt_*
+tmp_*.js
+_fix-*.ps1
