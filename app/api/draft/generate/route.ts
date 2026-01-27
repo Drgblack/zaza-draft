@@ -1,14 +1,30 @@
+feature/draftcontext-orchestration
+import { NextResponse } from "next/server"
+import { authorizeFirebaseRequest, FirebaseAuthorizationError } from "@/lib/firebase/server"
+
 ﻿import { NextResponse } from "next/server"
+ main
 import {
   detectSensitiveContent,
   detectBlockedLanguage,
   reframeBlockedLanguage,
   BlockedLanguageTier,
 } from "@/lib/safety"
+ feature/draftcontext-orchestration
+import { logServerEvent } from "@/lib/analytics"
+import { buildUsageResponse, incrementUsage, MonthlyUsageRecord } from "@/lib/usage"
+import { getUserEntitlements } from "@/lib/entitlements"
+ main
 import type { DraftLanguage, DraftMode, PronounPreference } from "@/lib/types"
 import { generateDraft, ProviderMeta, ProviderResult } from "@/lib/ai/provider"
 import { enforcePronouns, inferPronounResolution } from "@/lib/text/pronouns"
 import { enforceDraftRateLimit, RateLimitError } from "@/lib/rate-limit"
+ feature/draftcontext-orchestration
+import { createHash } from "crypto"
+import { FieldValue } from "firebase-admin/firestore"
+import { resolveDraftMode } from "@/lib/draft-mode"
+import {
+
 import { createHash, randomUUID } from "crypto"
 import { resolveDraftMode } from "@/lib/draft-mode"
 import {
@@ -20,6 +36,7 @@ import {
 import { logServerEvent } from "@/lib/analytics"
 import { getUserEntitlements } from "@/lib/entitlements"
 import {
+ main
   ALLOWED_TONES,
   DraftFallbackContext,
   generateDraftWithFallback,
@@ -35,12 +52,20 @@ import { cleanStudentName } from "@/lib/draft/student-name"
 import { normalizeGermanParentMessage } from "@/lib/draft/german-normalizer"
 import { detectHighEmotionPhrases } from "@/lib/deescalation/detect"
 import { rewriteHighEmotionText } from "@/lib/deescalation/rewrite"
+feature/draftcontext-orchestration
+
 import { sanitizeEmailText } from "@/lib/text/email-sanitizer"
+ main
 import { canonicalizeLocaleIdentifier, resolveOutputLanguage } from "@/lib/draft/language"
 import {
   applySignatureToDraft,
   resolveSignature,
   SignaturePayload,
+ feature/draftcontext-orchestration
+} from "@/lib/draft/signature"
+import { isValidDraftRequest, OUT_OF_SCOPE_REDIRECT_MESSAGE } from "./scope-guard"
+import { DraftContext, DraftLocale, stripUndefined } from "@/lib/draft/types/draft-context"
+
   type ResolvedSignature,
 } from "@/lib/draft/signature"
 import { resolveTeacherSignatureName } from "@/lib/draft/teacher-signature"
@@ -58,6 +83,7 @@ import {
   scoreSafeName,
   type NameConfidenceLevel,
 } from "@/lib/draft/greeting-resolution"
+ main
 
 const TONE_DESCRIPTIONS: Record<ToneKey, string> = {
   warm: "Warm & Encouraging",
@@ -75,10 +101,13 @@ function parsePronounPreference(value: unknown): PronounPreference {
   return "auto"
 }
 
+feature/draftcontext-orchestration
+
 const DEV_BYPASS_HEADER = "x-zaza-dev-bypass"
 const DEV_BYPASS_UID = "dev-user"
 const DEV_ENV_ALLOWED = new Set(["development", "test"])
 
+ main
 interface GenerateDraftRequest {
   situation: string
   tone: ToneKey
@@ -97,6 +126,8 @@ interface GenerateDraftRequest {
   preferredLanguage?: string
   uiLocale?: string
   signature?: SignaturePayload
+feature/draftcontext-orchestration
+
   greeting?: {
     text?: string
     name?: string
@@ -109,6 +140,7 @@ interface GenerateDraftRequest {
   situationRaw?: string
   messageType?: string
   scanId?: string
+main
 }
 
 function buildContextLine(context?: GenerateDraftRequest["context"]) {
@@ -125,6 +157,11 @@ function buildContextLine(context?: GenerateDraftRequest["context"]) {
   if (!pieces.length) {
     return ""
   }
+ feature/draftcontext-orchestration
+  return pieces.join(" · ") + "."
+}
+
+const STRONG_ENGLISH_PATTERNS = [/Subject:/i, /\bDear\b/i, /\bKind regards\b/i, /\bBest regards\b/i, /\bThank you\b/i, /\bPlease\b/i]
 
   return pieces.join(" ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Â¦Ãƒâ€šÃ‚Â¡ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â· ") + "."
 }
@@ -166,7 +203,7 @@ function detectTrailingName(raw: string, locale: GreetingLocale) {
 
   return null
 }
-
+ main
 function containsStrongEnglishSignals(text: string) {
   const snippet = text.slice(0, 200)
   return STRONG_ENGLISH_PATTERNS.some((pattern) => pattern.test(snippet))
@@ -336,6 +373,31 @@ async function reRunWithRewrite(
   mode: DraftMode,
   forceLanguage?: boolean,
 ): Promise<ProviderResult | null> {
+feature/draftcontext-orchestration
+  try {
+    return await generateDraft({
+      situation: payload.situation,
+      tone: payload.tone,
+      language: payload.language as DraftLanguage,
+      context: payload.context,
+      rewrite: true,
+      previousDraft,
+      pronounPreference: resolvedPronounPreference,
+      mode,
+      forceLanguage,
+    })
+  } catch (error) {
+    return null
+  }
+}
+
+export async function POST(request: Request) {
+  const requestedAt = new Date()
+  const requestStart = Date.now()
+
+  let payload: GenerateDraftRequest
+
+ main
   try {
     return await generateDraft({
       situation: payload.situation,
@@ -425,6 +487,46 @@ export async function POST(request: Request) {
   const canonicalUiLocale = canonicalizeLocaleIdentifier(uiLocale)
   const normalizedUiLocale = canonicalUiLocale ?? uiLocale
   const mode = resolveDraftMode(payload?.mode)
+feature/draftcontext-orchestration
+
+  const studentFirstNameInput =
+    typeof payload?.studentFirstName === "string"
+      ? payload.studentFirstName.trim()
+      : typeof payload?.studentName === "string"
+      ? payload.studentName.trim()
+      : ""
+  const sanitizedStudentFirstName = cleanStudentName(studentFirstNameInput)
+  const studentNameForPayload = sanitizedStudentFirstName || ""
+
+  const resolvedSignature = resolveSignature({
+    ...payload.signature,
+    fallbackName: studentNameForPayload || undefined,
+  })
+
+  if (mode === null) {
+    return NextResponse.json(
+      {
+        success: false,
+        error: {
+          code: "INVALID_MODE",
+          message: "Please select a valid mode option.",
+        },
+      },
+      { status: 400 },
+    )
+  }
+
+  if (promptTooLong) {
+    return NextResponse.json(
+      {
+        success: false,
+        error: {
+          code: "PROMPT_TOO_LONG",
+          message: "Please keep prompts under 2000 characters.",
+        },
+      },
+      { status: 400 },
+
   const debugEnabled =
     isDebugEnabled(requestUrl.searchParams) || request.headers.get("x-debug") === "1"
 
@@ -455,6 +557,7 @@ export async function POST(request: Request) {
       payload.situationRaw,
       language,
       payload.messageType,
+ main
     )
     if (resolvedGreeting) {
       greetingText = normalizeGreetingValue(resolvedGreeting.greeting)
@@ -553,6 +656,16 @@ export async function POST(request: Request) {
       },
     )
   }
+
+feature/draftcontext-orchestration
+  if (!tone || !ALLOWED_TONES.includes(tone)) {
+    return NextResponse.json(
+      {
+        success: false,
+        error: {
+          code: "INVALID_TONE",
+          message: "Select one of the supported tone options.",
+        },
 
     const bypassHeader = request.headers.get(DEV_BYPASS_HEADER)
     const devBypassActive = DEV_ENV_ALLOWED.has(process.env.NODE_ENV ?? "") && bypassHeader === "1"
@@ -706,6 +819,7 @@ export async function POST(request: Request) {
     return fail(422, "SENSITIVE_CONTENT", "Please remove emails, phone numbers, and addresses from the prompt before generating. The redacted preview can guide you.", {
       data: {
         redactedPreview: detection.sanitized,
+main
       },
     })
   }
@@ -953,6 +1067,36 @@ export async function POST(request: Request) {
     }
   }
 
+ feature/draftcontext-orchestration
+  if (!language) {
+    return NextResponse.json(
+      {
+        success: false,
+        error: {
+          code: "INVALID_LANGUAGE",
+          message: "Language must be English or German (EN/DE).",
+        },
+      },
+      { status: 400 },
+    )
+  }
+
+  const pronounPreference = parsePronounPreference(payload?.pronounPreference)
+  const pronounResolution = inferPronounResolution(
+    pronounPreference,
+    studentFirstNameInput || undefined,
+    situation,
+  )
+  const resolvedPronounPreference = pronounResolution.resolvedPreference
+
+  let authContext
+  try {
+    authContext = await authorizeFirebaseRequest(request)
+  } catch (error) {
+    const status =
+      error instanceof FirebaseAuthorizationError ? error.statusCode : 401
+    return NextResponse.json(
+
   let rewriteAttempted = false
   const generationTime = providerMeta.latencyMs ?? Date.now() - generationStart
 
@@ -965,6 +1109,7 @@ export async function POST(request: Request) {
       422,
       "INVALID_REQUEST",
       "Generated content included sensitive information that cannot be returned.",
+ main
       {
         data: {
           redactedPreview: outputDetection.sanitized,
@@ -1004,6 +1149,332 @@ export async function POST(request: Request) {
     return handleBlockedOutput()
   }
 
+ feature/draftcontext-orchestration
+  const { uid, firestore } = authContext
+  const uidHash = createHash("sha256").update(uid).digest("hex").slice(0, 12)
+  const logDraftOutcome = (
+    outcomeCode: string,
+    extras: { latencyMs?: number; modelUsed?: string; tokensUsed?: number; errorCode?: string } = {},
+  ) => {
+    console.info("[draft] generate outcome", {
+      uidHash,
+      tone,
+      language,
+      mode,
+      outcome: outcomeCode,
+      ...extras,
+    })
+  }
+  if (!firestore) {
+    return NextResponse.json(
+      {
+        success: false,
+        error: {
+          code: "FIRESTORE_UNAVAILABLE",
+          message: "Unable to access Firestore.",
+        },
+      },
+      { status: 500 },
+    )
+  }
+  const isQaUser = isInternalQaUid(uid)
+  const entitlements = await getUserEntitlements(uid, firestore)
+  const { plan, usage: initialUsage, usageRecord, isProSubscriber } = entitlements
+  const enforceUsageLimits = shouldRespectUsageLimit(uid)
+
+  const userRef = firestore.collection("users").doc(uid)
+  const diagnosticsRef = userRef.collection("diagnostics").doc("status")
+  const insightsSummaryRef = userRef.collection("insights").doc("summary")
+  const recordDiagnostic = async (fields: Record<string, unknown>) => {
+    try {
+      await diagnosticsRef.set({ ...fields, updatedAt: FieldValue.serverTimestamp() }, { merge: true })
+    } catch (error) {
+      console.error("[draft] Failed to update diagnostics doc", error)
+    }
+  }
+
+  if (enforceUsageLimits && plan === "free" && initialUsage.remaining !== null && initialUsage.remaining <= 0) {
+    logServerEvent("draft_generation_denied_limit", { uid, plan })
+    logDraftOutcome("RATE_LIMITED", { errorCode: "USAGE_LIMIT_EXCEEDED" })
+    return NextResponse.json(buildUsageLimitError(initialUsage), { status: 429 })
+  }
+
+  try {
+    await enforceDraftRateLimit(uid, firestore)
+  } catch (error) {
+    if (error instanceof RateLimitError) {
+      logServerEvent("draft_generation_rate_limited", { uid, plan })
+      logDraftOutcome("RATE_LIMITED", { errorCode: "RATE_LIMITED" })
+      void recordDiagnostic({ lastErrorCode: "RATE_LIMITED" })
+      const waitSeconds = Math.ceil(error.retryAfterMs / 1000)
+      return NextResponse.json(
+        {
+          success: false,
+          error: {
+            code: "RATE_LIMITED",
+            message: `You can generate a new draft in ${waitSeconds} seconds.`,
+          },
+        },
+        { status: 429 },
+      )
+    }
+
+    console.error("[draft] Rate limit transaction failed", error)
+    throw error
+  }
+
+  const sanitizedContext = {
+    subject: payload.context?.subject ? payload.context.subject.trim() : undefined,
+    gradeLevel: payload.context?.gradeLevel ? payload.context.gradeLevel.trim() : undefined,
+  }
+
+  const snippetCollection = firestore.collection("users").doc(uid).collection("snippets")
+  const snippetDoc = snippetCollection.doc()
+  const requestId = snippetDoc.id
+
+  const draftLocale: DraftLocale = 
+    normalizedUiLocale?.toLowerCase().startsWith("de") ? "de-DE" : "en-GB"
+  const rawSnippetContext: DraftContext = {
+    requestId,
+    locale: draftLocale,
+    mode,
+    subject: sanitizedContext.subject,
+  }
+  const snippetContext = stripUndefined(rawSnippetContext)
+
+  const detection = detectSensitiveContent(situation)
+  let sanitizedSituation = detection.sanitized
+  const safetyFlags = new Set<string>()
+  if (detection.matches.length > 0) {
+    detection.matches.forEach((match) => safetyFlags.add(`input-${match.type}`))
+    void recordDiagnostic({ lastErrorCode: "SENSITIVE_CONTENT" })
+    return NextResponse.json(
+      {
+        success: false,
+        data: {
+          redactedPreview: detection.sanitized,
+        },
+        error: {
+          code: "SENSITIVE_CONTENT",
+          message:
+            "Please remove emails, phone numbers, and addresses from the prompt before generating. The redacted preview can guide you.",
+        },
+      },
+      { status: 422 },
+    )
+  }
+
+  let currentSituation = sanitizedSituation
+  if (!isValidDraftRequest(currentSituation, mode)) {
+    return NextResponse.json(
+      {
+        ok: false,
+        success: false,
+        code: "OUT_OF_SCOPE",
+        message: OUT_OF_SCOPE_REDIRECT_MESSAGE,
+        error: {
+          code: "OUT_OF_SCOPE",
+          message: OUT_OF_SCOPE_REDIRECT_MESSAGE,
+        },
+      },
+      { status: 422 },
+    )
+  }
+  let inputReframed = false
+  let inputReframedTier: BlockedLanguageTier | null = null
+
+  const sendBlockedLanguageError = (tier: BlockedLanguageTier) => {
+    logServerEvent("draft_generation_blocked_language", { uid, plan, tier })
+    logDraftOutcome("INVALID_REQUEST", { errorCode: "BLOCKED_LANGUAGE" })
+    void recordDiagnostic({
+      lastErrorCode: "BLOCKED_LANGUAGE",
+      lastBlockedLanguageTier: tier,
+    })
+    const blockedResponse = buildBlockedLanguageResponse(tier)
+    return NextResponse.json(
+      {
+        success: false,
+        data: {
+          blockedLanguage: blockedResponse,
+        },
+        error: {
+          code: "BLOCKED_LANGUAGE",
+          message: blockedResponse.message,
+        },
+      },
+      { status: 422 },
+    )
+  }
+
+  const blockedInput = detectBlockedLanguage(currentSituation)
+  if (blockedInput.detected) {
+    safetyFlags.add("input-blocked-language")
+    if (blockedInput.tier === "tier3") {
+      return sendBlockedLanguageError("tier3")
+    }
+    if (!blockedInput.tier) {
+      return sendBlockedLanguageError("tier3")
+    }
+
+    const reframeResult = reframeBlockedLanguage(currentSituation, blockedInput.tier)
+    if (!reframeResult.applied) {
+      return sendBlockedLanguageError("tier3")
+    }
+
+    currentSituation = reframeResult.text
+    inputReframed = true
+    inputReframedTier = blockedInput.tier
+    safetyFlags.add(`input-reframed-${inputReframedTier}`)
+
+    const recheck = detectBlockedLanguage(currentSituation)
+    if (recheck.detected) {
+      return sendBlockedLanguageError("tier3")
+    }
+  }
+
+  const preRewriteSituation = currentSituation
+  const deescalationDetection = detectHighEmotionPhrases(preRewriteSituation)
+  const deescalationRewrite = rewriteHighEmotionText(preRewriteSituation, deescalationDetection)
+  currentSituation = deescalationRewrite.cleanedText
+  const deescalationSummary = deescalationRewrite.summary
+  const originalSituationForPrompt = preRewriteSituation
+
+  const generationStart = Date.now()
+  const providerInput: ProviderRequestInput = {
+    situation: currentSituation,
+    originalSituation: originalSituationForPrompt,
+    tone,
+    language,
+    context: sanitizedContext,
+    rewrite: Boolean(payload.rewrite),
+    previousDraft: payload.previousDraft,
+    pronounPreference: resolvedPronounPreference,
+    mode,
+    studentFirstName: studentNameForPayload || undefined,
+    resolvedPronounPreference,
+    signatureBlock: resolvedSignature.block,
+    uiLocale: normalizedUiLocale,
+  }
+  const fallbackContext: DraftFallbackContext = {
+    mode,
+    tone,
+    language,
+    requestId,
+    uidHash,
+    studentFirstName: studentNameForPayload || undefined,
+    studentPronounPreference: resolvedPronounPreference,
+  }
+  const finalizeDraft = (text: string) => {
+    let curated = enforcePronouns(text, resolvedPronounPreference)
+    curated = enforceTeacherNameStyle(curated, {
+      firstName: studentNameForPayload || undefined,
+      pronounPreference: resolvedPronounPreference,
+      resolvedPronounPreference: resolvedPronounPreference,
+    })
+    return curated
+  }
+  const finalizeDraftWithSignature = (text: string) =>
+    applySignatureToDraft(finalizeDraft(text), resolvedSignature, mode)
+  const runDraft = (forceLanguage = false) =>
+    generateDraftWithFallback({ ...providerInput, forceLanguage }, fallbackContext)
+
+  let draftAttempt = await runDraft()
+  let providerResult = draftAttempt.result
+  let usedFallback = draftAttempt.usedFallback
+  let fallbackErrorCode = draftAttempt.errorCode
+  let generatedDraft = finalizeDraftWithSignature(providerResult.text)
+  let providerMeta = providerResult.providerMeta
+
+  let forcedLanguageAttempted = false
+  if (language === "de" && containsStrongEnglishSignals(generatedDraft)) {
+    forcedLanguageAttempted = true
+    draftAttempt = await runDraft(true)
+    providerResult = draftAttempt.result
+    usedFallback = draftAttempt.usedFallback
+    fallbackErrorCode = draftAttempt.errorCode
+    generatedDraft = finalizeDraftWithSignature(providerResult.text)
+    providerMeta = providerResult.providerMeta
+  }
+
+  const shouldNormalizeGermanParentMessage =
+    mode === "parent_message" &&
+    (language?.toLowerCase().startsWith("de") || normalizedUiLocale?.toLowerCase().startsWith("de"))
+
+  if (shouldNormalizeGermanParentMessage) {
+    const germanNormalization = normalizeGermanParentMessage(generatedDraft)
+    generatedDraft = germanNormalization.text
+    if (germanNormalization.neutralized) {
+      inputReframed = true
+      if (!inputReframedTier) {
+        inputReframedTier = "tier1"
+        safetyFlags.add(`input-reframed-${inputReframedTier}`)
+      }
+    }
+  }
+
+  const formattedDraftStructure = formatDraftText(generatedDraft, language)
+  let rewriteAttempted = false
+  const generationTime = providerMeta.latencyMs ?? Date.now() - generationStart
+
+  const outputDetection = detectSensitiveContent(generatedDraft)
+  outputDetection.matches.forEach((match) => safetyFlags.add(`output-${match.type}`))
+  if (outputDetection.matches.length > 0 && detection.matches.length === 0) {
+    logDraftOutcome("INVALID_REQUEST", { errorCode: "INVALID_REQUEST" })
+    void recordDiagnostic({ lastErrorCode: "INVALID_REQUEST" })
+    return NextResponse.json(
+      {
+        success: false,
+        data: {
+          redactedPreview: outputDetection.sanitized,
+        },
+        error: {
+          code: "INVALID_REQUEST",
+          message: "Generated content included sensitive information that cannot be returned.",
+        },
+      },
+      { status: 422 },
+    )
+  }
+  let blockedDetection = detectBlockedLanguage(generatedDraft)
+  const handleBlockedOutput = () => {
+    safetyFlags.add("output-blocked-language")
+    return sendBlockedLanguageError("tier3")
+  }
+
+  if (blockedDetection.detected) {
+    if (blockedDetection.tier === "tier3") {
+      return handleBlockedOutput()
+    }
+
+    if (!rewriteAttempted) {
+      rewriteAttempted = true
+      const rewriteResult = await reRunWithRewrite(
+        payload,
+        generatedDraft,
+        resolvedPronounPreference,
+        mode,
+        forcedLanguageAttempted,
+      )
+      if (rewriteResult) {
+        generatedDraft = finalizeDraftWithSignature(rewriteResult.text)
+        providerMeta = rewriteResult.providerMeta
+        blockedDetection = detectBlockedLanguage(generatedDraft)
+      }
+    }
+  }
+
+  if (blockedDetection.detected) {
+    return handleBlockedOutput()
+  }
+
+  let updatedUsage: MonthlyUsageRecord = usageRecord
+  if (!isQaUser) {
+    try {
+      updatedUsage = await incrementUsage(uid, firestore, plan === "pro")
+    } catch (error) {
+      if (error instanceof Error && error.message === "USAGE_LIMIT_EXCEEDED") {
+        return NextResponse.json(buildUsageLimitError(initialUsage), { status: 429 })
+
   let updatedUsage: MonthlyUsageRecord = usageRecord
   if (!isQaUser && !isDevBypassRequest) {
     try {
@@ -1014,6 +1485,7 @@ export async function POST(request: Request) {
         return fail(429, "USAGE_LIMIT_EXCEEDED", usageLimitError.message, {
           data: usageLimitError.data,
         })
+ main
       }
       console.error("[draft] Usage increment failed", error)
       throw error
@@ -1042,6 +1514,10 @@ export async function POST(request: Request) {
     safetyFlags: safetyFlagList,
     generatedAt: new Date().toISOString(),
     requestedAt: requestedAt.toISOString(),
+ feature/draftcontext-orchestration
+    contextUsed: snippetContext,
+    signatureBlock: resolvedSignature.block,
+
     contextUsed: sanitizedContext,
     signatureBlock: resolvedSignature.block,
     sanitizedInput: {
@@ -1050,6 +1526,7 @@ export async function POST(request: Request) {
       nonEmptyLines: sanitizedInput.nonEmptyLines,
       removedLines: sanitizedInput.removedLines.length,
     },
+ main
   }
 
   const responseMeta = {
@@ -1061,6 +1538,9 @@ export async function POST(request: Request) {
     requestId,
   }
 
+ feature/draftcontext-orchestration
+  logServerEvent("draft_generation", {
+
   const responseGreeting = {
     text: greetingDecision.greeting,
     name: greetingDecision.safeParentName,
@@ -1070,6 +1550,7 @@ export async function POST(request: Request) {
   }
 
   maybeLogServerEvent("draft_generation", {
+ main
     uid,
     plan,
     tone,
@@ -1086,9 +1567,13 @@ export async function POST(request: Request) {
   })
 
   let snippetId: string | null = null
+feature/draftcontext-orchestration
+  const usageAfterGeneration = buildUsageResponse(updatedUsage, plan, { unlimited: isQaUser })
+
   const usageAfterGeneration = buildUsageResponse(updatedUsage, plan, {
     unlimited: isQaUser || isDevBypassRequest,
   })
+ main
   console.info("[draft] usage", {
     uid,
     isQaUser,
@@ -1104,7 +1589,11 @@ export async function POST(request: Request) {
     language,
     pronounPreference,
     pronounResolution: metadata.pronounResolution,
+ feature/draftcontext-orchestration
+    contextUsed: snippetContext,
+
     contextUsed: sanitizedContext,
+main
     mode,
     wordCount: metadata.wordCount,
     modelUsed: metadata.modelUsed,
@@ -1121,12 +1610,21 @@ export async function POST(request: Request) {
 
   try {
     await snippetDoc.set(snippetPayload)
+ feature/draftcontext-orchestration
+    logServerEvent("snippet_saved", { uid, snippetId })
+  } catch (error) {
+    console.error("[draft] Failed to persist snippet", error)
+    logServerEvent("snippet_save_failed", { uid, error: (error as Error).message })
+  }
+  void recordDiagnostic({
+
     maybeLogServerEvent("snippet_saved", { uid, snippetId })
   } catch (error) {
     console.error("[draft] Failed to persist snippet", error)
     maybeLogServerEvent("snippet_save_failed", { uid, error: (error as Error).message })
   }
   const diagnosticFields: Record<string, unknown> = {
+ main
     lastModelUsed: metadata.modelUsed,
     lastPronounPreference: pronounPreference,
     lastResolvedPronounPreference: resolvedPronounPreference,
@@ -1136,6 +1634,25 @@ export async function POST(request: Request) {
     lastInputReframedTier: inputReframedTier,
     lastErrorCode: null,
     lastUsage: usageAfterGeneration,
+ feature/draftcontext-orchestration
+    lastRunAt: FieldValue.serverTimestamp(),
+  })
+  try {
+    await userRef.set({ lastDiagnosticsRunAt: FieldValue.serverTimestamp() }, { merge: true })
+  } catch (error) {
+    console.error("[draft] Failed to update diagnostics timestamp on user doc", error)
+  }
+  try {
+    await insightsSummaryRef.set(
+      {
+        draftsCreated: FieldValue.increment(1),
+        lastDraftAt: FieldValue.serverTimestamp(),
+      },
+      { merge: true },
+    )
+  } catch (error) {
+    console.error("[draft] Failed to update insights summary", error)
+
   }
   if (FieldValue) {
     diagnosticFields.lastRunAt = FieldValue.serverTimestamp()
@@ -1160,11 +1677,26 @@ export async function POST(request: Request) {
     } catch (error) {
       console.error("[draft] Failed to update insights summary", error)
     }
+main
   }
   logDraftOutcome("SUCCESS", {
     latencyMs: generationTime,
     modelUsed: metadata.modelUsed,
     tokensUsed: providerMeta.tokensUsed,
+  })
+
+feature/draftcontext-orchestration
+  return NextResponse.json({
+    success: true,
+    data: {
+      generatedDraft,
+      formattedDraft: formattedDraftStructure,
+      metadata,
+      meta: responseMeta,
+      usage: usageAfterGeneration,
+      snippetId,
+      deescalationSummary,
+    },
   })
 
   return ok({
@@ -1181,6 +1713,7 @@ export async function POST(request: Request) {
     console.error("[draft] Unexpected error", error)
     return fail(500, "INTERNAL", "An unexpected error occurred.")
   }
+main
 }
 
 export async function GET() {
