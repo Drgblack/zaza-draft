@@ -1,14 +1,11 @@
-﻿# Regressions - Notes
+﻿# 2026-01-28 Regression Log
 
-## 2026-01-28 - Snippet persistence + DE signoff
+## Snippet persistence tests
+- **Symptom:** new snippets triggered 422 insufficient input and later 500 because the @/lib/usage mock did not expose getCurrentMonthKey, leaving the Firestore mock incomplete.
+- **Fix:** aligned the mock exports and ensured the Firestore write helpers are consistent so the test passes.
+- **Verification:** rerun pnpm test:unit and look for the snippet persistence suite to finish without errors.
 
-### What broke
-- Snippet persistence test failed because the test payload was getting rejected as insufficient input (422), and later because the `@/lib/usage` mock was missing required exports (`getCurrentMonthKey`), causing a 500.
-
-### What we fixed
-- Stabilised `app/api/draft/generate/__tests__/snippet-persistence.test.ts` by ensuring the `@/lib/usage` mock exports match what the route expects.
-- Fixed German closing line encoding (mojibake) and ensured the signoff formatting expectation is consistent (comma handling).
-
-### How to verify
-- `pnpm -s test` (or `pnpm -s exec vitest run`)
-- Confirm a DE draft includes `Mit freundlichen Grüßen` and formatting is stable.
+## German sign-off formatting
+- **Symptom:** drafts sometimes emitted mojibake sequences (ï¿½ etc.) and the closing line shifted formatting around Mit freundlichen Grüßen,.
+- **Fix:** cleaned the sign-off normaliser to keep the canonical German closing literal, including comma handling, and verified the dedicated tests expect the exact string.
+- **Verification:** the draft generation route tests now assert the German closing remains Mit freundlichen Grüßen, and the mojibake pattern is absent.
