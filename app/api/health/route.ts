@@ -1,58 +1,31 @@
-import { NextResponse } from "next/server"
-import { getFirebaseAdmin, getFirebaseCredentialError } from "@/lib/firebase/admin"
-import { FieldValue } from "firebase-admin/firestore"
-import { getConfiguredModelNames } from "@/lib/ai/provider"
+﻿import { NextResponse } from "next/server"
+import { adminDb } from "@/lib/firebase/admin"
+
+export const runtime = "nodejs"
 
 export async function GET() {
-  const { auth, firestore } = getFirebaseAdmin()
-  const credentialError = getFirebaseCredentialError()
-  if (!auth || !firestore) {
-    return NextResponse.json(
-      {
-        success: false,
-        status: "degraded",
-        message: credentialError ?? "Firebase Admin is not initialized.",
-      },
-      { status: 503 },
-    )
-  }
+  const now = new Date().toISOString()
 
-  const models = getConfiguredModelNames()
-  if (!models.primary) {
-    return NextResponse.json(
-      {
-        success: false,
-        status: "degraded",
-        message: "OpenAI primary model not configured.",
-      },
-      { status: 503 },
-    )
-  }
-
-  const docRef = firestore.collection("health_checks").doc("status")
   try {
-    await docRef.set({ lastCheckedAt: FieldValue.serverTimestamp() }, { merge: true })
-    const doc = await docRef.get()
-    const lastChecked = doc.exists ? doc.data()?.lastCheckedAt?.toDate?.() ?? null : null
+    // Lightweight Firestore call to confirm credentials + connectivity
+    await adminDb.collection("_health").doc("ping").get()
 
     return NextResponse.json({
-      success: true,
-      status: "ok",
-      models,
-      firestore: {
-        status: "available",
-        lastCheckedAt: lastChecked?.toISOString() ?? null,
-      },
+      ok: true,
+      now,
+      env: process.env.VERCEL_ENV ?? process.env.NODE_ENV ?? "unknown",
+      firebaseOk: true,
     })
   } catch (error) {
-    console.error("[health] Firestore readiness failed", error)
     return NextResponse.json(
       {
-        success: false,
-        status: "degraded",
-        message: "Firestore health check failed.",
+        ok: false,
+        now,
+        env: process.env.VERCEL_ENV ?? process.env.NODE_ENV ?? "unknown",
+        firebaseOk: false,
+        error: (error as Error)?.message ?? "unknown",
       },
-      { status: 502 },
+      { status: 500 }
     )
   }
 }
