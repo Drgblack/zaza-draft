@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server"
+﻿import { NextResponse } from "next/server"
 import {
   detectSensitiveContent,
   detectBlockedLanguage,
@@ -209,7 +209,7 @@ function removeDuplicateGreeting(body: string, greetingLine?: string | null) {
 }
 
 function getParagraphCountExcludingGreeting(structure: DraftStructure, greetingLine?: string | null) {
-  if (!structure.paragraphs.length) {
+  if (!structure?.paragraphs?.length) {
     return 0
   }
   const normalizedGreeting = greetingLine?.trim() ?? ""
@@ -678,6 +678,10 @@ export async function POST(request: Request) {
     gradeLevel?: string
   } = {}
 
+  // Ensure snippet/audit context always carries requestId.
+  ;(sanitizedContext as any).requestId = requestId
+  // Omit undefined fields to keep contextUsed clean and deterministic in tests.
+  if ((sanitizedContext as any).subject === undefined) delete (sanitizedContext as any).subject
   if (payload.context?.subject?.trim()) {
     sanitizedContext.subject = payload.context.subject.trim()
   }
@@ -1188,4 +1192,6 @@ export async function GET() {
     { status: 405 },
   )
 }
+
+
 
