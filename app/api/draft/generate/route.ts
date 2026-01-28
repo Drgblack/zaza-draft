@@ -352,6 +352,8 @@ async function reRunWithRewrite(
   }
 }
 
+const DEBUG_DRAFT_LOGS = process.env.NODE_ENV !== "production" || process.env.DEBUG_DRAFT_LOGS === "1"
+
 export async function POST(request: Request) {
   const requestId = randomUUID()
   const responseHeaders = {
@@ -471,7 +473,7 @@ export async function POST(request: Request) {
 
   const finalGreetingLine = greetingFinal ? greetingText : null
   if (payload.greetingFinal && !greetingText && debugEnabled) {
-    console.debug("[draft] greetingFinal was true but greeting text missing; ignoring final flag", {
+    DEBUG_DRAFT_LOGS && console.debug("[draft] greetingFinal was true but greeting text missing; ignoring final flag", {
       scanId: payload.scanId ?? null,
     })
   }
@@ -583,7 +585,7 @@ export async function POST(request: Request) {
     outcomeCode: string,
     extras: { latencyMs?: number; modelUsed?: string; tokensUsed?: number; errorCode?: string } = {},
   ) => {
-    console.info("[draft] generate outcome", {
+    DEBUG_DRAFT_LOGS && console.info("[draft] generate outcome", {
       uidHash,
       tone,
       language,
@@ -1086,7 +1088,7 @@ export async function POST(request: Request) {
   const usageAfterGeneration = buildUsageResponse(updatedUsage, plan, {
     unlimited: isQaUser || isDevBypassRequest,
   })
-  console.info("[draft] usage", {
+  DEBUG_DRAFT_LOGS && console.info("[draft] usage", {
     uid,
     isQaUser,
     isProUser: isProSubscriber,
@@ -1192,5 +1194,4 @@ export async function GET() {
     { status: 405 },
   )
 }
-
 
