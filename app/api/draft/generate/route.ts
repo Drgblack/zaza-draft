@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server"
+﻿import { NextResponse } from "next/server"
 import {
   detectSensitiveContent,
   detectBlockedLanguage,
@@ -125,7 +125,7 @@ function buildContextLine(context?: GenerateDraftRequest["context"]) {
     return ""
   }
 
-  return pieces.join(" ?f?'ï¿½?,?s?f??s?,ï¿½ ") + "."
+  return pieces.join(" ?f?'Ã¯Â¿Â½?,?s?f??s?,Ã¯Â¿Â½ ") + "."
 }
 
 const GENERIC_GREETING_TEXTS = new Set([
@@ -230,8 +230,8 @@ function buildDeterministicTemplateBody(greetingLine: string, language?: string)
   const paragraphs = isGerman
     ? [
         "Vielen Dank, dass Sie Ihre Perspektive geteilt haben; mir ist wichtig, dass wir diesen Punkt gemeinsam ernst nehmen.",
-        "Als n?f?'?,ï¿½chsten Schritt werde ich das Verhalten weiterhin dokumentieren und ein kurzes Reflexionsgespr?f?'?,ï¿½ch mit dem Kind vorbereiten, das wir danach mit Ihnen reflektieren k?f?'?,ï¿½nnen.",
-        "Bitte schlagen Sie zwei kurze Termine vor, an denen wir telefonisch oder per Videocall die n?f?'?,ï¿½chsten Schritte besprechen und offene Fragen beantworten.",
+        "Als n?f?'?,Ã¯Â¿Â½chsten Schritt werde ich das Verhalten weiterhin dokumentieren und ein kurzes Reflexionsgespr?f?'?,Ã¯Â¿Â½ch mit dem Kind vorbereiten, das wir danach mit Ihnen reflektieren k?f?'?,Ã¯Â¿Â½nnen.",
+        "Bitte schlagen Sie zwei kurze Termine vor, an denen wir telefonisch oder per Videocall die n?f?'?,Ã¯Â¿Â½chsten Schritte besprechen und offene Fragen beantworten.",
       ]
     : [
         "Thank you for sharing your concern; my priority is to address it calmly and respectfully.",
@@ -542,7 +542,7 @@ export async function POST(request: Request) {
     return fail(
       422,
       "INSUFFICIENT_INPUT",
-      "After removing Gmail UI noise, the note doesn?fï¿½ï¿½??sï¿½ï¿½??zï¿½t include enough detail to craft a responsible reply. Please describe the parent concern in at least 20 words.",
+      "After removing Gmail UI noise, the note doesn?fÃ¯Â¿Â½Ã¯Â¿Â½??sÃ¯Â¿Â½Ã¯Â¿Â½??zÃ¯Â¿Â½t include enough detail to craft a responsible reply. Please describe the parent concern in at least 20 words.",
       {
         data: {
           wordCount: sanitizedInput.wordCount,
@@ -826,7 +826,7 @@ export async function POST(request: Request) {
 
   const DEFAULT_CLOSINGS = {
     en: "Kind regards",
-    de: "Mit freundlichen Gr?f?'?,ï¿½?f?'?.ï¿½en",
+    de: "Mit freundlichen Gr\u00FC\u00DFen,",
   }
   const FALLBACK_SIGNATURES = {
     en: "Your child's teacher",
@@ -1192,3 +1192,5 @@ export async function GET() {
     { status: 405 },
   )
 }
+
+
