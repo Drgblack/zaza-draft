@@ -47,3 +47,4 @@ data/names/*.zip
 *.corrupt_*
 tmp_*.js
 _fix-*.ps1
+/.local-trash/
