@@ -4,6 +4,12 @@ import { authorizeFirebaseRequest } from "@/lib/firebase/server"
 import { generateDraftWithFallback } from "@/lib/draft/fallback"
 import { POST } from "@/app/api/draft/generate/route"
 
+interface TrustGradeViolation {
+  type: string
+  phrase: string
+  locale: string
+}
+
 const ORIGINAL_NODE_ENV = process.env.NODE_ENV
 beforeAll(() => {
   process.env.NODE_ENV = "development"
@@ -52,6 +58,17 @@ const homeworkSituation = [
   "Die Eltern schreiben, dass die Menge an Hausaufgaben und Übungsaufträgen zuletzt zu groß geworden ist.",
   "Sie wünschen sich eine gemeinsame Lösung und konkrete nächste Schritte, damit Lukas wieder Ruhe im Alltag findet.",
 ].join(" ")
+
+const englishGreetingSituation = [
+  "I wanted to reach out because the extra homework and math practice this week have been overwhelming for my child.",
+  "It would help to understand what supports we can provide before the weekend and to coordinate our calls.",
+].join(" ")
+
+const englishDeescalationSituation =
+  "The parent says their child lies in class, refuses to share notes, and blames others for every mistake, so we want to keep the response calm before the next family conversation."
+
+const germanDeescalationSituation =
+  "Die Eltern schreiben, dass ihr Kind lügen verbreitet, dumm wirkt und andere verantwortlich macht, also sollten wir sachlich bleiben und klare nächste Schritte anbieten."
 
 const buildFallbackResult = (text: string) => ({
   result: {
@@ -147,7 +164,6 @@ vi.mock("@/lib/draft/fallback", () => ({
 }))
 
 const fallbackGenerator = vi.mocked(generateDraftWithFallback)
-
 beforeEach(() => {
   fallbackGenerator.mockReset()
   fallbackGenerator.mockResolvedValue(buildFallbackResult(getLongDraft()))
@@ -176,14 +192,6 @@ vi.mock("@/lib/draft/student-name", () => ({
 
 vi.mock("@/lib/draft/german-normalizer", () => ({
   normalizeGermanParentMessage: (value: string) => ({ text: value, neutralized: false }),
-}))
-
-vi.mock("@/lib/deescalation/detect", () => ({
-  detectHighEmotionPhrases: () => ({}),
-}))
-
-vi.mock("@/lib/deescalation/rewrite", () => ({
-  rewriteHighEmotionText: (text: string) => ({ cleanedText: text, summary: null }),
 }))
 
 vi.mock("@/lib/draft/language", () => ({
@@ -587,5 +595,184 @@ describe("/api/draft/generate greeting handoff", () => {
     expect(occurrenceCount).toBe(1)
     const wordCount = json.data?.metadata?.wordCount ?? 0
     expect(wordCount).toBeGreaterThanOrEqual(60)
+  })
+
+  it("resolves an English parent greeting when raw text ends with a signed name", async () => {
+    const fallbackDraft = [
+      "Thank you for sharing the context for this concern.",
+      "I will gather notes, summarize the key observations, and make a calm plan for a quick sync-up.",
+    ].join("\n\n")
+    fallbackGenerator.mockResolvedValueOnce(buildFallbackResult(fallbackDraft))
+    const payload = {
+      situation: englishGreetingSituation,
+      tone: "professional",
+      language: "en",
+      uiLocale: "en-GB",
+      mode: "parent_message",
+      situationRaw: "Sharing a follow-up.\nSincerely\nJordan Lee\n",
+    }
+    const request = new Request("https://example.com/api/draft/generate", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: "Bearer token",
+      },
+      body: JSON.stringify(payload),
+    })
+
+    const response = await POST(request)
+    expect(response.status).toBe(200)
+    const json = await response.json()
+    const generatedDraft = json.data?.generatedDraft ?? ""
+    const greetingLine = json.data?.greeting?.text ?? "Dear Jordan Lee,"
+    expect(generatedDraft.startsWith(greetingLine)).toBe(true)
+  })
+})
+
+describe("/api/draft/generate child name anchoring", () => {
+  const cases = [
+    { language: "en", uiLocale: "en-GB", studentFirstName: "Noah" },
+    { language: "de", uiLocale: "de-DE", studentFirstName: "Lukas" },
+  ]
+
+  cases.forEach((testCase) => {
+    it(`passes the ${testCase.language} student name into the fallback context`, async () => {
+      const payload = {
+        situation: detailedSituation,
+        tone: "professional",
+        language: testCase.language,
+        uiLocale: testCase.uiLocale,
+        mode: "parent_message",
+        studentFirstName: ` ${testCase.studentFirstName} `,
+      }
+      const request = new Request("https://example.com/api/draft/generate", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: "Bearer token",
+        },
+        body: JSON.stringify(payload),
+      })
+
+      const response = await POST(request)
+      expect(response.status).toBe(200)
+      const contextUsed = fallbackGenerator.mock.calls[fallbackGenerator.mock.calls.length - 1]?.[1]
+      expect(contextUsed?.studentFirstName).toBe(testCase.studentFirstName)
+    })
+  })
+})
+
+describe("/api/draft/generate de-escalation parity", () => {
+  const cases = [
+    { language: "en", uiLocale: "en-GB", triggerSnippet: "lies" },
+    { language: "de", uiLocale: "de-DE", triggerSnippet: "dumm" },
+  ]
+
+  cases.forEach((testCase) => {
+    it(`returns a de-escalation summary when ${testCase.language} input is rephrased`, async () => {
+      fallbackGenerator.mockResolvedValueOnce(buildFallbackResult("I will follow up with calm next steps."))
+      const payload = {
+        situation:
+          testCase.language === "en" ? englishDeescalationSituation : germanDeescalationSituation,
+        tone: "professional",
+        language: testCase.language,
+        uiLocale: testCase.uiLocale,
+        mode: "parent_message",
+      }
+      const request = new Request("https://example.com/api/draft/generate", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: "Bearer token",
+        },
+        body: JSON.stringify(payload),
+      })
+
+      const response = await POST(request)
+      expect(response.status).toBe(200)
+      const json = await response.json()
+      expect(json.data?.deescalationSummary?.wasDeescalated).toBe(true)
+      expect(json.data?.deescalationSummary?.coachingLine).toContain("softened")
+      const flaggedPhrases = json.data?.deescalationSummary?.flaggedPhrases ?? []
+      expect(flaggedPhrases.length).toBeGreaterThan(0)
+    })
+  })
+})
+
+describe("/api/draft/generate trust-grade guard", () => {
+  const trustGradeCases = [
+    {
+      description: "rejects drafts with banned EN trust-grade language",
+      uiLocale: "en-GB",
+      language: "en",
+      expectedLocale: "en",
+      violationDraft: [
+        "Dear family,",
+        "This behaviour is unacceptable and I guarantee to keep your concerns at the centre of our work.",
+        "I will never forget how earnest this feels, and you should know we reviewed every detail.",
+        "I spoke with the team and teachers must continue to have this conversation.",
+      ].join("\n\n"),
+      expectedTypes: ["MORAL_JUDGEMENT", "ABSOLUTE_PROMISE", "FABRICATED_PAST_ACTION", "META_INSTRUCTION"],
+      expectedPhrases: ["unacceptable", "guarantee", "never", "i spoke with", "we reviewed", "you should", "teachers must"],
+    },
+    {
+      description: "rejects drafts with banned DE trust-grade language",
+      uiLocale: "de-DE",
+      language: "de",
+      expectedLocale: "de",
+      violationDraft: [
+        "Liebe Familie,",
+        "Dieses Verhalten ist inakzeptabel und das wird garantiert niemals wieder vorkommen.",
+        "Sie sollten wissen, dass ich habe mit dem Team gesprochen, wir haben gesprochen und wir haben geprüft alle relevanten Unterlagen.",
+        "Lehrer müssen weiterhin zusammenarbeiten.",
+      ].join("\n\n"),
+      expectedTypes: ["MORAL_JUDGEMENT", "ABSOLUTE_PROMISE", "FABRICATED_PAST_ACTION", "META_INSTRUCTION"],
+      expectedPhrases: [
+        "inakzeptabel",
+        "niemals",
+        "garantiert",
+        "ich habe mit",
+        "wir haben gesprochen",
+        "wir haben geprüft",
+        "sie sollten",
+        "lehrer müssen",
+      ],
+    },
+  ]
+
+  trustGradeCases.forEach((testCase) => {
+    it(testCase.description, async () => {
+      fallbackGenerator.mockResolvedValueOnce(buildFallbackResult(testCase.violationDraft))
+      const payload = {
+        situation: detailedSituation,
+        tone: "professional",
+        language: testCase.language,
+        uiLocale: testCase.uiLocale,
+        mode: "parent_message",
+      }
+      const request = new Request("https://example.com/api/draft/generate", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: "Bearer token",
+        },
+        body: JSON.stringify(payload),
+      })
+
+      const response = await POST(request)
+      expect(response.status).toBe(422)
+      const json = await response.json()
+      expect(json.success).toBe(false)
+      expect(json.error?.code).toBe("TRUST_GRADE_VIOLATION")
+      expect(json.error?.message).toBe("Generated draft violated the trust-grade contract.")
+      const violations = json.data?.violations ?? []
+      testCase.expectedTypes.forEach((type) => {
+        expect(violations.some((violation: TrustGradeViolation) => violation.type === type)).toBe(true)
+      })
+      testCase.expectedPhrases.forEach((phrase) => {
+        expect(violations.some((violation: TrustGradeViolation) => violation.phrase === phrase)).toBe(true)
+      })
+      expect(violations.every((violation: TrustGradeViolation) => violation.locale === testCase.expectedLocale)).toBe(true)
+    })
   })
 })
