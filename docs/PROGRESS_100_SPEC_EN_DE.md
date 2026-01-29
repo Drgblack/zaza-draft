@@ -104,6 +104,7 @@ Rule: anything user-facing must have EN/DE parity (tests where possible).
 - Evidence: firestore.rules
 - EN/DE parity: N/A (Deferred)
 - v1.0 scope decision: The repository ship-level rules file currently denies all access; we need to define scoped rules that match the `users/{uid}` write paths before tagging this as implemented.
+ - Note: Firestore access remains locked to server pathways; see `docs/FIRESTORE_RULES_V1.md` for the v1 policy documentation.
 
 ## 3. API Specifications
 - Status: Implemented+Documented
