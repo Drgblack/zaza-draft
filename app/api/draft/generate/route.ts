@@ -241,6 +241,62 @@ function buildDeterministicTemplateBody(greetingLine: string, language?: string)
   return `${greetingLine}\n\n${paragraphs.join("\n\n")}`
 }
 
+type TrustGradeViolationType =
+  | "MORAL_JUDGEMENT"
+  | "ABSOLUTE_PROMISE"
+  | "FABRICATED_PAST_ACTION"
+  | "META_INSTRUCTION"
+
+type TrustGradeLocale = "en" | "de"
+
+interface TrustGradeViolation {
+  type: TrustGradeViolationType
+  phrase: string
+  locale: TrustGradeLocale
+}
+
+function escapeRegExp(value: string) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
+}
+
+const TRUST_GRADE_PHRASE_MAP: Record<TrustGradeViolationType, Record<TrustGradeLocale, string[]>> = {
+  MORAL_JUDGEMENT: {
+    en: ["unacceptable", "inappropriate"],
+    de: ["inakzeptabel", "unangemessen"],
+  },
+  ABSOLUTE_PROMISE: {
+    en: ["never", "guarantee"],
+    de: ["niemals", "garantier", "garantiert"],
+  },
+  FABRICATED_PAST_ACTION: {
+    en: ["i spoke with", "we reviewed", "we have spoken"],
+    de: ["ich habe mit", "wir haben gesprochen", "wir haben geprüft"],
+  },
+  META_INSTRUCTION: {
+    en: ["you should", "teachers must"],
+    de: ["sie sollten", "lehrer müssen"],
+  },
+}
+
+const TRUST_GRADE_PATTERNS: Array<TrustGradeViolation & { pattern: RegExp }> = Object.entries(
+  TRUST_GRADE_PHRASE_MAP,
+ ).flatMap(([type, locales]) =>
+  (["en", "de"] as TrustGradeLocale[]).flatMap((locale) =>
+    (locales[locale] ?? []).map((phrase) => ({
+      type: type as TrustGradeViolationType,
+      phrase,
+      locale,
+      pattern: new RegExp(`\\b${escapeRegExp(phrase)}\\b`, "i"),
+    })),
+  ),
+)
+
+function detectTrustGradeViolations(text: string): TrustGradeViolation[] {
+  return TRUST_GRADE_PATTERNS.filter((entry) => entry.pattern.test(text)).map(
+    ({ pattern, ...violation }) => violation,
+  )
+}
+
 function detectExtraSignoffName(raw: string, locale: GreetingLocale) {
   const lines = raw
     .split(/\n+/)
@@ -950,6 +1006,23 @@ export async function POST(request: Request) {
         latencyMs: 0,
       }
     }
+  }
+
+  const trustGradeViolations = detectTrustGradeViolations(generatedDraft)
+  if (trustGradeViolations.length > 0) {
+    safetyFlags.add("output-trust-grade-violation")
+    logDraftOutcome("INVALID_REQUEST", { errorCode: "TRUST_GRADE_VIOLATION" })
+    void recordDiagnostic({ lastErrorCode: "TRUST_GRADE_VIOLATION" })
+    return fail(
+      422,
+      "TRUST_GRADE_VIOLATION",
+      "Generated draft violated the trust-grade contract.",
+      {
+        data: {
+          violations: trustGradeViolations,
+        },
+      },
+    )
   }
 
   let rewriteAttempted = false
