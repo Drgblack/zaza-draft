@@ -195,6 +195,9 @@ vi.mock("@/lib/draft/language", () => ({
   canonicalizeLocaleIdentifier: () => "en-GB",
 }))
 
+const sampleSituation =
+  "Ich melde mich wegen einer Rückfrage zum Unterricht. Ein Elternteil berichtet, dass das Kind seit mehreren Tagen besorgt nach Hause kommt und sich über die Hausaufgabenmenge beklagt. Bitte helfen Sie mir, ruhig und professionell zu antworten, um die nächsten Schritte zu klären."
+
 vi.mock("@/lib/draft/signature", () => ({
   resolveSignature: () => ({
     lines: ["Miss Teacher"],
@@ -232,7 +235,7 @@ describe("snippet persistence", () => {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        situation: "Ich melde mich wegen einer Rückfrage zum Unterricht. Ein Elternteil berichtet, dass das Kind seit mehreren Tagen besorgt nach Hause kommt und sich über die Hausaufgabenmenge beklagt. Bitte helfen Sie mir, ruhig und professionell zu antworten, um die nächsten Schritte zu klären.",
+        situation: sampleSituation,
         tone: "professional",
         uiLocale: "en-GB",
       }),
@@ -246,6 +249,38 @@ describe("snippet persistence", () => {
     const contextUsed = snippetSet.mock.calls[0][0].contextUsed
     expect(contextUsed).toHaveProperty("requestId")
     expect(contextUsed).not.toHaveProperty("subject")
+  })
+
+  it("records a stable snippet payload with usage metadata", async () => {
+    const { POST } = await import("@/app/api/draft/generate/route")
+    const request = new Request("http://localhost/api/draft/generate", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        situation: sampleSituation,
+        tone: "professional",
+        uiLocale: "en-GB",
+      }),
+    })
+
+    const response = await POST(request)
+    expect(response.status).toBe(200)
+    const json = await response.json()
+    expect(json.success).toBe(true)
+    expect(snippetSet).toHaveBeenCalledOnce()
+    const snippetPayload = snippetSet.mock.calls[0][0]
+    expect(snippetPayload).toMatchObject({
+      tone: "professional",
+      language: "en",
+      usage: usageOverview,
+      mode: "parent_message",
+      signatureBlock: "Kind regards,\nMiss Teacher",
+    })
+    expect(snippetPayload.generatedText).toContain("Hello")
+    expect(snippetPayload.generatedText).toContain("Kind regards")
+    expect(snippetPayload.requestId).toBe("snippet-id")
+    expect(typeof snippetPayload.createdAt).toBe("string")
+    expect(new Date(snippetPayload.createdAt).toString()).not.toBe("Invalid Date")
   })
 })
 

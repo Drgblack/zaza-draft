@@ -94,6 +94,17 @@ Rule: anything user-facing must have EN/DE parity (tests where possible).
 - Evidence: docs/DATA_MODEL_FIRESTORE.md + docs/firestore-schema-notes.md
 - EN/DE parity: Yes
 
+### 2.3 Snippet persistence & data integrity
+- Status: Implemented+Tested
+- Evidence: docs/DATA_MODEL_FIRESTORE.md + app/api/draft/generate/route.ts + app/api/draft/generate/__tests__/snippet-persistence.test.ts
+- EN/DE parity: Yes
+
+### 2.4 Firestore security expectations
+- Status: Deferred
+- Evidence: firestore.rules
+- EN/DE parity: N/A (Deferred)
+- v1.0 scope decision: The repository ship-level rules file currently denies all access; we need to define scoped rules that match the `users/{uid}` write paths before tagging this as implemented.
+
 ## 3. API Specifications
 - Status: Implemented+Documented
 - Evidence: docs/ARCHITECTURE_OVERVIEW.md
