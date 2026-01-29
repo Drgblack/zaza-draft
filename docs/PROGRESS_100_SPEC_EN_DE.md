@@ -365,3 +365,8 @@ Rule: anything user-facing must have EN/DE parity (tests where possible).
 - EN/DE parity: N/A (Deferred)
 - v1.0 scope decision: Publish implementation guidance after the MVP rollout in coordination with the spec team.
 
+## v1.0 Completion Summary
+- Status: COMPLETE
+- Evidence: docs/ARCHITECTURE_OVERVIEW.md + docs/DATA_MODEL_FIRESTORE.md + docs/LAUNCH_FREEZE.md + docs/REGRESSION_CONTRACTS.md + app/api/draft/generate/__tests__/snippet-persistence.test.ts + app/api/draft/generate/route.test.ts
+- Notes: All seven pillars are now implemented, tested, and parity-validated; deferred items are explicitly scoped and documented; the repo is ready for launch hardening and future stability work.
+
