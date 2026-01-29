@@ -104,10 +104,12 @@ Rule: anything user-facing must have EN/DE parity (tests where possible).
 - Evidence: docs/DATA_MODEL_FIRESTORE.md + app/api/draft/generate/route.ts + app/api/draft/generate/__tests__/snippet-persistence.test.ts
 - EN/DE parity: Yes
 
-### 2.4 Firestore security expectations
-- Status: Deferred
-- Evidence: firestore.rules
-- EN/DE parity: N/A (Deferred)
+-### 2.4 Firestore security expectations
+- Status: Implemented+Documented
+- Evidence: `firestore.rules` + `docs/FIRESTORE_RULES_V1.md`
+- EN/DE parity: Yes
+- v1.0 scope decision: Clients now have scoped read access to their own `users/`, `snippets/`, and `subscriptions/` docs while all other collections remain server-only; testing harness is still deferred (documented in `docs/FIRESTORE_RULES_V1.md`).
+- Note: Scoped rules shipped with PR #36 (commit 35b2939) and enforce the documented server-only paths.
 - v1.0 scope decision: The repository ship-level rules file currently denies all access; we need to define scoped rules that match the `users/{uid}` write paths before tagging this as implemented.
  - Note: Firestore access remains locked to server pathways; see `docs/FIRESTORE_RULES_V1.md` for the v1 policy documentation.
 
