@@ -3,6 +3,9 @@ import { getFirebaseAdmin } from "@/lib/firebase/admin"
 import { authorizeFirebaseRequest } from "@/lib/firebase/server"
 import { generateDraftWithFallback } from "@/lib/draft/fallback"
 import { POST } from "@/app/api/draft/generate/route"
+import { buildUsageResponse, getCurrentMonthKey, incrementUsage } from "@/lib/usage"
+import { getUserEntitlements } from "@/lib/entitlements"
+import { isInternalQaUid, shouldRespectUsageLimit } from "@/lib/auth/internal-qa"
 
 interface TrustGradeViolation {
   type: string
@@ -121,7 +124,7 @@ vi.mock("@/lib/usage", () => ({
     plan: "free",
   }),
   incrementUsage: vi.fn().mockResolvedValue({ generationCount: 1 }),
-  getCurrentMonthKey: () => "2025-01",
+  getCurrentMonthKey: vi.fn().mockReturnValue("2025-01"),
 }))
 
 vi.mock("@/lib/entitlements", () => ({
@@ -164,14 +167,48 @@ vi.mock("@/lib/draft/fallback", () => ({
 }))
 
 const fallbackGenerator = vi.mocked(generateDraftWithFallback)
+const mockedBuildUsageResponse = vi.mocked(buildUsageResponse)
+const mockedIncrementUsage = vi.mocked(incrementUsage)
+const mockedGetCurrentMonthKey = vi.mocked(getCurrentMonthKey)
+const mockedGetUserEntitlements = vi.mocked(getUserEntitlements)
+const mockedShouldRespectUsageLimit = vi.mocked(shouldRespectUsageLimit)
+const mockedIsInternalQaUid = vi.mocked(isInternalQaUid)
 beforeEach(() => {
+  vi.clearAllMocks()
   fallbackGenerator.mockReset()
   fallbackGenerator.mockResolvedValue(buildFallbackResult(getLongDraft()))
+  mockedBuildUsageResponse.mockReturnValue({
+    currentMonthUsage: 1,
+    limit: 10,
+    remaining: 9,
+    plan: "free",
+    unlimited: false,
+  })
+  mockedIncrementUsage.mockResolvedValue({
+    month: "2025-01",
+    generationCount: 1,
+    lastReset: new Date().toISOString(),
+  })
+  mockedGetCurrentMonthKey.mockReturnValue("2025-01")
+  mockedGetUserEntitlements.mockResolvedValue({
+    plan: "free",
+    usage: {
+      plan: "free",
+      currentMonthUsage: 0,
+      limit: 10,
+      remaining: 10,
+      unlimited: false,
+    },
+    usageRecord: { month: "2025-01", generationCount: 0, lastReset: new Date().toISOString() },
+    isProSubscriber: false,
+  })
+  mockedShouldRespectUsageLimit.mockReturnValue(true)
+  mockedIsInternalQaUid.mockReturnValue(false)
 })
 
 vi.mock("@/lib/auth/internal-qa", () => ({
-  isInternalQaUid: () => false,
-  shouldRespectUsageLimit: () => true,
+  isInternalQaUid: vi.fn().mockReturnValue(false),
+  shouldRespectUsageLimit: vi.fn().mockReturnValue(true),
 }))
 
 vi.mock("@/lib/draft/blocked-response", () => ({
@@ -774,5 +811,161 @@ describe("/api/draft/generate trust-grade guard", () => {
       })
       expect(violations.every((violation: TrustGradeViolation) => violation.locale === testCase.expectedLocale)).toBe(true)
     })
+  })
+})
+
+describe("/api/draft/generate usage limits", () => {
+  const limitCases = [
+    {
+      language: "en",
+      uiLocale: "en-GB",
+      expectedMessage: "You have reached your monthly draft limit. Upgrade to Draft Pro for unlimited generations.",
+    },
+    {
+      language: "de",
+      uiLocale: "de-DE",
+      expectedMessage: "Sie haben Ihr monatliches Kontingent erreicht. Upgrade zu Draft Pro für unbegrenzte Entwürfe.",
+    },
+  ]
+
+  limitCases.forEach((testCase) => {
+    it(`returns a localized usage limit error for ${testCase.language}`, async () => {
+      const usageRecord = {
+        month: "2025-01",
+        generationCount: 11,
+        lastReset: new Date().toISOString(),
+      }
+      mockedGetUserEntitlements.mockResolvedValueOnce({
+        plan: "free",
+        usage: {
+          plan: "free",
+          currentMonthUsage: 11,
+          limit: 10,
+          remaining: 0,
+          unlimited: false,
+        },
+        usageRecord,
+        isProSubscriber: false,
+      })
+
+      const payload = {
+        situation: detailedSituation,
+        tone: "professional",
+        language: testCase.language,
+        uiLocale: testCase.uiLocale,
+        mode: "parent_message",
+      }
+      const request = new Request("https://example.com/api/draft/generate", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: "Bearer token",
+        },
+        body: JSON.stringify(payload),
+      })
+
+      const response = await POST(request)
+      expect(response.status).toBe(429)
+      const json = await response.json()
+      expect(json.success).toBe(false)
+      expect(json.error?.code).toBe("USAGE_LIMIT_EXCEEDED")
+      expect(json.error?.message).toBe(testCase.expectedMessage)
+      expect(json.data?.usage?.remaining).toBe(0)
+      expect(json.data?.usage?.plan).toBe("free")
+      expect(mockedIncrementUsage).not.toHaveBeenCalled()
+    })
+  })
+
+  const proLocales = [
+    { language: "en", uiLocale: "en-GB" },
+    { language: "de", uiLocale: "de-DE" },
+  ]
+
+  proLocales.forEach((testCase) => {
+    it(`allows pro subscribers to generate drafts for ${testCase.language}`, async () => {
+      mockedGetUserEntitlements.mockResolvedValueOnce({
+        plan: "pro",
+        usage: {
+          plan: "pro",
+          currentMonthUsage: 20,
+          limit: null,
+          remaining: null,
+          unlimited: true,
+        },
+        usageRecord: {
+          month: "2025-01",
+          generationCount: 20,
+          lastReset: new Date().toISOString(),
+        },
+        isProSubscriber: true,
+      })
+
+      const payload = {
+        situation: detailedSituation,
+        tone: "professional",
+        language: testCase.language,
+        uiLocale: testCase.uiLocale,
+        mode: "parent_message",
+      }
+      const request = new Request("https://example.com/api/draft/generate", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: "Bearer token",
+        },
+        body: JSON.stringify(payload),
+      })
+
+      const response = await POST(request)
+      expect(response.status).toBe(200)
+      const json = await response.json()
+      expect(json.success).toBe(true)
+      const calls = mockedIncrementUsage.mock.calls
+      expect(calls.length).toBeGreaterThan(0)
+      expect(calls[0][2]).toBe(true) // pro plan passes allowUnlimited=true
+    })
+  })
+
+  it("allows internal QA UIDs to bypass usage limits", async () => {
+  mockedIsInternalQaUid.mockReturnValueOnce(true)
+  mockedShouldRespectUsageLimit.mockReturnValueOnce(false)
+    mockedGetUserEntitlements.mockResolvedValueOnce({
+      plan: "free",
+      usage: {
+        plan: "free",
+        currentMonthUsage: 12,
+        limit: 10,
+        remaining: 0,
+        unlimited: false,
+      },
+      usageRecord: {
+        month: "2025-01",
+        generationCount: 12,
+        lastReset: new Date().toISOString(),
+      },
+      isProSubscriber: false,
+    })
+
+    const payload = {
+      situation: detailedSituation,
+      tone: "professional",
+      language: "en",
+      uiLocale: "en-GB",
+      mode: "parent_message",
+    }
+    const request = new Request("https://example.com/api/draft/generate", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: "Bearer token",
+      },
+      body: JSON.stringify(payload),
+    })
+
+    const response = await POST(request)
+    expect(response.status).toBe(200)
+    const json = await response.json()
+    expect(json.success).toBe(true)
+    expect(mockedIncrementUsage).not.toHaveBeenCalled()
   })
 })
