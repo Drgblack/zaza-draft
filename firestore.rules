@@ -1,8 +1,7 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Admin SDK bypasses these security rules.
-    // These rules protect client SDK access only; all sensitive writes remain server-only.
+    // Admin SDK bypasses these rules; they govern client SDK access only.
 
     match /users/{userId} {
       allow read, write: if request.auth != null && request.auth.uid == userId;
@@ -12,14 +11,8 @@ service cloud.firestore {
       allow read, write: if request.auth != null && request.auth.uid == userId;
     }
 
-    match /users/{userId}/classes/{classId} {
-      // Classes are not currently surfaced to clients, but keep the rule for future parity.
-      allow read, write: if request.auth != null && request.auth.uid == userId;
-    }
-
     match /subscriptions/{subscriptionId} {
-      allow read: if request.auth != null &&
-        get(/databases/$(database)/documents/subscriptions/$(subscriptionId)).data.userId == request.auth.uid;
+      allow read: if request.auth != null && resource.data.userId == request.auth.uid;
       allow write: if false;
     }
 
