@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest"
+import { describe, expect, it, vi } from "vitest"
 
 import { buildUsageResponse, getCurrentMonthKey, incrementUsage, type MonthlyUsageRecord } from "./usage"
 
@@ -100,5 +100,23 @@ describe("incrementUsage", () => {
     const updated = await incrementUsage(uid, firestore, true)
     expect(updated.generationCount).toBe(11)
     expect(store[uid].monthlyUsage).toEqual(updated)
+  })
+})
+
+describe("getCurrentMonthKey", () => {
+  afterEach(() => {
+    vi.useRealTimers()
+  })
+
+  it("returns the current year-month in UTC", () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(Date.UTC(2025, 0, 2, 12, 0, 0))
+    expect(getCurrentMonthKey()).toBe("2025-01")
+  })
+
+  it("pads single-digit months", () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(Date.UTC(2025, 9, 15, 8, 0, 0))
+    expect(getCurrentMonthKey()).toBe("2025-10")
   })
 })

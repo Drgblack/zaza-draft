@@ -375,9 +375,13 @@ function resolveGreetingFromRawText(
   }
 }
 
-function buildUsageLimitError(usage: ReturnType<typeof buildUsageResponse>) {
+function buildUsageLimitError(usage: ReturnType<typeof buildUsageResponse>, language?: string) {
+  const isGerman = language?.toLowerCase().startsWith("de")
+  const message = isGerman
+    ? "Dein Gratis-Limit ist erreicht. Upgrade auf Draft Pro für unbegrenzte Entwürfe."
+    : "You have reached your monthly draft limit. Upgrade to unlock Draft Pro for unlimited generations."
   return {
-    message: "You have reached your monthly draft limit. Upgrade to unlock Draft Pro for unlimited generations.",
+    message,
     data: {
       usage,
     },
@@ -710,7 +714,7 @@ export async function POST(request: Request) {
   ) {
     maybeLogServerEvent("draft_generation_denied_limit", { uid, plan })
     logDraftOutcome("RATE_LIMITED", { errorCode: "USAGE_LIMIT_EXCEEDED" })
-    const usageLimitError = buildUsageLimitError(initialUsage)
+    const usageLimitError = buildUsageLimitError(initialUsage, language)
     return fail(429, "USAGE_LIMIT_EXCEEDED", usageLimitError.message, { data: usageLimitError.data })
   }
 
@@ -1082,7 +1086,7 @@ export async function POST(request: Request) {
       updatedUsage = await incrementUsage(uid, firestore!, plan === "pro")
     } catch (error) {
       if (error instanceof Error && error.message === "USAGE_LIMIT_EXCEEDED") {
-        const usageLimitError = buildUsageLimitError(initialUsage)
+        const usageLimitError = buildUsageLimitError(initialUsage, language)
         return fail(429, "USAGE_LIMIT_EXCEEDED", usageLimitError.message, {
           data: usageLimitError.data,
         })
