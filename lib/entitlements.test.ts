@@ -115,4 +115,40 @@ describe("getUserEntitlements override checks", () => {
     const entitlements = await getUserEntitlements("uid", db)
     expect(entitlements.plan).toBe("free")
   })
+
+  it("treats invalid override expiry as expired", async () => {
+    const db = createMockFirestore(
+      {
+        entitlements: {
+          planOverride: "pro",
+          expiresAt: "not-a-date",
+        },
+      },
+      {},
+    )
+
+    const entitlements = await getUserEntitlements("uid", db)
+    expect(entitlements.plan).toBe("free")
+  })
+
+  it("ignores a domain licence with invalid expiry", async () => {
+    const domain = "school.edu"
+    const db = createMockFirestore(
+      {
+        email: `teacher@${domain}`,
+      },
+      {
+        [domain]: {
+          domain,
+          plan: "pro",
+          expiresAt: "invalid date",
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        },
+      },
+    )
+
+    const entitlements = await getUserEntitlements("uid", db)
+    expect(entitlements.plan).toBe("free")
+  })
 })

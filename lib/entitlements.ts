@@ -47,13 +47,15 @@ interface SchoolLicenceRecord {
   updatedAt: string
 }
 
+const FAKE_PAST_DATE = new Date(0).toISOString()
+
 function normalizeTimestamp(value: unknown) {
   if (typeof value !== "string") {
     return null
   }
   const parsed = Date.parse(value)
   if (Number.isNaN(parsed)) {
-    return null
+    return FAKE_PAST_DATE
   }
   return new Date(parsed).toISOString()
 }
