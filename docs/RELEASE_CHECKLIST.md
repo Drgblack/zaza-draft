@@ -28,3 +28,6 @@ Run these in both EN and DE UI locale:
 ## 5. Rollback readiness
 - Confirm you know the last good deployment
 - Keep a link to RUNBOOK_ROLLBACK.md handy
+
+## 6. Launch notes
+- Record the last known-good deployment URL and commit SHA in a launch notes entry so the team can fast-track regressions or rollbacks.
