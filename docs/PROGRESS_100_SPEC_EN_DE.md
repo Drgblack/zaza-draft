@@ -369,4 +369,6 @@ Rule: anything user-facing must have EN/DE parity (tests where possible).
 - Status: COMPLETE
 - Evidence: docs/ARCHITECTURE_OVERVIEW.md + docs/DATA_MODEL_FIRESTORE.md + docs/LAUNCH_FREEZE.md + docs/REGRESSION_CONTRACTS.md + app/api/draft/generate/__tests__/snippet-persistence.test.ts + app/api/draft/generate/route.test.ts
 - Notes: All seven pillars are now implemented, tested, and parity-validated; deferred items are explicitly scoped and documented; the repo is ready for launch hardening and future stability work.
+- Launch assets and distribution guidance live in `docs/launch/*` so the first 100 users can be onboarded with calm outreach and clear support.
+- Website copy assets live under `docs/website-copy/*` so the public site matches the EN/DE contracts and safety messaging.
 
