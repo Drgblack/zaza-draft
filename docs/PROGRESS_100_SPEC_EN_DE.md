@@ -53,6 +53,11 @@ Rule: anything user-facing must have EN/DE parity (tests where possible).
 - Evidence: app/api/diagnostics/route.ts + docs/ARCHITECTURE_OVERVIEW.md
 - EN/DE parity: Yes
 
+### Accounts & entitlements
+- Status: Implemented+Tested
+- Evidence: lib/entitlements.ts + app/api/admin/licences/grant/route.ts + app/api/admin/licences/revoke/route.ts + docs/LICENCES_V1.md + docs/FIRESTORE_RULES_V1.md
+- EN/DE parity: Yes
+
 ### Deferred from original spec
 - Status: Deferred
 - Evidence: docs/spec/Zaza Draft - Technical Specification.md
