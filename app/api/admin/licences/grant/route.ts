@@ -67,6 +67,11 @@ async function authorizeAdmin(request: Request) {
     return buildError("Admin access required", 403)
   }
 
+  const firestore = authContext.firestore
+  if (!firestore) {
+    return buildError("Missing Firestore context", 500)
+  }
+
   return { uid, firestore: authContext.firestore }
 }
 
