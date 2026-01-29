@@ -1,4 +1,6 @@
-import { NextResponse } from "next/server"
+﻿import { NextResponse } from "next/server"
+
+import type { Firestore } from "firebase-admin/firestore"
 
 import { authorizeFirebaseRequest, FirebaseAuthorizationError } from "@/lib/firebase/server"
 import { isAdminUid } from "@/lib/auth/internal-qa"
@@ -67,12 +69,12 @@ async function authorizeAdmin(request: Request) {
     return buildError("Admin access required", 403)
   }
 
-  const firestore = authContext.firestore
+  const firestore = (authContext as { firestore?: Firestore }).firestore
   if (!firestore) {
     return buildError("Missing Firestore context", 500)
   }
 
-  return { uid, firestore: authContext.firestore }
+  return { uid, firestore }
 }
 
 export async function POST(request: Request) {
@@ -159,3 +161,5 @@ export async function POST(request: Request) {
 
   return buildError("Unsupported grant type", 400)
 }
+
+
