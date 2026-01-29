@@ -1,4 +1,4 @@
-# Zaza Draft - 100% Completion Tracker (Main Spec + Appendix F)
+﻿# Zaza Draft - 100% Completion Tracker (Main Spec + Appendix F)
 
 Sources of truth:
 - docs/spec/Zaza Draft - Technical Specification.md
@@ -56,7 +56,7 @@ Rule: anything user-facing must have EN/DE parity (tests where possible).
 ### Deferred from original spec
 - Status: Deferred
 - Evidence: docs/spec/Zaza Draft - Technical Specification.md
-- EN/DE parity: No
+- EN/DE parity: N/A (Deferred)
 - v1.0 scope decision: Reserve these spec placeholders for future work so the initial release can focus on the core draft experience.
 
 ## 1. Technical Overview
@@ -147,7 +147,7 @@ Rule: anything user-facing must have EN/DE parity (tests where possible).
 ### 4.4 Incident Response Plan
 - Status: Deferred
 - Evidence: docs/spec/Zaza Draft - Technical Specification.md
-- EN/DE parity: No
+- EN/DE parity: N/A (Deferred)
 - v1.0 scope decision: Formal incident response planning waits until telemetry and on-call runbooks are in place.
 
 ## 5. Performance & Scalability
@@ -213,31 +213,31 @@ Rule: anything user-facing must have EN/DE parity (tests where possible).
 ### 7.3 Rollback Strategy
 - Status: Deferred
 - Evidence: docs/spec/Zaza Draft - Technical Specification.md
-- EN/DE parity: No
+- EN/DE parity: N/A (Deferred)
 - v1.0 scope decision: Use Vercel deployment history for manual rollback until a dedicated runbook is drafted.
 
 ### 7.4 Database Migrations
 - Status: Deferred
 - Evidence: docs/spec/Zaza Draft - Technical Specification.md
-- EN/DE parity: No
+- EN/DE parity: N/A (Deferred)
 - v1.0 scope decision: Firestore is schemaless so migrations are not required for this release.
 
 ## 8. API Cost Analysis & Optimization
 - Status: Deferred
 - Evidence: docs/spec/Zaza Draft - Technical Specification.md
-- EN/DE parity: No
+- EN/DE parity: N/A (Deferred)
 - v1.0 scope decision: Formal cost analysis will be added once usage telemetry stabilizes.
 
 ### 8.1 Cost Breakdown Estimates
 - Status: Deferred
 - Evidence: docs/spec/Zaza Draft - Technical Specification.md
-- EN/DE parity: No
+- EN/DE parity: N/A (Deferred)
 - v1.0 scope decision: Defer detailed cost breakdowns to the first post-launch review.
 
 ### 8.2 Cost Optimization Strategies
 - Status: Deferred
 - Evidence: docs/spec/Zaza Draft - Technical Specification.md
-- EN/DE parity: No
+- EN/DE parity: N/A (Deferred)
 - v1.0 scope decision: Apply live telemetry before committing to optimization tactics.
 
 ## 9. Development Roadmap & Milestones
@@ -253,37 +253,37 @@ Rule: anything user-facing must have EN/DE parity (tests where possible).
 ### 9.2 Phase 2: Post-MVP Enhancements (Q2 2025)
 - Status: Deferred
 - Evidence: docs/PROJECT_MAP.md
-- EN/DE parity: No
+- EN/DE parity: N/A (Deferred)
 - v1.0 scope decision: Schedule Phase 2 for Q2 2025 after the MVP stabilizes.
 
 ### 9.3 Phase 3: Scale & Expansion (Q3-Q4 2025)
 - Status: Deferred
 - Evidence: docs/PROJECT_MAP.md
-- EN/DE parity: No
+- EN/DE parity: N/A (Deferred)
 - v1.0 scope decision: Hold Phase 3 for Q3-Q4 2025 once earlier phases complete.
 
 ## 10. Open Questions & Decisions Needed
 - Status: Deferred
 - Evidence: docs/PROJECT_MAP.md
-- EN/DE parity: No
+- EN/DE parity: N/A (Deferred)
 - v1.0 scope decision: Keep the open questions list active but revisit after launch.
 
 ### 10.1 Technical Decisions
 - Status: Deferred
 - Evidence: docs/PROJECT_MAP.md
-- EN/DE parity: No
+- EN/DE parity: N/A (Deferred)
 - v1.0 scope decision: Finalize technical decisions during the post-launch retro.
 
 ### 10.2 Product Decisions (Refer to PRD)
 - Status: Deferred
 - Evidence: docs/PROJECT_MAP.md
-- EN/DE parity: No
+- EN/DE parity: N/A (Deferred)
 - v1.0 scope decision: Keep product decision threads open until we collect launch feedback.
 
 ### 10.3 Compliance & Legal
 - Status: Deferred
 - Evidence: docs/PROJECT_MAP.md
-- EN/DE parity: No
+- EN/DE parity: N/A (Deferred)
 - v1.0 scope decision: Coordinate with legal in a dedicated follow-up release.
 
 ## 11. Appendix
@@ -309,47 +309,48 @@ Rule: anything user-facing must have EN/DE parity (tests where possible).
 ### 11.4 Alignment with Zaza Mandate & Cursor Rules
 - Status: Deferred
 - Evidence: docs/spec/Zaza Draft - Technical Specification.md
-- EN/DE parity: No
+- EN/DE parity: N/A (Deferred)
 - v1.0 scope decision: Alignments with future mandate guidance will be documented in their own note.
 
 ## Zaza - Emotionally Intelligent AI Additions Pack
 - Status: Deferred
 - Evidence: docs/spec/Zaza Draft - Technical Specification.md
-- EN/DE parity: No
+- EN/DE parity: N/A (Deferred)
 - v1.0 scope decision: The EI additions pack is out of scope for release 1.0.
 
 ### 1. Emotion & Tone Awareness
 - Status: Deferred
 - Evidence: docs/spec/Zaza Draft - Technical Specification.md
-- EN/DE parity: No
+- EN/DE parity: N/A (Deferred)
 - v1.0 scope decision: Tone awareness experiments are scheduled for post-launch upgrades.
 
 ### 2. Teacher Agency & Feedback Loop
 - Status: Deferred
 - Evidence: docs/spec/Zaza Draft - Technical Specification.md
-- EN/DE parity: No
+- EN/DE parity: N/A (Deferred)
 - v1.0 scope decision: Elaborate teacher feedback workflows after stabilizing the draft surface.
 
 ### 3. Cross-App EI Memory
 - Status: Deferred
 - Evidence: docs/spec/Zaza Draft - Technical Specification.md
-- EN/DE parity: No
+- EN/DE parity: N/A (Deferred)
 - v1.0 scope decision: Cross-app memory will wait for the next major release.
 
 ### 4. Proactive EI Nudges
 - Status: Deferred
 - Evidence: docs/spec/Zaza Draft - Technical Specification.md
-- EN/DE parity: No
+- EN/DE parity: N/A (Deferred)
 - v1.0 scope decision: Proactive nudges will be designed once live signals confirm need.
 
 ### 5. Auditability of EI
 - Status: Deferred
 - Evidence: docs/spec/Zaza Draft - Technical Specification.md
-- EN/DE parity: No
+- EN/DE parity: N/A (Deferred)
 - v1.0 scope decision: Audit tooling for EI behavior is scheduled for the next phase.
 
 ### Implementation Guidance
 - Status: Deferred
 - Evidence: docs/spec/Zaza Draft - Technical Specification.md
-- EN/DE parity: No
+- EN/DE parity: N/A (Deferred)
 - v1.0 scope decision: Publish implementation guidance after the MVP rollout in coordination with the spec team.
+
