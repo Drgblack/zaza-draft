@@ -158,3 +158,11 @@ function validateApplicationDefaultCredential(filePath: string) {
 export function getFirebaseCredentialError() {
   return credentialError
 }
+
+export function getAdminDb() {
+  const { firestore } = getFirebaseAdmin()
+  if (!firestore) {
+    throw new Error("Missing Firebase Firestore client")
+  }
+  return firestore
+}

@@ -1,5 +1,5 @@
-﻿import { NextResponse } from "next/server"
-import { adminDb } from "@/lib/firebase/admin"
+import { NextResponse } from "next/server"
+import { getAdminDb } from "@/lib/firebase/admin"
 
 export const runtime = "nodejs"
 
@@ -7,8 +7,10 @@ export async function GET() {
   const now = new Date().toISOString()
 
   try {
+    const firestore = getAdminDb()
+
     // Lightweight Firestore call to confirm credentials + connectivity
-    await adminDb.collection("_health").doc("ping").get()
+    await firestore.collection("_health").doc("ping").get()
 
     return NextResponse.json({
       ok: true,

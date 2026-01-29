@@ -1,13 +1,13 @@
 ﻿import { describe, expect, it, vi } from "vitest"
 
 vi.mock("@/lib/firebase/admin", () => ({
-  adminDb: {
+  getAdminDb: () => ({
     collection: () => ({
       doc: () => ({
         get: vi.fn(async () => ({})),
       }),
     }),
-  },
+  }),
 }))
 
 describe("/api/health", () => {
