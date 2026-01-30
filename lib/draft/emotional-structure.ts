@@ -61,6 +61,10 @@ const KEYWORDS: Record<EmotionalLocale, KeywordMap> = {
       "mir ist bewusst",
       "danke, dass",
       "ich nehme wahr",
+ fix/de-emotional-parity
+      "mir fällt auf",
+      "das klingt belastend",
+main
     ],
     acknowledgeIncident: [
       "bezüglich",
@@ -68,6 +72,9 @@ const KEYWORDS: Record<EmotionalLocale, KeywordMap> = {
       "die situation",
       "die anfrage",
       "konkret",
+ fix/de-emotional-parity
+      "die aktuellen termine",
+ main
     ],
     reassure: [
       "ich bin für sie da",
@@ -75,6 +82,11 @@ const KEYWORDS: Record<EmotionalLocale, KeywordMap> = {
       "gemeinsam finden wir",
       "ich unterstütze",
       "das schaffen wir",
+ fix/de-emotional-parity
+      "ich bleibe an der seite",
+      "wir kümmern uns darum",
+      "ich halte sie informiert",
+ main
     ],
     nextSteps: [
       "bitte",
@@ -82,6 +94,13 @@ const KEYWORDS: Record<EmotionalLocale, KeywordMap> = {
       "wir planen",
       "wir treffen",
       "ich setze mich",
+ fix/de-emotional-parity
+      "ich organisiere",
+      "ich sorge dafür",
+      "wir stimmen uns ab",
+      "organisiere",
+      "kurze termine",
+ main
     ],
     inviteDialogue: [
       "melden sie sich",
@@ -89,6 +108,11 @@ const KEYWORDS: Record<EmotionalLocale, KeywordMap> = {
       "gerne im gespräch",
       "sprechen sie mich an",
       "ich freue mich",
+ fix/de-emotional-parity
+      "rufen sie mich an",
+      "schreiben sie mir",
+      "ich bin erreichbar",
+ main
     ],
     signOff: [],
   },
