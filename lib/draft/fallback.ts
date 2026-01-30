@@ -177,6 +177,10 @@ interface ProviderRequestInput {
   greetingSource?: GreetingSource
   messageType?: string
   scanId?: string
+  trustGradeViolations?: {
+    types: string[]
+    phrases: string[]
+  }
 }
 
 interface ProviderFallbackResult {

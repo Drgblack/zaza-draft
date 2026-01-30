@@ -967,15 +967,24 @@ export async function POST(request: Request) {
     return removeDuplicateGreeting(guarded, finalGreetingLine)
   }
 
+  let formattedDraftStructure: DraftStructure
+  let bodyParagraphCount: number
+  let bodyWordCount: number
+
+  const finalizeAndFormatDraft = (draftText?: string) => {
+    if (draftText) {
+      generatedDraft = draftText
+    }
     if (shouldNormalizeGermanParentMessage) {
       generatedDraft = applyGermanNormalization(generatedDraft)
     }
-
     generatedDraft = ensureClosingAndSignature(generatedDraft, language, teacherSignatureName)
+    formattedDraftStructure = formatDraftText(generatedDraft, language)
+    bodyParagraphCount = getParagraphCountExcludingGreeting(formattedDraftStructure, finalGreetingLine)
+    bodyWordCount = countWords(generatedDraft)
+  }
 
-    let formattedDraftStructure = formatDraftText(generatedDraft, language)
-  let bodyParagraphCount = getParagraphCountExcludingGreeting(formattedDraftStructure, finalGreetingLine)
-  let bodyWordCount = countWords(generatedDraft)
+  finalizeAndFormatDraft(generatedDraft)
   const evaluateBodyNeedsRetry = () =>
     Boolean(
       finalGreetingLine &&
@@ -1012,7 +1021,34 @@ export async function POST(request: Request) {
     }
   }
 
-  const trustGradeViolations = detectTrustGradeViolations(generatedDraft)
+  let trustGradeViolations = detectTrustGradeViolations(generatedDraft)
+  let trustGradeRegenerationAttempted = false
+
+  const attemptTrustGradeRegeneration = async (currentViolations: TrustGradeViolation[]) => {
+    if (trustGradeRegenerationAttempted || currentViolations.length === 0) {
+      return currentViolations
+    }
+    trustGradeRegenerationAttempted = true
+    const violationTypes = Array.from(new Set(currentViolations.map((violation) => violation.type)))
+    const violationPhrases = currentViolations.map((violation) => violation.phrase)
+    providerInput.trustGradeViolations = {
+      types: violationTypes,
+      phrases: violationPhrases,
+    }
+    const regenerationAttempt = await runDraft(forcedLanguageAttempted)
+    providerResult = regenerationAttempt.result
+    usedFallback = regenerationAttempt.usedFallback
+    fallbackErrorCode = regenerationAttempt.errorCode
+    generatedDraft = finalizeWithGreeting(providerResult.text)
+    providerMeta = providerResult.providerMeta
+    finalizeAndFormatDraft(generatedDraft)
+    providerInput.trustGradeViolations = undefined
+    return detectTrustGradeViolations(generatedDraft)
+  }
+
+  if (trustGradeViolations.length > 0) {
+    trustGradeViolations = await attemptTrustGradeRegeneration(trustGradeViolations)
+  }
   if (trustGradeViolations.length > 0) {
     safetyFlags.add("output-trust-grade-violation")
     logDraftOutcome("INVALID_REQUEST", { errorCode: "TRUST_GRADE_VIOLATION" })
@@ -1020,7 +1056,7 @@ export async function POST(request: Request) {
     return fail(
       422,
       "TRUST_GRADE_VIOLATION",
-      "Generated draft violated the trust-grade contract.",
+      "Unable to generate a compliant draft. Please rephrase or contact support.",
       {
         data: {
           violations: trustGradeViolations,

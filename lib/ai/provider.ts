@@ -54,6 +54,10 @@ interface ProviderInput {
   messageType?: string
   scanId?: string
   teacherSignatureName?: string
+  trustGradeViolations?: {
+    types: string[]
+    phrases: string[]
+  }
 }
 
 export interface ProviderMeta {
@@ -145,6 +149,13 @@ export function buildSystemPrompt(input: ProviderInput) {
     if (label) {
       systemLines.push(`Use the ${label} pronouns consistently for the student. Do not switch pronouns.`)
     }
+  }
+  if (input.trustGradeViolations && input.trustGradeViolations.types.length > 0) {
+    const dedupedPhrases = Array.from(new Set(input.trustGradeViolations.phrases))
+    systemLines.push(
+      `Do not produce the following trust-grade violation types: ${input.trustGradeViolations.types.join(", ")}.`,
+      `Avoid these phrases: ${dedupedPhrases.join(", ")}.`,
+    )
   }
   systemLines.push(
     "Treat the cleaned notes that follow as your primary source and use the original notes only for background; do not repeat the original wording.",
