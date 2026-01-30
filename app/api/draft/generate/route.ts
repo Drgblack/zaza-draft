@@ -973,9 +973,9 @@ export async function POST(request: Request) {
 
     generatedDraft = ensureClosingAndSignature(generatedDraft, language, teacherSignatureName)
 
-    let formattedDraftStructure = formatDraftText(generatedDraft, language)
-  let bodyParagraphCount = getParagraphCountExcludingGreeting(formattedDraftStructure, finalGreetingLine)
-  let bodyWordCount = countWords(generatedDraft)
+    let formattedDraftStructure: DraftStructure | null = formatDraftText(generatedDraft, language)
+    let bodyParagraphCount = getParagraphCountExcludingGreeting(formattedDraftStructure, finalGreetingLine)
+    let bodyWordCount = countWords(generatedDraft)
   const evaluateBodyNeedsRetry = () =>
     Boolean(
       finalGreetingLine &&
@@ -1098,6 +1098,8 @@ export async function POST(request: Request) {
 
   const latencyMs = Date.now() - requestStart
   const safetyFlagList = safetyFlags.size ? Array.from(safetyFlags) : ["no-sensitive-content"]
+
+  const finalFormattedDraftStructure = formattedDraftStructure ?? formatDraftText(generatedDraft, language)
 
   const metadata = {
     userId: uid,
@@ -1245,7 +1247,7 @@ export async function POST(request: Request) {
 
   return ok({
     generatedDraft,
-    formattedDraft: formattedDraftStructure,
+    formattedDraft: finalFormattedDraftStructure,
     greeting: responseGreeting,
     metadata,
     meta: responseMeta,
