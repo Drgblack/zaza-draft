@@ -16,6 +16,21 @@ describe("resolveExplanationTier", () => {
     expect(resolveExplanationTier(null, summary)).toBe("tier1")
   })
 
+  it("returns tier1 when flagged phrases exist even if wasDeescalated is false", () => {
+    const flaggedSummary: DeescalationSummary = {
+      wasDeescalated: false,
+      coachingLine: "Softened the wording to keep things calm.",
+      flaggedPhrases: [
+        {
+          originalSnippet: "frustrated language",
+          category: "insult",
+          suggestionSnippet: "focus on the behaviour",
+        },
+      ],
+    }
+    expect(resolveExplanationTier(null, flaggedSummary)).toBe("tier1")
+  })
+
   it("returns null when nothing triggered", () => {
     expect(resolveExplanationTier(null, null)).toBeNull()
   })

@@ -196,7 +196,10 @@ export function resolveExplanationTier(
     return inputReframeTier
   }
 
-  if (deescalationSummary?.wasDeescalated) {
+  const hasToneSoftening =
+    deescalationSummary &&
+    (deescalationSummary.wasDeescalated || (deescalationSummary.flaggedPhrases?.length ?? 0) > 0)
+  if (hasToneSoftening) {
     return "tier1"
   }
 
