@@ -31,6 +31,7 @@ import { isInternalQaUid, shouldRespectUsageLimit } from "@/lib/auth/internal-qa
 import { buildBlockedLanguageResponse } from "@/lib/draft/blocked-response"
 import { enforceTeacherNameStyle } from "@/lib/draft/teacher-language"
 import { formatDraftText, DraftStructure } from "@/lib/draft/format"
+import { evaluateEmotionalStructure } from "@/lib/draft/emotional-structure"
 import { cleanStudentName } from "@/lib/draft/student-name"
 import { normalizeGermanParentMessage } from "@/lib/draft/german-normalizer"
 import { detectHighEmotionPhrases } from "@/lib/deescalation/detect"
