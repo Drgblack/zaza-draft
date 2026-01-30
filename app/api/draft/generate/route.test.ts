@@ -85,6 +85,9 @@ const buildFallbackResult = (text: string) => ({
   errorCode: null,
 })
 
+const TRUST_GRADE_FAILURE_MESSAGE =
+  "Unable to generate a compliant draft. Please rephrase or contact support."
+
 vi.mock("@/lib/firebase/server", () => ({
   authorizeFirebaseRequest: vi.fn().mockResolvedValue({
     uid: "test-uid",
@@ -793,6 +796,7 @@ describe("/api/draft/generate trust-grade guard", () => {
   trustGradeCases.forEach((testCase) => {
     it(testCase.description, async () => {
       fallbackGenerator.mockResolvedValueOnce(buildFallbackResult(testCase.violationDraft))
+      fallbackGenerator.mockResolvedValueOnce(buildFallbackResult(testCase.violationDraft))
       const payload = {
         situation: detailedSituation,
         tone: "professional",
@@ -814,7 +818,7 @@ describe("/api/draft/generate trust-grade guard", () => {
       const json = await response.json()
       expect(json.success).toBe(false)
       expect(json.error?.code).toBe("TRUST_GRADE_VIOLATION")
-      expect(json.error?.message).toBe("Generated draft violated the trust-grade contract.")
+      expect(json.error?.message).toBe(TRUST_GRADE_FAILURE_MESSAGE)
       const violations = json.data?.violations ?? []
       testCase.expectedTypes.forEach((type) => {
         expect(violations.some((violation: TrustGradeViolation) => violation.type === type)).toBe(true)
@@ -824,6 +828,100 @@ describe("/api/draft/generate trust-grade guard", () => {
       })
       expect(violations.every((violation: TrustGradeViolation) => violation.locale === testCase.expectedLocale)).toBe(true)
     })
+  })
+})
+
+describe("/api/draft/generate trust-grade regeneration", () => {
+  it("regenerates when meta-instructions appear", async () => {
+    const metaViolationDraft = [
+      "Dear family,",
+      "Teachers must stay on top of every concern, so keep sharing every thought.",
+      "The following text should be calm.",
+    ].join("\n\n")
+    fallbackGenerator.mockResolvedValueOnce(buildFallbackResult(metaViolationDraft))
+    fallbackGenerator.mockResolvedValueOnce(buildFallbackResult(getLongDraft()))
+    const payload = {
+      situation: detailedSituation,
+      tone: "professional",
+      language: "en",
+      uiLocale: "en-GB",
+      mode: "parent_message",
+    }
+    const request = new Request("https://example.com/api/draft/generate", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: "Bearer token",
+      },
+      body: JSON.stringify(payload),
+    })
+
+    const response = await POST(request)
+    expect(response.status).toBe(200)
+    const regenInput = fallbackGenerator.mock.calls[1]?.[0]
+    expect(regenInput?.trustGradeViolations?.types).toContain("META_INSTRUCTION")
+    expect(regenInput?.trustGradeViolations?.phrases).toContain("teachers must")
+  })
+
+  it("regenerates when moral-judgement language appears", async () => {
+    const moralViolationDraft = [
+      "Liebe Familie,",
+      "Dieses Verhalten ist inakzeptabel.",
+      "Wir bleiben sachlich.",
+    ].join("\n\n")
+    fallbackGenerator.mockResolvedValueOnce(buildFallbackResult(moralViolationDraft))
+    fallbackGenerator.mockResolvedValueOnce(buildFallbackResult(getLongDraft()))
+    const payload = {
+      situation: detailedSituation,
+      tone: "professional",
+      language: "de",
+      uiLocale: "de-DE",
+      mode: "parent_message",
+    }
+    const request = new Request("https://example.com/api/draft/generate", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: "Bearer token",
+      },
+      body: JSON.stringify(payload),
+    })
+
+    const response = await POST(request)
+    expect(response.status).toBe(200)
+    const regenInput = fallbackGenerator.mock.calls[1]?.[0]
+    expect(regenInput?.trustGradeViolations?.types).toContain("MORAL_JUDGEMENT")
+    expect(regenInput?.trustGradeViolations?.phrases).toContain("inakzeptabel")
+  })
+
+  it("fails when regeneration cannot resolve violations", async () => {
+    const failingDraft = [
+      "Dear family,",
+      "This behaviour is unacceptable and teachers must know.",
+    ].join("\n\n")
+    fallbackGenerator.mockResolvedValueOnce(buildFallbackResult(failingDraft))
+    fallbackGenerator.mockResolvedValueOnce(buildFallbackResult(failingDraft))
+    const payload = {
+      situation: detailedSituation,
+      tone: "professional",
+      language: "en",
+      uiLocale: "en-GB",
+      mode: "parent_message",
+    }
+    const request = new Request("https://example.com/api/draft/generate", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: "Bearer token",
+      },
+      body: JSON.stringify(payload),
+    })
+
+    const response = await POST(request)
+    expect(response.status).toBe(422)
+    const json = await response.json()
+    expect(json.error?.message).toBe(TRUST_GRADE_FAILURE_MESSAGE)
+    expect(fallbackGenerator.mock.calls.length).toBe(2)
   })
 })
 
