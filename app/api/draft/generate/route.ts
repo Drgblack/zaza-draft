@@ -968,9 +968,9 @@ export async function POST(request: Request) {
     return removeDuplicateGreeting(guarded, finalGreetingLine)
   }
 
-  let formattedDraftStructure: DraftStructure
-  let bodyParagraphCount: number
-  let bodyWordCount: number
+  let formattedDraftStructure: DraftStructure = formatDraftText(generatedDraft, language)
+  let bodyParagraphCount: number = getParagraphCountExcludingGreeting(formattedDraftStructure, finalGreetingLine)
+  let bodyWordCount: number = countWords(generatedDraft)
 
   const finalizeAndFormatDraft = (draftText?: string) => {
     if (draftText) {
