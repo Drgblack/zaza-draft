@@ -680,10 +680,17 @@ export async function POST(request: Request) {
     usage: defaultUsage,
     usageRecord: defaultUsageRecord,
     isProSubscriber: false,
+    entitlement: {
+      hasAccess: false,
+      checkedAt: new Date().toISOString(),
+      reason: "dev_bypass",
+      expiresAt: null,
+    },
   }
+  const authHeader = request.headers.get("authorization") || request.headers.get("Authorization")
   const entitlements = isDevBypassRequest
     ? devDefaults
-    : await getUserEntitlements(uid, firestore!)
+    : await getUserEntitlements(uid, firestore!, { authHeader, requestId })
   const {
     plan,
     usage: initialUsage,
@@ -968,7 +975,7 @@ export async function POST(request: Request) {
     return removeDuplicateGreeting(guarded, finalGreetingLine)
   }
 
-  let formattedDraftStructure: DraftStructure
+  let formattedDraftStructure: DraftStructure = formatDraftText(generatedDraft, language);
   let bodyParagraphCount: number
   let bodyWordCount: number
 
@@ -1308,4 +1315,6 @@ export async function GET() {
     { status: 405 },
   )
 }
+
+
 
