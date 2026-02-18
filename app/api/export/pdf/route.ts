@@ -1,6 +1,9 @@
 import PDFDocument from "pdfkit"
 import { NextResponse } from "next/server"
 
+import { authorizeFirebaseRequest, FirebaseAuthorizationError } from "@/lib/firebase/server"
+import { DRAFT_PRODUCT_KEY, getDraftEntitlement } from "@/lib/zid/client"
+
 const FILENAME_PREFIX = "zaza-draft"
 
 function generateTimestampedFilename(): string {
@@ -42,6 +45,37 @@ function buildPdfBuffer(text: string): Promise<Buffer> {
 }
 
 export async function POST(request: Request) {
+  let authContext
+  const authHeader = request.headers.get("authorization") || request.headers.get("Authorization")
+  try {
+    authContext = await authorizeFirebaseRequest(request)
+  } catch (error) {
+    const status = error instanceof FirebaseAuthorizationError ? error.statusCode : 401
+    return NextResponse.json(
+      { success: false, error: { code: "UNAUTHORIZED", message: (error as Error).message || "Unauthorized" } },
+      { status },
+    )
+  }
+
+  const entitlement = await getDraftEntitlement({
+    userId: authContext.uid,
+    productKey: DRAFT_PRODUCT_KEY,
+    authHeader,
+  })
+  if (!entitlement.hasAccess) {
+    return NextResponse.json(
+      {
+        success: false,
+        error: {
+          code: "ENTITLEMENT_REQUIRED",
+          message: "Upgrade to export drafts.",
+        },
+        entitlement,
+      },
+      { status: 403 },
+    )
+  }
+
   const payload = await request.json().catch(() => null)
 
   if (!payload || !validateDraftText(payload.draftText)) {

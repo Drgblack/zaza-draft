@@ -1,4 +1,4 @@
-﻿import { NextResponse } from "next/server"
+import { NextResponse } from "next/server"
 import {
   detectSensitiveContent,
   detectBlockedLanguage,
@@ -126,7 +126,7 @@ function buildContextLine(context?: GenerateDraftRequest["context"]) {
     return ""
   }
 
-  return pieces.join(" ?f?'Ã¯Â¿Â½?,?s?f??s?,Ã¯Â¿Â½ ") + "."
+  return pieces.join(" ?f?'ï¿½?,?s?f??s?,ï¿½ ") + "."
 }
 
 const GENERIC_GREETING_TEXTS = new Set([
@@ -231,8 +231,8 @@ function buildDeterministicTemplateBody(greetingLine: string, language?: string)
   const paragraphs = isGerman
     ? [
         "Vielen Dank, dass Sie Ihre Perspektive geteilt haben; mir ist wichtig, dass wir diesen Punkt gemeinsam ernst nehmen.",
-        "Als n?f?'?,Ã¯Â¿Â½chsten Schritt werde ich das Verhalten weiterhin dokumentieren und ein kurzes Reflexionsgespr?f?'?,Ã¯Â¿Â½ch mit dem Kind vorbereiten, das wir danach mit Ihnen reflektieren k?f?'?,Ã¯Â¿Â½nnen.",
-        "Bitte schlagen Sie zwei kurze Termine vor, an denen wir telefonisch oder per Videocall die n?f?'?,Ã¯Â¿Â½chsten Schritte besprechen und offene Fragen beantworten.",
+        "Als n?f?'?,ï¿½chsten Schritt werde ich das Verhalten weiterhin dokumentieren und ein kurzes Reflexionsgespr?f?'?,ï¿½ch mit dem Kind vorbereiten, das wir danach mit Ihnen reflektieren k?f?'?,ï¿½nnen.",
+        "Bitte schlagen Sie zwei kurze Termine vor, an denen wir telefonisch oder per Videocall die n?f?'?,ï¿½chsten Schritte besprechen und offene Fragen beantworten.",
       ]
     : [
         "Thank you for sharing your concern; my priority is to address it calmly and respectfully.",
@@ -271,11 +271,11 @@ const TRUST_GRADE_PHRASE_MAP: Record<TrustGradeViolationType, Record<TrustGradeL
   },
   FABRICATED_PAST_ACTION: {
     en: ["i spoke with", "we reviewed", "we have spoken"],
-    de: ["ich habe mit", "wir haben gesprochen", "wir haben geprüft"],
+    de: ["ich habe mit", "wir haben gesprochen", "wir haben gepr�ft"],
   },
   META_INSTRUCTION: {
     en: ["you should", "teachers must"],
-    de: ["sie sollten", "lehrer müssen"],
+    de: ["sie sollten", "lehrer m�ssen"],
   },
 }
 
@@ -379,7 +379,7 @@ function resolveGreetingFromRawText(
 function buildUsageLimitError(usage: ReturnType<typeof buildUsageResponse>, language?: string) {
   const isGerman = language?.toLowerCase().startsWith("de")
   const message = isGerman
-    ? "Dein Gratis-Limit ist erreicht. Upgrade auf Draft Pro für unbegrenzte Entwürfe."
+    ? "Dein Gratis-Limit ist erreicht. Upgrade auf Draft Pro f�r unbegrenzte Entw�rfe."
     : "You have reached your monthly draft limit. Upgrade to unlock Draft Pro for unlimited generations."
   return {
     message,
@@ -605,7 +605,7 @@ export async function POST(request: Request) {
     return fail(
       422,
       "INSUFFICIENT_INPUT",
-      "After removing Gmail UI noise, the note doesn?fÃ¯Â¿Â½Ã¯Â¿Â½??sÃ¯Â¿Â½Ã¯Â¿Â½??zÃ¯Â¿Â½t include enough detail to craft a responsible reply. Please describe the parent concern in at least 20 words.",
+      "After removing Gmail UI noise, the note doesn?fï¿½ï¿½??sï¿½ï¿½??zï¿½t include enough detail to craft a responsible reply. Please describe the parent concern in at least 20 words.",
       {
         data: {
           wordCount: sanitizedInput.wordCount,
@@ -690,7 +690,7 @@ export async function POST(request: Request) {
   const authHeader = request.headers.get("authorization") || request.headers.get("Authorization")
   const entitlements = isDevBypassRequest
     ? devDefaults
-    : await getUserEntitlements(uid, firestore!, { authHeader, requestId })
+    : await getUserEntitlements(uid, firestore!)
   const {
     plan,
     usage: initialUsage,

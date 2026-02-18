@@ -112,6 +112,12 @@ vi.mock("@/lib/entitlements", () => ({
       unlimited: false,
     },
     isProSubscriber: false,
+    entitlement: {
+      hasAccess: false,
+      checkedAt: new Date().toISOString(),
+      expiresAt: null,
+      reason: "mock",
+    },
   })),
 }))
 

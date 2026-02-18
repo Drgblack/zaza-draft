@@ -1,5 +1,8 @@
 import { NextResponse } from "next/server"
+
+import { authorizeFirebaseRequest, FirebaseAuthorizationError } from "@/lib/firebase/server"
 import { buildDocxBuffer } from "@/lib/export/docx"
+import { DRAFT_PRODUCT_KEY, getDraftEntitlement } from "@/lib/zid/client"
 
 interface ExportDocxRequest {
   draftText: string
@@ -9,6 +12,43 @@ interface ExportDocxRequest {
 }
 
 export async function POST(request: Request) {
+  let authContext
+  const authHeader = request.headers.get("authorization") || request.headers.get("Authorization")
+  try {
+    authContext = await authorizeFirebaseRequest(request)
+  } catch (error) {
+    const status = error instanceof FirebaseAuthorizationError ? error.statusCode : 401
+    return NextResponse.json(
+      {
+        success: false,
+        error: {
+          code: "UNAUTHORIZED",
+          message: (error as Error).message || "Unauthorized",
+        },
+      },
+      { status },
+    )
+  }
+
+  const entitlement = await getDraftEntitlement({
+    userId: authContext.uid,
+    productKey: DRAFT_PRODUCT_KEY,
+    authHeader,
+  })
+  if (!entitlement.hasAccess) {
+    return NextResponse.json(
+      {
+        success: false,
+        error: {
+          code: "ENTITLEMENT_REQUIRED",
+          message: "Upgrade to export drafts.",
+        },
+        entitlement,
+      },
+      { status: 403 },
+    )
+  }
+
   let payload: ExportDocxRequest
   try {
     payload = await request.json()

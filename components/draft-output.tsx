@@ -9,6 +9,7 @@ import { MODE_LABEL_KEYS, DEFAULT_DRAFT_MODE } from "@/lib/draft-mode"
 import { useLocale } from "@/hooks/use-locale"
 import { useSearchParams } from "next/navigation"
 import { isDebugEnabled } from "@/lib/debug"
+import { useAuth } from "@/hooks/use-auth"
 
 interface DraftOutputProps {
   draftText: string
@@ -50,6 +51,7 @@ export function DraftOutput({
   const { locale, t } = useLocale()
   const searchParams = useSearchParams()
   const showDiagnostics = isDebugEnabled(searchParams)
+  const { getIdToken } = useAuth()
   const modeKey = (metadata.modeUsed ?? DEFAULT_DRAFT_MODE) as keyof typeof MODE_LABEL_KEYS
   const modeLabel = t(MODE_LABEL_KEYS[modeKey])
   const { displaySubject, displayParagraphs, signatureParagraph } = useMemo(() => {
@@ -120,12 +122,18 @@ export function DraftOutput({
   const handleExportPDF = async () => {
     setActionMessage("Preparing PDF…")
     try {
+      const token = await getIdToken()
+      if (!token) {
+        setActionMessage("Sign in to export your draft.")
+        return
+      }
       const mode = metadata.modeUsed ?? DEFAULT_DRAFT_MODE
       const language = locale.startsWith("de") ? "de" : "en"
       const response = await fetch("/api/export/pdf", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
           draftText,
@@ -135,9 +143,16 @@ export function DraftOutput({
         }),
       })
 
+      if (response.status === 403) {
+        const payload = await response.json().catch(() => null)
+        setActionMessage(payload?.error?.message ?? "Upgrade to export drafts.")
+        return
+      }
+
       if (!response.ok) {
         const payload = await response.json().catch(() => null)
-        setActionMessage(payload?.message ?? "Unable to prepare the PDF right now.")
+        const message = payload?.error?.message ?? payload?.message ?? "Unable to prepare the PDF right now."
+        setActionMessage(message)
         return
       }
 
@@ -157,12 +172,18 @@ export function DraftOutput({
   const handleExportDOCX = async () => {
     setActionMessage("Preparing DOCX.")
     try {
+      const token = await getIdToken()
+      if (!token) {
+        setActionMessage("Sign in to export your draft.")
+        return
+      }
       const mode = metadata.modeUsed ?? DEFAULT_DRAFT_MODE
       const language = locale.startsWith("de") ? "de" : "en"
       const response = await fetch("/api/export/docx", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
           draftText,
@@ -172,9 +193,16 @@ export function DraftOutput({
         }),
       })
 
+      if (response.status === 403) {
+        const payload = await response.json().catch(() => null)
+        setActionMessage(payload?.error?.message ?? "Upgrade to export drafts.")
+        return
+      }
+
       if (!response.ok) {
         const payload = await response.json().catch(() => null)
-        setActionMessage(payload?.message ?? "Unable to prepare the DOCX right now.")
+        const message = payload?.error?.message ?? payload?.message ?? "Unable to prepare the DOCX right now."
+        setActionMessage(message)
         return
       }
 

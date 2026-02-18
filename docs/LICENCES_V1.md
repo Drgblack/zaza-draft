@@ -19,3 +19,11 @@ Zaza Draft v1 keeps licences gated behind server-only tooling that the admin/QA 
 - All Firestore rules remain locked to allow read, write: if false; every operation happens through the Admin SDK inside these admin routes or the existing draft/usage APIs.
 - Admin routes require a Firebase ID token and the UID must be listed in INTERNAL_ADMIN_UIDS (QA UIDs and dev bypass headers cannot reach these endpoints).
 - Every licence change is logged via Firestore writes (entitlements on users, or schoolLicences documents) and can be audited with the same tools that monitor draft persistence.
+
+## Zaza ID & Licences integration (Draft front door)
+- Endpoint: `GET {ZID_BASE_URL}/api/entitlements/resolve-self?productKey=draft` with `Authorization: Bearer <Firebase ID token>` (falls back to `ZID_SERVICE_BEARER_TOKEN` for service-to-service calls if provided).
+- Behaviour: `getDraftEntitlement()` fails closed on any error/invalid response; `hasAccess=false` forces the app into the free tier and returns `ENTITLEMENT_REQUIRED` from export routes.
+- Caching: session-scoped in-memory cache keyed by `userId+productKey`, TTL 60s; if `expiresAt` is within 10 minutes, TTL shortens to 15s to force early re-check. Expired entitlements are treated as deny with a short TTL.
+- Coverage: generation uses ZID-backed plan mapping (pro vs free) for usage limits; PDF/DOCX exports are gated by the same entitlement and respond with a calm upgrade message when blocked.
+- Evidence/tests: `tests/zid/client.test.ts` (allow/deny/error, cache, near-expiry TTL), `lib/entitlements.test.ts` (plan mapping + QA), `app/api/draft/generate/route.test.ts` (usage errors), export routes exercised via `components/draft-output` upgrade messaging.
+- Env vars: `ZID_BASE_URL` (required), `ZID_SERVICE_BEARER_TOKEN` (optional service bearer).

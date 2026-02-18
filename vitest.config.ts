@@ -7,6 +7,7 @@ export default defineConfig({
   resolve: {
     alias: {
       "@/generated": `${root}/src/generated`,
+      "@/lib": `${root}/lib`,
       "@/": `${root}/`,
     },
   },

@@ -134,12 +134,20 @@ vi.mock("@/lib/entitlements", () => ({
   getUserEntitlements: vi.fn().mockResolvedValue({
     plan: "free",
     usage: {
+      plan: "free",
       currentMonthUsage: 0,
       limit: 10,
       remaining: 10,
+      unlimited: false,
     },
     usageRecord: { month: "2025-01", generationCount: 0, lastReset: new Date().toISOString() },
     isProSubscriber: false,
+    entitlement: {
+      hasAccess: false,
+      checkedAt: new Date().toISOString(),
+      expiresAt: null,
+      reason: "mock",
+    },
   }),
 }))
 
@@ -213,6 +221,12 @@ beforeEach(() => {
       lastReset: new Date().toISOString(),
     },
     isProSubscriber: false,
+    entitlement: {
+      hasAccess: false,
+      checkedAt: new Date().toISOString(),
+      expiresAt: null,
+      reason: "mock",
+    },
   })
   mockedShouldRespectUsageLimit.mockReturnValue(true)
   mockedIsInternalQaUid.mockReturnValue(false)
@@ -956,6 +970,12 @@ describe("/api/draft/generate usage entitlement parity", () => {
           lastReset: new Date().toISOString(),
         },
         isProSubscriber: false,
+        entitlement: {
+          hasAccess: false,
+          checkedAt: new Date().toISOString(),
+          expiresAt: null,
+          reason: "limit",
+        },
       })
 
       const payload = {
@@ -1010,6 +1030,12 @@ describe("/api/draft/generate usage entitlement parity", () => {
           lastReset: new Date().toISOString(),
         },
         isProSubscriber: false,
+        entitlement: {
+          hasAccess: false,
+          checkedAt: new Date().toISOString(),
+          expiresAt: null,
+          reason: "qa-bypass",
+        },
       })
 
       const payload = {
@@ -1094,6 +1120,12 @@ describe("/api/draft/generate usage entitlement parity", () => {
           lastReset: new Date().toISOString(),
         },
         isProSubscriber: false,
+        entitlement: {
+          hasAccess: false,
+          checkedAt: new Date().toISOString(),
+          expiresAt: null,
+          reason: "rollover",
+        },
       })
 
       const payload = {

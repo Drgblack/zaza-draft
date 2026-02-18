@@ -1,139 +1,56 @@
-export type EmotionalLocale = "en" | "de"
-export type EmotionalStep =
-  | "acknowledgeEmotion"
-  | "acknowledgeIncident"
-  | "reassure"
-  | "nextSteps"
-  | "inviteDialogue"
-  | "signOff"
-
-type KeywordMap = Record<EmotionalStep, string[]>
-
-const NORMALIZE_REGEX = /[\p{M}]/gu
-
-function normalize(value: string) {
-  return value.toLowerCase().normalize("NFD").replace(NORMALIZE_REGEX, "")
-}
-
-const KEYWORDS: Record<EmotionalLocale, KeywordMap> = {
-  en: {
-    acknowledgeEmotion: [
-      "i understand",
-      "i hear",
-      "thank you for sharing",
-      "i can imagine",
-      "i appreciate your honesty",
-    ],
-    acknowledgeIncident: [
-      "regarding",
-      "about the concern",
-      "in your note",
-      "the homework load",
-      "this situation",
-    ],
-    reassure: [
-      "i'm committed",
-      "i'm here for you",
-      "rest assured",
-      "we'll keep the focus",
-      "i will support",
-    ],
-    nextSteps: [
-      "please",
-      "let's",
-      "i will",
-      "i plan to",
-      "we can set up",
-    ],
-    inviteDialogue: [
-      "let me know",
-      "feel free to reach out",
-      "i welcome",
-      "happy to chat",
-      "i'm available",
-    ],
-    signOff: [],
-  },
-  de: {
-    acknowledgeEmotion: [
-      "ich verstehe",
-      "ich höre",
-      "mir ist bewusst",
-      "danke, dass",
-      "ich nehme wahr",
-    ],
-    acknowledgeIncident: [
-      "bezüglich",
-      "in bezug auf",
-      "die situation",
-      "die anfrage",
-      "konkret",
-    ],
-    reassure: [
-      "ich bin für sie da",
-      "wir behalten den fokus",
-      "gemeinsam finden wir",
-      "ich unterstütze",
-      "das schaffen wir",
-    ],
-    nextSteps: [
-      "bitte",
-      "lassen sie uns",
-      "wir planen",
-      "wir treffen",
-      "ich setze mich",
-    ],
-    inviteDialogue: [
-      "melden sie sich",
-      "lassen sie mich wissen",
-      "gerne im gespräch",
-      "sprechen sie mich an",
-      "ich freue mich",
-    ],
-    signOff: [],
-  },
-}
-
-const SIGN_OFFS: Record<EmotionalLocale, string[]> = {
-  en: ["kind regards", "best regards", "warm regards", "sincerely", "yours sincerely"],
-  de: ["mit freundlichen grüßen", "herzliche grüße", "mit herzlichen grüßen"],
-}
+type Locale = "en" | "de"
 
 export interface EmotionalStructureResult {
-  locale: EmotionalLocale
+  locale: Locale
   score: number
-  matchedSteps: EmotionalStep[]
   passed: boolean
+  signals: string[]
 }
 
-export function evaluateEmotionalStructure(text: string, locale: EmotionalLocale): EmotionalStructureResult {
-  const normalizedText = normalize(text)
-  const matchedSteps: EmotionalStep[] = []
-  const keywords = KEYWORDS[locale]
+const SIGNALS: Record<Locale, Array<{ name: string; patterns: RegExp[] }>> = {
+  en: [
+    { name: "appreciation", patterns: [/thank(s| you)/i, /\bappreciate\b/i] },
+    { name: "empathy", patterns: [/\bunderstand\b/i, /\bhear you\b/i, /\boverwhelm/i] },
+    {
+      name: "commitment",
+      patterns: [/\bwill\b/i, /\bplan\b/i, /\bset up\b/i, /\bcheck(ing)? in\b/i],
+    },
+    { name: "invitation", patterns: [/\breach out\b/i, /\blet me know\b/i, /\bfeel free\b/i] },
+    { name: "closing", patterns: [/\bkind regards\b/i, /\bbest\b/i, /\bsincerely\b/i] },
+  ],
+  de: [
+    { name: "appreciation", patterns: [/\bdanke\b/i, /\bherzlichen dank\b/i] },
+    { name: "empathy", patterns: [/\bverstehe\b/i, /\bbelastend\b/i, /\bfokus\b/i] },
+    {
+      name: "commitment",
+      patterns: [/\bplane(n)?\b/i, /\bkurze termine\b/i, /\bbin.*da\b/i],
+    },
+    { name: "invitation", patterns: [/\bmelde(n)? sie\b/i, /\bfragen haben\b/i, /\bgern\b/i] },
+    { name: "closing", patterns: [/\bmit freundlichen grüßen\b/i, /\bfreundlichen gr\b/i] },
+  ],
+}
 
-  const checkStep = (step: EmotionalStep, candidates: string[]) => {
-    if (candidates.some((phrase) => normalizedText.includes(normalize(phrase)))) {
-      matchedSteps.push(step)
+function countSignals(text: string, locale: Locale) {
+  const buckets = SIGNALS[locale]
+  const hits: string[] = []
+  for (const bucket of buckets) {
+    if (bucket.patterns.some((pattern) => pattern.test(text))) {
+      hits.push(bucket.name)
     }
   }
+  return hits
+}
 
-  Object.entries(keywords).forEach(([step, phrases]) => {
-    if (phrases.length > 0) {
-      checkStep(step as EmotionalStep, phrases)
-    }
-  })
+export function evaluateEmotionalStructure(text: string, locale: Locale = "en"): EmotionalStructureResult {
+  const normalizedLocale: Locale = locale === "de" ? "de" : "en"
+  const signals = countSignals(text, normalizedLocale)
+  const score = signals.length
+  const passed = score >= 4
 
-  const closings = SIGN_OFFS[locale]
-  if (closings.some((closing) => normalizedText.includes(normalize(closing)))) {
-    matchedSteps.push("signOff")
-  }
-
-  const uniqueSteps = Array.from(new Set(matchedSteps))
-  const score = uniqueSteps.length
   return {
-    locale,
+    locale: normalizedLocale,
     score,
-    matchedSteps: uniqueSteps,
-    passed: score >= 4,
+    passed,
+    signals,
   }
 }

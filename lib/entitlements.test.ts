@@ -1,154 +1,87 @@
 import type { Firestore } from "firebase-admin/firestore"
-
 import { afterEach, describe, expect, it, vi } from "vitest"
 
-import * as usageModule from "./usage"
 import { getUserEntitlements } from "./entitlements"
-import { getCurrentMonthKey } from "./usage"
+import * as zidClient from "@/lib/zid/client"
+import * as usageModule from "./usage"
+import * as qaModule from "@/lib/auth/internal-qa"
 
 const usageRecord = {
-  month: getCurrentMonthKey(),
-  generationCount: 0,
-  lastReset: new Date().toISOString(),
-}
-
-function createMockFirestore(userDoc: Record<string, unknown>, licenceDocs: Record<string, Record<string, unknown>>) {
-  const docCache = new Map<string, ReturnType<typeof createDocStub>>()
-
-  function createDocStub() {
-    return {
-      get: vi.fn(async () => ({ exists: false, data: () => undefined })),
-      set: vi.fn(async () => undefined),
-      delete: vi.fn(async () => undefined),
-    }
-  }
-
-  function getDoc(name: string, id: string) {
-    const key = `${name}/${id}`
-    if (!docCache.has(key)) {
-      const stub = createDocStub()
-      if (name === "users") {
-        stub.get = vi.fn(async () => ({
-          exists: true,
-          data: () => userDoc,
-        }))
-      }
-      if (name === "schoolLicences") {
-        const licence = licenceDocs[id]
-        stub.get = vi.fn(async () => ({
-          exists: Boolean(licence),
-          data: () => licence,
-        }))
-      }
-      docCache.set(key, stub)
-    }
-    return docCache.get(key)!
-  }
-
-  return {
-    collection: (name: string) => ({
-      doc: (id: string) => getDoc(name, id),
-    }),
-  } as unknown as Firestore
+  month: "2026-02",
+  generationCount: 1,
+  lastReset: "now",
 }
 
 afterEach(() => {
   vi.restoreAllMocks()
 })
 
-describe("getUserEntitlements override checks", () => {
-  beforeEach(() => {
-    vi.spyOn(usageModule, "fetchUsageRecord").mockResolvedValue(usageRecord)
+describe("getUserEntitlements (ZID-backed)", () => {
+  it("treats ZID access as pro and builds unlimited usage", async () => {
+    const entitlement = {
+      hasAccess: true,
+      accessType: "paid",
+      source: "zid",
+      expiresAt: null,
+      checkedAt: new Date().toISOString(),
+    }
+    const mockedEntitlement = vi.spyOn(zidClient, "getDraftEntitlement").mockResolvedValue(entitlement)
+    const mockedFetchUsage = vi
+      .spyOn(usageModule, "fetchUsageRecord")
+      .mockResolvedValue(usageRecord as usageModule.MonthlyUsageRecord)
+    const mockedBuildUsage = vi.spyOn(usageModule, "buildUsageResponse").mockReturnValue({
+      plan: "pro",
+      currentMonthUsage: 1,
+      limit: null,
+      remaining: null,
+      unlimited: true,
+    })
+    vi.spyOn(qaModule, "isInternalQaUid").mockReturnValue(false)
+
+    const result = await getUserEntitlements("user-1", {} as Firestore, {
+      authHeader: "Bearer token",
+      requestId: "req-123",
+    })
+
+    expect(result.plan).toBe("pro")
+    expect(result.isProSubscriber).toBe(true)
+    expect(result.entitlement).toEqual(entitlement)
+    expect(mockedEntitlement).toHaveBeenCalledWith(
+      expect.objectContaining({ userId: "user-1", authHeader: "Bearer token", requestId: "req-123" }),
+    )
+    expect(mockedFetchUsage).toHaveBeenCalledTimes(1)
+    expect(mockedBuildUsage).toHaveBeenCalledWith(usageRecord, "pro", { unlimited: true })
   })
 
-  it("prioritizes a uid-level override when not expired", async () => {
-    const future = new Date(Date.now() + 1_000_000).toISOString()
-    const db = createMockFirestore(
-      {
-        email: "teacher@example.com",
-        entitlements: {
-          planOverride: "pro",
-          expiresAt: future,
-        },
-      },
-      {},
-    )
+  it("fails closed when ZID denies and still marks QA usage as unlimited", async () => {
+    const entitlement = {
+      hasAccess: false,
+      accessType: undefined,
+      source: undefined,
+      expiresAt: null,
+      reason: "denied",
+      checkedAt: new Date().toISOString(),
+    }
+    vi.spyOn(zidClient, "getDraftEntitlement").mockResolvedValue(entitlement)
+    const mockedFetchUsage = vi
+      .spyOn(usageModule, "fetchUsageRecord")
+      .mockResolvedValue(usageRecord as usageModule.MonthlyUsageRecord)
+    const mockedBuildUsage = vi.spyOn(usageModule, "buildUsageResponse").mockReturnValue({
+      plan: "free",
+      currentMonthUsage: 1,
+      limit: 10,
+      remaining: 9,
+      unlimited: true,
+    })
+    vi.spyOn(qaModule, "isInternalQaUid").mockReturnValue(true)
 
-    const entitlements = await getUserEntitlements("uid", db)
-    expect(entitlements.plan).toBe("pro")
-  })
+    const result = await getUserEntitlements("qa-user", {} as Firestore)
 
-  it("treats a verified domain licence as pro", async () => {
-    const future = new Date(Date.now() + 1_000_000).toISOString()
-    const domain = "school.edu"
-    const db = createMockFirestore(
-      {
-        email: `teacher@${domain}`,
-      },
-      {
-        [domain]: {
-          domain,
-          plan: "pro",
-          expiresAt: future,
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-        },
-      },
-    )
-
-    const entitlements = await getUserEntitlements("uid", db)
-    expect(entitlements.plan).toBe("pro")
-  })
-
-  it("falls back when an override has expired", async () => {
-    const past = new Date(Date.now() - 1_000_000).toISOString()
-    const db = createMockFirestore(
-      {
-        entitlements: {
-          planOverride: "pro",
-          expiresAt: past,
-        },
-      },
-      {},
-    )
-
-    const entitlements = await getUserEntitlements("uid", db)
-    expect(entitlements.plan).toBe("free")
-  })
-
-  it("treats invalid override expiry as expired", async () => {
-    const db = createMockFirestore(
-      {
-        entitlements: {
-          planOverride: "pro",
-          expiresAt: "not-a-date",
-        },
-      },
-      {},
-    )
-
-    const entitlements = await getUserEntitlements("uid", db)
-    expect(entitlements.plan).toBe("free")
-  })
-
-  it("ignores a domain licence with invalid expiry", async () => {
-    const domain = "school.edu"
-    const db = createMockFirestore(
-      {
-        email: `teacher@${domain}`,
-      },
-      {
-        [domain]: {
-          domain,
-          plan: "pro",
-          expiresAt: "invalid date",
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-        },
-      },
-    )
-
-    const entitlements = await getUserEntitlements("uid", db)
-    expect(entitlements.plan).toBe("free")
+    expect(result.plan).toBe("free")
+    expect(result.isProSubscriber).toBe(false)
+    expect(result.entitlement.hasAccess).toBe(false)
+    expect(result.entitlement.reason).toBe("denied")
+    expect(mockedFetchUsage).toHaveBeenCalledTimes(1)
+    expect(mockedBuildUsage).toHaveBeenCalledWith(usageRecord, "free", { unlimited: true })
   })
 })

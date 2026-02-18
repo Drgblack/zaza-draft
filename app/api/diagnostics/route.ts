@@ -42,7 +42,8 @@ export async function GET(request: Request) {
   }
 
   try {
-    const entitlements = await getUserEntitlements(uid, firestore)
+    const authHeader = request.headers.get("authorization") || request.headers.get("Authorization")
+    const entitlements = await getUserEntitlements(uid, firestore, { authHeader })
     const userRef = firestore.collection("users").doc(uid)
     const diagDoc = await userRef.collection("diagnostics").doc("status").get()
     const userSnapshot = await userRef.get()
@@ -58,6 +59,7 @@ export async function GET(request: Request) {
         models: getConfiguredModelNames(),
         plan: entitlements.plan,
         usage: entitlements.usage,
+        entitlement: entitlements.entitlement,
         diagnostics: diagnosticsPayload,
         aiConfigured: Boolean(process.env.OPENAI_API_KEY),
       },

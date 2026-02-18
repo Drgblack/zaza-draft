@@ -93,6 +93,12 @@ vi.mock("@/hooks/use-locale", () => {
   }
 })
 
+vi.mock("@/hooks/use-auth", () => ({
+  useAuth: () => ({
+    getIdToken: vi.fn(async () => "test-token"),
+  }),
+}))
+
 const mockStructure: DraftStructure = {
   subject: "Update on homework",
   paragraphs: [

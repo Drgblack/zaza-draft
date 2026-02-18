@@ -40,7 +40,8 @@ export async function GET(request: Request) {
   const snapshot = await userRef.get()
   const data = snapshot.data() ?? {}
   const subscriptionStatus = (data.subscriptionStatus as string) ?? "none"
-  const entitlements = await getUserEntitlements(uid, firestore)
+  const authHeader = request.headers.get("authorization") || request.headers.get("Authorization")
+  const entitlements = await getUserEntitlements(uid, firestore, { authHeader })
   const isQaUser = isInternalQaUid(uid)
 
   return NextResponse.json({
@@ -53,6 +54,7 @@ export async function GET(request: Request) {
       cancelAtPeriodEnd: data.cancelAtPeriodEnd ?? false,
       stripeCustomerId: data.stripeCustomerId ?? null,
       usage: entitlements.usage,
+      entitlement: entitlements.entitlement,
       isQaUser,
     },
   })
