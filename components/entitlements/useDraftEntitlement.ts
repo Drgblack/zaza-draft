@@ -40,7 +40,7 @@ export function useDraftEntitlement(options: UseDraftEntitlementOptions = {}): D
         throw new Error("Missing authentication token.")
       }
 
-      const response = await fetch("/api/entitlements", {
+      const response = await fetch("/api/account/status", {
         method: "GET",
         headers: {
           Authorization: `Bearer ${token}`,
@@ -55,7 +55,7 @@ export function useDraftEntitlement(options: UseDraftEntitlementOptions = {}): D
         throw new Error(message)
       }
 
-      const parsedEntitlement = parseDraftEntitlement(payload?.data)
+      const parsedEntitlement = parseDraftEntitlement(payload?.data?.draftEntitlement)
       setEntitlement(parsedEntitlement)
     } catch (loadError) {
       setEntitlement(null)

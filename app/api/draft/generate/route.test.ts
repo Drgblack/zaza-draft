@@ -6,6 +6,7 @@ import { POST } from "@/app/api/draft/generate/route"
 import { buildUsageResponse, getCurrentMonthKey, incrementUsage } from "@/lib/usage"
 import { getUserEntitlements } from "@/lib/entitlements"
 import { isInternalQaUid, shouldRespectUsageLimit } from "@/lib/auth/internal-qa"
+import { resolveDraftEntitlement } from "@/lib/draft-entitlements"
 
 interface TrustGradeViolation {
   type: string
@@ -143,6 +144,38 @@ vi.mock("@/lib/entitlements", () => ({
   }),
 }))
 
+vi.mock("@/lib/draft-entitlements", () => ({
+  hasDraftEntitlementAccess: (entitlement: { hasAccess: boolean; status: string }) =>
+    entitlement.hasAccess && (entitlement.status === "active" || entitlement.status === "trial"),
+  resolveDraftEntitlement: vi.fn().mockImplementation(async ({ uid, localEntitlements }) => ({
+    entitlement: {
+      userId: uid,
+      productKey: "draft",
+      hasAccess: true,
+      accessType: "paid",
+      expiresAt: null,
+      source: "direct",
+      sourceOrgId: null,
+      orgId: null,
+      licenceId: "lic_1",
+      status: "active",
+    },
+    source: "local_disabled",
+    localEntitlements: localEntitlements ?? {
+      plan: "free",
+      usage: {
+        plan: "free",
+        currentMonthUsage: 0,
+        limit: 10,
+        remaining: 10,
+        unlimited: false,
+      },
+      usageRecord: { month: "2025-01", generationCount: 0, lastReset: new Date().toISOString() },
+      isProSubscriber: false,
+    },
+  })),
+}))
+
 vi.mock("@/lib/text/pronouns", () => ({
   enforcePronouns: (text: string) => text,
   inferPronounResolution: () => ({
@@ -181,6 +214,7 @@ const mockedGetUserEntitlements = vi.mocked(getUserEntitlements)
 const mockedShouldRespectUsageLimit = vi.mocked(shouldRespectUsageLimit)
 const mockedIsInternalQaUid = vi.mocked(isInternalQaUid)
 const mockedAuthorizeFirebaseRequest = vi.mocked(authorizeFirebaseRequest)
+const mockedResolveDraftEntitlement = vi.mocked(resolveDraftEntitlement)
 beforeEach(() => {
   vi.clearAllMocks()
   fallbackGenerator.mockReset()
@@ -219,6 +253,37 @@ beforeEach(() => {
   mockedAuthorizeFirebaseRequest.mockResolvedValue({
     uid: "test-uid",
     firestore: createFirestoreStub(),
+  })
+  mockedResolveDraftEntitlement.mockResolvedValue({
+    entitlement: {
+      userId: "test-uid",
+      productKey: "draft",
+      hasAccess: true,
+      accessType: "paid",
+      expiresAt: null,
+      source: "direct",
+      sourceOrgId: null,
+      orgId: null,
+      licenceId: "lic_1",
+      status: "active",
+    },
+    source: "remote",
+    localEntitlements: {
+      plan: "free",
+      usage: {
+        plan: "free",
+        currentMonthUsage: 0,
+        limit: 10,
+        remaining: 10,
+        unlimited: false,
+      },
+      usageRecord: {
+        month: "2025-01",
+        generationCount: 0,
+        lastReset: new Date().toISOString(),
+      },
+      isProSubscriber: false,
+    },
   })
 })
 
@@ -926,6 +991,62 @@ describe("/api/draft/generate trust-grade regeneration", () => {
 })
 
 describe("/api/draft/generate usage entitlement parity", () => {
+  it("returns 403 when draft entitlement denies access", async () => {
+    mockedResolveDraftEntitlement.mockResolvedValueOnce({
+      entitlement: {
+        userId: "test-uid",
+        productKey: "draft",
+        hasAccess: false,
+        accessType: "none",
+        expiresAt: null,
+        source: "none",
+        sourceOrgId: null,
+        orgId: null,
+        licenceId: null,
+        status: "none",
+      },
+      source: "remote_terminal",
+      localEntitlements: {
+        plan: "free",
+        usage: {
+          plan: "free",
+          currentMonthUsage: 0,
+          limit: 10,
+          remaining: 10,
+          unlimited: false,
+        },
+        usageRecord: {
+          month: "2025-01",
+          generationCount: 0,
+          lastReset: new Date().toISOString(),
+        },
+        isProSubscriber: false,
+      },
+    })
+
+    const payload = {
+      situation: detailedSituation,
+      tone: "professional",
+      language: "en",
+      uiLocale: "en-GB",
+      mode: "parent_message",
+    }
+    const request = new Request("https://example.com/api/draft/generate", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: "Bearer token",
+      },
+      body: JSON.stringify(payload),
+    })
+
+    const response = await POST(request)
+    expect(response.status).toBe(403)
+    const json = await response.json()
+    expect(json.success).toBe(false)
+    expect(json.error?.code).toBe("NOT_ENTITLED")
+  })
+
   const limitCases = [
     {
       language: "en",

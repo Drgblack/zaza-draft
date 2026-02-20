@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server"
 import { buildDocxBuffer } from "@/lib/export/docx"
 import { authorizeFirebaseRequest, FirebaseAuthorizationError } from "@/lib/firebase/server"
-import { fetchDraftEntitlement, ZazaIdClientError } from "@/lib/zaza-id/client"
-import { hasDraftAccess } from "@/lib/zaza-id/types"
+import { extractBearerToken } from "@/lib/auth/bearer"
+import { hasDraftEntitlementAccess, resolveDraftEntitlement } from "@/lib/draft-entitlements"
 
 interface ExportDocxRequest {
   draftText: string
@@ -11,18 +11,10 @@ interface ExportDocxRequest {
   language?: string
 }
 
-function extractBearerToken(request: Request) {
-  const authHeader = request.headers.get("authorization") || request.headers.get("Authorization")
-  if (!authHeader?.startsWith("Bearer ")) {
-    return null
-  }
-  const token = authHeader.slice("Bearer ".length).trim()
-  return token || null
-}
-
 export async function POST(request: Request) {
+  let authContext
   try {
-    await authorizeFirebaseRequest(request)
+    authContext = await authorizeFirebaseRequest(request)
   } catch (error) {
     const status = error instanceof FirebaseAuthorizationError ? error.statusCode : 401
     return NextResponse.json(
@@ -34,6 +26,20 @@ export async function POST(request: Request) {
         },
       },
       { status },
+    )
+  }
+
+  const { uid, firestore } = authContext
+  if (!firestore) {
+    return NextResponse.json(
+      {
+        success: false,
+        error: {
+          code: "FIRESTORE_UNAVAILABLE",
+          message: "Unable to access Firestore.",
+        },
+      },
+      { status: 500 },
     )
   }
 
@@ -52,21 +58,21 @@ export async function POST(request: Request) {
   }
 
   try {
-    const entitlement = await fetchDraftEntitlement(idToken)
-    if (!hasDraftAccess(entitlement)) {
+    const entitlement = await resolveDraftEntitlement({
+      uid,
+      firestore,
+      idToken,
+    })
+    if (!hasDraftEntitlementAccess(entitlement.entitlement)) {
       return NextResponse.json({ error: "not_entitled" }, { status: 403 })
     }
-  } catch (error) {
-    if (error instanceof ZazaIdClientError && (error.statusCode === 401 || error.statusCode === 403)) {
-      return NextResponse.json({ error: "not_entitled" }, { status: 403 })
-    }
-
+  } catch {
     return NextResponse.json(
       {
         success: false,
         error: {
           code: "ENTITLEMENT_UNAVAILABLE",
-          message: "Unable to verify entitlements right now.",
+          message: "Unable to verify entitlements.",
         },
       },
       { status: 502 },

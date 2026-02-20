@@ -1,4 +1,4 @@
-﻿import { describe, expect, it, vi, beforeEach } from "vitest"
+import { describe, expect, it, vi, beforeEach } from "vitest"
 
 const snippetSet = vi.fn().mockResolvedValue(undefined)
 const diagnosticsSet = vi.fn().mockResolvedValue(undefined)
@@ -233,7 +233,7 @@ describe("snippet persistence", () => {
     const { POST } = await import("@/app/api/draft/generate/route")
     const request = new Request("http://localhost/api/draft/generate", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", Authorization: "Bearer token" },
       body: JSON.stringify({
         situation: sampleSituation,
         tone: "professional",
@@ -255,7 +255,7 @@ describe("snippet persistence", () => {
     const { POST } = await import("@/app/api/draft/generate/route")
     const request = new Request("http://localhost/api/draft/generate", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", Authorization: "Bearer token" },
       body: JSON.stringify({
         situation: sampleSituation,
         tone: "professional",
@@ -283,6 +283,7 @@ describe("snippet persistence", () => {
     expect(new Date(snippetPayload.createdAt).toString()).not.toBe("Invalid Date")
   })
 })
+
 
 
 

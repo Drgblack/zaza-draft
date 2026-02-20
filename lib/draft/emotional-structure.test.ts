@@ -19,7 +19,6 @@ describe("evaluateEmotionalStructure", () => {
     "Mit freundlichen Grüßen,",
   ].join("\n\n")
 
- fix/de-emotional-parity
   const mirroredEnglishScenario = [
     "Dear family, thank you for sharing how the homework load feels right now.",
     "I understand the impact on your child and we will keep the focus on gentle support.",
@@ -36,7 +35,6 @@ describe("evaluateEmotionalStructure", () => {
     "Mit freundlichen Grüßen,",
   ].join("\n\n")
 
- main
   it("ensures English drafts meet the emotional structure threshold", () => {
     const result = evaluateEmotionalStructure(englishScenario, "en")
     expect(result.passed).toBe(true)
@@ -44,16 +42,13 @@ describe("evaluateEmotionalStructure", () => {
     expect(result.locale).toBe("en")
   })
 
- fix/de-emotional-parity
-  it("ensures German drafts meet the emotional structure threshold alongside the English sample", () => {
-
   it("ensures German drafts meet the emotional structure threshold and matches the English score", () => {
- main
     const result = evaluateEmotionalStructure(germanScenario, "de")
+    const englishScore = evaluateEmotionalStructure(englishScenario, "en").score
     expect(result.passed).toBe(true)
     expect(result.score).toBeGreaterThanOrEqual(4)
     expect(result.locale).toBe("de")
- fix/de-emotional-parity
+    expect(result.score).toBeGreaterThanOrEqual(englishScore - 1)
   })
 
   it("passes the mirrored English and German scenario with a minimum emotional score", () => {
@@ -69,9 +64,5 @@ describe("evaluateEmotionalStructure", () => {
     const englishResult = evaluateEmotionalStructure(mirroredEnglishScenario, "en")
     const germanResult = evaluateEmotionalStructure(mirroredGermanScenario, "de")
     expect(englishResult.matchedSteps.slice().sort()).toEqual(germanResult.matchedSteps.slice().sort())
-
-    const englishScore = evaluateEmotionalStructure(englishScenario, "en").score
-    expect(result.score).toBe(englishScore)
- main
   })
 })

@@ -1,8 +1,8 @@
 import PDFDocument from "pdfkit"
 import { NextResponse } from "next/server"
 import { authorizeFirebaseRequest, FirebaseAuthorizationError } from "@/lib/firebase/server"
-import { fetchDraftEntitlement, ZazaIdClientError } from "@/lib/zaza-id/client"
-import { hasDraftAccess } from "@/lib/zaza-id/types"
+import { extractBearerToken } from "@/lib/auth/bearer"
+import { hasDraftEntitlementAccess, resolveDraftEntitlement } from "@/lib/draft-entitlements"
 
 const FILENAME_PREFIX = "zaza-draft"
 
@@ -44,23 +44,23 @@ function buildPdfBuffer(text: string): Promise<Buffer> {
   return completion
 }
 
-function extractBearerToken(request: Request) {
-  const authHeader = request.headers.get("authorization") || request.headers.get("Authorization")
-  if (!authHeader?.startsWith("Bearer ")) {
-    return null
-  }
-  const token = authHeader.slice("Bearer ".length).trim()
-  return token || null
-}
-
 export async function POST(request: Request) {
+  let authContext
   try {
-    await authorizeFirebaseRequest(request)
+    authContext = await authorizeFirebaseRequest(request)
   } catch (error) {
     const status = error instanceof FirebaseAuthorizationError ? error.statusCode : 401
     return NextResponse.json(
       { errorCode: "UNAUTHORIZED", message: (error as Error).message || "Unauthorized" },
       { status },
+    )
+  }
+
+  const { uid, firestore } = authContext
+  if (!firestore) {
+    return NextResponse.json(
+      { errorCode: "FIRESTORE_UNAVAILABLE", message: "Unable to access Firestore." },
+      { status: 500 },
     )
   }
 
@@ -73,19 +73,16 @@ export async function POST(request: Request) {
   }
 
   try {
-    const entitlement = await fetchDraftEntitlement(idToken)
-    if (!hasDraftAccess(entitlement)) {
+    const entitlement = await resolveDraftEntitlement({
+      uid,
+      firestore,
+      idToken,
+    })
+    if (!hasDraftEntitlementAccess(entitlement.entitlement)) {
       return NextResponse.json({ error: "not_entitled" }, { status: 403 })
     }
-  } catch (error) {
-    if (error instanceof ZazaIdClientError && (error.statusCode === 401 || error.statusCode === 403)) {
-      return NextResponse.json({ error: "not_entitled" }, { status: 403 })
-    }
-
-    return NextResponse.json(
-      { errorCode: "ENTITLEMENT_UNAVAILABLE", message: "Unable to verify entitlements right now." },
-      { status: 502 },
-    )
+  } catch {
+    return NextResponse.json({ errorCode: "ENTITLEMENT_UNAVAILABLE", message: "Unable to verify entitlements." }, { status: 502 })
   }
 
   const payload = await request.json().catch(() => null)

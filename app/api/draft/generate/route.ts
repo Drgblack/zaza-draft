@@ -19,6 +19,8 @@ import {
 } from "@/lib/usage"
 import { logServerEvent } from "@/lib/analytics"
 import { getUserEntitlements } from "@/lib/entitlements"
+import { extractBearerToken } from "@/lib/auth/bearer"
+import { hasDraftEntitlementAccess, resolveDraftEntitlement } from "@/lib/draft-entitlements"
 import {
   ALLOWED_TONES,
   DraftFallbackContext,
@@ -681,9 +683,25 @@ export async function POST(request: Request) {
     usageRecord: defaultUsageRecord,
     isProSubscriber: false,
   }
-  const entitlements = isDevBypassRequest
-    ? devDefaults
-    : await getUserEntitlements(uid, firestore!)
+  const localEntitlements = isDevBypassRequest ? devDefaults : await getUserEntitlements(uid, firestore!)
+  if (!isDevBypassRequest) {
+    const idToken = extractBearerToken(request)
+    if (!idToken) {
+      return fail(401, "UNAUTHORIZED", "Missing authorization token")
+    }
+
+    const draftEntitlement = await resolveDraftEntitlement({
+      uid,
+      firestore: firestore!,
+      idToken,
+      localEntitlements,
+    })
+    if (!hasDraftEntitlementAccess(draftEntitlement.entitlement)) {
+      return fail(403, "NOT_ENTITLED", "Your Draft access is not active.")
+    }
+  }
+
+  const entitlements = localEntitlements
   const {
     plan,
     usage: initialUsage,
