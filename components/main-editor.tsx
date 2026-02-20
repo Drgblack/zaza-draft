@@ -206,7 +206,11 @@ export function resolveExplanationTier(
   return null
 }
 
-export function MainEditor() {
+interface MainEditorProps {
+  canExport?: boolean
+}
+
+export function MainEditor({ canExport = true }: MainEditorProps = {}) {
   const [content, setContent] = useState("")
   const [selectedTone, setSelectedTone] = useState<ToneKey>("warm")
   const [usage, setUsage] = useState<{
@@ -1327,6 +1331,8 @@ Examples:
               showUsageLimit={isLimitedUser}
               buildSha={buildSha}
               structure={draftStructure ?? undefined}
+              canExport={canExport}
+              getIdToken={getIdToken}
             />
             {deescalationSummary?.wasDeescalated && (
               <DeescalationBanner summary={deescalationSummary} />

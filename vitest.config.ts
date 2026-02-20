@@ -18,6 +18,7 @@ export default defineConfig({
       "components/**/*.test.tsx",
       "app/**/*.test.{ts,tsx}",
       "hooks/**/*.test.{ts,tsx}",
+      "tests/**/*.test.{ts,tsx}",
     ],
     setupFiles: ["test/setup/test-setup.ts"],
   },

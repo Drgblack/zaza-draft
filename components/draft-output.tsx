@@ -27,6 +27,8 @@ interface DraftOutputProps {
   draftsLimit: number
   showUsageLimit?: boolean
   buildSha?: string
+  canExport?: boolean
+  getIdToken?: () => Promise<string | null>
 }
 
 export function DraftOutput({
@@ -42,6 +44,8 @@ export function DraftOutput({
   draftsLimit,
   showUsageLimit = false,
   buildSha,
+  canExport = true,
+  getIdToken,
 }: DraftOutputProps) {
   const [copied, setCopied] = useState(false)
   const [showSaveModal, setShowSaveModal] = useState(false)
@@ -118,6 +122,17 @@ export function DraftOutput({
   }
 
   const handleExportPDF = async () => {
+    if (!canExport) {
+      setActionMessage("Access required before exporting.")
+      return
+    }
+
+    const token = await getIdToken?.()
+    if (!token) {
+      setActionMessage("Please sign in again before exporting.")
+      return
+    }
+
     setActionMessage("Preparing PDF…")
     try {
       const mode = metadata.modeUsed ?? DEFAULT_DRAFT_MODE
@@ -126,6 +141,7 @@ export function DraftOutput({
         method: "POST",
         headers: {
           "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
           draftText,
@@ -155,6 +171,17 @@ export function DraftOutput({
 
   // Export as DOCX (client-side generation for now)
   const handleExportDOCX = async () => {
+    if (!canExport) {
+      setActionMessage("Access required before exporting.")
+      return
+    }
+
+    const token = await getIdToken?.()
+    if (!token) {
+      setActionMessage("Please sign in again before exporting.")
+      return
+    }
+
     setActionMessage("Preparing DOCX.")
     try {
       const mode = metadata.modeUsed ?? DEFAULT_DRAFT_MODE
@@ -163,6 +190,7 @@ export function DraftOutput({
         method: "POST",
         headers: {
           "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
           draftText,
@@ -372,7 +400,7 @@ export function DraftOutput({
                 onClick={() => {
                   void runMenuAction(handleExportPDF)
                 }}
-                  disabled={!hasDraft}
+                  disabled={!hasDraft || !canExport}
                   className="w-full text-left px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center gap-3 text-gray-700 dark:text-gray-200 transition disabled:opacity-40 disabled:cursor-not-allowed"
                 >
                   <FileText size={18} />
@@ -383,7 +411,7 @@ export function DraftOutput({
                 onClick={() => {
                   void runMenuAction(handleExportDOCX, "DOCX download ready.")
                 }}
-                  disabled={!hasDraft}
+                  disabled={!hasDraft || !canExport}
                   className="w-full text-left px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center gap-3 text-gray-700 dark:text-gray-200 transition disabled:opacity-40 disabled:cursor-not-allowed"
                 >
                   <FileText size={18} />
@@ -468,7 +496,7 @@ export function DraftOutput({
                   onClick={() => {
                     void runMenuAction(handleExportPDF)
                   }}
-                  disabled={!hasDraft}
+                  disabled={!hasDraft || !canExport}
                   className="w-full text-left px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center gap-3 text-gray-700 dark:text-gray-200 transition disabled:opacity-40 disabled:cursor-not-allowed"
                 >
                   <FileText size={18} />
@@ -479,7 +507,7 @@ export function DraftOutput({
                   onClick={() => {
                     void runMenuAction(handleExportDOCX, "DOCX download ready.")
                   }}
-                  disabled={!hasDraft}
+                  disabled={!hasDraft || !canExport}
                   className="w-full text-left px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center gap-3 text-gray-700 dark:text-gray-200 transition disabled:opacity-40 disabled:cursor-not-allowed"
                 >
                   <FileText size={18} />

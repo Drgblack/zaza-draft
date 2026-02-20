@@ -19,6 +19,8 @@
     "test:blocked-language": "tsx scripts/test-blocked-language.ts",
     "test:student-name-style": "tsx scripts/test-student-name-style.ts",
     "test:unit": "vitest run",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit",
     "test:export-docx": "tsx scripts/test-export-docx.ts",
     "test:export-pdf": "tsx scripts/test-export-pdf.ts",
     "start": "next start",
