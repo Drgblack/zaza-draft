@@ -1,0 +1,4 @@
+Contact: mailto:security@zazadraft.com
+Expires: 2027-03-09T00:00:00Z
+Preferred-Languages: en
+Canonical: https://zazadraft.com/.well-known/security.txt

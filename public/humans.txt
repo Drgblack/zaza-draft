@@ -1,0 +1,8 @@
+/* TEAM */
+Developer: Your Name / Team Name
+Site: https://zazadraft.com
+Twitter: @yourhandle
+GitHub: https://github.com/yourusername
+
+/* THANKS */
+Built with Next.js, Tailwind, pdf-lib, and love for privacy.
