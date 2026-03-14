@@ -135,6 +135,14 @@ vi.mock("@/lib/draft-mode", () => ({
 
 vi.mock("@/lib/draft/fallback", () => ({
   ALLOWED_TONES: ["warm", "professional", "direct", "empathetic"],
+  buildFallbackDraft: () =>
+    [
+      "Subject: Classroom update",
+      "Dear parent(s),",
+      "I wanted to give you a clear update about your child and explain the practical step I will take in class.",
+      "If a short conversation would help, I can speak with you this week.",
+      "Kind regards,",
+    ].join("\n"),
   generateDraftWithFallback: vi.fn(async () => ({
     result: {
       text: "Hello",

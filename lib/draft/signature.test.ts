@@ -18,7 +18,7 @@ describe("signature helper", () => {
     expect(signature.appendForMode.report_comment).toBe(false)
   })
 
-  it("applies replacements and appends block for parent messages", () => {
+  it("applies replacements without appending a second signature block", () => {
     const signature = resolveSignature({
       line1: "Ms. Carter",
       line2: "English Lead",
@@ -31,6 +31,7 @@ describe("signature helper", () => {
     expect(result).toContain("Ms. Carter")
     expect(result).toContain("English Lead")
     expect(result).toMatch(/Ms\. Carter/)
+    expect(result).not.toContain("Dear family,\n\nMs. Carter\n English Lead\n\nMs. Carter")
   })
 
   it("does not append signature for report comments by default", () => {

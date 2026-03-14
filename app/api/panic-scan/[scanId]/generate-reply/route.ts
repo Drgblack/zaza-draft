@@ -146,6 +146,11 @@ export async function POST(request: NextRequest) {
     inputMode: "panic_scan" as const,
     sourceType: "ocr_text" as const,
     messageType: data?.classification?.messageType ?? null,
+    ocrConfidence: typeof data?.cleanConfidence === "number" ? data.cleanConfidence : null,
+    panicClassificationConfidence:
+      typeof data?.classification?.confidenceScore === "number"
+        ? data.classification.confidenceScore
+        : null,
     scanId,
     greeting: {
       text: normalizedGreeting || greetingResult.greeting,

@@ -23,6 +23,7 @@ import { extractBearerToken } from "@/lib/auth/bearer"
 import { hasDraftEntitlementAccess, resolveDraftEntitlement } from "@/lib/draft-entitlements"
 import {
   ALLOWED_TONES,
+  buildFallbackDraft,
   DraftFallbackContext,
   generateDraftWithFallback,
   LanguageKey,
@@ -47,6 +48,8 @@ import {
   type ResolvedSignature,
 } from "@/lib/draft/signature"
 import { resolveTeacherSignatureName } from "@/lib/draft/teacher-signature"
+import { normalizeClosingBlock } from "@/lib/draft/ensure-single-signoff"
+import { detectTeacherAuthenticityViolations, type TeacherAuthenticityViolation } from "@/lib/draft/teacher-authenticity"
 import { isValidDraftRequest, OUT_OF_SCOPE_REDIRECT_MESSAGE } from "./scope-guard"
 import { isDebugEnabled } from "@/lib/debug"
 import { classifyGenerationRequest, type GenerationMetadata, type SourceType } from "@/lib/generation/classification"
@@ -115,6 +118,8 @@ interface GenerateDraftRequest {
   voiceSessionId?: string
   inputMode?: GenerationMetadata["mode"]
   sourceType?: SourceType
+  ocrConfidence?: number
+  panicClassificationConfidence?: number
 }
 
 function buildContextLine(context?: GenerateDraftRequest["context"]) {
@@ -505,6 +510,7 @@ export async function POST(request: Request) {
         requestedInputMode: payload.inputMode,
         requestedSourceType: payload.sourceType,
         messageType: payload.messageType ?? null,
+        sourceConfidence: payload.ocrConfidence ?? null,
         hasScanId: Boolean(payload.scanId),
         hasVoiceSessionId: Boolean(payload.voiceSessionId),
       })
@@ -909,6 +915,8 @@ export async function POST(request: Request) {
     greetingSource: payload.greetingSource,
     messageType: payload.messageType,
     scanId: payload.scanId,
+    ocrConfidence: payload.ocrConfidence,
+    panicClassificationConfidence: payload.panicClassificationConfidence,
     uiLocale: normalizedUiLocale,
   }
   const fallbackContext: DraftFallbackContext = {
@@ -933,47 +941,23 @@ export async function POST(request: Request) {
     })
     return applyFinalGreetingGuard(curated, finalGreetingLine)
   }
-  const finalizeDraftWithSignature = (text: string) =>
-    applySignatureToDraft(finalizeDraft(text), resolvedSignature, mode)
-  const finalizeWithGreeting = (text: string) =>
-    removeDuplicateGreeting(finalizeDraftWithSignature(text), finalGreetingLine)
-
-  const DEFAULT_CLOSINGS = {
-    en: "Kind regards",
-    de: "Mit freundlichen Gr\u00FC\u00DFen,",
-  }
   const FALLBACK_SIGNATURES = {
     en: "Your child's teacher",
     de: "Ihre Klassenlehrkraft",
   }
-
-  function ensureClosingAndSignature(text: string, language?: string, teacherName?: string) {
-    const normalizedLanguage = language?.toLowerCase() ?? "en"
-    const closingLine = normalizedLanguage.startsWith("de")
-      ? DEFAULT_CLOSINGS.de
-      : DEFAULT_CLOSINGS.en
-    const signatureLine =
-      (teacherName?.trim()) || (normalizedLanguage.startsWith("de") ? FALLBACK_SIGNATURES.de : FALLBACK_SIGNATURES.en)
-    const trimmed = text.trim()
-    const lines = trimmed
-      .split(/\n+/)
-      .map((line) => line.trim())
-      .filter(Boolean)
-    const normalizeMatch = (value: string) => value.replace(/[.,;:]+$/, "").trim().toLowerCase()
-    const closingMatch = normalizeMatch(closingLine)
-    const signatureMatch = normalizeMatch(signatureLine)
-    const hasClosing = lines.some((line) => normalizeMatch(line) === closingMatch)
-    const hasSignature =
-      Boolean(signatureLine) && lines.some((line) => normalizeMatch(line) === signatureMatch)
-    let result = trimmed
-    if (!hasClosing) {
-      result = `${result}\n\n${closingLine}`
-    }
-    if (!hasSignature && signatureLine) {
-      result = `${result}\n${signatureLine}`
-    }
-    return result
-  }
+  const normalizeClosingForMode = (text: string) =>
+    normalizeClosingBlock(text, {
+      locale: language,
+      omit: mode === "report_comment" || !resolvedSignature.appendForMode[mode],
+      signatureLines: resolvedSignature.lines,
+      fallbackName: language?.toLowerCase().startsWith("de")
+        ? FALLBACK_SIGNATURES.de
+        : FALLBACK_SIGNATURES.en,
+    })
+  const finalizeDraftWithSignature = (text: string) =>
+    normalizeClosingForMode(applySignatureToDraft(finalizeDraft(text), resolvedSignature, mode))
+  const finalizeWithGreeting = (text: string) =>
+    removeDuplicateGreeting(finalizeDraftWithSignature(text), finalGreetingLine)
   const runDraft = (forceLanguage = false, forceContinuation = false) =>
     generateDraftWithFallback(
       { ...providerInput, forceLanguage, forceContinuation },
@@ -1030,7 +1014,7 @@ export async function POST(request: Request) {
     if (shouldNormalizeGermanParentMessage) {
       generatedDraft = applyGermanNormalization(generatedDraft)
     }
-    generatedDraft = ensureClosingAndSignature(generatedDraft, language, teacherSignatureName)
+    generatedDraft = normalizeClosingForMode(generatedDraft)
     formattedDraftStructure = formatDraftText(generatedDraft, language)
     bodyParagraphCount = getParagraphCountExcludingGreeting(formattedDraftStructure, finalGreetingLine)
     bodyWordCount = countWords(generatedDraft)
@@ -1115,6 +1099,72 @@ export async function POST(request: Request) {
         },
       },
     )
+  }
+
+  let teacherAuthenticityViolations = detectTeacherAuthenticityViolations(generatedDraft, {
+    language,
+    mode,
+    direction: generationMetadata.direction,
+  })
+  let teacherAuthenticityRegenerationAttempted = false
+
+  const attemptTeacherAuthenticityRegeneration = async (
+    currentViolations: TeacherAuthenticityViolation[],
+  ) => {
+    if (teacherAuthenticityRegenerationAttempted || currentViolations.length === 0) {
+      return currentViolations
+    }
+
+    teacherAuthenticityRegenerationAttempted = true
+    providerInput.teacherAuthenticityViolations = {
+      types: Array.from(new Set(currentViolations.map((violation) => violation.type))),
+      phrases: currentViolations.map((violation) => violation.phrase),
+    }
+    const regenerationAttempt = await runDraft(forcedLanguageAttempted)
+    providerResult = regenerationAttempt.result
+    usedFallback = regenerationAttempt.usedFallback
+    fallbackErrorCode = regenerationAttempt.errorCode
+    generatedDraft = finalizeWithGreeting(providerResult.text)
+    providerMeta = providerResult.providerMeta
+    finalizeAndFormatDraft(generatedDraft)
+    providerInput.teacherAuthenticityViolations = undefined
+
+    return detectTeacherAuthenticityViolations(generatedDraft, {
+      language,
+      mode,
+      direction: generationMetadata.direction,
+    })
+  }
+
+  if (teacherAuthenticityViolations.length > 0) {
+    teacherAuthenticityViolations = await attemptTeacherAuthenticityRegeneration(
+      teacherAuthenticityViolations,
+    )
+  }
+
+  if (teacherAuthenticityViolations.length > 0) {
+    const fallbackDraft = finalizeWithGreeting(buildFallbackDraft(fallbackContext))
+    const fallbackViolations = detectTeacherAuthenticityViolations(fallbackDraft, {
+      language,
+      mode,
+      direction: generationMetadata.direction,
+    })
+
+    if (fallbackViolations.length === 0) {
+      generatedDraft = fallbackDraft
+      finalizeAndFormatDraft(generatedDraft)
+      providerMeta = {
+        modelUsed: "teacher-style-fallback",
+        latencyMs: providerMeta.latencyMs,
+      }
+      usedFallback = true
+      fallbackErrorCode = fallbackErrorCode ?? "TEACHER_STYLE_FALLBACK"
+      teacherAuthenticityViolations = []
+    }
+  }
+
+  if (teacherAuthenticityViolations.length > 0) {
+    safetyFlags.add("output-generic-teacher-language")
   }
 
   let rewriteAttempted = false

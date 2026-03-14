@@ -153,4 +153,67 @@ describe("panic scan upload route", () => {
     expect(body.error.stage).toBe("ocr")
     expect(response.headers.get("x-request-id")).toBe(body.requestId)
   })
+
+  it("stores cleaned OCR, confidence, and classification on successful processing", async () => {
+    vi.mocked(cleanOcrText).mockReturnValue({
+      cleanText: "My child came home upset about the homework load.",
+      confidence: 0.44,
+      removedLines: 3,
+    })
+    vi.mocked(analyzePanicMessage).mockResolvedValue({
+      classification: {
+        messageType: "parent_complaint",
+        emotionalTone: "angry",
+        riskLevel: "medium",
+        urgency: "medium",
+        confidenceScore: 84,
+      },
+      analysis: {
+        summary: "Parent is upset about workload.",
+        emotionalInterpretation: "The parent sounds frustrated.",
+        professionalRisk: "Escalation risk if ignored.",
+        likelyMeaning: "They want a clear explanation and a calmer plan.",
+        suggestedResponse: "acknowledge_concern",
+      },
+    })
+
+    const fakeFile = {
+      arrayBuffer: async () => Buffer.from("data"),
+      name: "panic.png",
+      type: "image/png",
+      size: 4,
+    }
+    const fakeFormData = {
+      get: (key: string) => {
+        if (key === "file") return fakeFile
+        if (key === "platform") return "mobile_ios"
+        return null
+      },
+    }
+
+    const request = {
+      formData: async () => fakeFormData,
+      headers: new Headers({
+        Authorization: "Bearer token",
+      }),
+    } as unknown as Request
+
+    const response = await POST(request)
+    const body = await response.json()
+
+    expect(response.status).toBe(200)
+    expect(body.ok).toBe(true)
+    expect(firestoreSet).toHaveBeenCalledWith(
+      expect.objectContaining({
+        extractedTextClean: "My child came home upset about the homework load.",
+        cleanConfidence: 0.44,
+        classification: expect.objectContaining({
+          messageType: "parent_complaint",
+          confidenceScore: 84,
+        }),
+        status: "completed",
+      }),
+      { merge: true },
+    )
+  })
 })

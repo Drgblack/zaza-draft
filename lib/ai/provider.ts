@@ -2,6 +2,7 @@ import type { DraftLanguage, DraftMode, DraftTone, PronounPreference } from "@/l
 import { MODE_DISPLAY_NAMES, MODE_PROMPT_INSTRUCTIONS } from "@/lib/draft-mode"
 import { buildStudentInstruction, PRONOUN_LABELS } from "@/lib/draft/student-policy"
 import { detectOutOfScopeRequest } from "@/lib/safety/out-of-scope"
+import { resolveGenerationSamplingConfig } from "@/lib/ai/generation-config"
 import type {
   GenerationInputMode,
   GenerationMetadata,
@@ -59,8 +60,14 @@ interface ProviderInput {
   greetingSource?: GreetingSource
   messageType?: string
   scanId?: string
+  ocrConfidence?: number
+  panicClassificationConfidence?: number
   teacherSignatureName?: string
   trustGradeViolations?: {
+    types: string[]
+    phrases: string[]
+  }
+  teacherAuthenticityViolations?: {
     types: string[]
     phrases: string[]
   }
@@ -117,6 +124,7 @@ function buildSafeDraftInstructions(input: ProviderInput) {
       return [
         "This request comes from Safe Draft typed teacher input.",
         "Preserve the teacher as the author throughout. Do not thank the parent for writing unless that wording is explicitly present in the teacher draft.",
+        "Keep the message warm but efficient. Lead with the real classroom issue or update, not a generic empathy opener.",
       ]
     case "teacher_internal_notes":
       return [
@@ -124,16 +132,19 @@ function buildSafeDraftInstructions(input: ProviderInput) {
         "Transform rough teacher notes into a polished teacher-authored parent message.",
         "Do not respond as though an incoming parent email was pasted here.",
         "Do not open with phrases such as 'thank you for sharing your concerns' or similar parent-reply language unless the source is explicitly classified as parent_to_teacher.",
+        "Name the concrete issue early and write in the voice of an experienced teacher sending a real update home.",
       ]
     case "report_comment":
       return [
         "This request comes from Safe Draft report-comment mode.",
         "Write a concise teacher-authored report comment with no greeting and no parent reply framing.",
+        "Keep it observational, school-appropriate, and free of emotional padding.",
       ]
     case "parent_to_teacher":
       return [
         "This Safe Draft request was unexpectedly classified as parent_to_teacher.",
         "Keep the output teacher-authored and bounded. Do not switch into the parent's voice.",
+        "Acknowledge the specific issue in one sentence, then move to what has been checked, what will happen next, or what boundary applies.",
       ]
   }
 }
@@ -142,28 +153,42 @@ function buildPanicScanInstructions(input: ProviderInput) {
   const instructions = [
     "This request comes from Panic Scan OCR.",
     "Treat OCR provenance as authoritative. The cleaned OCR text is the primary source and must not be rewritten as if it came from typed teacher notes.",
+    "Default assumption: the uploaded screenshot is a message received by the teacher from a parent or guardian. Unless the metadata shows unusually strong outgoing-teacher evidence, write only as the teacher replying to that incoming message.",
   ]
 
   switch (input.generationMetadata.direction) {
     case "parent_to_teacher":
       instructions.push(
         "Interpret the OCR text as a parent message to the teacher and write a calm, professional teacher reply to the parent.",
-        "Acknowledge the concern in neutral language before outlining next steps.",
+        "Acknowledge the specific concern in neutral language before outlining next steps.",
+        "Keep the tone de-escalating and bounded; do not sound like customer support, HR, or counselling copy.",
       )
       break
     case "teacher_to_parent":
       instructions.push(
         "The OCR appears to contain a teacher-authored message. Polish it as a teacher-authored message to the parent and do not convert it into a parent complaint.",
+        "Keep it concise, grounded, and sendable.",
       )
       break
     case "teacher_internal_notes":
       instructions.push(
         "The OCR appears to contain teacher notes. Convert those notes into a teacher-authored message to the parent without pretending the parent wrote first.",
+        "Use specific classroom language rather than vague empathy or abstract support wording.",
       )
       break
     case "report_comment":
-      instructions.push("The OCR appears to contain report-comment material. Return a report-style output only.")
+      instructions.push(
+        "The OCR appears to contain report-comment material. Return a report-style output only.",
+        "Keep the wording concise, observational, and school-appropriate.",
+      )
       break
+  }
+
+  if (typeof input.ocrConfidence === "number" && input.ocrConfidence < 0.55) {
+    instructions.push(
+      "OCR confidence is limited. Preserve meaning conservatively, avoid over-interpreting uncertain fragments, and keep the reply broad, calm, and professional.",
+      "If details are unclear, respond to the clear concern only and avoid quoting or confidently restating ambiguous wording.",
+    )
   }
 
   return instructions
@@ -179,21 +204,27 @@ function buildVoiceToCalmInstructions(input: ProviderInput) {
     case "parent_to_teacher":
       instructions.push(
         "The transcript appears to contain an incoming parent message. Write a calm, professional teacher reply to the parent.",
+        "Keep the reply measured, specific, and bounded rather than warmly generic.",
       )
       break
     case "teacher_to_parent":
       instructions.push(
         "The transcript already resembles a teacher-authored message. Polish it while keeping the teacher as the sender.",
+        "Smooth out spoken roughness, but keep the language realistic and teacher-authored.",
       )
       break
     case "teacher_internal_notes":
       instructions.push(
         "Convert the teacher's spoken notes into a calm teacher-authored parent-facing message.",
         "Do not behave like a reply to a parent unless the direction is explicitly parent_to_teacher.",
+        "Remove venting and filler, keep the real issue clear, and turn it into concise teacher language with a practical next step.",
       )
       break
     case "report_comment":
-      instructions.push("Convert the spoken notes into a concise report comment with no greeting or sign-off.")
+      instructions.push(
+        "Convert the spoken notes into a concise report comment with no greeting or sign-off.",
+        "Use brief observational sentences rather than reflective or emotional language.",
+      )
       break
   }
 
@@ -211,6 +242,12 @@ export function buildSystemPrompt(input: ProviderInput) {
     "You are Zara Draft, an assistant for K-12 teachers who writes professional, concise communications for parents and colleagues.",
     "Always stay factual: do not invent facts that were not provided in the prompt. When details are missing, keep the response neutral and ask for clarification.",
     "Maintain the requested tone and output the final text in the requested language. Keep replies ≤250 words, focused on teacher style.",
+    "Sound like a calm, experienced teacher writing a real message, not a chatbot, therapist, HR partner, or customer-support agent.",
+    "Open with the actual issue, update, or boundary from the source text rather than a generic empathy formula.",
+    "Prefer concrete teacher language: what you noticed, what has been checked, what will happen next, and what support or boundary is appropriate in school.",
+    "Avoid generic empathy boilerplate, counselling language, corporate phrasing, abstract suggestions, and inflated reassurance.",
+    "Do not use lines such as 'thank you for sharing your concerns', 'I understand how important this is', 'I understand how overwhelming this feels', 'It might be helpful to discuss', or 'Please feel free to reach out' unless the exact source genuinely demands that wording.",
+    "Keep warmth brief and believable. Do not over-apologise, over-promise, or sound like a bot trying to be nice.",
     "Avoid gendered pronouns unless the teacher explicitly specifies them in the prompt; default to inclusive wording.",
     "Never include student PII (full names, emails, phone numbers, addresses). If the prompt is disallowed, explain politely that you cannot help.",
     "Do not include blocked language such as insults, diagnostic labels, or emotionally charged terms; redirect toward behaviour, effort, and growth.",
@@ -242,13 +279,13 @@ export function buildSystemPrompt(input: ProviderInput) {
   )
   if (hasTeacherName) {
     systemLines.push(
-      `Use the provided teacherSignatureName (${teacherName}) in the closing and do not invent or modify any other teacher names.`,
+      `A canonical closing block will be added downstream using teacherSignatureName (${teacherName}); do not add your own closing or signature block.`,
     )
   } else {
     const closingInstruction =
       input.language === "de"
-        ? "Close with 'Mit freundlichen Grüßen' or 'Herzliche Grüße' on its own line and do not add a name afterwards."
-        : "Close with 'Kind regards,' or 'Best regards,' on its own line and do not add a name afterwards."
+        ? "Do not add a closing or signature block; a canonical German closing is added downstream."
+        : "Do not add a closing or signature block; a canonical English closing is added downstream."
     systemLines.push(closingInstruction)
   }
 
@@ -284,6 +321,15 @@ export function buildSystemPrompt(input: ProviderInput) {
       `Avoid these phrases: ${dedupedPhrases.join(", ")}.`,
     )
   }
+  if (input.teacherAuthenticityViolations && input.teacherAuthenticityViolations.types.length > 0) {
+    const dedupedPhrases = Array.from(new Set(input.teacherAuthenticityViolations.phrases))
+    systemLines.push(
+      "Your previous draft sounded generic or AI-written. Rewrite it so it sounds like a calm, experienced teacher writing something genuinely sendable.",
+      `Avoid these style problems: ${input.teacherAuthenticityViolations.types.join(", ")}.`,
+      `Do not use these phrases: ${dedupedPhrases.join(", ")}.`,
+      "Replace vague empathy with a brief reference to the specific issue and a practical next step.",
+    )
+  }
   systemLines.push(
     "Treat the cleaned notes that follow as your primary source and use the original notes only for background; do not repeat the original wording.",
   )
@@ -317,13 +363,13 @@ export function buildSystemPrompt(input: ProviderInput) {
         "Write 3-5 short paragraphs separated by blank lines; each paragraph should focus on calm observations, progress updates, and collaborative next steps, keeping sentences brief (2-3 sentences) and paragraphs short.",
       )
       systemLines.push(
-        "End with a blank line, then 'Herzliche Grüße,' or 'Freundliche Grüße,' on its own line; include a brief reassuring sentence before the closing, and add the teacherSignatureName on the next line only if one is provided.",
+        "End with a brief reassuring sentence before the final paragraph ends. Do not add a closing or signature block; that is handled downstream.",
       )
       systemLines.push(
         "German parent messages must always include EXACTLY 3-5 paragraphs separated by blank lines (two newline characters), keep 'Betreff: …' on the first line, and never collapse the response into a single block.",
       )
       systemLines.push(
-        "Always finish after a blank line with a polite closing (for example, 'Herzliche Grüße,' or 'Freundliche Grüße,'), add the teacherSignatureName on the following line if one is provided, and never begin or end with refusal phrasing such as 'Es tut mir leid' or 'Ich kann nicht helfen'.",
+        "Never add a manual sign-off such as 'Herzliche Grüße' or 'Freundliche Grüße'; the final closing block is appended downstream. Never begin or end with refusal phrasing such as 'Es tut mir leid' or 'Ich kann nicht helfen'.",
       )
     } else {
       systemLines.push(
@@ -433,11 +479,22 @@ export function getConfiguredModelNames() {
 interface FetchPayload {
   messages: Array<{ role: "system" | "user"; content: string }>
   temperature: number
+  top_p: number
   max_tokens: number
+  seed?: number
 }
 
 function buildBasePayload(input: ProviderInput): FetchPayload {
   const system = buildSystemPrompt(input)
+  const sampling = resolveGenerationSamplingConfig({
+    mode: input.mode,
+    generationMetadata: input.generationMetadata,
+    rewrite: input.rewrite,
+    hasRepairSignals: Boolean(
+      (input.trustGradeViolations && input.trustGradeViolations.types.length > 0) ||
+        (input.teacherAuthenticityViolations && input.teacherAuthenticityViolations.types.length > 0),
+    ),
+  })
   const contextLines = [
     `Tone: ${input.tone}`,
     `Language: ${input.language}`,
@@ -464,8 +521,10 @@ function buildBasePayload(input: ProviderInput): FetchPayload {
       { role: "system", content: system },
       { role: "user", content: `${contextLines.join("\n")} \n\n${userParts.join("\n\n")}` },
     ],
-    temperature: 0.4,
-    max_tokens: 500,
+    temperature: sampling.temperature,
+    top_p: sampling.top_p,
+    max_tokens: sampling.max_tokens,
+    seed: sampling.seed,
   }
 }
 
@@ -519,22 +578,27 @@ async function callOpenAIModel(model: string, payload: FetchPayload): Promise<Ge
     throw new ProviderError("Missing AI provider key (OPENAI_API_KEY)")
   }
 
-  const requestPayload = {
+  const buildRequestPayload = (seedOverride = payload.seed) => ({
     ...payload,
     model,
+    ...(seedOverride === undefined ? {} : { seed: seedOverride }),
+  })
+
+  const requestOnce = async (requestPayload: Record<string, unknown>) => {
+    return fetch("https://api.openai.com/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${openAiKey}`,
+      },
+      body: JSON.stringify(requestPayload),
+    })
   }
 
   const start = Date.now()
   let response: Response
   try {
-    response = await fetch("https://api.openai.com/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      Authorization: `Bearer ${openAiKey}`,
-      },
-      body: JSON.stringify(requestPayload),
-    })
+    response = await requestOnce(buildRequestPayload())
   } catch (error) {
     throw new ProviderError(
       `AI_GENERATION_FAILED: ${error instanceof Error ? error.message : "Network error"}`,
@@ -549,15 +613,44 @@ async function callOpenAIModel(model: string, payload: FetchPayload): Promise<Ge
     json = null
   }
 
-  const latencyMs = Date.now() - start
+  let latencyMs = Date.now() - start
 
   if (!response.ok) {
+    const errorMessage = String(json?.error?.message ?? "").toLowerCase()
     const code = json?.error?.code
-    throw new ProviderError(
-      `AI_GENERATION_FAILED: ${response.status} ${response.statusText}`,
-      response.status,
-      code,
-    )
+    if (
+      payload.seed !== undefined &&
+      response.status === 400 &&
+      (code === "unsupported_parameter" || errorMessage.includes("seed"))
+    ) {
+      try {
+        response = await requestOnce(buildRequestPayload(undefined))
+        const retryText = await response.text()
+        try {
+          json = JSON.parse(retryText)
+        } catch {
+          json = null
+        }
+        latencyMs = Date.now() - start
+      } catch (error) {
+        throw new ProviderError(
+          `AI_GENERATION_FAILED: ${error instanceof Error ? error.message : "Network error"}`,
+        )
+      }
+      if (!response.ok) {
+        throw new ProviderError(
+          `AI_GENERATION_FAILED: ${response.status} ${response.statusText}`,
+          response.status,
+          json?.error?.code,
+        )
+      }
+    } else {
+      throw new ProviderError(
+        `AI_GENERATION_FAILED: ${response.status} ${response.statusText}`,
+        response.status,
+        code,
+      )
+    }
   }
 
   const result = json?.choices?.[0]?.message?.content?.trim()

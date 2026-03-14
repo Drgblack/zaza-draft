@@ -12,8 +12,10 @@ const snapshotData = {
   status: "completed",
   extractedText: "Hello Ms Smith,\nMy child came home upset about the homework load.\nKind regards,\nJordan Lee",
   extractedTextClean: "My child came home upset about the homework load and needs a calmer plan for next week.",
+  cleanConfidence: 0.41,
   classification: {
     messageType: "parent_complaint",
+    confidenceScore: 82,
   },
 }
 
@@ -71,6 +73,8 @@ describe("panic scan generate-reply route", () => {
       sourceType: "ocr_text",
       scanId: "scan-123",
       messageType: "parent_complaint",
+      ocrConfidence: 0.41,
+      panicClassificationConfidence: 82,
     })
     expect(body.situationRaw).toContain("My child came home upset")
   })

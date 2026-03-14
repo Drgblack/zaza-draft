@@ -43,60 +43,60 @@ const FALLBACK_TONE_TEXT: Record<
   en: {
     warm: {
       parentReply:
-        "Thank you for sharing your concerns. I want to respond carefully and work with you on a calm next step for your child.",
+        "I have noted your message and will look into this carefully in school so I can respond with a clear next step for your child.",
       teacherDraft:
-        "I wanted to share a calm update about your child and outline the next steps I will take to support steady progress.",
+        "I wanted to send you a brief update about how your child is getting on and the next step I will take in class.",
       report: "The student is making steady progress and responding well to the current plan.",
     },
     professional: {
       parentReply:
-        "Thank you for raising this with me. I will review the situation carefully and follow up with clear next steps for your child.",
+        "I have read your message and will review the situation carefully so I can follow up with a clear next step.",
       teacherDraft:
-        "I wanted to give you a clear update about your child and explain the practical next steps I will take in class.",
+        "I wanted to give you a clear update about your child and explain the practical step I will take in class.",
       report: "The student is operating at a dependable level and continuing to meet expectations.",
     },
     direct: {
       parentReply:
-        "Thank you for flagging this. I will keep the response clear, factual, and focused on the next step we can take together.",
+        "I have seen the issue you raised. I will keep this reply clear, factual, and focused on the next step from school.",
       teacherDraft:
-        "Here is the clear update I want to send: your child completed the essential tasks, and a short follow-up will help us stay aligned.",
+        "Here is the clear update I want to send: your child completed the essential tasks, and I will follow up briefly on the missing part.",
       report: "The student met the standards, and sharpening daily habits will help maintain this pace.",
     },
     empathetic: {
       parentReply:
-        "Thank you for letting me know how this has been feeling at home. I want to reply with care and keep the next steps calm and supportive.",
+        "I can see this has been a difficult week at home. I will respond calmly and keep the next step clear and manageable.",
       teacherDraft:
-        "I want to share this update in a calm and supportive way so your child feels encouraged while we work on the next steps together.",
+        "I want to share this update in a calm way so your child feels encouraged while we keep the next step straightforward.",
       report: "The student is progressing with care and could use encouragement to keep building momentum.",
     },
   },
   de: {
     warm: {
       parentReply:
-        "Vielen Dank, dass Sie Ihre Sorge geteilt haben. Ich möchte ruhig und sorgfältig darauf eingehen und einen klaren nächsten Schritt vorschlagen.",
+        "Ich habe Ihre Nachricht gesehen und schaue mir den Punkt im Unterricht noch einmal genau an, damit ich Ihnen den nächsten Schritt klar zurückmelden kann.",
       teacherDraft:
-        "Ich möchte Ihnen eine ruhige Rückmeldung zu Ihrem Kind geben und die nächsten Schritte klar und unterstützend darstellen.",
+        "Ich möchte Ihnen eine kurze Rückmeldung zu Ihrem Kind geben und den nächsten Schritt im Unterricht klar darstellen.",
       report: "Das Kind macht kontinuierliche Fortschritte und reagiert gut auf den aktuellen Plan.",
     },
     professional: {
       parentReply:
-        "Vielen Dank für Ihre Nachricht. Ich werde die Situation sorgfältig prüfen und Ihnen die nächsten Schritte klar zusammenfassen.",
+        "Ich habe Ihre Nachricht gelesen und prüfe die Situation sorgfältig, damit ich Ihnen den nächsten Schritt klar zusammenfassen kann.",
       teacherDraft:
-        "Ich möchte Ihnen eine klare Rückmeldung zu Ihrem Kind geben und die nächsten sinnvollen Schritte aus dem Unterricht erläutern.",
+        "Ich möchte Ihnen eine klare Rückmeldung zu Ihrem Kind geben und den nächsten sinnvollen Schritt aus dem Unterricht erläutern.",
       report: "Der Lernende arbeitet verl\u00e4sslich und erf\u00fcllt weiterhin die Erwartungen.",
     },
     direct: {
       parentReply:
-        "Danke, dass Sie das angesprochen haben. Ich halte die Rückmeldung bewusst sachlich und konzentriere mich auf einen klaren nächsten Schritt.",
+        "Ich habe den angesprochenen Punkt notiert. Ich halte die Rückmeldung bewusst sachlich und konzentriere mich auf den nächsten klaren Schritt.",
       teacherDraft:
-        "Hier ist die klare Rückmeldung, die ich senden möchte: Die wesentlichen Aufgaben wurden erledigt, und ein kurzes Nachfassen ist sinnvoll.",
+        "Hier ist die klare Rückmeldung, die ich senden möchte: Die wesentlichen Aufgaben wurden erledigt, und ich fasse bei dem offenen Punkt kurz nach.",
       report: "Der Lernende erf\u00fcllt die Standards, und ein gezielter Schliff der t\u00e4glichen Gewohnheiten bleibt hilfreich.",
     },
     empathetic: {
       parentReply:
-        "Vielen Dank, dass Sie Ihre Perspektive mit mir teilen. Ich möchte behutsam antworten und gemeinsam für mehr Ruhe und Klarheit sorgen.",
+        "Ich sehe, dass die Situation im Moment belastend ist. Ich antworte ruhig und halte den nächsten Schritt bewusst klar und überschaubar.",
       teacherDraft:
-        "Ich möchte diese Rückmeldung ruhig und unterstützend formulieren, damit wir Ihrem Kind gemeinsam mehr Sicherheit geben können.",
+        "Ich möchte diese Rückmeldung ruhig formulieren, damit Ihr Kind klare Orientierung und Sicherheit bekommt.",
       report: "Der Lernende macht bedacht Fortschritte und k\u00f6nnte etwas Unterst\u00fctzung gebrauchen, um das Tempo zu halten.",
     },
   },
@@ -114,13 +114,13 @@ const FALLBACK_LANGUAGE_COPY: Record<
   en: {
     subject: "Subject: Your child's progress",
     parentGreeting: "Dear parent(s),",
-    nextStep: "Please feel free to reach out if you'd like to discuss this further.",
+    nextStep: "If a short conversation would help, I can speak with you this week.",
     reportSuffix: "I will continue to keep you posted.",
   },
   de: {
     subject: "Betreff: R\u00fcckmeldung zum Lernen",
     parentGreeting: "Liebe Eltern,",
-    nextStep: "Melden Sie sich gern, wenn Sie sich austauschen m\u00f6chten.",
+    nextStep: "Wenn ein kurzes Gespräch hilfreich ist, können wir uns in dieser Woche kurz abstimmen.",
     reportSuffix: "Ich werde Sie weiter informieren.",
   },
 }
@@ -209,7 +209,13 @@ interface ProviderRequestInput {
   greetingSource?: GreetingSource
   messageType?: string
   scanId?: string
+  ocrConfidence?: number
+  panicClassificationConfidence?: number
   trustGradeViolations?: {
+    types: string[]
+    phrases: string[]
+  }
+  teacherAuthenticityViolations?: {
     types: string[]
     phrases: string[]
   }

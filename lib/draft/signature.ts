@@ -57,12 +57,5 @@ export function applySignatureToDraft(
   Object.entries(signature.placeholders).forEach(([placeholder, value]) => {
     result = result.split(placeholder).join(value)
   })
-
-  const block = signature.block.trim()
-  if (block && signature.appendForMode[mode] && !result.includes(block)) {
-    const trimmed = result.trimEnd()
-    result = `${trimmed}\n\n${block}`
-  }
-
   return result
 }

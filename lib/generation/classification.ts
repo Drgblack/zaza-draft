@@ -30,6 +30,7 @@ interface ClassificationInput {
   requestedInputMode?: GenerationInputMode
   requestedSourceType?: SourceType
   messageType?: string | null
+  sourceConfidence?: number | null
   hasScanId?: boolean
   hasVoiceSessionId?: boolean
 }
@@ -71,6 +72,24 @@ const PARENT_INCOMING_PATTERNS = [
   /\bwarum\b/i,
 ]
 
+const TEACHER_OUTGOING_PATTERNS = [
+  /\bsubject:\b/i,
+  /\bbetreff:\b/i,
+  /\byour child\b/i,
+  /\byour son\b/i,
+  /\byour daughter\b/i,
+  /\bin class\b/i,
+  /\bat school\b/i,
+  /\bi wanted to let you know\b/i,
+  /\bi wanted to update you\b/i,
+  /\bi am writing to\b/i,
+  /\bich möchte ihnen\b/i,
+  /\bich wollte ihnen\b/i,
+  /\bihr kind\b/i,
+  /\bim unterricht\b/i,
+  /\bin der schule\b/i,
+]
+
 function isKnownInputMode(value: unknown): value is GenerationInputMode {
   return typeof value === "string" && INPUT_MODES.includes(value as GenerationInputMode)
 }
@@ -103,6 +122,22 @@ function looksLikeIncomingParentMessage(text: string) {
   }
 
   return PARENT_INCOMING_PATTERNS.some((pattern) => pattern.test(normalized))
+}
+
+function hasStrongTeacherOutgoingEvidence(text: string) {
+  const normalized = normalizeText(text)
+  if (!normalized || !looksLikeTeacherAuthoredDraft(normalized) || looksLikeIncomingParentMessage(normalized)) {
+    return false
+  }
+
+  let score = 0
+  for (const pattern of TEACHER_OUTGOING_PATTERNS) {
+    if (pattern.test(normalized)) {
+      score += 1
+    }
+  }
+
+  return score >= 2
 }
 
 function resolveInputMode(input: ClassificationInput): GenerationInputMode {
@@ -155,7 +190,11 @@ function resolveMessageDirection(
   }
 
   if (inputMode === "panic_scan") {
-    return looksLikeTeacherAuthoredDraft(input.situation) ? "teacher_to_parent" : "parent_to_teacher"
+    const sourceConfidence = input.sourceConfidence ?? 0
+    if (sourceConfidence >= 0.75 && hasStrongTeacherOutgoingEvidence(input.situation)) {
+      return "teacher_to_parent"
+    }
+    return "parent_to_teacher"
   }
 
   if (inputMode === "voice_to_calm") {

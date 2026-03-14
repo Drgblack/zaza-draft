@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { ensureSingleSignOff } from "./ensure-single-signoff"
+import { ensureSingleSignOff, normalizeClosingBlock, stripSignOff } from "./ensure-single-signoff"
 
 describe("ensureSingleSignOff", () => {
   it("replaces an existing English sign-off with canonical closing", () => {
@@ -53,5 +53,32 @@ describe("ensureSingleSignOff", () => {
     expect(out).toContain("grüßen")
     expect(out).toContain("Mit freundlichen Grüßen,\nFrau Müller")
     expect(out).not.toMatch(/Ã./)
+  })
+
+  it("preserves additional signature lines in the canonical block", () => {
+    const input =
+      "Hello family,\n\nQuick update.\n\nBest regards,\nDr Greg Blackburn\nHeadteacher"
+    const out = normalizeClosingBlock(input, {
+      locale: "en",
+      signatureLines: ["Dr Greg Blackburn", "Headteacher"],
+    })
+
+    expect(out.endsWith("Kind regards,\nDr Greg Blackburn\nHeadteacher")).toBe(true)
+    expect((out.match(/Kind regards,/gi) ?? []).length).toBe(1)
+  })
+
+  it("removes closings entirely when requested", () => {
+    const input = "Report text.\n\nBest regards,\nDr Greg Blackburn"
+    const out = normalizeClosingBlock(input, { locale: "en", omit: true })
+
+    expect(out).toBe("Report text.")
+  })
+
+  it("strips stacked closing blocks before re-appending", () => {
+    const input =
+      "Hello family.\n\nBest regards,\nDr Greg Blackburn\nHeadteacher\n\nKind regards,\nDr Greg Blackburn"
+    const out = stripSignOff(input)
+
+    expect(out).toBe("Hello family.")
   })
 })

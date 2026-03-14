@@ -1,6 +1,7 @@
 import type { Message } from "@/lib/ai/types"
 
 const API_URL = "https://api.openai.com/v1/chat/completions"
+const DEFAULT_GENERATION_SEED = 23
 
 function getApiKey() {
   return process.env.OPENAI_API_KEY
@@ -44,7 +45,9 @@ function isTransientError(error: unknown) {
 
 interface CallOptions {
   temperature?: number
+  topP?: number
   maxTokens?: number
+  seed?: number
   modelOverride?: string | null
 }
 
@@ -60,6 +63,12 @@ async function callModel(messages: Message[], model: string, options: CallOption
     throw new OpenAIClientError("Missing OpenAI API key (OPENAI_API_KEY)")
   }
 
+  const envSeed = process.env.OPENAI_GENERATION_SEED?.trim()
+  const resolvedSeed =
+    options.seed ??
+    (envSeed && envSeed.toLowerCase() !== "off" && envSeed.toLowerCase() !== "none"
+      ? Number(envSeed)
+      : DEFAULT_GENERATION_SEED)
   const payload = {
     model,
     messages: messages.map((message) => ({
@@ -67,19 +76,47 @@ async function callModel(messages: Message[], model: string, options: CallOption
       content: message.content,
     })),
     temperature: options.temperature ?? 0.2,
+    top_p: options.topP ?? 0.1,
     max_tokens: options.maxTokens ?? 400,
+    ...(Number.isFinite(resolvedSeed) ? { seed: resolvedSeed } : {}),
   }
 
-  const response = await fetch(API_URL, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${apiKey}`,
-    },
-    body: JSON.stringify(payload),
-  })
+  const requestOnce = async (requestPayload: Record<string, unknown>) => {
+    const response = await fetch(API_URL, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify(requestPayload),
+    })
+    const text = await response.text()
+    return { response, text }
+  }
 
-  const text = await response.text()
+  let { response, text } = await requestOnce(payload)
+  if (!response.ok) {
+    let errorId: string | undefined
+    let errorMessage = ""
+    try {
+      const json = JSON.parse(text)
+      errorId = json?.error?.code
+      errorMessage = String(json?.error?.message ?? "").toLowerCase()
+    } catch {
+      // ignore
+    }
+
+    if (
+      Object.prototype.hasOwnProperty.call(payload, "seed") &&
+      response.status === 400 &&
+      (errorId === "unsupported_parameter" || errorMessage.includes("seed"))
+    ) {
+      const payloadWithoutSeed = { ...payload }
+      delete (payloadWithoutSeed as { seed?: number }).seed
+      ;({ response, text } = await requestOnce(payloadWithoutSeed))
+    }
+  }
+
   if (!response.ok) {
     let errorId: string | undefined
     try {

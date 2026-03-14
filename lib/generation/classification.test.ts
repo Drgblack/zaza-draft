@@ -45,4 +45,83 @@ describe("classifyGenerationRequest", () => {
     expect(result.metadata.direction).toBe("teacher_internal_notes")
     expect(result.transcriptUsed).toBe(true)
   })
+
+  it.each([
+    {
+      name: "angry parent screenshot in English",
+      locale: "en" as const,
+      situation:
+        "I am very upset that my child was left in tears after class today and I want a clear explanation.",
+      messageType: "parent_complaint",
+      sourceConfidence: 0.93,
+    },
+    {
+      name: "worried parent screenshot in English",
+      locale: "en" as const,
+      situation:
+        "My child has been anxious about maths all week and I am worried the homework is now too much.",
+      messageType: "student_concern",
+      sourceConfidence: 0.88,
+    },
+    {
+      name: "demanding parent screenshot in English",
+      locale: "en" as const,
+      situation:
+        "I expect this to be sorted today and I want to know why my daughter was spoken to that way.",
+      messageType: "urgent_request",
+      sourceConfidence: 0.86,
+    },
+    {
+      name: "defensive parent screenshot in German",
+      locale: "de" as const,
+      situation:
+        "Mein Sohn hat das nicht absichtlich gemacht und ich möchte wissen, warum er dafür allein verantwortlich gemacht wurde.",
+      messageType: "parent_complaint",
+      sourceConfidence: 0.9,
+    },
+    {
+      name: "low-confidence OCR still defaults to parent to teacher",
+      locale: "en" as const,
+      situation:
+        "Dear Ms Smith,\nI wanted to update you on your child in class today.\nKind regards,\nJordan",
+      messageType: "general_inquiry",
+      sourceConfidence: 0.28,
+    },
+  ])("defaults panic scan direction to parent_to_teacher for $name", (testCase) => {
+    const result = classifyGenerationRequest({
+      draftMode: "parent_message",
+      locale: testCase.locale,
+      situation: testCase.situation,
+      requestedInputMode: "panic_scan",
+      requestedSourceType: "ocr_text",
+      messageType: testCase.messageType,
+      sourceConfidence: testCase.sourceConfidence,
+      hasScanId: true,
+    })
+
+    expect(result.metadata.mode).toBe("panic_scan")
+    expect(result.metadata.direction).toBe("parent_to_teacher")
+  })
+
+  it("only overrides panic scan to teacher_to_parent with strong outgoing-teacher evidence", () => {
+    const result = classifyGenerationRequest({
+      draftMode: "parent_message",
+      locale: "en",
+      situation: [
+        "Subject: Update on Maya's reading",
+        "Dear parents,",
+        "I wanted to update you on your child after today's reading lesson.",
+        "In class, Maya completed the task with more confidence and I will keep the same support in place tomorrow.",
+        "Kind regards,",
+        "Ms Patel",
+      ].join("\n"),
+      requestedInputMode: "panic_scan",
+      requestedSourceType: "ocr_text",
+      messageType: "general_inquiry",
+      sourceConfidence: 0.94,
+      hasScanId: true,
+    })
+
+    expect(result.metadata.direction).toBe("teacher_to_parent")
+  })
 })
