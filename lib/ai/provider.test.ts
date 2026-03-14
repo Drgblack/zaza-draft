@@ -42,6 +42,7 @@ describe("buildSystemPrompt", () => {
     expect(prompt).toContain("Sound like a calm, experienced teacher writing a real message")
     expect(prompt).toContain("Open with the actual issue, update, or boundary from the source text")
     expect(prompt).toContain("Turn the notes into concrete teacher actions")
+    expect(prompt).toContain("Include a concise professional subject line on the first line")
   })
 
   it("uses the panic scan reply builder for incoming OCR parent messages", () => {
@@ -65,6 +66,7 @@ describe("buildSystemPrompt", () => {
     expect(prompt).toContain("do not sound like customer support, HR, counselling copy")
     expect(prompt).toContain("Open like a real teacher replying to an upset parent")
     expect(prompt).toContain("Avoid lines such as 'my priority is to address it calmly and respectfully'")
+    expect(prompt).toContain("Make the subject neutral, teacher-authentic, and specific to the issue or update.")
   })
 
   it("adds safety-sensitive opening guidance for panic scan safeguarding concerns", () => {
@@ -170,6 +172,10 @@ describe("buildSystemPrompt", () => {
 
     expect(prompt).toContain("no subject line, no greeting, no sign-off")
     expect(prompt).toContain("pasted directly into a report or comment bank")
-    expect(prompt).toContain("Keep it observational, school-appropriate")
+    expect(prompt).toContain("Keep it observational, balanced, school-appropriate")
+    expect(prompt).toContain("prefer the student's name or neutral noun phrases over uncertain singular they/them wording")
+    expect(prompt).toContain("lead with a clear strength or recent progress")
+    expect(prompt).toContain("Avoid generic school-admin phrases such as 'continues to make progress'")
+    expect(prompt).toContain("Vary sentence openings so the comment does not sound formulaic or repetitive.")
   })
 })

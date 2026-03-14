@@ -92,6 +92,56 @@ export const TEACHER_AUTHENTICITY_BENCHMARKS: TeacherAuthenticityBenchmark[] = [
       "Luca contributes readily during class discussion and now checks his written work more carefully. He is beginning to sustain attention for longer independent tasks.",
   },
   {
+    id: "en-report-comment-progress-plus-concern",
+    language: "en",
+    mode: "report_comment",
+    direction: "report_comment",
+    shouldReject:
+      "Jane continues to make progress in reading and is a valued member of the class. She works well when supported.",
+    shouldAccept:
+      "Jane reads with growing fluency and contributes thoughtful ideas during guided discussion. She still needs to slow down when recording her answers so that her written work matches the quality of her oral responses.",
+  },
+  {
+    id: "en-report-comment-mixed-performance",
+    language: "en",
+    mode: "report_comment",
+    direction: "report_comment",
+    shouldReject:
+      "Ethan is making steady progress overall. With continued support, he has the potential to produce stronger written work.",
+    shouldAccept:
+      "Ethan explains mathematical thinking clearly in class and is more willing to attempt unfamiliar problems. His written recording remains less consistent, so he needs to set out his methods more carefully in independent work.",
+  },
+  {
+    id: "en-report-comment-behaviour-social",
+    language: "en",
+    mode: "report_comment",
+    direction: "report_comment",
+    shouldReject:
+      "Amira is a valued member of the class and continues to make progress socially. She works well when supported.",
+    shouldAccept:
+      "Amira has become more settled in group tasks and now listens more carefully to the views of others. She still needs reminders to manage frustration appropriately when activities do not go her way straight away.",
+  },
+  {
+    id: "en-report-comment-high-achieving",
+    language: "en",
+    mode: "report_comment",
+    direction: "report_comment",
+    shouldReject:
+      "Oliver continues to make progress across the curriculum and has the potential to achieve highly. He is a valued member of the class.",
+    shouldAccept:
+      "Oliver produces thoughtful, well-organised work and applies feedback quickly to improve it further. He contributes maturely in discussion and often extends ideas beyond the task expectations.",
+  },
+  {
+    id: "en-report-comment-additional-support",
+    language: "en",
+    mode: "report_comment",
+    direction: "report_comment",
+    shouldReject:
+      "Mia is making steady progress and works well when supported. With continued support, she has the potential to improve further.",
+    shouldAccept:
+      "Mia is more willing to join in whole-class learning and responds positively to clear routines. She still needs regular scaffolding to organise her ideas independently, particularly when writing at length.",
+  },
+  {
     id: "de-parent-homework-reply",
     language: "de",
     mode: "parent_message",

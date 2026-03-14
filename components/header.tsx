@@ -55,7 +55,7 @@ export function Header({
 
   return (
     <header
-      className="glass shadow-[0_4px_16px_rgba(0,0,0,0.1)] border-b border-white/40 dark:border-white/30 px-4 sm:px-6 py-3 bg-white/85 dark:bg-white/15 backdrop-blur-[32px]"
+      className="glass sticky top-0 z-40 w-full border-b border-white/40 bg-white/85 px-4 py-3 shadow-[0_6px_20px_rgba(15,23,42,0.08)] backdrop-blur-[32px] dark:border-white/30 dark:bg-white/15 sm:px-6"
       role="banner"
     >
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">

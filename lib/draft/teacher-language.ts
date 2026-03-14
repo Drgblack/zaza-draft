@@ -1,5 +1,10 @@
 import type { PronounPreference } from "@/lib/types"
-import { getPronounSet, type PronounSet } from "@/lib/text/pronouns"
+import {
+  enforcePronouns,
+  getPronounSet,
+  repairPronounCaseGrammar,
+  type PronounSet,
+} from "@/lib/text/pronouns"
 
 function escapeRegExp(value: string) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
@@ -25,6 +30,10 @@ function matchSentenceCase(replacement: string, original: string) {
   return replacement
 }
 
+function toPossessiveName(name: string) {
+  return /s$/i.test(name) ? `${name}'` : `${name}'s`
+}
+
 interface TeacherLanguageOptions {
   firstName?: string
   pronounPreference: PronounPreference
@@ -32,7 +41,7 @@ interface TeacherLanguageOptions {
 }
 
 export function enforceTeacherNameStyle(text: string, options: TeacherLanguageOptions) {
-  const trimmed = text.trim()
+  const trimmed = repairPronounCaseGrammar(text.trim())
   if (!trimmed) {
     return text
   }
@@ -101,6 +110,31 @@ export function enforceTeacherNameStyle(text: string, options: TeacherLanguageOp
     processed = replaceTheStudentReferences(processed)
   }
 
+  if (pronounPreference === "avoid") {
+    const possessiveReference = firstName ? toPossessiveName(firstName) : "the student's"
+    const objectOrSubjectReference = firstName || "the student"
+
+    processed = processed
+      .replace(/\bthe student's\b/gi, (match) => matchCase(possessiveReference, match))
+      .replace(/\bthey\b/gi, (match) => matchCase(objectOrSubjectReference, match))
+      .replace(/\bthem\b/gi, (match) => matchCase(objectOrSubjectReference, match))
+      .replace(/\btheir\b/gi, (match) => matchCase(possessiveReference, match))
+      .replace(/\btheirs\b/gi, (match) => matchCase(possessiveReference, match))
+
+    if (firstName) {
+      processed = processed
+        .replace(new RegExp(`\\b${escapeRegExp(firstName)}\\s+are\\b`, "gi"), (match) =>
+          matchCase(`${firstName} is`, match),
+        )
+        .replace(new RegExp(`\\b${escapeRegExp(firstName)}\\s+have\\b`, "gi"), (match) =>
+          matchCase(`${firstName} has`, match),
+        )
+        .replace(new RegExp(`\\b${escapeRegExp(firstName)}\\s+were\\b`, "gi"), (match) =>
+          matchCase(`${firstName} was`, match),
+        )
+    }
+  }
+
   processed = processed.replace(/\bthe student\b/gi, (match) => matchCase(defaultName, match))
 
   let yourChildMentions = 0
@@ -145,7 +179,13 @@ export function enforceTeacherNameStyle(text: string, options: TeacherLanguageOp
     })
   })
 
+  if (["he", "she", "they"].includes(pronounPreference)) {
+    processed = enforcePronouns(processed, pronounPreference)
+  }
+
   processed = normalizeSingularThey(processed)
+  processed = normalizeSingularReferenceAgreement(processed, firstName)
+  processed = repairPronounCaseGrammar(processed)
   processed = processed.replace(/\bDear Parent\(s\),/gi, "Dear Parent/Carer,")
 
   return processed
@@ -157,4 +197,28 @@ function normalizeSingularThey(value: string) {
     .replace(/\bthey\s+has\b/gi, "they have")
     .replace(/\bthey\s+was\b/gi, "they were")
     .replace(/\bthey['’]s\b/gi, "their")
+}
+
+function normalizeSingularReferenceAgreement(value: string, firstName?: string) {
+  const singularReferences = ["your child", "the student"]
+  if (firstName?.trim()) {
+    singularReferences.unshift(firstName.trim())
+  }
+
+  let normalized = value
+  for (const reference of singularReferences) {
+    const escaped = escapeRegExp(reference)
+    normalized = normalized
+      .replace(new RegExp(`\\b${escaped}\\s+are\\b`, "gi"), (match) =>
+        matchCase(`${reference} is`, match),
+      )
+      .replace(new RegExp(`\\b${escaped}\\s+have\\b`, "gi"), (match) =>
+        matchCase(`${reference} has`, match),
+      )
+      .replace(new RegExp(`\\b${escaped}\\s+were\\b`, "gi"), (match) =>
+        matchCase(`${reference} was`, match),
+      )
+  }
+
+  return normalized
 }

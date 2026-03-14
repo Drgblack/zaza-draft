@@ -53,6 +53,12 @@ const ENGLISH_RULES: PhraseRule[] = [
   { phrase: "i wanted to update you", type: "customer_support", modes: ["report_comment"] },
   { phrase: "i wanted to give you a clear update", type: "customer_support", modes: ["report_comment"] },
   { phrase: "if a short conversation would help", type: "abstract_next_step", modes: ["report_comment"] },
+  { phrase: "continues to make progress", type: "corporate_tone", modes: ["report_comment"] },
+  { phrase: "is making steady progress", type: "corporate_tone", modes: ["report_comment"] },
+  { phrase: "is a valued member of the class", type: "corporate_tone", modes: ["report_comment"] },
+  { phrase: "works well when supported", type: "corporate_tone", modes: ["report_comment"] },
+  { phrase: "has the potential to", type: "corporate_tone", modes: ["report_comment"] },
+  { phrase: "with continued support", type: "corporate_tone", modes: ["report_comment"] },
 ]
 
 const GERMAN_RULES: PhraseRule[] = [

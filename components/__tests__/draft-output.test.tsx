@@ -177,6 +177,33 @@ Dr Greg Blackburn`
     expect(signature.className).toContain("border-t")
   })
 
+  it("renders the full body for parent messages that start with a generic hello greeting", () => {
+    const rawDraft = `Subject: Homework update
+
+Hello,
+
+I wanted to give you a clear update about today's maths lesson. I will check the lesson notes and speak with Theo again tomorrow morning before I follow up with you.
+
+    Kind regards,
+Dr Greg Blackburn`
+
+    render(<DraftOutput {...baseProps} draftText={rawDraft} structure={undefined} />)
+    const body = screen.getByTestId("draft-output-body")
+    expect(
+      within(body).getByText(
+        "Hello, I wanted to give you a clear update about today's maths lesson.",
+      ),
+    ).toBeInTheDocument()
+    expect(
+      within(body).getByText(
+        "I will check the lesson notes and speak with Theo again tomorrow morning before I follow up with you.",
+      ),
+    ).toBeInTheDocument()
+    expect(
+      within(body).getByText((text) => text.includes("Kind regards,") && text.includes("Dr Greg Blackburn")),
+    ).toBeInTheDocument()
+  })
+
   it("does not render a subject when the report comment mode is active", () => {
     render(
       <DraftOutput

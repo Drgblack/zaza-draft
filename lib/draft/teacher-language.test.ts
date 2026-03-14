@@ -63,4 +63,31 @@ describe("enforceTeacherNameStyle", () => {
     expect(result).toMatch(/They are/i)
     expect(result).toMatch(/They have/i)
   })
+
+  it("keeps neutral fallback phrasing for ambiguous names instead of singular they", () => {
+    const input = "They are contributing more consistently. Their focus in writing is steadier."
+    const result = enforceTeacherNameStyle(input, {
+      firstName: "Casey",
+      pronounPreference: "avoid",
+      resolvedPronounPreference: "avoid",
+    })
+
+    expect(result).not.toMatch(/\bthey\b|\btheir\b/i)
+    expect(result).toMatch(/Casey is contributing more consistently/i)
+    expect(result).toMatch(/Casey's focus in writing is steadier/i)
+  })
+
+  it("repairs malformed possessive pronouns before applying high-confidence name inference", () => {
+    const input = "Them performance in reading has improved, and them confidence is growing."
+    const result = enforceTeacherNameStyle(input, {
+      firstName: "Jane",
+      pronounPreference: "she",
+      resolvedPronounPreference: "she",
+    })
+
+    expect(result).not.toContain("Them performance")
+    expect(result).not.toContain("them confidence")
+    expect(result).toMatch(/\bher performance\b/i)
+    expect(result).toMatch(/\bher confidence\b/i)
+  })
 })

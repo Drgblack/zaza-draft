@@ -53,4 +53,44 @@ describe("teacher authenticity benchmark set", () => {
 
     expect(violations).toEqual([])
   })
+
+  it("covers the premium English report-comment benchmark set", () => {
+    const englishReportCommentBenchmarks = TEACHER_AUTHENTICITY_BENCHMARKS.filter(
+      (benchmark) => benchmark.language === "en" && benchmark.mode === "report_comment",
+    )
+
+    expect(englishReportCommentBenchmarks.length).toBeGreaterThanOrEqual(5)
+  })
+
+  it("rejects generic school-admin phrasing in English report comments", () => {
+    const violations = detectTeacherAuthenticityViolations(
+      "Luca continues to make progress and is a valued member of the class. He works well when supported.",
+      {
+        language: "en",
+        mode: "report_comment",
+        direction: "report_comment",
+      },
+    )
+
+    expect(violations.map((violation) => violation.phrase)).toEqual(
+      expect.arrayContaining([
+        "continues to make progress",
+        "is a valued member of the class",
+        "works well when supported",
+      ]),
+    )
+  })
+
+  it("accepts balanced premium-style English report comments", () => {
+    const violations = detectTeacherAuthenticityViolations(
+      "Jane reads with growing fluency and contributes thoughtful ideas during guided discussion. She still needs to slow down when recording her answers so that her written work matches the quality of her oral responses.",
+      {
+        language: "en",
+        mode: "report_comment",
+        direction: "report_comment",
+      },
+    )
+
+    expect(violations).toEqual([])
+  })
 })

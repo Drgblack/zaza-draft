@@ -115,4 +115,23 @@ describe("Header gating", () => {
       "https://app.zazadraft.com/",
     )
   })
+
+  it("keeps the header sticky for long editor sessions", () => {
+    useAuthMock.mockReturnValue({
+      user: { displayName: "Test User" },
+      status: "authenticated",
+      signOut: vi.fn(),
+      signInWithEmail: vi.fn(),
+      registerWithEmail: vi.fn(),
+      signInWithGoogle: vi.fn(),
+      getIdToken: vi.fn().mockResolvedValue("token"),
+    })
+
+    const { container } = render(<Header title="Test" saveStatus="saved" onTitleChange={() => {}} />)
+    const banner = container.querySelector('header[role="banner"]')
+
+    expect(banner?.className).toContain("sticky")
+    expect(banner?.className).toContain("top-0")
+    expect(banner?.className).toContain("z-40")
+  })
 })

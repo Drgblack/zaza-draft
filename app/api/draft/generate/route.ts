@@ -33,7 +33,7 @@ import {
 import { isInternalQaUid, shouldRespectUsageLimit } from "@/lib/auth/internal-qa"
 import { buildBlockedLanguageResponse } from "@/lib/draft/blocked-response"
 import { enforceTeacherNameStyle } from "@/lib/draft/teacher-language"
-import { formatDraftText, DraftStructure } from "@/lib/draft/format"
+import { formatDraftText, DraftStructure, CLOSING_REGEX } from "@/lib/draft/format"
 import { evaluateEmotionalStructure } from "@/lib/draft/emotional-structure"
 import { cleanStudentName } from "@/lib/draft/student-name"
 import { normalizeGermanParentMessage } from "@/lib/draft/german-normalizer"
@@ -51,6 +51,8 @@ import { resolveTeacherSignatureName } from "@/lib/draft/teacher-signature"
 import { normalizeClosingBlock } from "@/lib/draft/ensure-single-signoff"
 import { detectTeacherAuthenticityViolations, type TeacherAuthenticityViolation } from "@/lib/draft/teacher-authenticity"
 import { sanitizeReportCommentStructure, sanitizeReportCommentText } from "@/lib/draft/report-comment"
+import { applyModeAwareSubjectLine } from "@/lib/draft/subject-policy"
+import { applyEnglishOutputSanity } from "@/lib/draft/english-output-sanity"
 import { isValidDraftRequest, OUT_OF_SCOPE_REDIRECT_MESSAGE } from "./scope-guard"
 import { isDebugEnabled } from "@/lib/debug"
 import { classifyGenerationRequest, type GenerationMetadata, type SourceType } from "@/lib/generation/classification"
@@ -200,6 +202,8 @@ function countWords(text: string) {
 
 const MIN_BODY_WORDS = 60
 const MIN_BODY_PARAGRAPHS = 2
+const MIN_PARENT_MESSAGE_MEANINGFUL_WORDS = 12
+const MIN_PARENT_MESSAGE_PARAGRAPHS = 1
 const DUPLICATE_GREETING_WINDOW = 5
 
 function removeDuplicateGreeting(body: string, greetingLine?: string | null) {
@@ -246,6 +250,40 @@ function getParagraphCountExcludingGreeting(structure: DraftStructure, greetingL
     }
     return true
   }).length
+}
+
+function getMeaningfulParentBodyParagraphs(
+  structure: DraftStructure,
+  greetingLine?: string | null,
+) {
+  if (!structure?.paragraphs?.length) {
+    return []
+  }
+  const normalizedGreeting = greetingLine?.trim() ?? ""
+  return structure.paragraphs.filter((paragraph, index) => {
+    const trimmed = paragraph.trim()
+    if (!trimmed) {
+      return false
+    }
+    if (index === 0 && normalizedGreeting && trimmed === normalizedGreeting) {
+      return false
+    }
+    if (CLOSING_REGEX.test(trimmed)) {
+      return false
+    }
+    return true
+  })
+}
+
+function getMeaningfulParentBodyWordCount(
+  structure: DraftStructure,
+  greetingLine?: string | null,
+) {
+  return getMeaningfulParentBodyParagraphs(structure, greetingLine)
+    .join(" ")
+    .split(/\s+/)
+    .map((token) => token.trim())
+    .filter(Boolean).length
 }
 
 function buildDeterministicTemplateBody(greetingLine: string, language?: string) {
@@ -1043,7 +1081,7 @@ export async function POST(request: Request) {
 
   let formattedDraftStructure: DraftStructure = formatDraftText(generatedDraft, language)
   let bodyParagraphCount: number = getParagraphCountExcludingGreeting(formattedDraftStructure, finalGreetingLine)
-  let bodyWordCount: number = countWords(generatedDraft)
+  let bodyWordCount: number = getMeaningfulParentBodyWordCount(formattedDraftStructure, finalGreetingLine)
 
   const finalizeAndFormatDraft = (draftText?: string) => {
     if (draftText) {
@@ -1053,12 +1091,30 @@ export async function POST(request: Request) {
       generatedDraft = applyGermanNormalization(generatedDraft)
     }
     generatedDraft = normalizeClosingForMode(generatedDraft)
+    generatedDraft = applyModeAwareSubjectLine(generatedDraft, {
+      mode,
+      language,
+      generationMode: generationMetadata.mode,
+      messageType: payload.messageType ?? undefined,
+      studentFirstName: studentNameForPayload || undefined,
+      situation: payload.situation,
+      contextSubject: payload.context?.subject,
+    })
+    const finalSanity = applyEnglishOutputSanity(generatedDraft, {
+      language,
+      mode,
+      studentFirstName: studentNameForPayload || undefined,
+    })
+    generatedDraft = finalSanity.text
     formattedDraftStructure =
       mode === "report_comment"
         ? sanitizeReportCommentStructure(formatDraftText(generatedDraft, language), language)
         : formatDraftText(generatedDraft, language)
     bodyParagraphCount = getParagraphCountExcludingGreeting(formattedDraftStructure, finalGreetingLine)
-    bodyWordCount = countWords(generatedDraft)
+    bodyWordCount =
+      mode === "parent_message"
+        ? getMeaningfulParentBodyWordCount(formattedDraftStructure, finalGreetingLine)
+        : countWords(generatedDraft)
   }
 
   finalizeAndFormatDraft(generatedDraft)
@@ -1068,6 +1124,57 @@ export async function POST(request: Request) {
       shouldUseGreetingRecoveryTemplate &&
         (bodyWordCount < MIN_BODY_WORDS || bodyParagraphCount < MIN_BODY_PARAGRAPHS),
     )
+
+  const hasMinimumParentMessageOutput = () =>
+    mode !== "parent_message" ||
+    (bodyParagraphCount >= MIN_PARENT_MESSAGE_PARAGRAPHS &&
+      bodyWordCount >= MIN_PARENT_MESSAGE_MEANINGFUL_WORDS)
+
+  const recoverCollapsedParentMessageOutput = async () => {
+    if (mode !== "parent_message" || hasMinimumParentMessageOutput()) {
+      return
+    }
+
+    const continuationAttempt = await runDraft(forcedLanguageAttempted, true)
+    providerResult = continuationAttempt.result
+    usedFallback = continuationAttempt.usedFallback
+    fallbackErrorCode = continuationAttempt.errorCode ?? fallbackErrorCode ?? "MIN_OUTPUT_RECOVERY_RETRY"
+    providerMeta = providerResult.providerMeta
+    generatedDraft = finalizeWithGreeting(providerResult.text)
+    finalizeAndFormatDraft(generatedDraft)
+
+    if (hasMinimumParentMessageOutput()) {
+      return
+    }
+
+    generatedDraft = finalizeWithGreeting(buildFallbackDraft(fallbackContext))
+    finalizeAndFormatDraft(generatedDraft)
+    providerMeta = {
+      modelUsed: "minimum-output-fallback",
+      latencyMs: providerMeta.latencyMs,
+    }
+    usedFallback = true
+    fallbackErrorCode = fallbackErrorCode ?? "MIN_OUTPUT_FALLBACK"
+
+    if (hasMinimumParentMessageOutput()) {
+      return
+    }
+
+    const templateGreeting =
+      finalGreetingLine ||
+      (language?.toLowerCase().startsWith("de") ? "Guten Tag," : "Hello,")
+    generatedDraft = removeDuplicateGreeting(
+      applyFinalGreetingGuard(buildDeterministicTemplateBody(templateGreeting, language), templateGreeting),
+      templateGreeting,
+    )
+    finalizeAndFormatDraft(generatedDraft)
+    providerMeta = {
+      modelUsed: "minimum-output-template",
+      latencyMs: providerMeta.latencyMs,
+    }
+    usedFallback = true
+    fallbackErrorCode = fallbackErrorCode ?? "MIN_OUTPUT_TEMPLATE"
+  }
 
   if (evaluateBodyNeedsRetry()) {
     const continuationAttempt = await runDraft(forcedLanguageAttempted, true)
@@ -1209,6 +1316,8 @@ export async function POST(request: Request) {
     safetyFlags.add("output-generic-teacher-language")
   }
 
+  await recoverCollapsedParentMessageOutput()
+
   let rewriteAttempted = false
   const generationTime = providerMeta.latencyMs ?? Date.now() - generationStart
 
@@ -1252,6 +1361,7 @@ export async function POST(request: Request) {
       if (rewriteResult) {
         generatedDraft = finalizeDraftWithSignature(rewriteResult.text)
         providerMeta = rewriteResult.providerMeta
+        finalizeAndFormatDraft(generatedDraft)
         blockedDetection = detectBlockedLanguage(generatedDraft)
       }
     }
@@ -1260,6 +1370,8 @@ export async function POST(request: Request) {
   if (blockedDetection.detected) {
     return handleBlockedOutput()
   }
+
+  await recoverCollapsedParentMessageOutput()
 
   let updatedUsage: MonthlyUsageRecord = usageRecord
   if (!isQaUser && !isDevBypassRequest) {

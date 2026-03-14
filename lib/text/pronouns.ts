@@ -96,7 +96,7 @@ export function inferPronounResolution(
 
   return {
     selection,
-    resolvedPreference: "they",
+    resolvedPreference: "avoid",
     reason: "fallback",
   }
 }
@@ -146,15 +146,98 @@ const SUBJECT_REGEX = /\b(he|she|they)\b/gi
 const OBJECT_REGEX = /\b(him|her|them)\b/gi
 const POSSESSIVE_REGEX = /\b(his|her|hers|their|theirs)\b/gi
 const CONTRACTION_REGEX = /\b(he's|she's|they's|they're)\b/gi
+const REPORT_NOUN_REGEX =
+  /\b(performance|progress|confidence|focus|effort|engagement|listening|reading|writing|spelling|mathematics|maths|behavior|behaviour|participation|independence|attendance|concentration|resilience|stamina|attitude|work|contributions?)\b/i
+const SUBJECT_VERB_REGEX =
+  /\b(is|are|was|were|has|have|shows|showed|demonstrates|demonstrated|contributes|contributed|works|worked|listens|listened|responds|responded|remains|remained|takes|took|makes|made|needs|needed)\b/i
+
+const SUBJECT_FORM_MAP: Record<string, string> = {
+  he: "he",
+  him: "he",
+  his: "he",
+  she: "she",
+  her: "she",
+  hers: "she",
+  they: "they",
+  them: "they",
+  their: "they",
+  theirs: "they",
+}
+
+const POSSESSIVE_FORM_MAP: Record<string, string> = {
+  he: "his",
+  him: "his",
+  his: "his",
+  she: "her",
+  her: "her",
+  hers: "her",
+  they: "their",
+  them: "their",
+  their: "their",
+  theirs: "their",
+}
+
+function adjustVerbForSubject(subject: string, verb: string) {
+  const lowerSubject = subject.toLowerCase()
+  const lowerVerb = verb.toLowerCase()
+  let replacement = lowerVerb
+
+  if (lowerSubject === "they") {
+    if (lowerVerb === "is") replacement = "are"
+    if (lowerVerb === "was") replacement = "were"
+    if (lowerVerb === "has") replacement = "have"
+  } else {
+    if (lowerVerb === "are") replacement = "is"
+    if (lowerVerb === "were") replacement = "was"
+    if (lowerVerb === "have") replacement = "has"
+  }
+
+  return matchCase(replacement, verb)
+}
+
+export function repairPronounCaseGrammar(text: string) {
+  let repaired = text
+
+  repaired = repaired.replace(
+    /\b(he|him|his|she|her|hers|they|them|their|theirs)\b\s+([A-Za-z][A-Za-z'-]*)/gim,
+    (match, pronoun: string, nextWord: string) => {
+      if (!REPORT_NOUN_REGEX.test(nextWord)) {
+        return match
+      }
+      const possessive = POSSESSIVE_FORM_MAP[pronoun.toLowerCase()]
+      if (!possessive) {
+        return match
+      }
+      return `${matchCase(possessive, pronoun)} ${nextWord}`
+    },
+  )
+
+  repaired = repaired.replace(
+    /\b(he|him|his|she|her|hers|they|them|their|theirs)\b\s+([A-Za-z][A-Za-z'-]*)/gim,
+    (match, pronoun: string, nextWord: string) => {
+      if (!SUBJECT_VERB_REGEX.test(nextWord)) {
+        return match
+      }
+      const subject = SUBJECT_FORM_MAP[pronoun.toLowerCase()]
+      if (!subject) {
+        return match
+      }
+      return `${matchCase(subject, pronoun)} ${adjustVerbForSubject(subject, nextWord)}`
+    },
+  )
+
+  return repaired
+}
 
 export function enforcePronouns(text: string, preference: PronounPreference) {
+  const repaired = repairPronounCaseGrammar(text)
   if (preference === "auto") {
-    return text
+    return repaired
   }
 
   const pronounSet = PRONOUN_SET[preference]
 
-  let enforced = text
+  let enforced = repaired
     .replace(SUBJECT_REGEX, (match) => matchCase(pronounSet.subject, match))
     .replace(OBJECT_REGEX, (match) => matchCase(pronounSet.object, match))
     .replace(POSSESSIVE_REGEX, (match) => {
@@ -170,11 +253,11 @@ export function enforcePronouns(text: string, preference: PronounPreference) {
     enforced = enforced.replace(/\bthey is\b/gi, (match) => matchCase("they are", match))
   }
 
-  return enforced
+  return repairPronounCaseGrammar(enforced)
 }
 
 export function getPronounSet(preference: PronounPreference): PronounSet {
-  if (preference === "auto" || preference === "avoid") {
+  if (preference === "auto") {
     return PRONOUN_SET.they
   }
   return PRONOUN_SET[preference]

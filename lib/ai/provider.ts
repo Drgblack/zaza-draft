@@ -140,7 +140,12 @@ function buildSafeDraftInstructions(input: ProviderInput) {
       return [
         "This request comes from Safe Draft report-comment mode.",
         "Write a concise teacher-authored report comment with no subject line, no greeting, no sign-off, and no parent reply framing.",
-        "Keep it observational, school-appropriate, and free of emotional padding or conversational email wording.",
+        "Keep it observational, balanced, school-appropriate, and free of emotional padding or conversational email wording.",
+        "Where the evidence allows, lead with a clear strength or recent progress, then add one precise area for development, and finish with a brief concluding observation only if it adds value.",
+        "Use specific classroom language such as contributes, explains, sustains attention, organises work, listens carefully, or approaches tasks with more confidence.",
+        "Avoid generic school-admin phrases such as 'continues to make progress', 'is a valued member of the class', 'works well when supported', or 'has the potential to'.",
+        "Vary sentence openings so the comment does not sound formulaic or repetitive.",
+        "If pronouns are not explicitly provided, prefer the student's name or neutral noun phrases over uncertain singular they/them wording.",
         "Write something that could be pasted directly into a report or comment bank without further cleanup.",
       ]
     case "parent_to_teacher":
@@ -203,7 +208,10 @@ function buildPanicScanInstructions(input: ProviderInput) {
     case "report_comment":
       instructions.push(
         "The OCR appears to contain report-comment material. Return a report-style output only.",
-        "Keep the wording concise, observational, school-appropriate, and free of greeting, sign-off, or parent-email language.",
+        "Keep the wording concise, observational, balanced, school-appropriate, and free of greeting, sign-off, or parent-email language.",
+        "Prefer a polished report rhythm: start with a clear strength or recent progress, then mention one area for development if needed, without turning it into advice to parents.",
+        "Avoid generic school-admin phrasing such as 'continues to make progress', 'is a valued member of the class', or 'works well when supported'.",
+        "If pronouns are unclear, prefer the student's name or neutral noun phrases rather than uncertain pronouns.",
       )
       break
   }
@@ -249,6 +257,9 @@ function buildVoiceToCalmInstructions(input: ProviderInput) {
       instructions.push(
         "Convert the spoken notes into a concise report comment with no greeting or sign-off.",
         "Use brief observational sentences rather than reflective, emotional, or parent-facing language.",
+        "Shape the comment like a polished school report: strength or progress first, one clear development point if needed, then a concise concluding observation.",
+        "Avoid generic report fillers such as 'continues to make progress', 'is a valued member of the class', or 'has the potential to'.",
+        "If pronouns are unclear, prefer the student's name or neutral noun phrases rather than uncertain pronouns.",
       )
       break
   }
@@ -295,6 +306,14 @@ export function buildSystemPrompt(input: ProviderInput) {
     systemLines.push(
       "In the first paragraph (after any resolved greeting), restate the parent's stated concern in neutral language before moving toward next steps.",
       "Unless the parent is explicitly discussing behaviour, avoid generic 'behavior documentation' phrasing and keep the focus on the actual concern being raised.",
+    )
+  }
+
+  if (input.mode === "parent_message" && isParentFacingDraft(input.generationMetadata.direction)) {
+    const subjectLabel = input.language === "de" ? "Betreff" : "Subject"
+    systemLines.push(
+      `Include a concise professional subject line on the first line in the form '${subjectLabel}: <short subject>'.`,
+      "Make the subject neutral, teacher-authentic, and specific to the issue or update. Avoid generic labels such as 'Support Update' or 'General Update'.",
     )
   }
 
