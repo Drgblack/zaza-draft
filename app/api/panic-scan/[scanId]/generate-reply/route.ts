@@ -140,8 +140,11 @@ export async function POST(request: NextRequest) {
   }
   const draftPayload = {
     situation,
+    situationRaw: rawOcrText || cleanedDisplayText,
     tone: payload.tone ?? "professional",
     language: resolvedDraftLanguage,
+    inputMode: "panic_scan" as const,
+    sourceType: "ocr_text" as const,
     messageType: data?.classification?.messageType ?? null,
     scanId,
     greeting: {

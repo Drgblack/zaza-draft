@@ -5,6 +5,13 @@ const baseContext: Omit<DraftFallbackContext, "language" | "teacherSignatureName
   tone: "professional",
   requestId: "test",
   uidHash: "abc123",
+  generationMetadata: {
+    mode: "safe_draft",
+    direction: "teacher_internal_notes",
+    source_type: "typed_text",
+    locale: "en",
+    prompt_builder: "safe_draft",
+  },
   studentPronounPreference: "auto",
   studentFirstName: "Kai",
 }
@@ -55,5 +62,35 @@ describe("fallback drafting signature hygiene", () => {
     expect(lines[1]).toBe(finalGreeting)
     expect(text).not.toContain("Liebe Eltern,")
     expect(text).toContain("Mit freundlichen Grüßen")
+  })
+
+  it("keeps safe draft fallback teacher-authored for internal notes", () => {
+    const context: DraftFallbackContext = {
+      ...baseContext,
+      language: "en",
+      teacherSignatureName: undefined,
+    }
+
+    const text = buildFallbackDraft(context)
+    expect(text).toContain("I wanted to give you a clear update")
+    expect(text).not.toContain("Thank you for raising this with me.")
+  })
+
+  it("uses reply framing for panic scan fallback", () => {
+    const context: DraftFallbackContext = {
+      ...baseContext,
+      language: "en",
+      teacherSignatureName: undefined,
+      generationMetadata: {
+        mode: "panic_scan",
+        direction: "parent_to_teacher",
+        source_type: "ocr_text",
+        locale: "en",
+        prompt_builder: "panic_scan",
+      },
+    }
+
+    const text = buildFallbackDraft(context)
+    expect(text).toContain("Thank you for raising this with me.")
   })
 })

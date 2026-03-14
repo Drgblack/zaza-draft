@@ -49,6 +49,7 @@ import {
 import { resolveTeacherSignatureName } from "@/lib/draft/teacher-signature"
 import { isValidDraftRequest, OUT_OF_SCOPE_REDIRECT_MESSAGE } from "./scope-guard"
 import { isDebugEnabled } from "@/lib/debug"
+import { classifyGenerationRequest, type GenerationMetadata, type SourceType } from "@/lib/generation/classification"
 import { applyFinalGreetingGuard } from "@/lib/draft/final-greeting"
 import {
   GreetingDecision,
@@ -111,6 +112,9 @@ interface GenerateDraftRequest {
   situationRaw?: string
   messageType?: string
   scanId?: string
+  voiceSessionId?: string
+  inputMode?: GenerationMetadata["mode"]
+  sourceType?: SourceType
 }
 
 function buildContextLine(context?: GenerateDraftRequest["context"]) {
@@ -396,11 +400,13 @@ async function reRunWithRewrite(
   previousDraft: string,
   resolvedPronounPreference: PronounPreference,
   mode: DraftMode,
+  generationMetadata: GenerationMetadata,
   forceLanguage?: boolean,
 ): Promise<ProviderResult | null> {
   try {
     return await generateDraft({
       situation: payload.situation,
+      generationMetadata,
       tone: payload.tone,
       language: payload.language as DraftLanguage,
       context: payload.context,
@@ -491,6 +497,18 @@ export async function POST(request: Request) {
   const mode = resolveDraftMode(payload?.mode)
   const debugEnabled =
     isDebugEnabled(requestUrl.searchParams) || request.headers.get("x-debug") === "1"
+  const generationTrace = mode
+    ? classifyGenerationRequest({
+        draftMode: mode,
+        locale: language,
+        situation,
+        requestedInputMode: payload.inputMode,
+        requestedSourceType: payload.sourceType,
+        messageType: payload.messageType ?? null,
+        hasScanId: Boolean(payload.scanId),
+        hasVoiceSessionId: Boolean(payload.voiceSessionId),
+      })
+    : null
 
   let greetingText = normalizeGreetingValue(payload.greeting?.text ?? "")
   let greetingConfidence = payload.greetingConfidence ?? payload.greeting?.confidence ?? "NONE"
@@ -574,6 +592,10 @@ export async function POST(request: Request) {
   if (mode === null) {
     return fail(400, "INVALID_MODE", "Please select a valid mode option.")
   }
+  if (!generationTrace) {
+    return fail(500, "INTERNAL", "Unable to classify generation request.")
+  }
+  const generationMetadata = generationTrace.metadata
 
   if (promptTooLong) {
     return fail(400, "PROMPT_TOO_LONG", "Please keep prompts under 2000 characters.")
@@ -644,6 +666,15 @@ export async function POST(request: Request) {
   const { uid, firestore } = authContext
   const isDevBypassRequest = devBypassActive
   const uidHash = createHash("sha256").update(uid).digest("hex").slice(0, 12)
+  DEBUG_DRAFT_LOGS && console.info("[draft] routing", {
+    uidHash,
+    mode: generationMetadata.mode,
+    direction: generationMetadata.direction,
+    source_type: generationMetadata.source_type,
+    ocr_used: generationTrace.ocrUsed,
+    transcript_used: generationTrace.transcriptUsed,
+    prompt_builder: generationMetadata.prompt_builder,
+  })
   const logDraftOutcome = (
     outcomeCode: string,
     extras: { latencyMs?: number; modelUsed?: string; tokensUsed?: number; errorCode?: string } = {},
@@ -859,6 +890,7 @@ export async function POST(request: Request) {
       : undefined
   const providerInput: ProviderRequestInput = {
     situation: currentSituation,
+    generationMetadata,
     originalSituation: originalSituationForPrompt,
     tone,
     language,
@@ -885,6 +917,7 @@ export async function POST(request: Request) {
     language,
     requestId,
     uidHash,
+    generationMetadata,
     studentFirstName: studentNameForPayload || undefined,
     studentPronounPreference: resolvedPronounPreference,
     teacherSignatureName,
@@ -1121,6 +1154,7 @@ export async function POST(request: Request) {
         generatedDraft,
         resolvedPronounPreference,
         mode,
+        generationMetadata,
         forcedLanguageAttempted,
       )
       if (rewriteResult) {
@@ -1206,6 +1240,9 @@ export async function POST(request: Request) {
     tone,
     language,
     mode,
+    generationMode: generationMetadata.mode,
+    messageDirection: generationMetadata.direction,
+    sourceType: generationMetadata.source_type,
     usedFallback,
     fallbackErrorCode,
     wordCount: metadata.wordCount,
@@ -1237,6 +1274,10 @@ export async function POST(request: Request) {
     pronounResolution: metadata.pronounResolution,
     contextUsed: sanitizedContext,
     mode,
+    generationMode: generationMetadata.mode,
+    messageDirection: generationMetadata.direction,
+    sourceType: generationMetadata.source_type,
+    promptBuilder: generationMetadata.prompt_builder,
     wordCount: metadata.wordCount,
     modelUsed: metadata.modelUsed,
     inputReframed,
@@ -1259,6 +1300,9 @@ export async function POST(request: Request) {
   }
   const diagnosticFields: Record<string, unknown> = {
     lastModelUsed: metadata.modelUsed,
+    lastGenerationMode: generationMetadata.mode,
+    lastMessageDirection: generationMetadata.direction,
+    lastSourceType: generationMetadata.source_type,
     lastPronounPreference: pronounPreference,
     lastResolvedPronounPreference: resolvedPronounPreference,
     lastPronounResolutionReason: pronounResolution.reason,

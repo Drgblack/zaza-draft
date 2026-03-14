@@ -3,6 +3,7 @@ import type { PronounPreference } from "@/lib/types"
 import { DraftMode } from "@/lib/types"
 import { buildStudentInstruction, buildStudentNameForFallback } from "@/lib/draft/student-policy"
 import type { GreetingSource, NameConfidenceLevel } from "@/lib/draft/greeting-resolution"
+import type { GenerationMetadata, MessageDirection } from "@/lib/generation/classification"
 
 export const ALLOWED_TONES = ["warm", "professional", "direct", "empathetic"] as const
 export const ALLOWED_LANGUAGES = ["en", "de"] as const
@@ -15,6 +16,7 @@ interface DraftFallbackContext {
   language: LanguageKey
   requestId: string
   uidHash: string
+  generationMetadata: GenerationMetadata
   studentFirstName?: string
   studentPronounPreference: PronounPreference
   teacherSignatureName?: string
@@ -36,41 +38,65 @@ function buildClosingBlock(language: LanguageKey, teacherSignatureName?: string)
 
 const FALLBACK_TONE_TEXT: Record<
   LanguageKey,
-  Record<ToneKey, { parent: string; report: string }>
+  Record<ToneKey, { parentReply: string; teacherDraft: string; report: string }>
 > = {
   en: {
     warm: {
-      parent: "I appreciate the steady effort the student has shown and would love to keep building on that momentum.",
+      parentReply:
+        "Thank you for sharing your concerns. I want to respond carefully and work with you on a calm next step for your child.",
+      teacherDraft:
+        "I wanted to share a calm update about your child and outline the next steps I will take to support steady progress.",
       report: "The student is making steady progress and responding well to the current plan.",
     },
     professional: {
-      parent: "Thank you for your partnership. Your child consistently focuses on the learning goals.",
+      parentReply:
+        "Thank you for raising this with me. I will review the situation carefully and follow up with clear next steps for your child.",
+      teacherDraft:
+        "I wanted to give you a clear update about your child and explain the practical next steps I will take in class.",
       report: "The student is operating at a dependable level and continuing to meet expectations.",
     },
     direct: {
-      parent: "Here is the plain update: the student completed the essential tasks and would benefit from a short follow-up.",
+      parentReply:
+        "Thank you for flagging this. I will keep the response clear, factual, and focused on the next step we can take together.",
+      teacherDraft:
+        "Here is the clear update I want to send: your child completed the essential tasks, and a short follow-up will help us stay aligned.",
       report: "The student met the standards, and sharpening daily habits will help maintain this pace.",
     },
     empathetic: {
-      parent: "I see how hard the student is working; staying on this path will bring more confidence and calm.",
+      parentReply:
+        "Thank you for letting me know how this has been feeling at home. I want to reply with care and keep the next steps calm and supportive.",
+      teacherDraft:
+        "I want to share this update in a calm and supportive way so your child feels encouraged while we work on the next steps together.",
       report: "The student is progressing with care and could use encouragement to keep building momentum.",
     },
   },
   de: {
     warm: {
-      parent: "Die stetige Anstrengung Ihres Kindes f\u00e4llt positiv auf, und ich m\u00f6chte gerne daran ankn\u00fcpfen.",
+      parentReply:
+        "Vielen Dank, dass Sie Ihre Sorge geteilt haben. Ich möchte ruhig und sorgfältig darauf eingehen und einen klaren nächsten Schritt vorschlagen.",
+      teacherDraft:
+        "Ich möchte Ihnen eine ruhige Rückmeldung zu Ihrem Kind geben und die nächsten Schritte klar und unterstützend darstellen.",
       report: "Das Kind macht kontinuierliche Fortschritte und reagiert gut auf den aktuellen Plan.",
     },
     professional: {
-      parent: "Danke f\u00fcr die Zusammenarbeit. Ihr Kind bleibt fokussiert auf die Lernziele.",
+      parentReply:
+        "Vielen Dank für Ihre Nachricht. Ich werde die Situation sorgfältig prüfen und Ihnen die nächsten Schritte klar zusammenfassen.",
+      teacherDraft:
+        "Ich möchte Ihnen eine klare Rückmeldung zu Ihrem Kind geben und die nächsten sinnvollen Schritte aus dem Unterricht erläutern.",
       report: "Der Lernende arbeitet verl\u00e4sslich und erf\u00fcllt weiterhin die Erwartungen.",
     },
     direct: {
-      parent: "Hier die klare Einsch\u00e4tzung: Die wesentlichen Aufgaben wurden erledigt, und ein kurzes Nachfassen w\u00e4re sinnvoll.",
+      parentReply:
+        "Danke, dass Sie das angesprochen haben. Ich halte die Rückmeldung bewusst sachlich und konzentriere mich auf einen klaren nächsten Schritt.",
+      teacherDraft:
+        "Hier ist die klare Rückmeldung, die ich senden möchte: Die wesentlichen Aufgaben wurden erledigt, und ein kurzes Nachfassen ist sinnvoll.",
       report: "Der Lernende erf\u00fcllt die Standards, und ein gezielter Schliff der t\u00e4glichen Gewohnheiten bleibt hilfreich.",
     },
     empathetic: {
-      parent: "Ich sehe, wie hart Ihr Kind arbeitet; gemeinsam schaffen wir mehr Sicherheit und Selbstvertrauen.",
+      parentReply:
+        "Vielen Dank, dass Sie Ihre Perspektive mit mir teilen. Ich möchte behutsam antworten und gemeinsam für mehr Ruhe und Klarheit sorgen.",
+      teacherDraft:
+        "Ich möchte diese Rückmeldung ruhig und unterstützend formulieren, damit wir Ihrem Kind gemeinsam mehr Sicherheit geben können.",
       report: "Der Lernende macht bedacht Fortschritte und k\u00f6nnte etwas Unterst\u00fctzung gebrauchen, um das Tempo zu halten.",
     },
   },
@@ -124,6 +150,10 @@ function buildInstructionLine(context: DraftFallbackContext, studentProps: { fir
   return buildStudentInstruction(studentProps)
 }
 
+function resolveParentFacingLine(toneText: (typeof FALLBACK_TONE_TEXT)[LanguageKey][ToneKey], direction: MessageDirection) {
+  return direction === "parent_to_teacher" ? toneText.parentReply : toneText.teacherDraft
+}
+
 export function buildFallbackDraft(context: DraftFallbackContext) {
   const toneText = FALLBACK_TONE_TEXT[context.language][context.tone]
   const langCopy = FALLBACK_LANGUAGE_COPY[context.language]
@@ -135,21 +165,23 @@ export function buildFallbackDraft(context: DraftFallbackContext) {
   const instruction = buildInstructionLine(context, studentProps)
   const closingBlock = buildClosingBlock(context.language, context.teacherSignatureName)
   const finalGreetingLine = context.greetingFinal && context.greeting?.text?.trim()
+  const parentFacingLine = resolveParentFacingLine(toneText, context.generationMetadata.direction)
   if (finalGreetingLine) {
     // Final greeting - do not override
     if (context.mode === "parent_message") {
-      return `${langCopy.subject}\n${finalGreetingLine}\n${nameLine}\n${instruction}\n${toneText.parent}\n${langCopy.nextStep}\n${closingBlock}`
+      return `${langCopy.subject}\n${finalGreetingLine}\n${nameLine}\n${instruction}\n${parentFacingLine}\n${langCopy.nextStep}\n${closingBlock}`
     }
     return `${finalGreetingLine}\n${nameLine}\n${instruction}\n${toneText.report} ${langCopy.reportSuffix}`
   }
   if (context.mode === "parent_message") {
-    return `${langCopy.subject}\n${langCopy.parentGreeting}\n${nameLine}\n${instruction}\n${toneText.parent}\n${langCopy.nextStep}\n${closingBlock}`
+    return `${langCopy.subject}\n${langCopy.parentGreeting}\n${nameLine}\n${instruction}\n${parentFacingLine}\n${langCopy.nextStep}\n${closingBlock}`
   }
   return `${nameLine}\n${instruction}\n${toneText.report} ${langCopy.reportSuffix}`
 }
 
 interface ProviderRequestInput {
   situation: string
+  generationMetadata: GenerationMetadata
   signatureBlock?: string
   originalSituation?: string
   tone: ToneKey
@@ -218,6 +250,8 @@ export async function generateDraftWithFallback(
       uidHash: context.uidHash,
       errorCode,
       mode: context.mode,
+      generationMode: context.generationMetadata.mode,
+      direction: context.generationMetadata.direction,
       tone: context.tone,
       language: context.language,
       errorMessage: error instanceof Error ? error.message : "unknown",

@@ -85,6 +85,9 @@ export async function POST(request: NextRequest) {
     situation: data.transcribedText,
     tone: payload.targetTone ?? "empathetic",
     language: data.language ?? "en",
+    inputMode: "voice_to_calm" as const,
+    sourceType: "voice_transcript" as const,
+    voiceSessionId,
     rewrite: false,
   }
 

@@ -780,6 +780,102 @@ describe("/api/draft/generate child name anchoring", () => {
   })
 })
 
+describe("/api/draft/generate routing classification", () => {
+  it("classifies typed safe draft notes as teacher internal notes", async () => {
+    const payload = {
+      situation:
+        "Need to send a calm update to Noah's family about homework, reassure them, and outline the next steps I will take in class tomorrow.",
+      tone: "professional",
+      language: "en",
+      uiLocale: "en-GB",
+      mode: "parent_message",
+    }
+    const request = new Request("https://example.com/api/draft/generate", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: "Bearer token",
+      },
+      body: JSON.stringify(payload),
+    })
+
+    const response = await POST(request)
+    expect(response.status).toBe(200)
+    const providerInput = fallbackGenerator.mock.calls[fallbackGenerator.mock.calls.length - 1]?.[0]
+    expect(providerInput?.generationMetadata).toMatchObject({
+      mode: "safe_draft",
+      direction: "teacher_internal_notes",
+      source_type: "typed_text",
+      prompt_builder: "safe_draft",
+    })
+  })
+
+  it("keeps panic scan routing on the panic scan prompt path", async () => {
+    const payload = {
+      situation: detailedSituation,
+      situationRaw: "My child came home upset and I need to understand what happened in class today.",
+      tone: "professional",
+      language: "en",
+      uiLocale: "en-GB",
+      mode: "parent_message",
+      inputMode: "panic_scan",
+      sourceType: "ocr_text",
+      messageType: "parent_complaint",
+      scanId: "scan-123",
+    }
+    const request = new Request("https://example.com/api/draft/generate", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: "Bearer token",
+      },
+      body: JSON.stringify(payload),
+    })
+
+    const response = await POST(request)
+    expect(response.status).toBe(200)
+    const providerInput = fallbackGenerator.mock.calls[fallbackGenerator.mock.calls.length - 1]?.[0]
+    expect(providerInput?.generationMetadata).toMatchObject({
+      mode: "panic_scan",
+      direction: "parent_to_teacher",
+      source_type: "ocr_text",
+      prompt_builder: "panic_scan",
+    })
+  })
+
+  it("keeps voice-to-calm routing on the transcript prompt path", async () => {
+    const payload = {
+      situation:
+        "I am frustrated and need to turn these spoken notes into a calm update for the parent about the missed homework and tomorrow's support plan.",
+      tone: "empathetic",
+      language: "en",
+      uiLocale: "en-GB",
+      mode: "parent_message",
+      inputMode: "voice_to_calm",
+      sourceType: "voice_transcript",
+      voiceSessionId: "voice-123",
+    }
+    const request = new Request("https://example.com/api/draft/generate", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: "Bearer token",
+      },
+      body: JSON.stringify(payload),
+    })
+
+    const response = await POST(request)
+    expect(response.status).toBe(200)
+    const providerInput = fallbackGenerator.mock.calls[fallbackGenerator.mock.calls.length - 1]?.[0]
+    expect(providerInput?.generationMetadata).toMatchObject({
+      mode: "voice_to_calm",
+      direction: "teacher_internal_notes",
+      source_type: "voice_transcript",
+      prompt_builder: "voice_to_calm",
+    })
+  })
+})
+
 describe("/api/draft/generate de-escalation parity", () => {
   const cases = [
     { language: "en", uiLocale: "en-GB", triggerSnippet: "lies" },

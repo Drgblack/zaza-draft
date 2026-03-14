@@ -2,6 +2,11 @@ import type { DraftLanguage, DraftMode, DraftTone, PronounPreference } from "@/l
 import { MODE_DISPLAY_NAMES, MODE_PROMPT_INSTRUCTIONS } from "@/lib/draft-mode"
 import { buildStudentInstruction, PRONOUN_LABELS } from "@/lib/draft/student-policy"
 import { detectOutOfScopeRequest } from "@/lib/safety/out-of-scope"
+import type {
+  GenerationInputMode,
+  GenerationMetadata,
+  MessageDirection,
+} from "@/lib/generation/classification"
 import {
   logGreetingDecision,
   type GreetingSource,
@@ -27,6 +32,7 @@ function forceFailPrimary() {
 
 interface ProviderInput {
   situation: string
+  generationMetadata: GenerationMetadata
   originalSituation?: string
   tone: DraftTone
   language: DraftLanguage
@@ -88,6 +94,118 @@ const PRONOUN_INSTRUCTIONS: Record<PronounPreference, string> = {
   avoid: "Avoid gendered pronouns entirely and rely on neutral constructions such as 'the student' or 'this learner'.",
 }
 
+function isParentFacingDraft(direction: MessageDirection) {
+  return direction === "parent_to_teacher" || direction === "teacher_to_parent" || direction === "teacher_internal_notes"
+}
+
+function buildDirectionInstruction(direction: MessageDirection) {
+  switch (direction) {
+    case "parent_to_teacher":
+      return "The source text is an incoming message to the teacher. Write only as the teacher replying to the parent; never write from the parent's perspective."
+    case "teacher_to_parent":
+      return "The source text is already teacher-authored. Polish it while keeping the teacher as the sender and the parent as the recipient."
+    case "teacher_internal_notes":
+      return "The source text is rough teacher-authored notes. Convert it into a polished message from the teacher to the parent and never imply that the parent wrote the source text."
+    case "report_comment":
+      return "The source text is for a report comment. Keep it teacher-authored, evidence-based, and not parent-facing."
+  }
+}
+
+function buildSafeDraftInstructions(input: ProviderInput) {
+  switch (input.generationMetadata.direction) {
+    case "teacher_to_parent":
+      return [
+        "This request comes from Safe Draft typed teacher input.",
+        "Preserve the teacher as the author throughout. Do not thank the parent for writing unless that wording is explicitly present in the teacher draft.",
+      ]
+    case "teacher_internal_notes":
+      return [
+        "This request comes from Safe Draft typed teacher notes.",
+        "Transform rough teacher notes into a polished teacher-authored parent message.",
+        "Do not respond as though an incoming parent email was pasted here.",
+        "Do not open with phrases such as 'thank you for sharing your concerns' or similar parent-reply language unless the source is explicitly classified as parent_to_teacher.",
+      ]
+    case "report_comment":
+      return [
+        "This request comes from Safe Draft report-comment mode.",
+        "Write a concise teacher-authored report comment with no greeting and no parent reply framing.",
+      ]
+    case "parent_to_teacher":
+      return [
+        "This Safe Draft request was unexpectedly classified as parent_to_teacher.",
+        "Keep the output teacher-authored and bounded. Do not switch into the parent's voice.",
+      ]
+  }
+}
+
+function buildPanicScanInstructions(input: ProviderInput) {
+  const instructions = [
+    "This request comes from Panic Scan OCR.",
+    "Treat OCR provenance as authoritative. The cleaned OCR text is the primary source and must not be rewritten as if it came from typed teacher notes.",
+  ]
+
+  switch (input.generationMetadata.direction) {
+    case "parent_to_teacher":
+      instructions.push(
+        "Interpret the OCR text as a parent message to the teacher and write a calm, professional teacher reply to the parent.",
+        "Acknowledge the concern in neutral language before outlining next steps.",
+      )
+      break
+    case "teacher_to_parent":
+      instructions.push(
+        "The OCR appears to contain a teacher-authored message. Polish it as a teacher-authored message to the parent and do not convert it into a parent complaint.",
+      )
+      break
+    case "teacher_internal_notes":
+      instructions.push(
+        "The OCR appears to contain teacher notes. Convert those notes into a teacher-authored message to the parent without pretending the parent wrote first.",
+      )
+      break
+    case "report_comment":
+      instructions.push("The OCR appears to contain report-comment material. Return a report-style output only.")
+      break
+  }
+
+  return instructions
+}
+
+function buildVoiceToCalmInstructions(input: ProviderInput) {
+  const instructions = [
+    "This request comes from Voice-to-Calm transcript input.",
+    "Treat transcript provenance as authoritative. The source is spoken teacher content unless the direction explicitly says otherwise.",
+  ]
+
+  switch (input.generationMetadata.direction) {
+    case "parent_to_teacher":
+      instructions.push(
+        "The transcript appears to contain an incoming parent message. Write a calm, professional teacher reply to the parent.",
+      )
+      break
+    case "teacher_to_parent":
+      instructions.push(
+        "The transcript already resembles a teacher-authored message. Polish it while keeping the teacher as the sender.",
+      )
+      break
+    case "teacher_internal_notes":
+      instructions.push(
+        "Convert the teacher's spoken notes into a calm teacher-authored parent-facing message.",
+        "Do not behave like a reply to a parent unless the direction is explicitly parent_to_teacher.",
+      )
+      break
+    case "report_comment":
+      instructions.push("Convert the spoken notes into a concise report comment with no greeting or sign-off.")
+      break
+  }
+
+  return instructions
+}
+
+const PROMPT_BUILDERS: Record<GenerationInputMode, (input: ProviderInput) => string[]> = {
+  safe_draft: buildSafeDraftInstructions,
+  panic_scan: buildPanicScanInstructions,
+  voice_to_calm: buildVoiceToCalmInstructions,
+}
+
 export function buildSystemPrompt(input: ProviderInput) {
   const systemLines = [
     "You are Zara Draft, an assistant for K-12 teachers who writes professional, concise communications for parents and colleagues.",
@@ -96,16 +214,25 @@ export function buildSystemPrompt(input: ProviderInput) {
     "Avoid gendered pronouns unless the teacher explicitly specifies them in the prompt; default to inclusive wording.",
     "Never include student PII (full names, emails, phone numbers, addresses). If the prompt is disallowed, explain politely that you cannot help.",
     "Do not include blocked language such as insults, diagnostic labels, or emotionally charged terms; redirect toward behaviour, effort, and growth.",
-    "In the first paragraph (after any resolved greeting), restate the parent's stated concern in neutral language (for example, 'Sie schreiben, dass Lukas gestern fast zwei Stunden an den Hausaufgaben sass ...') before moving toward next steps.",
-    "Unless the parent is explicitly discussing behaviour, avoid generic 'behavior documentation' phrasing (e.g., 'Verhalten dokumentieren') and keep the focus on the actual concern being raised.",
-    "If cleaned notes mention escalation, complaints about policy, or threats such as 'Schulträger einschalten', acknowledge the concern, commit to investigating, suggest a calm next step (call or meeting), and keep the tone calm and bounded.",
+    "Do not switch author roles. The final output must always reflect the classified sender-recipient relationship.",
+    "Unless the message is explicitly classified as parent_to_teacher, do not write as if the parent authored the source text first.",
+    "If the source mentions escalation, complaints about policy, or threats such as 'Schulträger einschalten', keep the tone calm and bounded and suggest a practical next step.",
     "Use the student's first name sparingly (once or twice) and then switch to inclusive pronouns or neutral wording; avoid repeating 'your child' in adjacent sentences.",
     "Describe engagement challenges as calm observations (has found it difficult to stay focused, has had a few moments where...) rather than writing 'instances of disruption' or accusatory language.",
-    "Close parent messages with a short reassurance about aiming to support the student positively and helping them feel confident and successful at school.",
+    "For parent-facing teacher messages, close with a short reassurance about aiming to support the student positively and helping them feel confident and successful at school.",
     "Prefer the student's first name once or twice, then use the provided pronouns naturally; avoid repeating 'the student'.",
     PRONOUN_INSTRUCTIONS[input.pronounPreference],
+    buildDirectionInstruction(input.generationMetadata.direction),
     MODE_PROMPT_INSTRUCTIONS[input.mode],
+    ...PROMPT_BUILDERS[input.generationMetadata.prompt_builder](input),
   ]
+
+  if (input.generationMetadata.direction === "parent_to_teacher") {
+    systemLines.push(
+      "In the first paragraph (after any resolved greeting), restate the parent's stated concern in neutral language before moving toward next steps.",
+      "Unless the parent is explicitly discussing behaviour, avoid generic 'behavior documentation' phrasing and keep the focus on the actual concern being raised.",
+    )
+  }
 
   const teacherName = input.teacherSignatureName?.trim()
   const hasTeacherName = Boolean(teacherName)
@@ -175,7 +302,7 @@ export function buildSystemPrompt(input: ProviderInput) {
     systemLines.push(
       "If no student name was supplied, refer to the child as 'Ihr Kind' (use 'Ihr Sohn' or 'Ihre Tochter' only when the teacher explicitly provides gender).",
     )
-    if (input.mode === "parent_message") {
+    if (input.mode === "parent_message" && isParentFacingDraft(input.generationMetadata.direction)) {
       const hasFinalGreeting = Boolean(input.greetingFinal && input.greeting?.text)
       if (hasFinalGreeting) {
         systemLines.push(
@@ -186,21 +313,21 @@ export function buildSystemPrompt(input: ProviderInput) {
           "German parent messages must mimic a concise professional email: start with 'Betreff: <short subject>' on the first line, add a blank line, and begin with a polite greeting such as 'Liebe Eltern,' or 'Liebe Erziehungsberechtigte,'.",
         )
       }
-    systemLines.push(
-      "Write 3-5 short paragraphs separated by blank lines; each paragraph should focus on calm observations, progress updates, and collaborative next steps, keeping sentences brief (2-3 sentences) and paragraphs short.",
-    )
-    systemLines.push(
-      "End with a blank line, then 'Herzliche Grüße,' or 'Freundliche Grüße,' on its own line; include a brief reassuring sentence before the closing, and add the teacherSignatureName on the next line only if one is provided.",
-    )
-    systemLines.push(
-      "German parent messages must always include EXACTLY 3-5 paragraphs separated by blank lines (two newline characters), keep 'Betreff: …' on the first line, and never collapse the response into a single block.",
-    )
-    systemLines.push(
-      "Always finish after a blank line with a polite closing (for example, 'Herzliche Grüße,' or 'Freundliche Grüße,'), add the teacherSignatureName on the following line if one is provided, and never begin or end with refusal phrasing such as 'Es tut mir leid' or 'Ich kann nicht helfen'.",
-    )
-  } else {
-    systemLines.push(
-      "German report comments should span 35 to 70 words, omit greetings, focus on observable behaviour and progress, and end with a short clarity statement without a call to action.",
+      systemLines.push(
+        "Write 3-5 short paragraphs separated by blank lines; each paragraph should focus on calm observations, progress updates, and collaborative next steps, keeping sentences brief (2-3 sentences) and paragraphs short.",
+      )
+      systemLines.push(
+        "End with a blank line, then 'Herzliche Grüße,' or 'Freundliche Grüße,' on its own line; include a brief reassuring sentence before the closing, and add the teacherSignatureName on the next line only if one is provided.",
+      )
+      systemLines.push(
+        "German parent messages must always include EXACTLY 3-5 paragraphs separated by blank lines (two newline characters), keep 'Betreff: …' on the first line, and never collapse the response into a single block.",
+      )
+      systemLines.push(
+        "Always finish after a blank line with a polite closing (for example, 'Herzliche Grüße,' or 'Freundliche Grüße,'), add the teacherSignatureName on the following line if one is provided, and never begin or end with refusal phrasing such as 'Es tut mir leid' or 'Ich kann nicht helfen'.",
+      )
+    } else {
+      systemLines.push(
+        "German report comments should span 35 to 70 words, omit greetings, focus on observable behaviour and progress, and end with a short clarity statement without a call to action.",
       )
     }
     systemLines.push("Translate any English notes into natural German rather than copying English words literally.")
@@ -315,6 +442,9 @@ function buildBasePayload(input: ProviderInput): FetchPayload {
     `Tone: ${input.tone}`,
     `Language: ${input.language}`,
     `Mode: ${MODE_DISPLAY_NAMES[input.mode]}`,
+    `Generation mode: ${input.generationMetadata.mode}`,
+    `Message direction: ${input.generationMetadata.direction}`,
+    `Source type: ${input.generationMetadata.source_type}`,
     `Context subject: ${input.context?.subject ?? "-"}`,
     `Context gradeLevel: ${input.context?.gradeLevel ?? "-"}`,
   ]
@@ -322,8 +452,10 @@ function buildBasePayload(input: ProviderInput): FetchPayload {
     contextLines.push(`Signature block:\n${input.signatureBlock}`)
   }
   const userParts = [
-    `Cleaned notes:\n${input.situation}`,
-    input.originalSituation ? `Original notes (for reference only):\n${input.originalSituation}` : undefined,
+    `Primary source (${input.generationMetadata.source_type}):\n${input.situation}`,
+    input.originalSituation
+      ? `Original notes (for reference only, same provenance: ${input.generationMetadata.source_type}):\n${input.originalSituation}`
+      : undefined,
     input.rewrite && input.previousDraft ? `Rewrite previous draft:\n${input.previousDraft}` : undefined,
   ].filter(Boolean)
 
