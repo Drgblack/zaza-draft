@@ -40,6 +40,7 @@ export function Header({
   const pathname = usePathname()
   const { user, status } = useAuth()
   const hasAccess = status === "authenticated" && Boolean(user)
+  const showHomeLink = !editable && title === "Zaza Draft"
 
   const handleTitleSubmit = () => {
     onTitleChange(editedTitle)
@@ -59,10 +60,23 @@ export function Header({
     >
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-3 flex-1 min-w-0">
-          <div className="flex items-center gap-2">
-            <Image src="/z-logo.png" width={32} height={32} className="flex-shrink-0" alt="" />
-          </div>
-          {isEditingTitle && editable ? (
+          {showHomeLink ? (
+            <Link
+              href="https://app.zazadraft.com/"
+              className="flex items-center gap-3 min-w-0 rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-500"
+              aria-label="Go to Zaza Draft home"
+            >
+              <div className="flex items-center gap-2">
+                <Image src="/z-logo.png" width={32} height={32} className="flex-shrink-0" alt="" />
+              </div>
+              <h1
+                className="text-base font-semibold truncate text-gray-900 dark:text-white"
+                style={isDarkMode ? { color: "#ffffff" } : {}}
+              >
+                {title}
+              </h1>
+            </Link>
+          ) : isEditingTitle && editable ? (
             <input
               type="text"
               value={editedTitle}
@@ -81,26 +95,31 @@ export function Header({
               autoFocus
             />
           ) : (
-            <h1
-              className={`text-base font-semibold truncate ${
-                editable ? "cursor-pointer hover:text-purple-600 dark:hover:text-purple-400 transition-colors" : ""
-              } text-gray-900 dark:text-white`}
-              style={isDarkMode ? { color: "#ffffff" } : {}}
-              {...(editable && {
-                onClick: () => setIsEditingTitle(true),
-                tabIndex: 0,
-                role: "button",
-                "aria-label": t("docTitleLabel", { title }),
-                onKeyDown: (e: React.KeyboardEvent) => {
-                  if (e.key === "Enter" || e.key === " ") {
-                    e.preventDefault()
-                    setIsEditingTitle(true)
-                  }
-                },
-              })}
-            >
-              {title}
-            </h1>
+            <>
+              <div className="flex items-center gap-2">
+                <Image src="/z-logo.png" width={32} height={32} className="flex-shrink-0" alt="" />
+              </div>
+              <h1
+                className={`text-base font-semibold truncate ${
+                  editable ? "cursor-pointer hover:text-purple-600 dark:hover:text-purple-400 transition-colors" : ""
+                } text-gray-900 dark:text-white`}
+                style={isDarkMode ? { color: "#ffffff" } : {}}
+                {...(editable && {
+                  onClick: () => setIsEditingTitle(true),
+                  tabIndex: 0,
+                  role: "button",
+                  "aria-label": t("docTitleLabel", { title }),
+                  onKeyDown: (e: React.KeyboardEvent) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault()
+                      setIsEditingTitle(true)
+                    }
+                  },
+                })}
+              >
+                {title}
+              </h1>
+            </>
           )}
         </div>
 

@@ -96,4 +96,23 @@ describe("Header gating", () => {
     expect(screen.getByLabelText("Account menu")).toBeTruthy()
     expect(screen.queryByRole("button", { name: "Sign in" })).toBeNull()
   })
+
+  it("links the brand block to the app home", () => {
+    useAuthMock.mockReturnValue({
+      user: null,
+      status: "unauthenticated",
+      signOut: vi.fn(),
+      signInWithEmail: vi.fn(),
+      registerWithEmail: vi.fn(),
+      signInWithGoogle: vi.fn(),
+      getIdToken: vi.fn().mockResolvedValue(null),
+    })
+
+    render(<Header title="Zaza Draft" saveStatus="saved" onTitleChange={() => {}} />)
+
+    expect(screen.getByRole("link", { name: "Go to Zaza Draft home" })).toHaveAttribute(
+      "href",
+      "https://app.zazadraft.com/",
+    )
+  })
 })
