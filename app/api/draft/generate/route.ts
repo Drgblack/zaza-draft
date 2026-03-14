@@ -55,6 +55,7 @@ import { detectTeacherAuthenticityViolations, type TeacherAuthenticityViolation 
 import { sanitizeReportCommentStructure, sanitizeReportCommentText } from "@/lib/draft/report-comment"
 import { applyModeAwareSubjectLine } from "@/lib/draft/subject-policy"
 import { applyEnglishOutputSanity } from "@/lib/draft/english-output-sanity"
+import { detectTeacherNoteIssueClusters } from "@/lib/draft/teacher-note-issues"
 import { isValidDraftRequest, OUT_OF_SCOPE_REDIRECT_MESSAGE } from "./scope-guard"
 import { isDebugEnabled } from "@/lib/debug"
 import { classifyGenerationRequest, type GenerationMetadata, type SourceType } from "@/lib/generation/classification"
@@ -62,6 +63,7 @@ import { applyFinalGreetingGuard } from "@/lib/draft/final-greeting"
 import {
   GreetingDecision,
   greetingWithName,
+  normalizeParentFacingGreetingLine,
   type GreetingLocale,
   type GreetingSource,
   logGreetingDecision,
@@ -520,8 +522,12 @@ function detectExtraSignoffName(raw: string, locale: GreetingLocale, policy: Gre
     return collapsed.replace(/([,;:.!?])\1+$/, "$1")
   }
 
-  function normalizeGreetingValue(value: string) {
-    return normalizeName(value)
+  function normalizeGreetingValue(value: string, locale: GreetingLocale = "en") {
+    const normalized = normalizeName(value)
+    if (!normalized) {
+      return ""
+    }
+    return normalizeParentFacingGreetingLine(normalized, locale)
   }
 
 function resolveGreetingFromRawText(
@@ -565,7 +571,7 @@ function resolveGreetingFromRawText(
     tone,
     recipientOverride,
   })
-  const normalizedGreeting = normalizeGreetingValue(greetingResult.greeting)
+  const normalizedGreeting = normalizeGreetingValue(greetingResult.greeting, locale)
     const normalizedSafeName = greetingResult.safeName
       ? normalizeName(greetingResult.safeName)
       : null
@@ -707,7 +713,10 @@ export async function POST(request: Request) {
       })
     : null
 
-  let greetingText = normalizeGreetingValue(payload.greeting?.text ?? "")
+  let greetingText = normalizeGreetingValue(
+    payload.greeting?.text ?? "",
+    language?.toLowerCase().startsWith("de") ? "de" : "en",
+  )
   let greetingConfidence = payload.greetingConfidence ?? payload.greeting?.confidence ?? "NONE"
   let greetingSource = payload.greetingSource ?? payload.greeting?.source ?? "generic-fallback"
   let greetingName = payload.greeting?.name ? normalizeName(payload.greeting.name) : null
@@ -715,6 +724,7 @@ export async function POST(request: Request) {
     greetingName = null
   }
   let greetingFinal = Boolean(payload.greetingFinal && greetingText)
+  const greetingLocale: GreetingLocale = language?.toLowerCase().startsWith("de") ? "de" : "en"
   const normalizedRequestGreeting = greetingText.replace(/\s+/g, " ").trim()
   const shouldResetGreeting =
     Boolean(greetingText) &&
@@ -739,7 +749,7 @@ export async function POST(request: Request) {
       greetingName,
     )
     if (resolvedGreeting) {
-      greetingText = normalizeGreetingValue(resolvedGreeting.greeting)
+      greetingText = normalizeGreetingValue(resolvedGreeting.greeting, greetingLocale)
       greetingConfidence = resolvedGreeting.confidence
       greetingSource = resolvedGreeting.source
       const normalizedResolvedName = resolvedGreeting.safeName
@@ -768,7 +778,7 @@ export async function POST(request: Request) {
     safeParentName: greetingName,
     confidence: greetingConfidence,
     source: greetingSource,
-    locale: language?.toLowerCase().startsWith("de") ? "de" : "en",
+    locale: greetingLocale,
     messageType: payload.messageType ?? undefined,
     scanId: payload.scanId ?? undefined,
     greetingFinal: Boolean(finalGreetingLine && greetingText),
@@ -1104,6 +1114,11 @@ export async function POST(request: Request) {
     pronounPreference: resolvedPronounPreference,
     mode,
     studentFirstName: studentNameForPayload || undefined,
+    teacherNoteIssueClusters:
+      generationMetadata.mode === "safe_draft" &&
+      generationMetadata.direction === "teacher_internal_notes"
+        ? detectTeacherNoteIssueClusters(currentSituation, language)
+        : undefined,
     resolvedPronounPreference,
     signatureBlock: resolvedSignature.block,
     teacherSignatureName,
@@ -1125,6 +1140,11 @@ export async function POST(request: Request) {
     uidHash,
     generationMetadata,
     studentFirstName: studentNameForPayload || undefined,
+    teacherNoteIssueClusters:
+      generationMetadata.mode === "safe_draft" &&
+      generationMetadata.direction === "teacher_internal_notes"
+        ? detectTeacherNoteIssueClusters(currentSituation, language)
+        : undefined,
     studentPronounPreference: resolvedPronounPreference,
     teacherSignatureName,
     greeting: providerGreeting,
@@ -1356,6 +1376,30 @@ export async function POST(request: Request) {
         : countWords(generatedDraft)
   }
 
+  const enforceFinalVisibleSignoff = () => {
+    if (mode === "report_comment") {
+      formattedDraftStructure = sanitizeReportCommentStructure(
+        formatDraftText(generatedDraft, language),
+        language,
+      )
+      bodyParagraphCount = getParagraphCountExcludingGreeting(
+        formattedDraftStructure,
+        finalGreetingLine,
+      )
+      bodyWordCount = countWords(generatedDraft)
+      return
+    }
+
+    if (mode !== "parent_message" || !resolvedSignature.appendForMode[mode]) {
+      return
+    }
+
+    generatedDraft = normalizeClosingForMode(generatedDraft)
+    formattedDraftStructure = formatDraftText(generatedDraft, language)
+    bodyParagraphCount = getParagraphCountExcludingGreeting(formattedDraftStructure, finalGreetingLine)
+    bodyWordCount = getMeaningfulParentBodyWordCount(formattedDraftStructure, finalGreetingLine)
+  }
+
   finalizeAndFormatDraft(generatedDraft)
   const shouldUseGreetingRecoveryTemplate = Boolean(finalGreetingLine && greetingSource === "resolved-name")
   const evaluateBodyNeedsRetry = () =>
@@ -1526,6 +1570,8 @@ export async function POST(request: Request) {
     mode,
     direction: generationMetadata.direction,
     sourceText: currentSituation,
+    studentFirstName: studentNameForPayload || undefined,
+    teacherNoteIssueClusters: fallbackContext.teacherNoteIssueClusters,
   })
   let teacherAuthenticityRegenerationAttempted = false
 
@@ -1560,6 +1606,8 @@ export async function POST(request: Request) {
       mode,
       direction: generationMetadata.direction,
       sourceText: currentSituation,
+      studentFirstName: studentNameForPayload || undefined,
+      teacherNoteIssueClusters: fallbackContext.teacherNoteIssueClusters,
     })
   }
 
@@ -1576,6 +1624,8 @@ export async function POST(request: Request) {
       mode,
       direction: generationMetadata.direction,
       sourceText: currentSituation,
+      studentFirstName: studentNameForPayload || undefined,
+      teacherNoteIssueClusters: fallbackContext.teacherNoteIssueClusters,
     })
 
     if (fallbackViolations.length === 0) {
@@ -1655,6 +1705,7 @@ export async function POST(request: Request) {
 
   await recoverCollapsedParentMessageOutput()
   applyGenericRecoveryGuardIfNeeded()
+  enforceFinalVisibleSignoff()
 
   let updatedUsage: MonthlyUsageRecord = usageRecord
   if (!isQaUser && !isDevBypassRequest) {

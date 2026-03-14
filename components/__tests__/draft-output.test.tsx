@@ -200,10 +200,10 @@ Dr Greg Blackburn`
     expect(signature).toBeInTheDocument()
   })
 
-  it("renders the full body for parent messages that start with a generic hello greeting", () => {
+  it("renders the repaired unknown-recipient greeting as its own line in the final output", () => {
     const rawDraft = `Subject: Homework update
 
-Hello,
+Dear Parent/Carer,
 
 I wanted to give you a clear update about today's maths lesson. I will check the lesson notes and speak with Theo again tomorrow morning before I follow up with you.
 
@@ -212,14 +212,17 @@ Dr Greg Blackburn`
 
     render(<DraftOutput {...baseProps} draftText={rawDraft} structure={undefined} />)
     const body = screen.getByTestId("draft-output-body")
+    expect(within(body).getByText("Dear Parent/Carer,")).toBeInTheDocument()
     expect(
-      within(body).getByText(
-        "Hello, I wanted to give you a clear update about today's maths lesson.",
+      within(body).getByText((text) =>
+        text.includes("I wanted to give you a clear update about today's maths lesson."),
       ),
     ).toBeInTheDocument()
     expect(
-      within(body).getByText(
-        "I will check the lesson notes and speak with Theo again tomorrow morning before I follow up with you.",
+      within(body).getByText((text) =>
+        text.includes(
+          "I will check the lesson notes and speak with Theo again tomorrow morning before I follow up with you.",
+        ),
       ),
     ).toBeInTheDocument()
     expect(

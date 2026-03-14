@@ -1,6 +1,15 @@
 import { generateDraft, type ProviderMeta, type ProviderResult } from "@/lib/ai/provider"
 import type { GenerationMetadata } from "@/lib/generation/classification"
-import type { GreetingSource, NameConfidenceLevel } from "@/lib/draft/greeting-resolution"
+import {
+  normalizeParentFacingGreetingLine,
+  type GreetingSource,
+  type NameConfidenceLevel,
+} from "@/lib/draft/greeting-resolution"
+import {
+  detectTeacherNoteIssueClusters,
+  summarizeTeacherNoteIssueClusters,
+  type TeacherNoteIssueCluster,
+} from "@/lib/draft/teacher-note-issues"
 import type { DraftMode, PronounPreference } from "@/lib/types"
 
 export const ALLOWED_TONES = ["warm", "professional", "direct", "empathetic"] as const
@@ -24,6 +33,7 @@ export interface DraftFallbackContext {
   }
   greetingFinal?: boolean
   sourceSituation?: string
+  teacherNoteIssueClusters?: TeacherNoteIssueCluster[]
 }
 
 export type RecoveryIssueKind =
@@ -118,12 +128,15 @@ function normalizeText(value?: string | null) {
 
 function resolveGreetingLine(context: DraftFallbackContext) {
   if (context.greetingFinal && context.greeting?.text?.trim()) {
-    return context.greeting.text.trim()
+    return normalizeParentFacingGreetingLine(
+      context.greeting.text.trim(),
+      context.language === "de" ? "de" : "en",
+    )
   }
   if (context.mode !== "parent_message") {
     return ""
   }
-  return context.language === "de" ? "Guten Tag," : "Hello,"
+  return context.language === "de" ? "Guten Tag," : "Dear Parent/Carer,"
 }
 
 function buildClosingBlock(language: LanguageKey, teacherSignatureName?: string) {
@@ -306,28 +319,28 @@ function buildTeacherDraftOpening(
 
   const byTone: Record<ToneKey, Record<RecoveryIssueKind, string>> = {
     warm: {
-      bullying_safety: "I wanted to send a brief, calm update about what happened today.",
-      homework: `I wanted to send a quick update about ${namedHomework}, as a few pieces have not been handed in on time recently.`,
-      lateness: `I wanted to send a quick update about ${namedLateness}, as there have been a few late starts to class recently.`,
-      grading: "I wanted to send a brief, calm update about the recent marking.",
-      behaviour: "I wanted to send a brief, calm update about a classroom behaviour concern.",
-      disruption: "I wanted to send a brief, calm update about some disruption during lesson time.",
-      support: "I wanted to send a brief, calm update about the next steps for support in school.",
-      general: "I wanted to send a brief, calm update about a classroom concern.",
+      bullying_safety: "I wanted to follow up on what happened today.",
+      homework: `I just wanted to let you know about ${namedHomework}, as a few pieces have not been handed in on time recently.`,
+      lateness: `I just wanted to let you know about ${namedLateness}, as there have been a few late starts to class recently.`,
+      grading: "I wanted to update you on the recent marking.",
+      behaviour: "I wanted to update you on a classroom behaviour concern.",
+      disruption: "I wanted to let you know about some disruption during lesson time.",
+      support: "I wanted to keep you in the loop about the next steps for support in school.",
+      general: "I wanted to make you aware of a classroom concern.",
     },
     professional: {
-      bullying_safety: "I wanted to send a brief update about what happened today.",
+      bullying_safety: "I wanted to follow up on what happened today.",
       homework: studentName
         ? `I wanted to let you know that ${studentName} has been handing homework in late more regularly over the past few weeks.`
         : "I wanted to let you know that homework has been handed in late more regularly over the past few weeks.",
       lateness: studentName
         ? `I wanted to let you know that ${studentName} has been arriving late to class more regularly over the past few weeks.`
         : "I wanted to let you know that there has been a more regular pattern of lateness to class.",
-      grading: "I wanted to send a brief update about the recent marking.",
-      behaviour: "I wanted to send a brief update about a classroom behaviour concern.",
-      disruption: "I wanted to send a brief update about some disruption during lesson time.",
-      support: "I wanted to send a brief update about the next steps for support in school.",
-      general: "I wanted to send a brief update about a classroom concern.",
+      grading: "I wanted to update you on the recent marking.",
+      behaviour: "I wanted to make you aware of a classroom behaviour concern.",
+      disruption: "I wanted to let you know about some disruption during lesson time.",
+      support: "I wanted to update you on the next steps for support in school.",
+      general: "I wanted to make you aware of a classroom concern.",
     },
     direct: {
       bullying_safety: "I am writing with a clear update about what happened today.",
@@ -344,21 +357,220 @@ function buildTeacherDraftOpening(
       general: "I am writing with a clear update about a classroom concern.",
     },
     empathetic: {
-      bullying_safety: "I wanted to send a calm update about what happened today and explain the next step in school.",
+      bullying_safety: "I wanted to follow up on what happened today because I know this will have felt serious.",
       homework: studentName
         ? `I wanted to get in touch about ${studentName}'s homework, as handing it in on time has been difficult lately.`
         : "I wanted to get in touch about homework, as handing it in on time has been difficult lately.",
       lateness: studentName
         ? `I wanted to get in touch about ${studentName}'s punctuality, as arriving on time has been difficult lately.`
         : "I wanted to get in touch about punctuality, as arriving on time has been difficult lately.",
-      grading: "I wanted to send a calm update about the recent marking and explain the next step in school.",
-      behaviour: "I wanted to send a calm update about a classroom behaviour concern and explain the next step in school.",
-      disruption: "I wanted to send a calm update about lesson time today and explain the next step in school.",
-      support: "I wanted to send a calm update about the next steps for support in school.",
-      general: "I wanted to send a calm update about this concern and explain the next step in school.",
+      grading: "I wanted to reach out about the recent marking and explain the next step in school.",
+      behaviour: "I wanted to reach out about a classroom behaviour concern and explain the next step in school.",
+      disruption: "I wanted to follow up on lesson time today and explain the next step in school.",
+      support: "I wanted to reach out about the next steps for support in school.",
+      general: "I wanted to reach out about this concern and explain the next step in school.",
     },
   }
   return byTone[tone][issueKind]
+}
+
+function resolveTeacherNoteIssueClusters(context: DraftFallbackContext) {
+  if (context.teacherNoteIssueClusters && context.teacherNoteIssueClusters.length > 0) {
+    return context.teacherNoteIssueClusters
+  }
+  return detectTeacherNoteIssueClusters(context.sourceSituation, context.language)
+}
+
+function joinList(items: string[]) {
+  if (items.length <= 1) {
+    return items[0] ?? ""
+  }
+  if (items.length === 2) {
+    return `${items[0]} and ${items[1]}`
+  }
+  return `${items.slice(0, -1).join(", ")}, and ${items.at(-1)}`
+}
+
+function buildTeacherNoteConcernLabels(
+  clusters: TeacherNoteIssueCluster[],
+  language: LanguageKey,
+  studentFirstName?: string,
+) {
+  if (language === "de") {
+    return clusters.map((cluster) => {
+      switch (cluster) {
+        case "attendance_lateness":
+          return "Pünktlichkeit"
+        case "homework":
+          return "Hausaufgaben"
+        case "classroom_behaviour":
+          return "Verhalten im Unterricht"
+        case "peer_issues":
+          return "Umgang mit anderen Kindern"
+        case "academic_progress":
+          return "Lernentwicklung"
+      }
+    })
+  }
+
+  const studentName = studentFirstName?.trim()
+  return clusters.map((cluster) => {
+    switch (cluster) {
+      case "attendance_lateness":
+        return studentName ? `${studentName}'s punctuality` : "punctuality"
+      case "homework":
+        return studentName ? `${studentName}'s homework` : "homework"
+      case "classroom_behaviour":
+        return "classroom behaviour"
+      case "peer_issues":
+        return "interactions with other children"
+      case "academic_progress":
+        return "academic progress"
+    }
+  })
+}
+
+function buildTeacherNoteActionClauses(
+  clusters: TeacherNoteIssueCluster[],
+  language: LanguageKey,
+  studentFirstName?: string,
+) {
+  if (language === "de") {
+    return clusters.map((cluster) => {
+      switch (cluster) {
+        case "attendance_lateness":
+          return "die Erwartungen an einen pünktlichen Start noch einmal klar benennen"
+        case "homework":
+          return "die fehlenden Hausaufgaben noch einmal ruhig durchgehen"
+        case "classroom_behaviour":
+          return "die Erwartungen für den Unterricht ruhig und eindeutig aufgreifen"
+        case "peer_issues":
+          return "mögliche Konflikte mit anderen Kindern genauer klären"
+        case "academic_progress":
+          return "die aktuelle Lernentwicklung im Unterricht noch einmal genau prüfen"
+      }
+    })
+  }
+
+  const studentLabel = studentFirstName?.trim() || "the student"
+  return clusters.map((cluster) => {
+    switch (cluster) {
+      case "attendance_lateness":
+        return "restate the expectation around arriving on time"
+      case "homework":
+        return "go through the missing homework and make the next task clear"
+      case "classroom_behaviour":
+        return `speak with ${studentLabel} about the classroom expectations and the recent disruption`
+      case "peer_issues":
+        return "check in about the interactions with other children and speak with pupils involved if needed"
+      case "academic_progress":
+        return "review the recent classwork and make the next learning steps clear"
+    }
+  })
+}
+
+function buildTeacherNotesMultiIssueSubject(
+  language: LanguageKey,
+  clusters: TeacherNoteIssueCluster[],
+  studentFirstName?: string,
+) {
+  if (language === "de") {
+    const labels = buildTeacherNoteConcernLabels(clusters.slice(0, 2), language)
+    return `Betreff: Rückmeldung zu ${labels.join(" und ")}`
+  }
+
+  const labels = buildTeacherNoteConcernLabels(clusters.slice(0, 2), language, studentFirstName)
+  return `Subject: Update on ${labels.join(" and ")}`
+}
+
+function buildTeacherNotesMultiIssueOpening(
+  context: DraftFallbackContext,
+  clusters: TeacherNoteIssueCluster[],
+) {
+  const labels = joinList(
+    buildTeacherNoteConcernLabels(clusters, context.language, context.studentFirstName),
+  )
+  const studentName = context.studentFirstName?.trim()
+
+  if (context.language === "de") {
+    const openings: Record<ToneKey, string> = {
+      warm: studentName
+        ? `Ich möchte Ihnen eine kurze und ruhige Rückmeldung zu ${studentName} geben, da sich zuletzt mehrere Punkte bei ${labels} gezeigt haben.`
+        : `Ich möchte Ihnen eine kurze und ruhige Rückmeldung geben, da sich zuletzt mehrere Punkte bei ${labels} gezeigt haben.`,
+      professional: studentName
+        ? `Ich möchte Ihnen eine kurze Rückmeldung zu ${studentName} geben, da sich zuletzt mehrere Punkte bei ${labels} gezeigt haben.`
+        : `Ich möchte Ihnen eine kurze Rückmeldung geben, da sich zuletzt mehrere Punkte bei ${labels} gezeigt haben.`,
+      direct: studentName
+        ? `Ich schreibe Ihnen mit einer klaren Rückmeldung zu ${studentName} bei ${labels}.`
+        : `Ich schreibe Ihnen mit einer klaren Rückmeldung zu mehreren Punkten bei ${labels}.`,
+      empathetic: studentName
+        ? `Ich möchte Ihnen eine ruhige Rückmeldung zu ${studentName} geben, weil ${labels} zuletzt gleichzeitig schwieriger geworden sind.`
+        : `Ich möchte Ihnen eine ruhige Rückmeldung geben, weil ${labels} zuletzt gleichzeitig schwieriger geworden sind.`,
+    }
+    return openings[context.tone]
+  }
+
+  const openings: Record<ToneKey, string> = {
+    warm: studentName
+      ? `I just wanted to let you know about ${studentName}, as there have been a few linked concerns recently with ${labels}.`
+      : `I just wanted to let you know that there have been a few linked concerns recently with ${labels}.`,
+    professional: studentName
+      ? `I wanted to make you aware of a few concerns about ${studentName}, particularly with ${labels}.`
+      : `I wanted to make you aware of a few linked concerns, particularly with ${labels}.`,
+    direct: studentName
+      ? `I am writing with a clear update about ${studentName}'s ${labels}.`
+      : `I am writing with a clear update about ${labels}.`,
+    empathetic: studentName
+      ? `I wanted to reach out about ${studentName}, as ${labels} have all been more difficult recently.`
+      : `I wanted to reach out because ${labels} have all been more difficult recently.`,
+  }
+  return openings[context.tone]
+}
+
+function buildTeacherNotesMultiIssueAction(
+  context: DraftFallbackContext,
+  clusters: TeacherNoteIssueCluster[],
+) {
+  const clauses = buildTeacherNoteActionClauses(
+    clusters,
+    context.language,
+    context.studentFirstName,
+  )
+  const actionText = joinList(clauses)
+
+  if (context.language === "de") {
+    return `Ich werde diese Punkte in der Schule direkt aufgreifen, ${actionText}, damit die nächsten Schritte klar bleiben.`
+  }
+
+  const prefixes: Record<ToneKey, string> = {
+    warm: "I will follow these points up in school,",
+    professional: "I will follow these points up in school,",
+    direct: "I will address these points in school,",
+    empathetic: "I will follow these points up in school,",
+  }
+  return `${prefixes[context.tone]} ${actionText}, so the next steps are clear.`
+}
+
+function buildTeacherNotesMultiIssueFollowUp(
+  context: DraftFallbackContext,
+  clusters: TeacherNoteIssueCluster[],
+) {
+  if (context.language === "de") {
+    return context.tone === "warm"
+      ? "Ich wollte Ihnen das gesamte Bild frühzeitig geben und melde mich noch einmal, wenn ich diese Punkte im Unterricht weiter geprüft habe."
+      : "Ich wollte Ihnen das gesamte Muster frühzeitig rückmelden und melde mich noch einmal, wenn ich diese Punkte im Unterricht weiter geprüft habe."
+  }
+
+  const studentName = context.studentFirstName?.trim() || "the student"
+  const followUps: Record<ToneKey, string> = {
+    warm: `I wanted to share the full picture early so that we can support ${studentName} consistently, and I will follow up again once I have checked these points in school.`,
+    professional:
+      "I wanted to make you aware of the full pattern early, and I will follow up again once I have checked these points in school.",
+    direct:
+      "I wanted to raise the full pattern now so it can be addressed before it becomes more established.",
+    empathetic: `I did not want these linked concerns to build further, so I wanted to let you know now and I will follow up again once I have checked these points with ${studentName} in school.`,
+  }
+  return followUps[context.tone]
 }
 
 function buildRecoveryAction(
@@ -526,6 +738,22 @@ export function buildTeacherNotesRecoveryDraft(
   greetingLine: string,
   closingBlock: string,
 ) {
+  const issueClusters = resolveTeacherNoteIssueClusters(context)
+  if (issueClusters.length > 1) {
+    return [
+      buildTeacherNotesMultiIssueSubject(
+        context.language,
+        issueClusters,
+        context.studentFirstName,
+      ),
+      greetingLine,
+      buildTeacherNotesMultiIssueOpening(context, issueClusters),
+      buildTeacherNotesMultiIssueAction(context, issueClusters),
+      buildTeacherNotesMultiIssueFollowUp(context, issueClusters),
+      closingBlock,
+    ].join("\n\n")
+  }
+
   const issueKind = detectRecoveryIssueKind(context.sourceSituation, context.language)
   return [
     ISSUE_SUBJECTS[context.language][issueKind],
@@ -538,9 +766,19 @@ export function buildTeacherNotesRecoveryDraft(
 }
 
 export function buildFallbackDraftResult(context: DraftFallbackContext): RecoveryDraftResult {
+  const issueClusters = resolveTeacherNoteIssueClusters(context)
   const issueKind = detectRecoveryIssueKind(context.sourceSituation, context.language)
-  const templateFamily = `${context.generationMetadata.mode}_${context.generationMetadata.direction}_${issueKind}`
-  const sourceAnchors = [...ISSUE_ANCHORS[context.language][issueKind]]
+  const hasTeacherNoteMultiIssue =
+    isSafeDraftTeacherNotesRecovery(context) && issueClusters.length > 1
+  const templateFamily = hasTeacherNoteMultiIssue
+    ? `${context.generationMetadata.mode}_${context.generationMetadata.direction}_multi_issue`
+    : `${context.generationMetadata.mode}_${context.generationMetadata.direction}_${issueKind}`
+  const sourceAnchors = hasTeacherNoteMultiIssue
+    ? [
+        ...issueClusters,
+        summarizeTeacherNoteIssueClusters(issueClusters, context.language),
+      ]
+    : [...ISSUE_ANCHORS[context.language][issueKind]]
   const greetingLine = resolveGreetingLine(context)
   const closingBlock = buildClosingBlock(context.language, context.teacherSignatureName)
 
@@ -609,6 +847,7 @@ export interface ProviderRequestInput {
   pronounPreference: PronounPreference
   mode: DraftMode
   studentFirstName?: string
+  teacherNoteIssueClusters?: TeacherNoteIssueCluster[]
   resolvedPronounPreference?: PronounPreference
   forceLanguage?: boolean
   forceContinuation?: boolean

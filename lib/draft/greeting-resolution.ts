@@ -229,7 +229,7 @@ function buildNamedGreeting(fullName: string, input: GreetingPolicyInput): strin
     if (input.allowEnglishFullName && parsed.displayName) {
       return `Hello ${parsed.displayName},`
     }
-    return "Hello,"
+    return buildFallbackGreeting(input)
   }
 
   const germanHonorific = parsed.honorific
@@ -256,7 +256,45 @@ function buildFallbackGreeting(input: GreetingPolicyInput): string {
   if (input.locale === "de") {
     return "Guten Tag,"
   }
-  return "Hello,"
+  return "Dear Parent/Carer,"
+}
+
+export function normalizeParentFacingGreetingLine(value: string, locale: GreetingLocale): string {
+  const collapsed = normalizeText(value)
+    .replace(/\s+,/g, ",")
+    .replace(/\s+([;:.!?])/g, "$1")
+    .replace(/,+/g, ",")
+    .trim()
+
+  if (!collapsed) {
+    return locale === "de" ? "Guten Tag," : "Dear Parent/Carer,"
+  }
+
+  if (locale === "en") {
+    if (/^(hello|hi|dear)\s*,?$/i.test(collapsed)) {
+      return "Dear Parent/Carer,"
+    }
+    if (/^dear\s+parent(?:\/carer|\(s\))?\s*,?$/i.test(collapsed)) {
+      return "Dear Parent/Carer,"
+    }
+    if (/^(hello|hi)\s+.+$/i.test(collapsed)) {
+      return `${collapsed.replace(/,+$/, "")},`
+    }
+    if (/^dear\s+.+$/i.test(collapsed)) {
+      return `${collapsed.replace(/,+$/, "")},`
+    }
+  }
+
+  if (locale === "de") {
+    if (/^(guten tag|hallo)\s*,?$/i.test(collapsed)) {
+      return "Guten Tag,"
+    }
+    if (/^(guten tag|hallo|sehr geehrte|sehr geehrter)\b/i.test(collapsed)) {
+      return `${collapsed.replace(/,+$/, "")},`
+    }
+  }
+
+  return collapsed
 }
 
 export function extractSignatureName(cleanedText: string, locale: GreetingLocale): string | null {
@@ -425,7 +463,7 @@ export function resolveGreeting(args: ResolveGreetingArgs): GreetingResult {
     const overrideScore = scoreSafeName(override, locale)
     if (overrideScore.level === "HIGH" || overrideScore.level === "MEDIUM") {
       return {
-        greeting: greetingWithName(locale, override, policyInput),
+        greeting: normalizeParentFacingGreetingLine(greetingWithName(locale, override, policyInput), locale),
         safeName: override,
         confidence: overrideScore.level,
         source: "resolved-name",
@@ -439,7 +477,10 @@ export function resolveGreeting(args: ResolveGreetingArgs): GreetingResult {
     const signatureScore = scoreSafeName(signatureName, locale)
     if (signatureScore.level === "HIGH" || signatureScore.level === "MEDIUM") {
       return {
-        greeting: greetingWithName(locale, signatureName, policyInput),
+        greeting: normalizeParentFacingGreetingLine(
+          greetingWithName(locale, signatureName, policyInput),
+          locale,
+        ),
         safeName: signatureName,
         confidence: signatureScore.level,
         source: "resolved-name",
@@ -449,7 +490,7 @@ export function resolveGreeting(args: ResolveGreetingArgs): GreetingResult {
   }
 
   return {
-    greeting: buildFallbackGreeting(policyInput),
+    greeting: normalizeParentFacingGreetingLine(buildFallbackGreeting(policyInput), locale),
     confidence: "NONE",
     source: "generic-fallback",
     final: true,

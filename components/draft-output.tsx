@@ -4,7 +4,12 @@ import { Copy, Check, Save, FileText, Edit3, RefreshCw, AlertCircle, ChevronDown
 import { useEffect, useMemo, useRef, useState } from "react"
 import { SaveDraftModal } from "./save-draft-modal"
 import type { DraftMode } from "@/lib/types"
-import { DraftStructure, formatDraftText, CLOSING_REGEX } from "@/lib/draft/format"
+import {
+  DraftStructure,
+  formatDraftText,
+  CLOSING_REGEX,
+  extractTrailingClosingBlock,
+} from "@/lib/draft/format"
 import { sanitizeReportCommentStructure } from "@/lib/draft/report-comment"
 import { MODE_LABEL_KEYS, DEFAULT_DRAFT_MODE } from "@/lib/draft-mode"
 import { useLocale } from "@/hooks/use-locale"
@@ -65,8 +70,6 @@ export function DraftOutput({
         ? sanitizeReportCommentStructure(baseStructure, locale)
         : baseStructure
     const subject = modeKey === "parent_message" ? resolvedStructure.subject : undefined
-    const paragraphs = [...(resolvedStructure.paragraphs ?? [])]
-    let signature: string | undefined
     const looksLikeSignatureLine = (value: string) => {
       const trimmed = value.trim()
       if (!trimmed || trimmed.length > 80) {
@@ -77,32 +80,41 @@ export function DraftOutput({
       }
       return /[A-Za-zÀ-ÖØ-öø-ÿÄÖÜäöüß]/u.test(trimmed)
     }
-    if (modeKey === "parent_message" && paragraphs.length) {
-      const lastParagraph = paragraphs[paragraphs.length - 1]
-      const penultimateParagraph = paragraphs[paragraphs.length - 2]
-      if (CLOSING_REGEX.test(lastParagraph)) {
-        signature = paragraphs.pop()
-      } else if (penultimateParagraph && CLOSING_REGEX.test(penultimateParagraph) && looksLikeSignatureLine(lastParagraph)) {
-        const nameLine = paragraphs.pop()
-        const closingLine = paragraphs.pop()
+    const extractSignatureFromParagraphs = (paragraphs: string[]) => {
+      const working = [...paragraphs]
+      let signature: string | undefined
+      if (!working.length) {
+        return { paragraphs: working, signature }
+      }
+      const lastParagraph = working[working.length - 1]
+      const penultimateParagraph = working[working.length - 2]
+      if (lastParagraph && CLOSING_REGEX.test(lastParagraph)) {
+        signature = working.pop()
+      } else if (
+        penultimateParagraph &&
+        lastParagraph &&
+        CLOSING_REGEX.test(penultimateParagraph) &&
+        looksLikeSignatureLine(lastParagraph)
+      ) {
+        const nameLine = working.pop()
+        const closingLine = working.pop()
         signature = `${closingLine}\n${nameLine}`
       }
+      return { paragraphs: working, signature }
     }
+
+    const extractedBase = extractSignatureFromParagraphs(resolvedStructure.paragraphs ?? [])
+    let paragraphs = extractedBase.paragraphs
+    let signature = extractedBase.signature
+
     if (!signature && modeKey === "parent_message") {
-      const fallbackParagraphs = [...(parsedDraftText.paragraphs ?? [])]
-      const fallbackLastParagraph = fallbackParagraphs[fallbackParagraphs.length - 1]
-      const fallbackPenultimateParagraph = fallbackParagraphs[fallbackParagraphs.length - 2]
-      if (fallbackLastParagraph && CLOSING_REGEX.test(fallbackLastParagraph)) {
-        signature = fallbackLastParagraph
-      } else if (
-        fallbackPenultimateParagraph &&
-        fallbackLastParagraph &&
-        CLOSING_REGEX.test(fallbackPenultimateParagraph) &&
-        looksLikeSignatureLine(fallbackLastParagraph)
-      ) {
-        signature = `${fallbackPenultimateParagraph}\n${fallbackLastParagraph}`
-      }
+      signature = extractSignatureFromParagraphs(parsedDraftText.paragraphs ?? []).signature
     }
+
+    if (!signature && modeKey === "parent_message") {
+      signature = extractTrailingClosingBlock(draftText).closingBlock ?? undefined
+    }
+
     return {
       displaySubject: subject,
       displayParagraphs: paragraphs,

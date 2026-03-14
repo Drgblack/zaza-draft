@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest"
-import { resolveGreeting, scoreSafeName } from "./greeting-resolution"
+import {
+  normalizeParentFacingGreetingLine,
+  resolveGreeting,
+  scoreSafeName,
+} from "./greeting-resolution"
 
 describe("resolveGreeting", () => {
   it("uses a name from German sign-off when safe", () => {
@@ -60,7 +64,7 @@ describe("resolveGreeting", () => {
       direction: "teacher_internal_notes",
       tone: "warm",
     })
-    expect(greeting.greeting).toBe("Hello,")
+    expect(greeting.greeting).toBe("Dear Parent/Carer,")
   })
 
   it("uses German honorific greetings when salutation data is strong", () => {
@@ -86,6 +90,14 @@ describe("resolveGreeting", () => {
     })
     expect(greeting.greeting).toBe("")
     expect(greeting.final).toBe(false)
+  })
+
+  it("normalizes malformed generic English greeting punctuation to the unknown-recipient fallback", () => {
+    expect(normalizeParentFacingGreetingLine("Hello ,", "en")).toBe("Dear Parent/Carer,")
+  })
+
+  it("keeps a named English greeting clean and correctly punctuated", () => {
+    expect(normalizeParentFacingGreetingLine("Hello Karen  ,", "en")).toBe("Hello Karen,")
   })
 })
 

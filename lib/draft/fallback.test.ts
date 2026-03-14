@@ -23,15 +23,15 @@ const toneFixtureSituation =
 const expectedToneFallbacks: Record<string, string> = {
   warm: [
     "Subject: Update on homework",
-    "Hello,",
-    "I wanted to send a quick update about Sally's homework, as a few pieces have not been handed in on time recently.",
+    "Dear Parent/Carer,",
+    "I just wanted to let you know about Sally's homework, as a few pieces have not been handed in on time recently.",
     "I will go through what is missing with Sally in class, make the next task clear, and help re-establish a steadier homework routine.",
     "If it would help, please do let me know if you are seeing the same pattern at home, and I will follow up again after I have checked this in school.",
     "Best regards,\nDr Greg Blackburn",
   ].join("\n\n"),
   professional: [
     "Subject: Update on homework",
-    "Hello,",
+    "Dear Parent/Carer,",
     "I wanted to let you know that Sally has been handing homework in late more regularly over the past few weeks.",
     "I will go through what is missing in class, make the next task and deadline clear, and check that the expectations are understood.",
     "I wanted to make you aware of the pattern early, and I will follow up again if a further update is needed.",
@@ -39,7 +39,7 @@ const expectedToneFallbacks: Record<string, string> = {
   ].join("\n\n"),
   direct: [
     "Subject: Update on homework",
-    "Hello,",
+    "Dear Parent/Carer,",
     "Sally has been handing homework in late, and it is becoming a pattern.",
     "I will go through what is missing tomorrow, make the next deadline clear, and expect the work to be handed in on time from this point.",
     "I wanted to raise this now so it can be addressed before it becomes a wider pattern.",
@@ -47,7 +47,7 @@ const expectedToneFallbacks: Record<string, string> = {
   ].join("\n\n"),
   empathetic: [
     "Subject: Update on homework",
-    "Hello,",
+    "Dear Parent/Carer,",
     "I wanted to get in touch about Sally's homework, as handing it in on time has been difficult lately.",
     "I will check in with Sally in class, go through what is missing, and make sure the next task feels clear rather than overwhelming.",
     "I did not want this to become a bigger source of pressure, so I wanted to let you know now and I will follow up again after I have checked in at school.",
@@ -134,6 +134,58 @@ describe("fallback drafting signature hygiene", () => {
     expect(text).not.toContain("came home")
   })
 
+  it("preserves the student name and multiple issue clusters for safe draft teacher-note fallback", () => {
+    const context: DraftFallbackContext = {
+      ...baseContext,
+      language: "en",
+      tone: "professional",
+      teacherSignatureName: "Dr Greg Blackburn",
+      studentFirstName: "Sally",
+      sourceSituation:
+        "Sally has been late to registration twice this week, has called out and disrupted the lesson, and still has missing homework. I need to send a calm message home.",
+    }
+
+    const text = buildFallbackDraft(context)
+    expect(text).toContain("Sally")
+    expect(text).toMatch(/late|lateness|registration|punctuality/i)
+    expect(text).toMatch(/called out|lesson|classroom|behaviour|disrupt/i)
+    expect(text).toMatch(/homework|missing work|missing homework/i)
+  })
+
+  it("covers at least two of the three concern clusters in the exact Sally harsh-notes case", () => {
+    const context: DraftFallbackContext = {
+      ...baseContext,
+      language: "en",
+      tone: "professional",
+      teacherSignatureName: "Dr Greg Blackburn",
+      studentFirstName: "Sally",
+      sourceSituation:
+        "Hello Parent, did you know that Sally is late to school every single day and she is very disruptive when she finally arrives. She is silly in class and annoys me to death! And, the homework is just awful. She needs to get a grip and you should tell her that too! If I don't see her improve she will get sent to the Principal's office.",
+    }
+
+    const text = buildFallbackDraft(context)
+    expect(text).toContain("Sally")
+    expect(text).toMatch(/punctuality|late/i)
+    expect(text).toMatch(/classroom expectations|disruption|behaviour/i)
+    expect(text).toMatch(/homework|missing homework/i)
+  })
+
+  it("keeps a two-issue teacher-note fallback focused on both issues", () => {
+    const context: DraftFallbackContext = {
+      ...baseContext,
+      language: "en",
+      tone: "professional",
+      teacherSignatureName: "Dr Greg Blackburn",
+      studentFirstName: "Sally",
+      sourceSituation:
+        "Sally has been late to class several times this week and still has missing homework.",
+    }
+
+    const text = buildFallbackDraft(context)
+    expect(text).toMatch(/punctuality|late/i)
+    expect(text).toMatch(/homework|missing homework/i)
+  })
+
   it("uses issue-specific reply framing for panic scan fallback", () => {
     const context: DraftFallbackContext = {
       ...baseContext,
@@ -154,6 +206,24 @@ describe("fallback drafting signature hygiene", () => {
     expect(text).toContain("Thank you for your message about homework.")
     expect(text).toContain("I will go through what is missing in class")
     expect(text).not.toContain("Thank you for raising this with me.")
+  })
+
+  it("removes product-mediated calm-update phrasing from fallback openings", () => {
+    const outputs = (["warm", "professional", "direct", "empathetic"] as const).map((tone) =>
+      buildFallbackDraft({
+        ...baseContext,
+        language: "en",
+        tone,
+        teacherSignatureName: "Dr Greg Blackburn",
+        studentFirstName: "Sally",
+        sourceSituation: toneFixtureSituation,
+      }),
+    )
+
+    outputs.forEach((output) => {
+      expect(output.toLowerCase()).not.toContain("send a calm update")
+      expect(output.toLowerCase()).not.toContain("brief, calm update")
+    })
   })
 
   it("keeps an angry parent bullying complaint issue-specific", () => {
@@ -178,6 +248,32 @@ describe("fallback drafting signature hygiene", () => {
     expect(text).toContain("I have read your message about what happened today.")
     expect(text).toContain("I will speak with the staff involved today, establish what happened")
     expect(text).not.toContain("prepare a practical plan")
+  })
+
+  it("keeps the Jake/Karen angry-parent panic scan fallback natural across all four tones", () => {
+    const outputs = (["warm", "professional", "direct", "empathetic"] as const).map((tone) =>
+      buildFallbackDraft({
+        ...baseContext,
+        language: "en",
+        tone,
+        teacherSignatureName: "Dr Greg Blackburn",
+        generationMetadata: {
+          mode: "panic_scan",
+          direction: "parent_to_teacher",
+          source_type: "ocr_text",
+          locale: "en",
+          prompt_builder: "panic_scan",
+        },
+        sourceSituation:
+          "Jake came home angry and upset saying nobody listened when another child pushed him at lunchtime. Karen wants to know what happened and why nobody called.",
+      }),
+    )
+
+    outputs.forEach((output) => {
+      expect(output.toLowerCase()).not.toContain("send a calm update")
+      expect(output.toLowerCase()).not.toContain("brief, calm update")
+      expect(output).toContain("Best regards,\nDr Greg Blackburn")
+    })
   })
 
   it("keeps report comment fallback mode-appropriate", () => {

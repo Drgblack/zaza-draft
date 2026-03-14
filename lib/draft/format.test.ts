@@ -40,7 +40,7 @@ Your teacher`
   it("removes markdown markers", () => {
     const formatted = formatDraftText("Dear Parents,\n\n**Das war toll**\n\nBest wishes,")
     expect(formatted.paragraphs[0]).toContain("Dear Parents")
-    expect(formatted.paragraphs[0]).toContain("Das war toll")
+    expect(formatted.paragraphs.some((paragraph) => paragraph.includes("Das war toll"))).toBe(true)
     expect(formatted.paragraphs[0]).not.toContain("**")
   })
 
@@ -225,6 +225,14 @@ Body line`
     const formatted = formatDraftText(draft, "en-GB")
     expect(formatted.paragraphs[0]).toContain("Dear Mr Collins,")
     expect(formatted.paragraphs.some((para) => para.includes("Thank you for the update."))).toBe(true)
+  })
+
+  it("normalizes malformed unknown-recipient English greetings and splits the body onto the next line", () => {
+    const draft = "Subject: Update on homework\n\nHello , I wanted to send a clear update about homework."
+    const formatted = formatDraftText(draft, "en-GB")
+    expect(formatted.subject).toBe("Update on homework")
+    expect(formatted.paragraphs[0]).toBe("Dear Parent/Carer,")
+    expect(formatted.paragraphs[1]).toBe("I wanted to send a clear update about homework.")
   })
 
   it("detaches body copy when surname line already contains text", () => {

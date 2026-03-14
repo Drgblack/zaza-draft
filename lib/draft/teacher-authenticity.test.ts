@@ -54,6 +54,21 @@ describe("teacher authenticity benchmark set", () => {
     expect(violations).toEqual([])
   })
 
+  it("rejects product-mediated calm-update phrasing in parent-facing drafts", () => {
+    const violations = detectTeacherAuthenticityViolations(
+      "I wanted to send a calm update about today's issue and explain the next step in school.",
+      {
+        language: "en",
+        mode: "parent_message",
+        direction: "teacher_internal_notes",
+      },
+    )
+
+    expect(violations.map((violation) => violation.phrase)).toEqual(
+      expect.arrayContaining(["send a calm update", "calm update about"]),
+    )
+  })
+
   it("rejects parent-reply complaint framing for safe draft teacher notes when the source does not support it", () => {
     const violations = detectTeacherAuthenticityViolations(
       "I'm sorry to hear that your child came home so upset today. Thank you for bringing this to my attention.",
@@ -72,6 +87,70 @@ describe("teacher authenticity benchmark set", () => {
         "thank you for bringing this to my attention",
       ]),
     )
+  })
+
+  it("flags safe draft teacher-note outputs that erase the student name and collapse multiple concerns", () => {
+    const violations = detectTeacherAuthenticityViolations(
+      "I wanted to let you know that homework has been handed in late more regularly over the past few weeks.",
+      {
+        language: "en",
+        mode: "parent_message",
+        direction: "teacher_internal_notes",
+        sourceText:
+          "Sally has been late to registration, has called out during lessons, and has missing homework that still needs to be completed.",
+        studentFirstName: "Sally",
+        teacherNoteIssueClusters: [
+          "attendance_lateness",
+          "classroom_behaviour",
+          "homework",
+        ],
+      },
+    )
+
+    expect(violations.map((violation) => violation.phrase)).toEqual(
+      expect.arrayContaining(["missing student name", "collapsed concern cluster"]),
+    )
+  })
+
+  it("allows one cluster to be brief in a three-cluster teacher-note message as long as at least two remain visible", () => {
+    const violations = detectTeacherAuthenticityViolations(
+      "I wanted to make you aware that Sally has been late to school more regularly and that homework has also not been completed consistently. I will follow these points up in school this week.",
+      {
+        language: "en",
+        mode: "parent_message",
+        direction: "teacher_internal_notes",
+        sourceText:
+          "Sally is late to school every day, is disruptive when she arrives, and homework is still not being completed.",
+        studentFirstName: "Sally",
+        teacherNoteIssueClusters: [
+          "attendance_lateness",
+          "classroom_behaviour",
+          "homework",
+        ],
+      },
+    )
+
+    expect(violations.map((violation) => violation.phrase)).not.toContain("collapsed concern cluster")
+  })
+
+  it("still rejects two-issue teacher-note outputs that drop one issue entirely", () => {
+    const violations = detectTeacherAuthenticityViolations(
+      "I wanted to let you know that homework has not been completed consistently this week.",
+      {
+        language: "en",
+        mode: "parent_message",
+        direction: "teacher_internal_notes",
+        sourceText:
+          "Sally has been late to class and still has missing homework that needs to be completed.",
+        studentFirstName: "Sally",
+        teacherNoteIssueClusters: [
+          "attendance_lateness",
+          "homework",
+        ],
+      },
+    )
+
+    expect(violations.map((violation) => violation.phrase)).toContain("collapsed concern cluster")
   })
 
   it("covers the premium English report-comment benchmark set", () => {

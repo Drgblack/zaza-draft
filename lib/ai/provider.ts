@@ -1,6 +1,14 @@
 import type { DraftLanguage, DraftMode, DraftTone, PronounPreference } from "@/lib/types"
 import { MODE_DISPLAY_NAMES, MODE_PROMPT_INSTRUCTIONS } from "@/lib/draft-mode"
 import { buildStudentInstruction, PRONOUN_LABELS } from "@/lib/draft/student-policy"
+import {
+  summarizeTeacherNoteIssueClusters,
+  type TeacherNoteIssueCluster,
+} from "@/lib/draft/teacher-note-issues"
+import {
+  formatEnglishPhraseExamples,
+  ENGLISH_PARENT_FACING_BANNED_PHRASES,
+} from "@/lib/draft/teacher-phrase-inventory"
 import { detectOutOfScopeRequest } from "@/lib/safety/out-of-scope"
 import { resolveGenerationSamplingConfig } from "@/lib/ai/generation-config"
 import type {
@@ -46,6 +54,7 @@ interface ProviderInput {
   pronounPreference: PronounPreference
   mode: DraftMode
   studentFirstName?: string
+  teacherNoteIssueClusters?: TeacherNoteIssueCluster[]
   resolvedPronounPreference?: PronounPreference
   forceLanguage?: boolean
   forceContinuation?: boolean
@@ -133,25 +142,25 @@ function buildParentFacingToneInstructions(input: ProviderInput) {
     case "warm":
       return [
         "Warm tone contract: sound gently relational and collaborative, as a teacher who wants to work with the parent rather than simply notify them.",
-        "Warm wording should use brief partnership language such as 'I wanted to let you know' or 'I wanted to send a quick update', while still naming the issue early.",
+        `Warm wording should use natural teacher openings such as ${formatEnglishPhraseExamples("warm", "teacherUpdateOpenings")}, while still naming the issue early.`,
         "Do not turn warm into vague reassurance, therapy language, or support-bot empathy.",
       ]
     case "professional":
       return [
         "Professional tone contract: sound calm, measured, and factual without becoming cold or stiff.",
-        "Professional wording should be clear and neutral, with minimal softening and no unnecessary emotional padding.",
+        `Professional wording should be clear and neutral, with openings such as ${formatEnglishPhraseExamples("professional", "teacherUpdateOpenings")} and no unnecessary emotional padding.`,
         "Do not let professional drift into corporate, managerial, or HR-style phrasing.",
       ]
     case "direct":
       return [
         "Direct tone contract: be concise, explicit, and clear about the issue, expectation, and next step.",
-        "Direct wording should use shorter sentences, less cushioning, and no unnecessary reassurance once the point is clear.",
+        `Direct wording should use shorter sentences and clean openings such as ${formatEnglishPhraseExamples("direct", "teacherUpdateOpenings")}.`,
         "Do not turn direct into rude, abrupt, or accusatory language.",
       ]
     case "empathetic":
       return [
         "Empathetic tone contract: acknowledge the child's difficulty or the parent's worry more explicitly than warm, while staying grounded in the actual school issue.",
-        "Empathetic wording should briefly show understanding, then move quickly to a concrete teacher action and a realistic next step.",
+        `Empathetic wording should briefly show understanding, then move quickly to a concrete teacher action using natural openings such as ${formatEnglishPhraseExamples("empathetic", "teacherUpdateOpenings")}.`,
         "Do not let empathetic drift into customer-support phrasing, counselling language, or a narration of your own tone-management process.",
       ]
   }
@@ -184,11 +193,25 @@ function buildSafeDraftInstructions(input: ProviderInput) {
         "When you mention a next step, make it a concrete school action such as checking the work, adjusting the class routine, following up with colleagues, or arranging a short meeting if needed.",
       ]
     case "teacher_internal_notes":
+      const issueSummary =
+        input.teacherNoteIssueClusters && input.teacherNoteIssueClusters.length > 0
+          ? summarizeTeacherNoteIssueClusters(input.teacherNoteIssueClusters, input.language)
+          : null
       return [
         "This request comes from Safe Draft typed teacher notes.",
         "Transform rough teacher notes into a polished teacher-authored parent message.",
         "Do not respond as though an incoming parent email was pasted here.",
         "Do not open with phrases such as 'thank you for sharing your concerns' or similar parent-reply language unless the source is explicitly classified as parent_to_teacher.",
+        "Preserve the student name when one is present unless privacy mode is explicitly active.",
+        "Preserve every major concern cluster that is clearly present in the notes. Major clusters include attendance/lateness, homework, classroom behaviour, peer issues/conflict, and academic progress.",
+        "Do not collapse multiple concern clusters into a single generic homework message.",
+        "Do not invent concerns, parent reactions, or home events that are not present in the notes.",
+        "If more than one concern cluster is detected, use a short framing sentence that signals several linked concerns, cover each detected cluster briefly, and then finish with one forward-looking school action statement.",
+        ...(issueSummary
+          ? [
+              `Detected concern clusters in the notes: ${issueSummary}. Address each of these in the final message, even if some are covered briefly.`,
+            ]
+          : []),
         "Name the concrete issue early and write in the voice of an experienced teacher sending a real update home.",
         "Turn the notes into concrete teacher actions: what you checked, what you will adjust in class, who you will speak with, or when you will follow up. Avoid abstract process wording such as 'gather the details' or 'prepare a plan'.",
       ]
@@ -228,7 +251,7 @@ function buildPanicScanInstructions(input: ProviderInput) {
         "Open like a real teacher replying to an upset parent: acknowledge what the child or parent is upset about, recognise the seriousness if needed, and give one believable immediate step you will take.",
         "Keep the tone de-escalating and bounded; do not sound like customer support, HR, counselling copy, or a teacher narrating their own tone-management process.",
         "Preferred opening pattern: one natural sentence acknowledging the concern, one concrete sentence about what you will check or who you will speak with, then a brief line about when you will update the parent.",
-        "Believable wording includes lines such as 'I'm sorry to hear that Jake was so upset today.', 'Thank you for bringing this to my attention.', 'I will speak with the staff involved and look into what happened.', and 'I'll come back to you as soon as I can with an update.'",
+        `Believable parent-reply openings include ${formatEnglishPhraseExamples("empathetic", "parentReplyOpenings")}. Believable next-step lines include ${formatEnglishPhraseExamples("professional", "actionPatterns")}.`,
         "Avoid lines such as 'my priority is to address it calmly and respectfully', 'summarize the key observations', 'prepare a practical plan', or other customer-support / HR phrasing.",
       )
       if (/(bully|bullying|unsafe|safety|safeguard|safeguarding|hit|hurt|pushed|afraid|scared|crying|weinen|sicherheit|gemobbt|mobbing|verletzt)/i.test(normalizedSource)) {
@@ -334,7 +357,11 @@ function buildContinuationInstruction(input: ProviderInput) {
     input.generationMetadata.mode === "safe_draft" &&
     input.generationMetadata.direction === "teacher_internal_notes"
   ) {
-    return `This greeting needs a full teacher-authored message. After the opening line, write at least three short paragraphs that turn the teacher's own notes into a calm parent update, keep strictly to the facts in the notes, rewrite harsh wording safely, and do not imply that the parent raised a complaint unless the source explicitly says so. ${buildToneRecoveryInstruction(input)}`
+    const issueSummary =
+      input.teacherNoteIssueClusters && input.teacherNoteIssueClusters.length > 0
+        ? summarizeTeacherNoteIssueClusters(input.teacherNoteIssueClusters, input.language)
+        : null
+    return `This greeting needs a full teacher-authored message. After the opening line, write at least three short paragraphs that turn the teacher's own notes into a calm parent update, keep strictly to the facts in the notes, preserve the student name when one is provided, keep all major concern clusters from the notes visible${issueSummary ? ` (${issueSummary})` : ""}, give each detected cluster at least brief coverage, use one forward-looking school action statement, rewrite harsh wording safely, and do not imply that the parent raised a complaint unless the source explicitly says so. ${buildToneRecoveryInstruction(input)}`
   }
   return `This greeting needs a full reply; after the opening line, provide at least three short paragraphs that acknowledge the concern, outline a practical next step, and invite a calm discussion. ${buildToneRecoveryInstruction(input)}`
 }
@@ -350,6 +377,7 @@ export function buildSystemPrompt(input: ProviderInput) {
     "When describing next steps, use believable school actions such as speaking with staff involved, reviewing the work, checking what happened, adjusting the class routine, following up with an update, or arranging a short meeting if needed.",
     "Avoid managerial process wording such as 'gather the details', 'summarize the key observations', 'monitor the situation', 'keep an eye on it', or 'prepare a practical plan'.",
     "Avoid generic empathy boilerplate, counselling language, corporate phrasing, abstract suggestions, and inflated reassurance.",
+    `Do not use product-mediated tone narration such as ${ENGLISH_PARENT_FACING_BANNED_PHRASES.map((phrase) => `'${phrase}'`).join(", ")}.`,
     "Do not use lines such as 'thank you for sharing your concerns', 'I understand how important this is', 'I understand how overwhelming this feels', 'It might be helpful to discuss', or 'Please feel free to reach out' unless the exact source genuinely demands that wording.",
     "Keep warmth brief and believable. Do not over-apologise, over-promise, or sound like a bot trying to be nice.",
     "Avoid gendered pronouns unless the teacher explicitly specifies them in the prompt; default to inclusive wording.",
@@ -421,6 +449,14 @@ export function buildSystemPrompt(input: ProviderInput) {
     pronoun: resolvedPronoun,
   })
   systemLines.push(studentInstruction)
+  if (
+    input.generationMetadata.mode === "safe_draft" &&
+    input.generationMetadata.direction === "teacher_internal_notes"
+  ) {
+    systemLines.push(
+      "No privacy mode is active for this request, so keep the student's first name when it is provided.",
+    )
+  }
   if (resolvedPronoun !== "auto") {
     const label = PRONOUN_LABELS[resolvedPronoun]
     if (label) {

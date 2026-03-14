@@ -1,11 +1,17 @@
 import type { DraftLanguage, DraftMode } from "@/lib/types"
 import type { MessageDirection } from "@/lib/generation/classification"
+import {
+  detectTeacherNoteIssueClusters,
+  type TeacherNoteIssueCluster,
+} from "@/lib/draft/teacher-note-issues"
+import { ENGLISH_PARENT_FACING_BANNED_PHRASES } from "@/lib/draft/teacher-phrase-inventory"
 
 export type TeacherAuthenticityViolationType =
   | "generic_empathy"
   | "customer_support"
   | "abstract_next_step"
   | "corporate_tone"
+  | "source_fidelity"
 
 export interface TeacherAuthenticityViolation {
   type: TeacherAuthenticityViolationType
@@ -23,6 +29,8 @@ interface TeacherAuthenticityOptions {
   mode: DraftMode
   direction: MessageDirection
   sourceText?: string | null
+  studentFirstName?: string | null
+  teacherNoteIssueClusters?: TeacherNoteIssueCluster[]
 }
 
 const ENGLISH_RULES: PhraseRule[] = [
@@ -44,6 +52,10 @@ const ENGLISH_RULES: PhraseRule[] = [
   { phrase: "work with you on a calm next step", type: "corporate_tone" },
   { phrase: "keep the focus on supporting your child", type: "abstract_next_step" },
   { phrase: "gentle support", type: "abstract_next_step" },
+  ...ENGLISH_PARENT_FACING_BANNED_PHRASES.map((phrase) => ({
+    phrase,
+    type: "corporate_tone" as const,
+  })),
   { phrase: "subject:", type: "customer_support", modes: ["report_comment"] },
   { phrase: "dear family", type: "customer_support", modes: ["report_comment"] },
   { phrase: "dear parent", type: "customer_support", modes: ["report_comment"] },
@@ -91,6 +103,16 @@ function normalize(text: string) {
 
 function sourceIncludesAny(source: string, snippets: string[]) {
   return snippets.some((snippet) => source.includes(snippet))
+}
+
+function resolveMinimumClusterCoverage(expectedClusters: TeacherNoteIssueCluster[]) {
+  if (expectedClusters.length <= 1) {
+    return expectedClusters.length
+  }
+  if (expectedClusters.length === 2) {
+    return 2
+  }
+  return expectedClusters.length - 1
 }
 
 function resolveRules(language: DraftLanguage, mode: DraftMode) {
@@ -164,6 +186,30 @@ export function detectTeacherAuthenticityViolations(
         type: "customer_support",
         phrase: "your child came home",
       })
+    }
+
+    const expectedName = options.studentFirstName?.trim().toLowerCase()
+    if (expectedName && source.includes(expectedName) && !normalized.includes(expectedName)) {
+      violations.push({
+        type: "source_fidelity",
+        phrase: "missing student name",
+      })
+    }
+
+    const expectedClusters =
+      options.teacherNoteIssueClusters && options.teacherNoteIssueClusters.length > 0
+        ? options.teacherNoteIssueClusters
+        : detectTeacherNoteIssueClusters(source, options.language)
+    if (expectedClusters.length > 1) {
+      const mentionedClusters = detectTeacherNoteIssueClusters(normalized, options.language)
+      const matchedClusters = expectedClusters.filter((cluster) => mentionedClusters.includes(cluster))
+      const minimumCoverage = resolveMinimumClusterCoverage(expectedClusters)
+      if (matchedClusters.length < minimumCoverage) {
+        violations.push({
+          type: "source_fidelity",
+          phrase: "collapsed concern cluster",
+        })
+      }
     }
   }
 

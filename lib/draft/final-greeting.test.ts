@@ -33,4 +33,32 @@ describe("final greeting guard", () => {
     const enforced = applyFinalGreetingGuard(generatedBody, greeting.greeting)
     expect(enforced.trim().startsWith(greeting.greeting)).toBe(true)
   })
+
+  it("preserves the first body sentence when a malformed inline greeting is repaired", () => {
+    const enforced = applyFinalGreetingGuard(
+      "Hello , I wanted to send a clear update about homework.",
+      "Dear Parent/Carer,",
+    )
+
+    expect(enforced).toBe("Dear Parent/Carer,\n\nI wanted to send a clear update about homework.")
+  })
+
+  it("removes malformed inline greeting residue after a repaired top greeting", () => {
+    const enforced = applyFinalGreetingGuard(
+      [
+        "Dear Parent/Carer,",
+        "",
+        "Hello , I wanted to send a clear update about homework.",
+      ].join("\n"),
+      "Dear Parent/Carer,",
+    )
+
+    expect(enforced).toBe(
+      [
+        "Dear Parent/Carer,",
+        "",
+        "I wanted to send a clear update about homework.",
+      ].join("\n"),
+    )
+  })
 })

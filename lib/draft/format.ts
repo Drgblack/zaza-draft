@@ -1,3 +1,5 @@
+import { normalizeParentFacingGreetingLine } from "./greeting-resolution"
+
 export interface DraftStructure {
   subject?: string
   paragraphs: string[]
@@ -197,7 +199,9 @@ function splitLeadingGreeting(sentences: string[], trimmedBody: string, locale?:
   }
   const containsTitle = /\b(?:Mr|Mrs|Ms|Miss|Dr|Prof|Mx|Sir|Madam|Teacher)\b/i.test(first)
   const allowGermanSplit = locale?.toLowerCase().startsWith("de")
-  if (!allowGermanSplit && !containsTitle) {
+  const allowGenericEnglishSplit =
+    !allowGermanSplit && /^(Dear|Hi|Hello|Parents|Family|Team|Good (?:morning|afternoon|evening))\b/i.test(first)
+  if (!allowGermanSplit && !containsTitle && !allowGenericEnglishSplit) {
     return sentences
   }
   let greetingEndIndex = firstCommaIndex + 1
@@ -222,7 +226,11 @@ function splitLeadingGreeting(sentences: string[], trimmedBody: string, locale?:
   if (offset !== 0) {
     return sentences
   }
-  return [greetingFragment, remainder, ...sentences.slice(1)]
+  const normalizedGreeting = normalizeParentFacingGreetingLine(
+    greetingFragment,
+    allowGermanSplit ? "de" : "en",
+  )
+  return [normalizedGreeting, remainder, ...sentences.slice(1)]
 }
 
 function looksLikeSignatureLine(line: string) {
@@ -239,7 +247,7 @@ function looksLikeSignatureLine(line: string) {
   return /[A-Za-zÀ-ÖØ-öø-ÿÄÖÜäöüß]/u.test(trimmed)
 }
 
-function extractTrailingClosingBlock(body: string) {
+export function extractTrailingClosingBlock(body: string) {
   const normalized = body.replace(/\r\n/g, "\n").trim()
   if (!normalized) {
     return { body: "", closingBlock: null as string | null }
@@ -418,7 +426,10 @@ function buildParagraphs(body: string, locale?: string): string[] {
   const sentences = [...normalizedSentences]
   let greeting: string | null = null
   if (sentences.length && GREETING_REGEX.test(sentences[0])) {
-    greeting = sentences.shift()!.trim()
+    greeting = normalizeParentFacingGreetingLine(
+      sentences.shift()!.trim(),
+      locale?.toLowerCase().startsWith("de") ? "de" : "en",
+    )
   }
 
   let closingParagraph: string | null = null

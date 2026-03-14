@@ -45,6 +45,40 @@ describe("buildSystemPrompt", () => {
     expect(prompt).toContain("Include a concise professional subject line on the first line")
   })
 
+  it("tells safe draft teacher notes to preserve names and multi-issue clusters", () => {
+    const prompt = buildSystemPrompt({
+      situation:
+        "Sally has been late three times this week, has called out repeatedly during lessons, and still has missing homework. I need to send this home without sounding harsh.",
+      generationMetadata: {
+        mode: "safe_draft",
+        direction: "teacher_internal_notes",
+        source_type: "typed_text",
+        locale: "en",
+        prompt_builder: "safe_draft",
+      },
+      tone: "professional",
+      language: "en",
+      mode: "parent_message",
+      pronounPreference: "auto",
+      studentFirstName: "Sally",
+      teacherNoteIssueClusters: [
+        "attendance_lateness",
+        "classroom_behaviour",
+        "homework",
+      ],
+    })
+
+    expect(prompt).toContain("Preserve the student name when one is present unless privacy mode is explicitly active.")
+    expect(prompt).toContain("Preserve every major concern cluster that is clearly present in the notes.")
+    expect(prompt).toContain("attendance/lateness")
+    expect(prompt).toContain("classroom behaviour")
+    expect(prompt).toContain("homework")
+    expect(prompt).toContain("Do not collapse multiple concern clusters into a single generic homework message.")
+    expect(prompt).toContain("use a short framing sentence that signals several linked concerns")
+    expect(prompt).toContain("Address each of these in the final message")
+    expect(prompt).toContain("No privacy mode is active for this request, so keep the student's first name when it is provided.")
+  })
+
   it("uses the panic scan reply builder for incoming OCR parent messages", () => {
     const prompt = buildSystemPrompt({
       situation: "My child came home upset about the homework load.",
@@ -66,6 +100,7 @@ describe("buildSystemPrompt", () => {
     expect(prompt).toContain("do not sound like customer support, HR, counselling copy")
     expect(prompt).toContain("Open like a real teacher replying to an upset parent")
     expect(prompt).toContain("Avoid lines such as 'my priority is to address it calmly and respectfully'")
+    expect(prompt).toContain("Do not use product-mediated tone narration such as 'send a calm update'")
     expect(prompt).toContain("Make the subject neutral, teacher-authentic, and specific to the issue or update.")
   })
 
@@ -268,10 +303,14 @@ describe("buildSystemPrompt", () => {
     })
 
     expect(warmPrompt).toContain("Warm tone contract: sound gently relational and collaborative")
+    expect(warmPrompt).toContain("I just wanted to let you know about...")
     expect(professionalPrompt).toContain("Professional tone contract: sound calm, measured, and factual")
+    expect(professionalPrompt).toContain("I wanted to update you on...")
     expect(directPrompt).toContain("Direct tone contract: be concise, explicit, and clear")
+    expect(directPrompt).toContain("I am writing to let you know that...")
     expect(empatheticPrompt).toContain(
       "Empathetic tone contract: acknowledge the child's difficulty or the parent's worry more explicitly than warm",
     )
+    expect(empatheticPrompt).toContain("I wanted to reach out about...")
   })
 })
