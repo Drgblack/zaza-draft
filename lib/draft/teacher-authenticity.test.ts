@@ -54,6 +54,26 @@ describe("teacher authenticity benchmark set", () => {
     expect(violations).toEqual([])
   })
 
+  it("rejects parent-reply complaint framing for safe draft teacher notes when the source does not support it", () => {
+    const violations = detectTeacherAuthenticityViolations(
+      "I'm sorry to hear that your child came home so upset today. Thank you for bringing this to my attention.",
+      {
+        language: "en",
+        mode: "parent_message",
+        direction: "teacher_internal_notes",
+        sourceText:
+          "Need a calm update about lateness, missing homework, and the conversation I will have in class tomorrow morning.",
+      },
+    )
+
+    expect(violations.map((violation) => violation.phrase)).toEqual(
+      expect.arrayContaining([
+        "i'm sorry to hear that your child came home so upset",
+        "thank you for bringing this to my attention",
+      ]),
+    )
+  })
+
   it("covers the premium English report-comment benchmark set", () => {
     const englishReportCommentBenchmarks = TEACHER_AUTHENTICITY_BENCHMARKS.filter(
       (benchmark) => benchmark.language === "en" && benchmark.mode === "report_comment",

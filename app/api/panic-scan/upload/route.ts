@@ -4,6 +4,8 @@ import { authorizeFirebaseRequest } from "@/lib/firebase/server"
 import { enforcePerUserRateLimit, RateLimitError } from "@/lib/rate-limit"
 import { analyzePanicMessage } from "@/lib/panic-scan/analysis"
 import { cleanOcrText } from "@/lib/panic-scan/clean-ocr"
+import { canonicalizeLocaleIdentifier } from "@/lib/draft/language"
+import { resolvePanicScanLocale } from "@/lib/panic-scan/locale"
 import { sanitizeEmailText } from "@/lib/text/email-sanitizer"
 import { performVisionOcr } from "@/lib/panic-scan/ocr"
 import type { PanicScanDocument } from "@/lib/panic-scan/types"
@@ -136,6 +138,8 @@ export async function POST(request: Request) {
     const file = form.get("file")
     const platform = (form.get("platform") as string) ?? "web"
     const sessionId = form.get("sessionId") as string | null
+    const rawUiLocale = form.get("uiLocale") as string | null
+    const uiLocale = canonicalizeLocaleIdentifier(rawUiLocale)
 
     if (typeof file === "string" && isSuspiciousClientPath(file)) {
       return createErrorResponse({
@@ -256,6 +260,7 @@ export async function POST(request: Request) {
       createdAt: createdAt.toISOString(),
       expiresAt: expiresAt.toISOString(),
       sessionId: sessionId ?? undefined,
+      uiLocale: uiLocale ?? undefined,
     }
 
     const storageDiagnostics = {
@@ -356,8 +361,13 @@ export async function POST(request: Request) {
       logStage(requestId, "ocr", true)
 
       const cleaned = cleanOcrText(sanitized.cleanText)
+      const analysisLocale = resolvePanicScanLocale({
+        uiLocale,
+        sourceText: cleaned.cleanText || extractedText,
+        acceptLanguage: request.headers.get("accept-language"),
+      })
 
-      const analysis = await analyzePanicMessage(extractedText)
+      const analysis = await analyzePanicMessage(extractedText, analysisLocale.language)
       diagnostics.analysisSucceeded = true
       logStage(requestId, "analysis", true)
       const processingTimeMs = Date.now() - createdAt.getTime()
@@ -369,6 +379,8 @@ export async function POST(request: Request) {
           cleanConfidence: cleaned.confidence,
           classification: analysis.classification,
           analysis: analysis.analysis,
+          analysisLanguage: analysisLocale.language,
+          analysisLanguageSource: analysisLocale.source,
           processingTimeMs,
           status: "completed",
         },

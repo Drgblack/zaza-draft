@@ -199,18 +199,143 @@ vi.mock("@/lib/draft-mode", () => ({
   resolveDraftMode: (mode: string | undefined) => mode ?? "parent_message",
 }))
 
-vi.mock("@/lib/draft/fallback", () => ({
-  ALLOWED_TONES: ["warm", "professional", "direct", "empathetic"],
-  buildFallbackDraft: () =>
-    [
-      "Subject: Classroom update",
-      "Dear parent(s),",
-      "I wanted to give you a clear update about your child and explain the adjustment I will make in class.",
-      "If a short conversation would help, I can speak with you this week.",
+vi.mock("@/lib/draft/fallback", () => {
+  const isSafeDraftTeacherNotesRecovery = (context: {
+    mode?: string
+    generationMetadata?: { mode?: string; direction?: string }
+  }) =>
+    context.mode === "parent_message" &&
+    context.generationMetadata?.mode === "safe_draft" &&
+    context.generationMetadata?.direction === "teacher_internal_notes"
+
+  const buildTeacherNotesRecoveryDraft = (
+    context: { sourceSituation?: string },
+    greetingLine: string,
+    closingBlock: string,
+  ) => {
+    const source = (context.sourceSituation ?? "").toLowerCase()
+    const punctuality = source.includes("late") || source.includes("lateness")
+    return [
+      punctuality ? "Subject: Update on punctuality" : "Subject: Update on homework",
+      greetingLine,
+      punctuality
+        ? "I wanted to send a brief update about lateness to class and the start of lessons."
+        : "I wanted to send a brief update about homework that has not been completed and the next steps in school.",
+      punctuality
+        ? "I will follow this up in school, make the expectations around arrival clear, and keep the start of lessons consistent."
+        : "I will go through what is missing in class, make the next task clear, and check in again at school.",
+      "If a further update would be helpful once I have followed this up, I will come back to you.",
+      closingBlock,
+    ].join("\n\n")
+  }
+
+  const buildFallbackDraft = (context: {
+    sourceSituation?: string
+    greeting?: { text?: string }
+    greetingFinal?: boolean
+    mode?: string
+    language?: string
+    tone?: string
+    studentFirstName?: string
+    generationMetadata?: { mode?: string; direction?: string }
+  }) => {
+    if (isSafeDraftTeacherNotesRecovery(context)) {
+      const greetingLine =
+        context.greetingFinal && context.greeting?.text
+          ? context.greeting.text
+          : context.language === "de"
+            ? "Guten Tag,"
+            : "Hello,"
+      const closingBlock = context.language === "de" ? "Mit freundlichen Grüßen" : "Kind regards,"
+      return buildTeacherNotesRecoveryDraft(context, greetingLine, closingBlock)
+    }
+
+    const source = (context.sourceSituation ?? "").toLowerCase()
+    const tone = context.tone ?? "professional"
+    const homework = source.includes("homework")
+    const bullying = source.includes("pushed") || source.includes("unsafe") || source.includes("bully")
+    const grading = source.includes("mark") || source.includes("grade")
+    const subject = bullying
+      ? "Subject: Follow-up on today's incident"
+      : grading
+        ? "Subject: Update on recent marking"
+        : homework
+          ? "Subject: Update on homework"
+          : "Subject: Classroom update"
+    const greetingLine =
+      context.greetingFinal && context.greeting?.text ? context.greeting.text : "Hello,"
+    const openingByTone = {
+      warm: homework
+        ? "I wanted to send a quick update about the homework pattern that has been building recently."
+        : bullying
+          ? "Thank you for getting in touch so quickly about what happened today."
+          : "Thank you for getting in touch about this concern.",
+      professional: homework
+        ? "I wanted to let you know that homework has been handed in late more regularly over the past few weeks."
+        : bullying
+          ? "Thank you for your message about what happened today."
+          : "Thank you for your message about this concern.",
+      direct: homework
+        ? "Homework has been handed in late, and it is becoming a pattern."
+        : bullying
+          ? "I have read your message about what happened today."
+          : "I have read your message about this concern.",
+      empathetic: homework
+        ? "I wanted to get in touch about homework, as it has been difficult to hand it in on time lately."
+        : bullying
+          ? "I am sorry to hear about what happened today."
+          : "Thank you for letting me know about this concern.",
+    } as const
+    const actionByTone = {
+      warm: homework
+        ? "I will go through what is missing in class, make the next task clear, and help re-establish a steadier routine."
+        : bullying
+          ? "I will speak with the staff involved, check what happened today, and follow this up promptly in school."
+          : "I will look into this carefully in school and follow it up promptly.",
+      professional: homework
+        ? "I will go through what is missing in class, make the next task and deadline clear, and check that the expectations are understood."
+        : bullying
+          ? "I will speak with the staff involved, check what happened today, and follow this up promptly in school."
+          : "I will look into this carefully in school and come back with a clear update.",
+      direct: homework
+        ? "I will go through what is missing tomorrow, make the next deadline clear, and expect the work to be handed in on time from this point."
+        : bullying
+          ? "I will speak with the staff involved today, establish what happened, and come back to you once that has been checked."
+          : "I will check this today and come back once the detail is clear.",
+      empathetic: homework
+        ? "I will check in in class, go through what is missing, and make sure the next task feels clear rather than overwhelming."
+        : bullying
+          ? "I will speak with the staff involved, check what happened today, and follow this up promptly so I can give you a clear update."
+          : "I will look into this carefully in school and come back with a clear update.",
+    } as const
+    const followUpByTone = {
+      warm:
+        "If it would help, please do let me know if you are seeing the same pattern at home, and I will follow up again after I have checked this in school.",
+      professional:
+        "I wanted to make you aware of the pattern early, and I will follow up again if a further update is needed.",
+      direct: "I wanted to raise this now so it can be addressed before it becomes a wider pattern.",
+      empathetic:
+        "I did not want this to become a bigger source of pressure, so I wanted to let you know now and I will follow up again after I have checked in at school.",
+    } as const
+
+    return [
+      subject,
+      greetingLine,
+      openingByTone[tone as keyof typeof openingByTone],
+      actionByTone[tone as keyof typeof actionByTone],
+      bullying ? "I will come back to you as soon as I have established what happened." : followUpByTone[tone as keyof typeof followUpByTone],
       "Kind regards,",
-    ].join("\n"),
-  generateDraftWithFallback: vi.fn(),
-}))
+    ].join("\n")
+  }
+
+  return {
+    ALLOWED_TONES: ["warm", "professional", "direct", "empathetic"],
+    buildFallbackDraft,
+    buildTeacherNotesRecoveryDraft,
+    isSafeDraftTeacherNotesRecovery,
+    generateDraftWithFallback: vi.fn(),
+  }
+})
 
 const fallbackGenerator = vi.mocked(generateDraftWithFallback)
 const mockedBuildUsageResponse = vi.mocked(buildUsageResponse)
@@ -789,7 +914,7 @@ describe("/api/draft/generate greeting handoff", () => {
     const generatedDraft = json.data?.generatedDraft ?? ""
     const greetingLine = json.data?.greeting?.text ?? "Hello Jordan,"
     expect(greetingLine).toBe("Hello Jordan,")
-    expect(generatedDraft.startsWith(greetingLine)).toBe(true)
+    expect(generatedDraft).toContain(`\n\n${greetingLine}\n\n`)
   })
 
   it("omits greeting resolution for report comments even when raw text contains a sender name", async () => {
@@ -948,6 +1073,42 @@ describe("/api/draft/generate routing classification", () => {
 })
 
 describe("/api/draft/generate closing normalization", () => {
+  it("appends a canonical signoff block to a safe draft teacher-note parent message", async () => {
+    fallbackGenerator.mockResolvedValueOnce(
+      buildFallbackResult(
+        [
+          "Subject: Update on punctuality",
+          "Hello Karen,",
+          "I wanted to send a brief update about lateness to class and the support I will put in place tomorrow morning.",
+        ].join("\n\n"),
+      ),
+    )
+    const request = new Request("https://example.com/api/draft/generate", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: "Bearer token",
+      },
+      body: JSON.stringify({
+        situation:
+          "Need a calm message to Karen about repeated lateness this week, the disruption to the start of lessons, and the check-in I will do tomorrow morning.",
+        tone: "professional",
+        language: "en",
+        mode: "parent_message",
+        signature: {
+          line1: "Dr Greg Blackburn",
+        },
+      }),
+    })
+
+    const response = await POST(request)
+    expect(response.status).toBe(200)
+    const json = await response.json()
+    const generatedDraft = json.data?.generatedDraft ?? ""
+    expect(generatedDraft.trim().endsWith("Kind regards,\nDr Greg Blackburn")).toBe(true)
+    expect((generatedDraft.match(/Kind regards,/gi) ?? []).length).toBe(1)
+  })
+
   it("keeps exactly one canonical closing block for a normal parent message draft", async () => {
     fallbackGenerator.mockResolvedValueOnce(
       buildFallbackResult(
@@ -1066,6 +1227,39 @@ describe("/api/draft/generate closing normalization", () => {
     expect((generatedDraft.match(/Kind regards,/gi) ?? []).length).toBe(1)
     expect((generatedDraft.match(/Best regards/gi) ?? []).length).toBe(0)
     expect((generatedDraft.match(/Dr Greg Blackburn/gi) ?? []).length).toBe(1)
+  })
+
+  it("restores the canonical signoff after recovery paths that return body-only text", async () => {
+    fallbackGenerator
+      .mockResolvedValueOnce(buildFallbackResult("Hello,"))
+      .mockResolvedValueOnce(buildFallbackResult("Hello,"))
+    const request = new Request("https://example.com/api/draft/generate", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: "Bearer token",
+      },
+      body: JSON.stringify({
+        situation:
+          "Need to reply to a parent about a bullying concern at breaktime, explain that I will check what happened today, and follow up with a clear update once I have spoken to staff.",
+        tone: "professional",
+        language: "en",
+        mode: "parent_message",
+        inputMode: "panic_scan",
+        sourceType: "ocr_text",
+        messageType: "parent_complaint",
+        signature: {
+          line1: "Dr Greg Blackburn",
+        },
+      }),
+    })
+
+    const response = await POST(request)
+    expect(response.status).toBe(200)
+    const json = await response.json()
+    const generatedDraft = json.data?.generatedDraft ?? ""
+    expect(generatedDraft).toContain("Kind regards,\nDr Greg Blackburn")
+    expect((generatedDraft.match(/Kind regards,/gi) ?? []).length).toBe(1)
   })
 
   it("omits the closing block for report comments", async () => {
@@ -1244,7 +1438,7 @@ describe("/api/draft/generate minimum output safeguard", () => {
 
     expect(generatedDraft).not.toBe("Hello,")
     expect(generatedDraft).toContain("Hello,")
-    expect(generatedDraft).toContain("I wanted to give you a clear update")
+    expect(generatedDraft).toContain("I wanted to send a brief update")
     expect(generatedDraft).toContain("Kind regards,")
   })
 
@@ -1286,9 +1480,9 @@ describe("/api/draft/generate minimum output safeguard", () => {
     expect(fallbackGenerator).toHaveBeenCalledTimes(2)
     expect(generatedDraft).not.toBe("Hello Jordan,")
     expect(generatedDraft).not.toContain("Thank you for sharing your concerns")
-    expect(generatedDraft).toContain("I'm sorry to hear")
-    expect(generatedDraft).toContain("I will speak with the staff involved")
-    expect(generatedDraft).toContain("I'll come back to you")
+    expect(generatedDraft).toContain("I wanted to send a brief update")
+    expect(generatedDraft).toContain("I will go through what is missing in class")
+    expect(generatedDraft).not.toContain("your child came home so upset")
     expect(json.data?.formattedDraft?.paragraphs.length ?? 0).toBeGreaterThanOrEqual(3)
   })
 
@@ -1328,8 +1522,40 @@ describe("/api/draft/generate minimum output safeguard", () => {
     const generatedDraft = json.data?.generatedDraft ?? ""
 
     expect(generatedDraft).not.toBe("Hello,")
-    expect(generatedDraft).toContain("I wanted to give you a clear update")
+    expect(generatedDraft).toContain("I wanted to send a brief update")
     expect(json.data?.formattedDraft?.paragraphs.length ?? 0).toBeGreaterThanOrEqual(2)
+  })
+
+  it("keeps safe draft teacher notes on a teacher-note recovery path after a greeting-only collapse", async () => {
+    fallbackGenerator
+      .mockResolvedValueOnce(buildFallbackResult("Hello Parent,"))
+      .mockResolvedValueOnce(buildFallbackResult("Hello Parent,"))
+
+    const request = new Request("https://example.com/api/draft/generate", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: "Bearer token",
+      },
+      body: JSON.stringify({
+        situation:
+          "Hello Parent, late again this week, disrupted the start of the lesson, and homework still not done. Need a calm message with clear next steps from school.",
+        tone: "professional",
+        language: "en",
+        mode: "parent_message",
+      }),
+    })
+
+    const response = await POST(request)
+    expect(response.status).toBe(200)
+    const json = await response.json()
+    const generatedDraft = json.data?.generatedDraft ?? ""
+
+    expect(generatedDraft).toContain("Subject:")
+    expect(generatedDraft).toContain("I wanted to send a brief update about lateness to class")
+    expect(generatedDraft).toContain("expectations around arrival")
+    expect(generatedDraft).not.toContain("Thank you for bringing this to my attention")
+    expect(generatedDraft).not.toContain("your child came home")
   })
 })
 
@@ -1607,6 +1833,166 @@ describe("/api/draft/generate teacher-authentic style guard", () => {
     expect(json.data.generatedDraft).not.toContain("monitor the situation")
     expect(json.data.generatedDraft).not.toContain("prepare a practical plan")
     expect(json.data.generatedDraft).toContain("I checked the homework set this week")
+  })
+
+  it("falls back to teacher-note recovery when retries keep parent-reply complaint wording on safe draft notes", async () => {
+    fallbackGenerator
+      .mockResolvedValueOnce(
+        buildFallbackResult(
+          [
+            "Subject: Homework update",
+            "Hello,",
+            "I'm sorry to hear that your child came home so upset today.",
+            "Thank you for bringing this to my attention.",
+            "Kind regards,",
+            "Dr Greg Blackburn",
+          ].join("\n\n"),
+        ),
+      )
+      .mockResolvedValueOnce(
+        buildFallbackResult(
+          [
+            "Subject: Homework update",
+            "Hello,",
+            "I'm sorry to hear that your child came home so upset today.",
+            "Thank you for bringing this to my attention.",
+            "Kind regards,",
+            "Dr Greg Blackburn",
+          ].join("\n\n"),
+        ),
+      )
+
+    const request = new Request("https://example.com/api/draft/generate", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: "Bearer token",
+      },
+      body: JSON.stringify({
+        situation:
+          "Need a calm parent update about missing homework, lateness to class, and the conversation I will have tomorrow morning so the expectations are clear.",
+        tone: "professional",
+        language: "en",
+        mode: "parent_message",
+      }),
+    })
+
+    const response = await POST(request)
+    const json = await response.json()
+
+    expect(response.status).toBe(200)
+    expect(fallbackGenerator).toHaveBeenCalledTimes(2)
+    expect(json.data.generatedDraft).toContain("Subject:")
+    expect(json.data.generatedDraft).toContain("I wanted to send a brief update about lateness to class")
+    expect(json.data.generatedDraft).not.toContain("Thank you for bringing this to my attention")
+    expect(json.data.generatedDraft).not.toContain("your child came home so upset")
+    expect(json.data.meta.recovery.finalSource).toBe("deterministic_fallback")
+    expect(json.data.meta.recovery.triggerReasons).toContain("TEACHER_STYLE_FALLBACK")
+  })
+
+  it("forces a source-grounded recovery when a generic panic scan reply slips through", async () => {
+    fallbackGenerator.mockResolvedValueOnce(
+      buildFallbackResult(
+        [
+          "Subject: Update from school",
+          "Hello,",
+          "Thank you for your message.",
+          "I will follow this up in school and keep the next steps clear and practical.",
+          "If a further update would be helpful once I have followed this up, I will come back to you.",
+          "Kind regards,",
+          "Dr Greg Blackburn",
+        ].join("\n\n"),
+      ),
+    )
+
+    const request = new Request("https://example.com/api/draft/generate", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: "Bearer token",
+      },
+      body: JSON.stringify({
+        situation:
+          "Parent says their child was pushed at breaktime, felt unsafe in the playground after lunch, came home very distressed, and wants a response today.",
+        tone: "professional",
+        language: "en",
+        mode: "parent_message",
+        inputMode: "panic_scan",
+      }),
+    })
+
+    const response = await POST(request)
+    const json = await response.json()
+
+    expect(response.status).toBe(200)
+    expect(json.data.generatedDraft).toContain("Subject: Follow-up on today's concern")
+    expect(json.data.generatedDraft).toContain("what happened today")
+    expect(json.data.generatedDraft).not.toContain(
+      "I will follow this up in school and keep the next steps clear and practical.",
+    )
+    expect(json.data.meta.recovery.finalSource).toBe("deterministic_fallback")
+    expect(json.data.meta.recovery.triggerReasons).toContain("GENERIC_RECOVERY_OVERUSE")
+    expect(json.data.meta.recovery.templateFamily).toBe("source_grounded_bullying_safety")
+  })
+
+  it("preserves the selected tone through teacher-authenticity retry attempts", async () => {
+    fallbackGenerator
+      .mockResolvedValueOnce(
+        buildFallbackResult(
+          [
+            "Subject: Homework update",
+            "Hello,",
+            "Thank you for sharing your concerns about homework.",
+            "I will gather the details and prepare a practical plan.",
+            "Kind regards,",
+            "Dr Greg Blackburn",
+          ].join("\n\n"),
+        ),
+      )
+      .mockResolvedValueOnce(
+        buildFallbackResult(
+          [
+            "Subject: Homework update",
+            "Hello,",
+            "Sally has been handing homework in late, and it is becoming a pattern.",
+            "I will go through what is missing tomorrow, make the next deadline clear, and expect the work to be handed in on time from this point.",
+            "I wanted to raise this now so it can be addressed before it becomes a wider pattern.",
+            "Kind regards,",
+            "Dr Greg Blackburn",
+          ].join("\n\n"),
+        ),
+      )
+
+    const request = new Request("https://example.com/api/draft/generate", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: "Bearer token",
+      },
+      body: JSON.stringify({
+        situation:
+          "Sally has been struggling to hand in homework on time and it is becoming a pattern. I need to let the parents know but I don't want to sound harsh.",
+        tone: "direct",
+        language: "en",
+        mode: "parent_message",
+        studentFirstName: "Sally",
+        signature: {
+          line1: "Dr Greg Blackburn",
+        },
+      }),
+    })
+
+    const response = await POST(request)
+    expect(response.status).toBe(200)
+    expect(fallbackGenerator).toHaveBeenCalledTimes(2)
+    expect(fallbackGenerator.mock.calls[0]?.[0]?.tone).toBe("direct")
+    expect(fallbackGenerator.mock.calls[1]?.[0]?.tone).toBe("direct")
+
+    const json = await response.json()
+    expect(json.data?.generatedDraft).toContain(
+      "Sally has been handing homework in late, and it is becoming a pattern.",
+    )
+    expect(json.data?.generatedDraft).not.toContain("I'm sorry to hear your child came home upset")
   })
 })
 

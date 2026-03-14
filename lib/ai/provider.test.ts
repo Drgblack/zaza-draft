@@ -154,6 +154,32 @@ describe("buildSystemPrompt", () => {
     expect(prompt).toContain("Do not use these phrases: thank you for sharing your concerns, please feel free to reach out.")
   })
 
+  it("keeps continuation recovery isolated for safe draft teacher notes", () => {
+    const prompt = buildSystemPrompt({
+      situation: "Need a calm parent update about lateness, disruption, and missing homework.",
+      generationMetadata: {
+        mode: "safe_draft",
+        direction: "teacher_internal_notes",
+        source_type: "typed_text",
+        locale: "en",
+        prompt_builder: "safe_draft",
+      },
+      tone: "professional",
+      language: "en",
+      mode: "parent_message",
+      pronounPreference: "auto",
+      forceContinuation: true,
+      teacherAuthenticityViolations: {
+        types: ["customer_support"],
+        phrases: ["thank you for bringing this to my attention"],
+      },
+    })
+
+    expect(prompt).toContain("This greeting needs a full teacher-authored message.")
+    expect(prompt).toContain("do not imply that the parent raised a complaint unless the source explicitly says so")
+    expect(prompt).toContain("Keep the recovery strictly in teacher-note-to-parent framing.")
+  })
+
   it("keeps report comment prompts structurally separate from parent emails", () => {
     const prompt = buildSystemPrompt({
       situation: "Short report comment on steady reading progress and more independent written work.",
@@ -177,5 +203,75 @@ describe("buildSystemPrompt", () => {
     expect(prompt).toContain("lead with a clear strength or recent progress")
     expect(prompt).toContain("Avoid generic school-admin phrases such as 'continues to make progress'")
     expect(prompt).toContain("Vary sentence openings so the comment does not sound formulaic or repetitive.")
+  })
+
+  it("defines visible tone contracts for English parent-facing drafts", () => {
+    const warmPrompt = buildSystemPrompt({
+      situation:
+        "Sally has been struggling to hand in homework on time and it is becoming a pattern. I need to let the parents know but I don't want to sound harsh.",
+      generationMetadata: {
+        mode: "safe_draft",
+        direction: "teacher_internal_notes",
+        source_type: "typed_text",
+        locale: "en",
+        prompt_builder: "safe_draft",
+      },
+      tone: "warm",
+      language: "en",
+      mode: "parent_message",
+      pronounPreference: "auto",
+    })
+    const professionalPrompt = buildSystemPrompt({
+      situation:
+        "Sally has been struggling to hand in homework on time and it is becoming a pattern. I need to let the parents know but I don't want to sound harsh.",
+      generationMetadata: {
+        mode: "safe_draft",
+        direction: "teacher_internal_notes",
+        source_type: "typed_text",
+        locale: "en",
+        prompt_builder: "safe_draft",
+      },
+      tone: "professional",
+      language: "en",
+      mode: "parent_message",
+      pronounPreference: "auto",
+    })
+    const directPrompt = buildSystemPrompt({
+      situation:
+        "Sally has been struggling to hand in homework on time and it is becoming a pattern. I need to let the parents know but I don't want to sound harsh.",
+      generationMetadata: {
+        mode: "safe_draft",
+        direction: "teacher_internal_notes",
+        source_type: "typed_text",
+        locale: "en",
+        prompt_builder: "safe_draft",
+      },
+      tone: "direct",
+      language: "en",
+      mode: "parent_message",
+      pronounPreference: "auto",
+    })
+    const empatheticPrompt = buildSystemPrompt({
+      situation:
+        "Sally has been struggling to hand in homework on time and it is becoming a pattern. I need to let the parents know but I don't want to sound harsh.",
+      generationMetadata: {
+        mode: "safe_draft",
+        direction: "teacher_internal_notes",
+        source_type: "typed_text",
+        locale: "en",
+        prompt_builder: "safe_draft",
+      },
+      tone: "empathetic",
+      language: "en",
+      mode: "parent_message",
+      pronounPreference: "auto",
+    })
+
+    expect(warmPrompt).toContain("Warm tone contract: sound gently relational and collaborative")
+    expect(professionalPrompt).toContain("Professional tone contract: sound calm, measured, and factual")
+    expect(directPrompt).toContain("Direct tone contract: be concise, explicit, and clear")
+    expect(empatheticPrompt).toContain(
+      "Empathetic tone contract: acknowledge the child's difficulty or the parent's worry more explicitly than warm",
+    )
   })
 })

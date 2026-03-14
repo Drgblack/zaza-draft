@@ -52,6 +52,9 @@ export interface PanicScanDocument {
   cleanConfidence?: number
   classification?: MessageClassification
   analysis?: PanicScanAnalysis
+  analysisLanguage?: "en" | "de"
+  analysisLanguageSource?: "ui_locale" | "explicit_language" | "source_text" | "accept_language" | "default"
+  uiLocale?: string
   processingTimeMs?: number
   createdAt: string
   expiresAt: string

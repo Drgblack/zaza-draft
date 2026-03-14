@@ -22,6 +22,7 @@ interface TeacherAuthenticityOptions {
   language: DraftLanguage
   mode: DraftMode
   direction: MessageDirection
+  sourceText?: string | null
 }
 
 const ENGLISH_RULES: PhraseRule[] = [
@@ -88,6 +89,10 @@ function normalize(text: string) {
   return text.toLowerCase().replace(/\s+/g, " ").trim()
 }
 
+function sourceIncludesAny(source: string, snippets: string[]) {
+  return snippets.some((snippet) => source.includes(snippet))
+}
+
 function resolveRules(language: DraftLanguage, mode: DraftMode) {
   const localeRules = language === "de" ? GERMAN_RULES : ENGLISH_RULES
   return localeRules.filter((rule) => !rule.modes || rule.modes.includes(mode))
@@ -122,6 +127,44 @@ export function detectTeacherAuthenticityViolations(
       type: "customer_support",
       phrase: options.language === "de" ? "liebe eltern" : "dear parent",
     })
+  }
+
+  if (options.direction === "teacher_internal_notes") {
+    const source = normalize(options.sourceText ?? "")
+    const teacherNotesBans = [
+      "thank you for bringing this to my attention",
+      "thank you for sharing your concerns",
+      "thank you for raising this with me",
+    ]
+    for (const phrase of teacherNotesBans) {
+      if (normalized.includes(phrase) && !seen.has(phrase)) {
+        seen.add(phrase)
+        violations.push({
+          type: "customer_support",
+          phrase,
+        })
+      }
+    }
+
+    if (
+      normalized.includes("i'm sorry to hear that your child came home so upset") &&
+      !sourceIncludesAny(source, ["came home", "upset", "so upset"])
+    ) {
+      violations.push({
+        type: "generic_empathy",
+        phrase: "i'm sorry to hear that your child came home so upset",
+      })
+    }
+
+    if (
+      normalized.includes("your child came home") &&
+      !sourceIncludesAny(source, ["came home", "home"])
+    ) {
+      violations.push({
+        type: "customer_support",
+        phrase: "your child came home",
+      })
+    }
   }
 
   return violations

@@ -14,7 +14,7 @@ const SUPPORTED_FORMATS = ["JPG", "PNG", "HEIC"]
 export default function PanicScanPage() {
   const router = useRouter()
   const { status, getIdToken } = useAuth()
-  const { t } = useLocale()
+  const { t, locale } = useLocale()
   const [file, setFile] = useState<File | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [isUploading, setIsUploading] = useState(false)
@@ -149,6 +149,7 @@ export default function PanicScanPage() {
       form.append("file", file)
       form.append("platform", platform)
       form.append("sessionId", crypto.randomUUID())
+      form.append("uiLocale", locale)
 
       const response = await fetch("/api/panic-scan/upload", {
         method: "POST",

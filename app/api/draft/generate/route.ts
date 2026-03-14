@@ -24,8 +24,10 @@ import { hasDraftEntitlementAccess, resolveDraftEntitlement } from "@/lib/draft-
 import {
   ALLOWED_TONES,
   buildFallbackDraft,
+  buildTeacherNotesRecoveryDraft,
   DraftFallbackContext,
   generateDraftWithFallback,
+  isSafeDraftTeacherNotesRecovery,
   LanguageKey,
   ProviderRequestInput,
   ToneKey,
@@ -286,20 +288,144 @@ function getMeaningfulParentBodyWordCount(
     .filter(Boolean).length
 }
 
-function buildDeterministicTemplateBody(greetingLine: string, language?: string) {
+type RecoveryTraceSource =
+  | "primary_generation"
+  | "retry_generation"
+  | "deterministic_fallback"
+  | "continuation_recovery"
+
+type RouteRecoveryIssueKind =
+  | "bullying_safety"
+  | "homework"
+  | "lateness"
+  | "grading"
+  | "behaviour"
+  | "disruption"
+  | "support"
+  | "general"
+
+function detectRouteRecoveryIssueKind(source: string | undefined, language: string | undefined): RouteRecoveryIssueKind {
+  const normalized = (source ?? "").toLowerCase()
   const isGerman = language?.toLowerCase().startsWith("de")
-  const paragraphs = isGerman
+  const patterns = isGerman
+    ? {
+        bullying_safety:
+          /\b(mobb|gemobbt|sicherheit|sicher|verletz|geschubst|geschlagen|angst|weinen|aufsicht|pause|vorfall)\b/,
+        homework: /\b(hausaufgabe|hausaufgaben|nicht abgegeben|fehlende aufgabe|aufgabenmenge)\b/,
+        lateness: /\b(spät|verspät|zu spät|pünktlich)\b/,
+        grading: /\b(note|noten|bewertung|bewertet|test|prüfung|korrigiert)\b/,
+        behaviour: /\b(verhalten|respektlos|unfreundlich|streit|konflikt)\b/,
+        disruption: /\b(stört|unruh|reinruf|unterbr|ablenk|konzent|laut)\b/,
+        support: /\b(unterstütz|hilfe|förder|zusätzliche hilfe|besprech)\b/,
+      }
+    : {
+        bullying_safety:
+          /\b(bully|bullying|unsafe|safety|hurt|pushed|hit|afraid|scared|crying|incident|breaktime|playground)\b/,
+        homework:
+          /\b(homework|missing work|not handed in|did not hand in|didn't hand in|worksheet|task load)\b/,
+        lateness: /\b(late|lateness|tardy|punctual|arrival)\b/,
+        grading: /\b(grade|grading|marking|marked|assessment|test score|exam)\b/,
+        behaviour: /\b(behaviour|behavior|rude|unkind|argument|conflict)\b/,
+        disruption: /\b(disrupt|disruption|calling out|talking over|interrupt|unsettled|focus)\b/,
+        support: /\b(support|help|meeting|follow up|check in|plan)\b/,
+      }
+
+  if (patterns.bullying_safety.test(normalized)) return "bullying_safety"
+  if (patterns.homework.test(normalized)) return "homework"
+  if (patterns.lateness.test(normalized)) return "lateness"
+  if (patterns.grading.test(normalized)) return "grading"
+  if (patterns.behaviour.test(normalized)) return "behaviour"
+  if (patterns.disruption.test(normalized)) return "disruption"
+  if (patterns.support.test(normalized)) return "support"
+  return "general"
+}
+
+function getRouteRecoveryAnchors(issueKind: RouteRecoveryIssueKind, language: string | undefined) {
+  const isGerman = language?.toLowerCase().startsWith("de")
+  if (isGerman) {
+    const anchors: Record<RouteRecoveryIssueKind, string[]> = {
+      bullying_safety: ["vorfall", "sicherheit", "pause", "aufsicht", "mobbing"],
+      homework: ["hausaufgaben", "aufgaben", "fehlenden aufgaben"],
+      lateness: ["pünktlichkeit", "zu spät", "unterrichtsbeginn"],
+      grading: ["bewertung", "note", "test"],
+      behaviour: ["verhalten", "konflikt", "umgang"],
+      disruption: ["unterricht", "lernzeit", "unterrichtsverlauf"],
+      support: ["unterstützung", "nächsten schritte", "rückmeldung"],
+      general: ["unterricht", "rückmeldung", "nächsten schritte"],
+    }
+    return anchors[issueKind]
+  }
+
+  const anchors: Record<RouteRecoveryIssueKind, string[]> = {
+    bullying_safety: ["incident", "safety", "break", "breaktime", "playground", "bullying"],
+    homework: ["homework", "task", "work", "missing work"],
+    lateness: ["lateness", "arrival", "punctuality", "start of lessons"],
+    grading: ["marking", "grade", "assessment", "work"],
+    behaviour: ["behaviour", "conflict", "classroom behaviour"],
+    disruption: ["lesson", "class", "lesson time", "disruption"],
+    support: ["support", "meeting", "follow up", "next steps"],
+    general: ["school", "class", "update", "next steps"],
+  }
+  return anchors[issueKind]
+}
+
+function detectGenericRecoveryOutput(
+  draft: string,
+  sourceText: string | undefined,
+  language: string | undefined,
+  mode: DraftMode,
+) {
+  const normalizedDraft = draft.toLowerCase()
+  const issueKind = detectRouteRecoveryIssueKind(sourceText, language)
+  const anchors = getRouteRecoveryAnchors(issueKind, language)
+  const mentionsAnchor = anchors.some((anchor) => normalizedDraft.includes(anchor))
+  const genericPhrases = language?.toLowerCase().startsWith("de")
     ? [
-        "Es tut mir leid zu hören, dass Ihr Kind heute so belastet nach Hause gekommen ist.",
-        "Ich werde mit den beteiligten Kolleginnen und Kollegen sprechen und mir genau ansehen, was heute passiert ist.",
-        "Ich melde mich so bald wie möglich mit einer Rückmeldung bei Ihnen; wenn es danach sinnvoll ist, können wir gern kurz telefonieren.",
+        "danke für ihre nachricht",
+        "ich werde den punkt weiter aufgreifen",
+        "wenn danach eine weitere rückmeldung sinnvoll ist",
       ]
     : [
-        "I'm sorry to hear that your child came home so upset today.",
-        "I will speak with the staff involved and look into what happened as soon as I am back in school.",
-        "I'll come back to you as soon as I can with an update, and if it would help after that we can arrange a short call.",
+        "thank you for your message",
+        "i will follow this up in school and keep the next steps clear and practical",
+        "if a further update would be helpful once i have followed this up",
       ]
-  return `${greetingLine}\n\n${paragraphs.join("\n\n")}`
+
+  const genericHits = genericPhrases.filter((phrase) => normalizedDraft.includes(phrase))
+  const structuralLeak =
+    mode === "report_comment" &&
+    /^(subject|betreff):|^hello,|^guten tag,|kind regards|best regards|mit freundlichen grüßen/im.test(
+      draft,
+    )
+
+  return {
+    issueKind,
+    templateFamily: `source_grounded_${issueKind}`,
+    shouldRepair: structuralLeak || (genericHits.length > 0 && !mentionsAnchor),
+    reason: structuralLeak ? "REPORT_COMMENT_STRUCTURE_LEAK" : "GENERIC_RECOVERY_OVERUSE",
+  }
+}
+
+function buildDeterministicTemplateBody(
+  greetingLine: string,
+  language: string | undefined,
+  fallbackContext: DraftFallbackContext,
+) {
+  const templateContext: DraftFallbackContext = {
+    ...fallbackContext,
+    language: language?.toLowerCase().startsWith("de") ? "de" : "en",
+    greeting: greetingLine.trim() ? { text: greetingLine } : fallbackContext.greeting,
+    greetingFinal: Boolean(greetingLine.trim()) || fallbackContext.greetingFinal,
+  }
+
+  if (isSafeDraftTeacherNotesRecovery(templateContext) && greetingLine.trim()) {
+    const closingBlock = language?.toLowerCase().startsWith("de")
+      ? "Mit freundlichen Grüßen"
+      : "Kind regards,"
+    return buildTeacherNotesRecoveryDraft(templateContext, greetingLine, closingBlock)
+  }
+
+  return buildFallbackDraft(templateContext)
 }
 
 type TrustGradeViolationType =
@@ -1003,6 +1129,106 @@ export async function POST(request: Request) {
     teacherSignatureName,
     greeting: providerGreeting,
     greetingFinal: hasFinalGreeting,
+    sourceSituation: currentSituation,
+  }
+  const recoveryTrace: {
+    finalSource: RecoveryTraceSource
+    templateFamily: string | null
+    triggerReasons: string[]
+    events: Array<{
+      source: RecoveryTraceSource
+      reason: string
+      templateFamily: string | null
+    }>
+  } = {
+    finalSource: "primary_generation",
+    templateFamily: null,
+    triggerReasons: [],
+    events: [],
+  }
+  const pushRecoveryEvent = (
+    source: RecoveryTraceSource,
+    reason: string,
+    templateFamily: string | null = null,
+  ) => {
+    recoveryTrace.finalSource = source
+    recoveryTrace.templateFamily = templateFamily
+    recoveryTrace.triggerReasons.push(reason)
+    recoveryTrace.events.push({ source, reason, templateFamily })
+  }
+  const buildSourceGroundedRecoveryDraft = (reason: string) => {
+    // UX decision C: if recovery converges on a generic draft, replace it with a deterministic
+    // source-grounded recovery built from the active input rather than surfacing the generic text
+    // or failing with an opaque error.
+    const issue = detectGenericRecoveryOutput(generatedDraft, currentSituation, language, mode)
+    if (mode === "report_comment") {
+      const issueKind = issue.issueKind
+      const reportText = language?.toLowerCase().startsWith("de")
+        ? {
+            homework:
+              "Arbeitet im Unterricht verlässlich mit und zeigt ein solides Verständnis. Sollte Hausaufgaben regelmäßiger abschließen, um die Lernfortschritte besser zu sichern.",
+            lateness:
+              "Arbeitet nach dem Unterrichtsbeginn konzentriert mit und beteiligt sich sachlich. Sollte pünktlicher erscheinen, um den Einstieg in die Lernphase sicherer zu nutzen.",
+            behaviour:
+              "Arbeitet in vielen Phasen konzentriert mit und beteiligt sich sachlich. Sollte im Umgang mit anderen noch konstanter ruhig und respektvoll bleiben.",
+            disruption:
+              "Bringt fachlich passende Beiträge ein und reagiert auf Rückmeldungen. Sollte die Lernzeit konstanter ruhig halten, um durchgehend konzentriert zu arbeiten.",
+            bullying_safety:
+              "Beschreibt belastende Situationen zunehmend klar und nimmt Rückmeldungen ernst auf. Arbeitet daran, Konflikte ruhig anzusprechen und sich in angespannten Momenten sicherer zu orientieren.",
+            grading:
+              "Arbeitet inhaltlich sicher und kann wesentliche Anforderungen erfüllen. Sollte Rückmeldungen zur Bewertung gezielter aufgreifen, um schriftliche Leistungen weiter zu schärfen.",
+            support:
+              "Arbeitet grundsätzlich mit und nutzt Unterstützung zunehmend zielgerichtet. Benötigt weiterhin klare Hilfen und verlässliche Strukturen, um selbstständiger zu arbeiten.",
+            general:
+              "Zeigt in mehreren Bereichen eine stabile Entwicklung und arbeitet zunehmend sicherer mit. Sollte die nächsten Lernschritte weiterhin verlässlich und konzentriert umsetzen.",
+          }
+        : {
+            homework:
+              "Works steadily in class and shows sound understanding of the material. Should complete homework more regularly so that learning is reinforced consistently.",
+            lateness:
+              "Works productively once lessons begin and contributes appropriately. Should arrive more punctually so that the start of learning time is used well.",
+            behaviour:
+              "Contributes appropriately in many parts of the day and responds to guidance. Should be more consistently calm and respectful in interactions with others.",
+            disruption:
+              "Makes relevant contributions and responds to guidance. Should keep lesson time calmer so that concentration is sustained more consistently.",
+            bullying_safety:
+              "Describes difficult situations with growing clarity and responds thoughtfully to support. Is working on raising concerns calmly and feeling more secure in challenging moments.",
+            grading:
+              "Meets key assessment expectations and shows secure understanding. Should use feedback on marked work more consistently to sharpen written responses.",
+            support:
+              "Engages with support and is beginning to work with greater independence. Would benefit from clear routines and continued guidance to strengthen independent work.",
+            general:
+              "Shows steady development across several areas and is working with greater consistency. Should continue to develop concentration and consistency in day-to-day work.",
+          }
+      generatedDraft = reportText[issueKind]
+      finalizeAndFormatDraft(generatedDraft)
+      usedFallback = true
+      fallbackErrorCode = fallbackErrorCode ?? reason
+      providerMeta = {
+        modelUsed: "source-grounded-report-recovery",
+        latencyMs: providerMeta.latencyMs,
+      }
+      pushRecoveryEvent("deterministic_fallback", reason, issue.templateFamily)
+      return
+    }
+
+    const templateGreeting =
+      finalGreetingLine || (language?.toLowerCase().startsWith("de") ? "Guten Tag," : "Hello,")
+    generatedDraft = removeDuplicateGreeting(
+      applyFinalGreetingGuard(
+        buildDeterministicTemplateBody(templateGreeting, language, fallbackContext),
+        templateGreeting,
+      ),
+      templateGreeting,
+    )
+    finalizeAndFormatDraft(generatedDraft)
+    usedFallback = true
+    fallbackErrorCode = fallbackErrorCode ?? reason
+    providerMeta = {
+      modelUsed: "source-grounded-recovery",
+      latencyMs: providerMeta.latencyMs,
+    }
+    pushRecoveryEvent("deterministic_fallback", reason, issue.templateFamily)
   }
   const finalizeDraft = (text: string) => {
     let curated = enforcePronouns(text, resolvedPronounPreference)
@@ -1046,6 +1272,13 @@ export async function POST(request: Request) {
   let fallbackErrorCode = draftAttempt.errorCode
   let generatedDraft = finalizeWithGreeting(providerResult.text)
   let providerMeta = providerResult.providerMeta
+  if (usedFallback) {
+    pushRecoveryEvent(
+      "deterministic_fallback",
+      fallbackErrorCode ?? "PROVIDER_FALLBACK",
+      draftAttempt.recoveryMeta?.templateFamily ?? null,
+    )
+  }
 
   let forcedLanguageAttempted = false
   if (language === "de" && containsStrongEnglishSignals(generatedDraft)) {
@@ -1056,6 +1289,11 @@ export async function POST(request: Request) {
     fallbackErrorCode = draftAttempt.errorCode
     generatedDraft = finalizeWithGreeting(providerResult.text)
     providerMeta = providerResult.providerMeta
+    pushRecoveryEvent(
+      usedFallback ? "deterministic_fallback" : "retry_generation",
+      "FORCED_LANGUAGE_RETRY",
+      draftAttempt.recoveryMeta?.templateFamily ?? null,
+    )
   }
 
   const shouldNormalizeGermanParentMessage =
@@ -1106,6 +1344,7 @@ export async function POST(request: Request) {
       studentFirstName: studentNameForPayload || undefined,
     })
     generatedDraft = finalSanity.text
+    generatedDraft = normalizeClosingForMode(generatedDraft)
     formattedDraftStructure =
       mode === "report_comment"
         ? sanitizeReportCommentStructure(formatDraftText(generatedDraft, language), language)
@@ -1142,6 +1381,11 @@ export async function POST(request: Request) {
     providerMeta = providerResult.providerMeta
     generatedDraft = finalizeWithGreeting(providerResult.text)
     finalizeAndFormatDraft(generatedDraft)
+    pushRecoveryEvent(
+      usedFallback ? "deterministic_fallback" : "continuation_recovery",
+      "MIN_OUTPUT_RECOVERY_RETRY",
+      continuationAttempt.recoveryMeta?.templateFamily ?? null,
+    )
 
     if (hasMinimumParentMessageOutput()) {
       return
@@ -1155,6 +1399,7 @@ export async function POST(request: Request) {
     }
     usedFallback = true
     fallbackErrorCode = fallbackErrorCode ?? "MIN_OUTPUT_FALLBACK"
+    pushRecoveryEvent("deterministic_fallback", "MIN_OUTPUT_FALLBACK")
 
     if (hasMinimumParentMessageOutput()) {
       return
@@ -1164,7 +1409,10 @@ export async function POST(request: Request) {
       finalGreetingLine ||
       (language?.toLowerCase().startsWith("de") ? "Guten Tag," : "Hello,")
     generatedDraft = removeDuplicateGreeting(
-      applyFinalGreetingGuard(buildDeterministicTemplateBody(templateGreeting, language), templateGreeting),
+      applyFinalGreetingGuard(
+        buildDeterministicTemplateBody(templateGreeting, language, fallbackContext),
+        templateGreeting,
+      ),
       templateGreeting,
     )
     finalizeAndFormatDraft(generatedDraft)
@@ -1174,6 +1422,19 @@ export async function POST(request: Request) {
     }
     usedFallback = true
     fallbackErrorCode = fallbackErrorCode ?? "MIN_OUTPUT_TEMPLATE"
+    pushRecoveryEvent("deterministic_fallback", "MIN_OUTPUT_TEMPLATE")
+  }
+  const applyGenericRecoveryGuardIfNeeded = () => {
+    const genericRecovery = detectGenericRecoveryOutput(
+      generatedDraft,
+      currentSituation,
+      language,
+      mode,
+    )
+    if (!genericRecovery.shouldRepair) {
+      return
+    }
+    buildSourceGroundedRecoveryDraft(genericRecovery.reason)
   }
 
   if (evaluateBodyNeedsRetry()) {
@@ -1183,26 +1444,31 @@ export async function POST(request: Request) {
     fallbackErrorCode = continuationAttempt.errorCode
     providerMeta = providerResult.providerMeta
     generatedDraft = finalizeWithGreeting(providerResult.text)
-    generatedDraft = applyGermanNormalization(generatedDraft)
-    formattedDraftStructure = formatDraftText(generatedDraft, language)
-    bodyParagraphCount = getParagraphCountExcludingGreeting(formattedDraftStructure, finalGreetingLine)
-    bodyWordCount = countWords(generatedDraft)
+    finalizeAndFormatDraft(generatedDraft)
+    pushRecoveryEvent(
+      usedFallback ? "deterministic_fallback" : "continuation_recovery",
+      "GREETING_BODY_RETRY",
+      continuationAttempt.recoveryMeta?.templateFamily ?? null,
+    )
     if (evaluateBodyNeedsRetry()) {
-      const templateDraft = buildDeterministicTemplateBody(finalGreetingLine ?? "", language)
+      const templateDraft = buildDeterministicTemplateBody(
+        finalGreetingLine ?? "",
+        language,
+        fallbackContext,
+      )
       const guardedTemplate = removeDuplicateGreeting(
         applyFinalGreetingGuard(templateDraft, finalGreetingLine),
         finalGreetingLine,
       )
       generatedDraft = guardedTemplate
-      formattedDraftStructure = formatDraftText(generatedDraft, language)
-      bodyParagraphCount = getParagraphCountExcludingGreeting(formattedDraftStructure, finalGreetingLine)
-      bodyWordCount = countWords(generatedDraft)
+      finalizeAndFormatDraft(generatedDraft)
       usedFallback = true
       fallbackErrorCode = fallbackErrorCode ?? "GREETING_BODY_FALLBACK"
       providerMeta = {
         modelUsed: "greeting-body-template",
         latencyMs: 0,
       }
+      pushRecoveryEvent("deterministic_fallback", "GREETING_BODY_FALLBACK")
     }
   }
 
@@ -1228,6 +1494,11 @@ export async function POST(request: Request) {
     providerMeta = providerResult.providerMeta
     finalizeAndFormatDraft(generatedDraft)
     providerInput.trustGradeViolations = undefined
+    pushRecoveryEvent(
+      usedFallback ? "deterministic_fallback" : "retry_generation",
+      "TRUST_GRADE_RETRY",
+      regenerationAttempt.recoveryMeta?.templateFamily ?? null,
+    )
     return detectTrustGradeViolations(generatedDraft)
   }
 
@@ -1254,6 +1525,7 @@ export async function POST(request: Request) {
     language,
     mode,
     direction: generationMetadata.direction,
+    sourceText: currentSituation,
   })
   let teacherAuthenticityRegenerationAttempted = false
 
@@ -1277,11 +1549,17 @@ export async function POST(request: Request) {
     providerMeta = providerResult.providerMeta
     finalizeAndFormatDraft(generatedDraft)
     providerInput.teacherAuthenticityViolations = undefined
+    pushRecoveryEvent(
+      usedFallback ? "deterministic_fallback" : "retry_generation",
+      "TEACHER_AUTHENTICITY_RETRY",
+      regenerationAttempt.recoveryMeta?.templateFamily ?? null,
+    )
 
     return detectTeacherAuthenticityViolations(generatedDraft, {
       language,
       mode,
       direction: generationMetadata.direction,
+      sourceText: currentSituation,
     })
   }
 
@@ -1297,6 +1575,7 @@ export async function POST(request: Request) {
       language,
       mode,
       direction: generationMetadata.direction,
+      sourceText: currentSituation,
     })
 
     if (fallbackViolations.length === 0) {
@@ -1309,6 +1588,7 @@ export async function POST(request: Request) {
       usedFallback = true
       fallbackErrorCode = fallbackErrorCode ?? "TEACHER_STYLE_FALLBACK"
       teacherAuthenticityViolations = []
+      pushRecoveryEvent("deterministic_fallback", "TEACHER_STYLE_FALLBACK")
     }
   }
 
@@ -1317,6 +1597,7 @@ export async function POST(request: Request) {
   }
 
   await recoverCollapsedParentMessageOutput()
+  applyGenericRecoveryGuardIfNeeded()
 
   let rewriteAttempted = false
   const generationTime = providerMeta.latencyMs ?? Date.now() - generationStart
@@ -1363,6 +1644,7 @@ export async function POST(request: Request) {
         providerMeta = rewriteResult.providerMeta
         finalizeAndFormatDraft(generatedDraft)
         blockedDetection = detectBlockedLanguage(generatedDraft)
+        pushRecoveryEvent("retry_generation", "BLOCKED_LANGUAGE_REWRITE")
       }
     }
   }
@@ -1372,6 +1654,7 @@ export async function POST(request: Request) {
   }
 
   await recoverCollapsedParentMessageOutput()
+  applyGenericRecoveryGuardIfNeeded()
 
   let updatedUsage: MonthlyUsageRecord = usageRecord
   if (!isQaUser && !isDevBypassRequest) {
@@ -1428,6 +1711,15 @@ export async function POST(request: Request) {
     usedFallback,
     errorCode: fallbackErrorCode,
     requestId,
+    recovery:
+      process.env.NODE_ENV !== "production" || debugEnabled
+        ? {
+            finalSource: recoveryTrace.finalSource,
+            templateFamily: recoveryTrace.templateFamily,
+            triggerReasons: Array.from(new Set(recoveryTrace.triggerReasons)),
+            events: recoveryTrace.events,
+          }
+        : undefined,
   }
 
   const responseGreeting = {
@@ -1469,6 +1761,13 @@ export async function POST(request: Request) {
     usageAfter: updatedUsage.generationCount,
     unlimitedFlag: usageAfterGeneration.unlimited,
   })
+  DEBUG_DRAFT_LOGS && console.info("[draft] recovery", {
+    requestId,
+    finalSource: recoveryTrace.finalSource,
+    templateFamily: recoveryTrace.templateFamily,
+    triggerReasons: Array.from(new Set(recoveryTrace.triggerReasons)),
+    events: recoveryTrace.events,
+  })
 
   const snippetPayload = {
     generatedText: generatedDraft,
@@ -1493,6 +1792,9 @@ export async function POST(request: Request) {
     createdAt: new Date().toISOString(),
     requestId: snippetDoc.id,
     signatureBlock: resolvedSignature.block,
+    recoverySource: recoveryTrace.finalSource,
+    recoveryTemplateFamily: recoveryTrace.templateFamily,
+    recoveryReasons: Array.from(new Set(recoveryTrace.triggerReasons)),
   }
 
   try {
@@ -1513,6 +1815,9 @@ export async function POST(request: Request) {
     lastPronounResolutionSource: pronounResolution.source ?? null,
     lastInputReframed: inputReframed,
     lastInputReframedTier: inputReframedTier,
+    lastRecoverySource: recoveryTrace.finalSource,
+    lastRecoveryTemplateFamily: recoveryTrace.templateFamily,
+    lastRecoveryReasons: Array.from(new Set(recoveryTrace.triggerReasons)),
     lastErrorCode: null,
     lastUsage: usageAfterGeneration,
   }

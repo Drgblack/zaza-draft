@@ -1,20 +1,23 @@
 import { runChatWithFallback } from "@/lib/ai/client"
 import type { Message } from "@/lib/ai/types"
+import type { LanguageKey } from "@/lib/draft/fallback"
 import type { MessageClassification, PanicScanAnalysis } from "./types"
 
-const SYSTEM_PROMPT = `
+function buildSystemPrompt(language: LanguageKey) {
+  const languageName = language === "de" ? "German" : "English"
+  return `
 You are a safety-first assistant tasked with analyzing emotionally intense teacher messages for Zaza Draft.
 Return exactly one JSON object with two keys: "classification" and "analysis".
 
 CRITICAL LANGUAGE RULE:
-- Write ALL analysis field values (summary, emotionalInterpretation, professionalRisk, likelyMeaning, suggestedResponse) in the SAME language as the original message text.
-- If the message is German, output German only (no English sentences).
-- If the message is English, output English only.
+- Write ALL analysis field values (summary, emotionalInterpretation, professionalRisk, likelyMeaning, suggestedResponse) in ${languageName} only.
+- The target analysis language comes from the app locale when provided; do not override it because the screenshot text looks like another language.
 - Do NOT mix languages.
 The classification object must include: messageType, emotionalTone, riskLevel, urgency, and confidenceScore (0-100).
 The analysis object must include: summary, emotionalInterpretation, professionalRisk, likelyMeaning, and suggestedResponse.
 Use only the allowed values for each field. Do not include extra text outside the JSON object.
 `
+}
 
 function extractJsonObject(text: string) {
   const match = text.match(/\{[\s\S]*\}/)
@@ -24,14 +27,14 @@ function extractJsonObject(text: string) {
   return JSON.parse(match[0])
 }
 
-export async function analyzePanicMessage(message: string): Promise<{
+export async function analyzePanicMessage(message: string, language: LanguageKey): Promise<{
   classification: MessageClassification
   analysis: PanicScanAnalysis
 }> {
   const messages: Message[] = [
     {
       role: "system",
-      content: SYSTEM_PROMPT,
+      content: buildSystemPrompt(language),
     },
     {
       role: "user",

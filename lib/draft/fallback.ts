@@ -1,16 +1,14 @@
-import { generateDraft, ProviderMeta, ProviderResult } from "@/lib/ai/provider"
-import type { PronounPreference } from "@/lib/types"
-import { DraftMode } from "@/lib/types"
-import { buildStudentInstruction, buildStudentNameForFallback } from "@/lib/draft/student-policy"
+import { generateDraft, type ProviderMeta, type ProviderResult } from "@/lib/ai/provider"
+import type { GenerationMetadata } from "@/lib/generation/classification"
 import type { GreetingSource, NameConfidenceLevel } from "@/lib/draft/greeting-resolution"
-import type { GenerationMetadata, MessageDirection } from "@/lib/generation/classification"
+import type { DraftMode, PronounPreference } from "@/lib/types"
 
 export const ALLOWED_TONES = ["warm", "professional", "direct", "empathetic"] as const
 export const ALLOWED_LANGUAGES = ["en", "de"] as const
 export type ToneKey = (typeof ALLOWED_TONES)[number]
 export type LanguageKey = (typeof ALLOWED_LANGUAGES)[number]
 
-interface DraftFallbackContext {
+export interface DraftFallbackContext {
   mode: DraftMode
   tone: ToneKey
   language: LanguageKey
@@ -25,6 +23,107 @@ interface DraftFallbackContext {
     name?: string
   }
   greetingFinal?: boolean
+  sourceSituation?: string
+}
+
+export type RecoveryIssueKind =
+  | "bullying_safety"
+  | "homework"
+  | "lateness"
+  | "grading"
+  | "behaviour"
+  | "disruption"
+  | "support"
+  | "general"
+
+export interface RecoveryDraftResult {
+  text: string
+  templateFamily: string
+  issueKind: RecoveryIssueKind
+  sourceAnchors: string[]
+}
+
+const ISSUE_PATTERNS = {
+  en: {
+    bullying_safety:
+      /\b(bully|bullying|unsafe|safety|hurt|pushed|hit|afraid|scared|crying|incident|breaktime|playground)\b/,
+    homework: /\b(homework|missing work|not handed in|did not hand in|didn't hand in|worksheet|task load)\b/,
+    lateness: /\b(late|lateness|tardy|punctual|arrival)\b/,
+    grading: /\b(grade|grading|marking|marked|assessment|test score|exam)\b/,
+    behaviour: /\b(behaviour|behavior|rude|unkind|argument|conflict)\b/,
+    disruption: /\b(disrupt|disruption|calling out|talking over|interrupt|unsettled|focus)\b/,
+    support: /\b(support|help|meeting|follow up|check in|plan)\b/,
+  },
+  de: {
+    bullying_safety:
+      /\b(mobb|gemobbt|sicherheit|sicher|verletz|geschubst|geschlagen|angst|weinen|aufsicht|pause|vorfall)\b/,
+    homework: /\b(hausaufgabe|hausaufgaben|nicht abgegeben|fehlende aufgabe|aufgabenmenge)\b/,
+    lateness: /\b(spät|verspät|zu spät|pünktlich)\b/,
+    grading: /\b(note|noten|bewertung|bewertet|test|prüfung|korrigiert)\b/,
+    behaviour: /\b(verhalten|respektlos|unfreundlich|streit|konflikt)\b/,
+    disruption: /\b(stört|unruh|reinruf|unterbr|ablenk|konzent|laut)\b/,
+    support: /\b(unterstütz|hilfe|förder|zusätzliche hilfe|besprech)\b/,
+  },
+} as const
+
+const ISSUE_SUBJECTS = {
+  en: {
+    bullying_safety: "Subject: Follow-up on today's incident",
+    homework: "Subject: Update on homework",
+    lateness: "Subject: Update on punctuality",
+    grading: "Subject: Update on recent marking",
+    behaviour: "Subject: Update on classroom behaviour",
+    disruption: "Subject: Update on lesson time",
+    support: "Subject: Update on next steps",
+    general: "Subject: Update from school",
+  },
+  de: {
+    bullying_safety: "Betreff: Rückmeldung zu dem Vorfall heute",
+    homework: "Betreff: Rückmeldung zu den Hausaufgaben",
+    lateness: "Betreff: Rückmeldung zur Pünktlichkeit",
+    grading: "Betreff: Rückmeldung zur Bewertung",
+    behaviour: "Betreff: Rückmeldung zum Verhalten im Unterricht",
+    disruption: "Betreff: Rückmeldung zum Unterrichtsverlauf",
+    support: "Betreff: Rückmeldung zu den nächsten Schritten",
+    general: "Betreff: Rückmeldung aus dem Unterricht",
+  },
+} as const
+
+const ISSUE_ANCHORS = {
+  en: {
+    bullying_safety: ["incident", "safety", "break", "breaktime", "playground", "bullying"],
+    homework: ["homework", "task", "work", "missing work"],
+    lateness: ["lateness", "arrival", "punctuality", "start of lessons"],
+    grading: ["marking", "grade", "assessment", "work"],
+    behaviour: ["behaviour", "conduct", "conflict", "classroom behaviour"],
+    disruption: ["lesson", "class", "lesson time", "disruption"],
+    support: ["support", "meeting", "follow up", "next steps"],
+    general: ["school", "class", "update", "next steps"],
+  },
+  de: {
+    bullying_safety: ["vorfall", "sicherheit", "pause", "aufsicht", "mobbing"],
+    homework: ["hausaufgaben", "aufgaben", "fehlenden aufgaben"],
+    lateness: ["pünktlichkeit", "zu spät", "unterrichtsbeginn"],
+    grading: ["bewertung", "note", "test"],
+    behaviour: ["verhalten", "umgang", "konflikt"],
+    disruption: ["unterricht", "lernrunde", "lernzeit"],
+    support: ["unterstützung", "weitere schritte", "rückmeldung"],
+    general: ["unterricht", "rückmeldung", "nächsten schritte"],
+  },
+} as const
+
+function normalizeText(value?: string | null) {
+  return (value ?? "").toLowerCase().replace(/\s+/g, " ").trim()
+}
+
+function resolveGreetingLine(context: DraftFallbackContext) {
+  if (context.greetingFinal && context.greeting?.text?.trim()) {
+    return context.greeting.text.trim()
+  }
+  if (context.mode !== "parent_message") {
+    return ""
+  }
+  return context.language === "de" ? "Guten Tag," : "Hello,"
 }
 
 function buildClosingBlock(language: LanguageKey, teacherSignatureName?: string) {
@@ -36,150 +135,465 @@ function buildClosingBlock(language: LanguageKey, teacherSignatureName?: string)
   return teacherSignatureName ? `${closing}\n${teacherSignatureName}` : closing
 }
 
-const FALLBACK_TONE_TEXT: Record<
-  LanguageKey,
-  Record<ToneKey, { parentReply: string; teacherDraft: string; report: string }>
-> = {
-  en: {
-    warm: {
-      parentReply:
-        "I'm sorry to hear that this has been such a difficult week for your child. I will look into what happened in school and come back to you with an update.",
-      teacherDraft:
-        "I wanted to send you a brief update about how your child is getting on and let you know what I will adjust in class this week.",
-      report: "The student is making steady progress and responding well to the current plan.",
-    },
-    professional: {
-      parentReply:
-        "Thank you for bringing this to my attention. I will speak with the staff involved and look into what happened before I come back to you.",
-      teacherDraft:
-        "I wanted to give you a clear update about your child and explain the adjustment I will make in class.",
-      report: "The student is operating at a dependable level and continuing to meet expectations.",
-    },
-    direct: {
-      parentReply:
-        "I can see why you are upset. I will check what happened with the staff involved and get back to you once I have looked into it properly.",
-      teacherDraft:
-        "Here is the clear update I want to send: your child completed the essential tasks, and I will follow up briefly on the missing part.",
-      report: "The student met the standards, and sharpening daily habits will help maintain this pace.",
-    },
-    empathetic: {
-      parentReply:
-        "I'm sorry to hear that your child came home so upset. I will look into what happened in school and update you as soon as I can.",
-      teacherDraft:
-        "I want to share this update in a calm way so your child feels encouraged, and I will begin tomorrow with a shorter check-in and clearer instructions.",
-      report: "The student is progressing with care and could use encouragement to keep building momentum.",
-    },
-  },
-  de: {
-    warm: {
-      parentReply:
-        "Es tut mir leid zu hören, dass diese Woche für Ihr Kind so belastend war. Ich schaue mir den Punkt im Unterricht noch einmal genau an und melde mich mit einer Rückmeldung bei Ihnen.",
-      teacherDraft:
-        "Ich möchte Ihnen eine kurze Rückmeldung zu Ihrem Kind geben und erläutern, was ich im Unterricht in dieser Woche anpasse.",
-      report: "Das Kind macht kontinuierliche Fortschritte und reagiert gut auf den aktuellen Plan.",
-    },
-    professional: {
-      parentReply:
-        "Danke, dass Sie mich darauf aufmerksam gemacht haben. Ich spreche mit den beteiligten Kolleginnen und Kollegen und schaue mir genau an, was passiert ist.",
-      teacherDraft:
-        "Ich möchte Ihnen eine klare Rückmeldung zu Ihrem Kind geben und erläutern, was ich im Unterricht als Nächstes konkret anpasse.",
-      report: "Der Lernende arbeitet verl\u00e4sslich und erf\u00fcllt weiterhin die Erwartungen.",
-    },
-    direct: {
-      parentReply:
-        "Ich kann nachvollziehen, dass Sie darüber verärgert sind. Ich prüfe den Vorgang mit den beteiligten Mitarbeitenden und melde mich dann bei Ihnen zurück.",
-      teacherDraft:
-        "Hier ist die klare Rückmeldung, die ich senden möchte: Die wesentlichen Aufgaben wurden erledigt, und ich fasse bei dem offenen Punkt kurz nach.",
-      report: "Der Lernende erf\u00fcllt die Standards, und ein gezielter Schliff der t\u00e4glichen Gewohnheiten bleibt hilfreich.",
-    },
-    empathetic: {
-      parentReply:
-        "Es tut mir leid zu hören, dass Ihr Kind heute so belastet nach Hause gekommen ist. Ich werde nachsehen, was passiert ist, und mich so bald wie möglich wieder bei Ihnen melden.",
-      teacherDraft:
-        "Ich möchte diese Rückmeldung ruhig formulieren; deshalb beginne ich morgen mit einer kurzen klaren Orientierung im Unterricht.",
-      report: "Der Lernende macht bedacht Fortschritte und k\u00f6nnte etwas Unterst\u00fctzung gebrauchen, um das Tempo zu halten.",
-    },
-  },
+export function isSafeDraftTeacherNotesRecovery(context: DraftFallbackContext) {
+  return (
+    context.mode === "parent_message" &&
+    context.generationMetadata.mode === "safe_draft" &&
+    context.generationMetadata.direction === "teacher_internal_notes"
+  )
 }
 
-const FALLBACK_LANGUAGE_COPY: Record<
-  LanguageKey,
-  {
-    subject: string
-    parentGreeting: string
-    nextStep: string
-    reportSuffix: string
-  }
-> = {
-  en: {
-    subject: "Subject: Your child's progress",
-    parentGreeting: "Hello,",
-    nextStep: "If a short conversation would help, I can speak with you this week.",
-    reportSuffix: "I will continue to keep you posted.",
-  },
-  de: {
-    subject: "Betreff: R\u00fcckmeldung zum Lernen",
-    parentGreeting: "Guten Tag,",
-    nextStep: "Wenn ein kurzes Gespräch hilfreich ist, können wir uns in dieser Woche kurz abstimmen.",
-    reportSuffix: "Ich werde Sie weiter informieren.",
-  },
+function detectRecoveryIssueKind(source: string | undefined, language: LanguageKey): RecoveryIssueKind {
+  const normalized = normalizeText(source)
+  const patterns = ISSUE_PATTERNS[language]
+  if (patterns.bullying_safety.test(normalized)) return "bullying_safety"
+  if (patterns.homework.test(normalized)) return "homework"
+  if (patterns.lateness.test(normalized)) return "lateness"
+  if (patterns.grading.test(normalized)) return "grading"
+  if (patterns.behaviour.test(normalized)) return "behaviour"
+  if (patterns.disruption.test(normalized)) return "disruption"
+  if (patterns.support.test(normalized)) return "support"
+  return "general"
 }
 
-function buildNameLine(context: DraftFallbackContext, studentProps: { firstName?: string; pronoun: PronounPreference }) {
-  if (context.language === "de") {
-    if (context.studentFirstName) {
-      const displayName = buildStudentNameForFallback(studentProps)
-      return `Ich beziehe mich auf ${displayName} und halte mich an die gew\u00e4hlte Pronomenpr\u00e4ferenz.`
+function buildParentReplyOpening(language: LanguageKey, tone: ToneKey, issueKind: RecoveryIssueKind) {
+  if (language === "de") {
+    const byTone: Record<ToneKey, Record<RecoveryIssueKind, string>> = {
+      warm: {
+        bullying_safety: "Danke, dass Sie sich so zeitnah wegen des Vorfalls gemeldet haben.",
+        homework: "Danke, dass Sie sich wegen der Hausaufgaben gemeldet haben.",
+        lateness: "Danke für Ihre Rückmeldung zur Pünktlichkeit.",
+        grading: "Danke für Ihre Nachricht zur Bewertung.",
+        behaviour: "Danke für Ihre Rückmeldung zum Verhalten im Unterricht.",
+        disruption: "Danke für Ihre Rückmeldung zu dem unruhigen Verlauf heute.",
+        support: "Danke für Ihre Nachricht zu den nächsten Schritten.",
+        general: "Danke für Ihre Nachricht.",
+      },
+      professional: {
+        bullying_safety: "Danke für Ihre Nachricht zu dem Vorfall heute.",
+        homework: "Danke für Ihre Nachricht zu den Hausaufgaben.",
+        lateness: "Danke für Ihre Nachricht zur Pünktlichkeit.",
+        grading: "Danke für Ihre Nachricht zur Bewertung.",
+        behaviour: "Danke für Ihre Nachricht zum Verhalten im Unterricht.",
+        disruption: "Danke für Ihre Nachricht zum Unterrichtsverlauf.",
+        support: "Danke für Ihre Nachricht zu den nächsten Schritten.",
+        general: "Danke für Ihre Nachricht.",
+      },
+      direct: {
+        bullying_safety: "Ich habe Ihre Nachricht zu dem Vorfall heute gelesen.",
+        homework: "Ich habe Ihre Nachricht zu den Hausaufgaben gelesen.",
+        lateness: "Ich habe Ihre Nachricht zur Pünktlichkeit gelesen.",
+        grading: "Ich habe Ihre Nachricht zur Bewertung gelesen.",
+        behaviour: "Ich habe Ihre Nachricht zum Verhalten im Unterricht gelesen.",
+        disruption: "Ich habe Ihre Nachricht zum Unterrichtsverlauf gelesen.",
+        support: "Ich habe Ihre Nachricht zu den nächsten Schritten gelesen.",
+        general: "Ich habe Ihre Nachricht gelesen.",
+      },
+      empathetic: {
+        bullying_safety: "Es tut mir leid zu hören, dass Ihr Kind wegen des Vorfalls heute so belastet war.",
+        homework: "Danke, dass Sie mich wegen der Hausaufgaben direkt informiert haben.",
+        lateness: "Danke, dass Sie mich wegen der Pünktlichkeit direkt informiert haben.",
+        grading: "Danke, dass Sie mir die Sorge zur Bewertung direkt mitgeteilt haben.",
+        behaviour: "Danke, dass Sie mir die Sorge zum Verhalten im Unterricht direkt mitgeteilt haben.",
+        disruption: "Danke, dass Sie die Sorge wegen des heutigen Unterrichtsverlaufs direkt angesprochen haben.",
+        support: "Danke, dass Sie sich wegen der nächsten Schritte direkt gemeldet haben.",
+        general: "Danke, dass Sie sich direkt gemeldet haben.",
+      },
     }
-    return "Ich beziehe mich auf Ihr Kind und bleibe in der Wortwahl professionell und neutral."
+    return byTone[tone][issueKind]
   }
-  if (context.studentFirstName) {
-    return `I'm referring to ${buildStudentNameForFallback(studentProps)} and following the ${context.studentPronounPreference} pronoun preference.`
+
+  const byTone: Record<ToneKey, Record<RecoveryIssueKind, string>> = {
+    warm: {
+      bullying_safety: "Thank you for getting in touch so quickly about what happened today.",
+      homework: "Thank you for getting in touch about the homework concern.",
+      lateness: "Thank you for getting in touch about punctuality at the start of lessons.",
+      grading: "Thank you for getting in touch about the recent marking.",
+      behaviour: "Thank you for getting in touch about the classroom behaviour concern.",
+      disruption: "Thank you for getting in touch about the disruption during lesson time.",
+      support: "Thank you for getting in touch about the next steps.",
+      general: "Thank you for getting in touch.",
+    },
+    professional: {
+      bullying_safety: "Thank you for your message about what happened today.",
+      homework: "Thank you for your message about homework.",
+      lateness: "Thank you for your message about punctuality.",
+      grading: "Thank you for your message about the recent marking.",
+      behaviour: "Thank you for your message about classroom behaviour.",
+      disruption: "Thank you for your message about lesson time today.",
+      support: "Thank you for your message about the next steps.",
+      general: "Thank you for your message.",
+    },
+    direct: {
+      bullying_safety: "I have read your message about what happened today.",
+      homework: "I have read your message about homework.",
+      lateness: "I have read your message about punctuality.",
+      grading: "I have read your message about the recent marking.",
+      behaviour: "I have read your message about classroom behaviour.",
+      disruption: "I have read your message about lesson time today.",
+      support: "I have read your message about the next steps.",
+      general: "I have read your message.",
+    },
+    empathetic: {
+      bullying_safety: "I am sorry to hear about the incident your child described today.",
+      homework: "Thank you for letting me know that homework has felt too heavy.",
+      lateness: "Thank you for letting me know about the concern around punctuality.",
+      grading: "Thank you for letting me know about the concern with the recent marking.",
+      behaviour: "Thank you for letting me know about the classroom behaviour concern.",
+      disruption: "Thank you for letting me know about the disruption during lesson time.",
+      support: "Thank you for letting me know that the next steps need to be clearer.",
+      general: "Thank you for letting me know about this concern.",
+    },
   }
-  return "I'm referring to your child and keeping the wording professional and neutral."
+  return byTone[tone][issueKind]
 }
 
-function buildInstructionLine(context: DraftFallbackContext, studentProps: { firstName?: string; pronoun: PronounPreference }) {
-  if (context.language === "de") {
-    const pronounClause =
-      context.studentPronounPreference === "avoid"
-        ? "nutzen Sie m\u00f6glichst neutrale Formulierungen"
-        : "achten Sie auf die gew\u00e4hlte Pronomenpr\u00e4ferenz"
-    return `Bleiben Sie bei den Formulierungen ruhig und sachlich, ${pronounClause}, und vermeiden Sie unn\u00f6tige Wiederholungen.`
+function buildTeacherDraftOpening(
+  language: LanguageKey,
+  tone: ToneKey,
+  issueKind: RecoveryIssueKind,
+  studentFirstName?: string,
+) {
+  if (language === "de") {
+    const byTone: Record<ToneKey, Record<RecoveryIssueKind, string>> = {
+      warm: {
+        bullying_safety: "Ich möchte Ihnen eine kurze und ruhige Rückmeldung zu dem Vorfall heute geben.",
+        homework: "Ich möchte Ihnen eine kurze und ruhige Rückmeldung zu nicht erledigten Hausaufgaben geben.",
+        lateness: "Ich möchte Ihnen eine kurze und ruhige Rückmeldung zur Pünktlichkeit geben.",
+        grading: "Ich möchte Ihnen eine kurze und ruhige Rückmeldung zur letzten Bewertung geben.",
+        behaviour: "Ich möchte Ihnen eine kurze und ruhige Rückmeldung zu einem Verhaltensthema geben.",
+        disruption: "Ich möchte Ihnen eine kurze und ruhige Rückmeldung zu einigen unruhigen Momenten im Unterricht geben.",
+        support: "Ich möchte Ihnen eine kurze und ruhige Rückmeldung zu den nächsten Schritten geben.",
+        general: "Ich möchte Ihnen eine kurze und ruhige Rückmeldung zu einem Punkt aus dem Unterricht geben.",
+      },
+      professional: {
+        bullying_safety: "Ich möchte Ihnen eine kurze Rückmeldung zu dem Vorfall heute geben.",
+        homework: "Ich möchte Ihnen eine kurze Rückmeldung zu nicht erledigten Hausaufgaben geben.",
+        lateness: "Ich möchte Ihnen eine kurze Rückmeldung zur Pünktlichkeit geben.",
+        grading: "Ich möchte Ihnen eine kurze Rückmeldung zur letzten Bewertung geben.",
+        behaviour: "Ich möchte Ihnen eine kurze Rückmeldung zu einem Verhaltensthema geben.",
+        disruption: "Ich möchte Ihnen eine kurze Rückmeldung zu einigen unruhigen Momenten im Unterricht geben.",
+        support: "Ich möchte Ihnen eine kurze Rückmeldung zu den nächsten Schritten geben.",
+        general: "Ich möchte Ihnen eine kurze Rückmeldung zu einem Punkt aus dem Unterricht geben.",
+      },
+      direct: {
+        bullying_safety: "Ich schreibe Ihnen mit einer klaren Rückmeldung zu dem Vorfall heute.",
+        homework: "Ich schreibe Ihnen mit einer klaren Rückmeldung zu den Hausaufgaben.",
+        lateness: "Ich schreibe Ihnen mit einer klaren Rückmeldung zur Pünktlichkeit.",
+        grading: "Ich schreibe Ihnen mit einer klaren Rückmeldung zur letzten Bewertung.",
+        behaviour: "Ich schreibe Ihnen mit einer klaren Rückmeldung zu einem Verhaltensthema.",
+        disruption: "Ich schreibe Ihnen mit einer klaren Rückmeldung zu dem Unterrichtsverlauf heute.",
+        support: "Ich schreibe Ihnen mit einer klaren Rückmeldung zu den nächsten Schritten.",
+        general: "Ich schreibe Ihnen mit einer klaren Rückmeldung zu diesem Punkt aus dem Unterricht.",
+      },
+      empathetic: {
+        bullying_safety: "Ich möchte Ihnen eine ruhige Rückmeldung zu dem Vorfall heute geben und die nächsten Schritte deutlich machen.",
+        homework: "Ich möchte Ihnen eine ruhige Rückmeldung zu den Hausaufgaben geben und die nächsten Schritte deutlich machen.",
+        lateness: "Ich möchte Ihnen eine ruhige Rückmeldung zur Pünktlichkeit geben und die nächsten Schritte deutlich machen.",
+        grading: "Ich möchte Ihnen eine ruhige Rückmeldung zur Bewertung geben und die nächsten Schritte deutlich machen.",
+        behaviour: "Ich möchte Ihnen eine ruhige Rückmeldung zu dem Verhaltensthema geben und die nächsten Schritte deutlich machen.",
+        disruption: "Ich möchte Ihnen eine ruhige Rückmeldung zum Unterrichtsverlauf geben und die nächsten Schritte deutlich machen.",
+        support: "Ich möchte Ihnen eine ruhige Rückmeldung zu den nächsten Schritten geben.",
+        general: "Ich möchte Ihnen eine ruhige Rückmeldung zu diesem Punkt aus dem Unterricht geben.",
+      },
+    }
+    return byTone[tone][issueKind]
   }
-  return buildStudentInstruction(studentProps)
+
+  const studentName = studentFirstName?.trim()
+  const namedHomework = studentName ? `${studentName}'s homework` : "homework"
+  const namedLateness = studentName ? `${studentName}'s punctuality` : "punctuality"
+
+  const byTone: Record<ToneKey, Record<RecoveryIssueKind, string>> = {
+    warm: {
+      bullying_safety: "I wanted to send a brief, calm update about what happened today.",
+      homework: `I wanted to send a quick update about ${namedHomework}, as a few pieces have not been handed in on time recently.`,
+      lateness: `I wanted to send a quick update about ${namedLateness}, as there have been a few late starts to class recently.`,
+      grading: "I wanted to send a brief, calm update about the recent marking.",
+      behaviour: "I wanted to send a brief, calm update about a classroom behaviour concern.",
+      disruption: "I wanted to send a brief, calm update about some disruption during lesson time.",
+      support: "I wanted to send a brief, calm update about the next steps for support in school.",
+      general: "I wanted to send a brief, calm update about a classroom concern.",
+    },
+    professional: {
+      bullying_safety: "I wanted to send a brief update about what happened today.",
+      homework: studentName
+        ? `I wanted to let you know that ${studentName} has been handing homework in late more regularly over the past few weeks.`
+        : "I wanted to let you know that homework has been handed in late more regularly over the past few weeks.",
+      lateness: studentName
+        ? `I wanted to let you know that ${studentName} has been arriving late to class more regularly over the past few weeks.`
+        : "I wanted to let you know that there has been a more regular pattern of lateness to class.",
+      grading: "I wanted to send a brief update about the recent marking.",
+      behaviour: "I wanted to send a brief update about a classroom behaviour concern.",
+      disruption: "I wanted to send a brief update about some disruption during lesson time.",
+      support: "I wanted to send a brief update about the next steps for support in school.",
+      general: "I wanted to send a brief update about a classroom concern.",
+    },
+    direct: {
+      bullying_safety: "I am writing with a clear update about what happened today.",
+      homework: studentName
+        ? `${studentName} has been handing homework in late, and it is becoming a pattern.`
+        : "Homework has been handed in late, and it is becoming a pattern.",
+      lateness: studentName
+        ? `${studentName} has been arriving late to class, and it is becoming a pattern.`
+        : "There has been repeated lateness to class, and it is becoming a pattern.",
+      grading: "I am writing with a clear update about the recent marking.",
+      behaviour: "I am writing with a clear update about a classroom behaviour concern.",
+      disruption: "I am writing with a clear update about lesson time today.",
+      support: "I am writing with a clear update about the next steps for support in school.",
+      general: "I am writing with a clear update about a classroom concern.",
+    },
+    empathetic: {
+      bullying_safety: "I wanted to send a calm update about what happened today and explain the next step in school.",
+      homework: studentName
+        ? `I wanted to get in touch about ${studentName}'s homework, as handing it in on time has been difficult lately.`
+        : "I wanted to get in touch about homework, as handing it in on time has been difficult lately.",
+      lateness: studentName
+        ? `I wanted to get in touch about ${studentName}'s punctuality, as arriving on time has been difficult lately.`
+        : "I wanted to get in touch about punctuality, as arriving on time has been difficult lately.",
+      grading: "I wanted to send a calm update about the recent marking and explain the next step in school.",
+      behaviour: "I wanted to send a calm update about a classroom behaviour concern and explain the next step in school.",
+      disruption: "I wanted to send a calm update about lesson time today and explain the next step in school.",
+      support: "I wanted to send a calm update about the next steps for support in school.",
+      general: "I wanted to send a calm update about this concern and explain the next step in school.",
+    },
+  }
+  return byTone[tone][issueKind]
 }
 
-function resolveParentFacingLine(toneText: (typeof FALLBACK_TONE_TEXT)[LanguageKey][ToneKey], direction: MessageDirection) {
-  return direction === "parent_to_teacher" ? toneText.parentReply : toneText.teacherDraft
+function buildRecoveryAction(
+  language: LanguageKey,
+  tone: ToneKey,
+  issueKind: RecoveryIssueKind,
+  studentFirstName?: string,
+) {
+  if (language === "de") {
+    const byIssue: Record<RecoveryIssueKind, string> = {
+      bullying_safety:
+        "Ich werde mit den beteiligten Kolleginnen und Kollegen sprechen, klären, was heute passiert ist, und den Punkt zügig weiterverfolgen.",
+      homework:
+        "Ich gehe die fehlenden Aufgaben im Unterricht noch einmal klar durch und mache die nächsten Arbeitsschritte deutlich.",
+      lateness:
+        "Ich werde diesen Punkt in der Schule noch einmal ruhig aufgreifen und die Erwartungen zum pünktlichen Start klar benennen.",
+      grading:
+        "Ich schaue mir die Arbeit und die Bewertung noch einmal genau an und melde mich mit einer klaren Rückmeldung bei Ihnen.",
+      behaviour:
+        "Ich greife diesen Punkt in der Schule direkt auf und formuliere die Erwartung ruhig und eindeutig.",
+      disruption:
+        "Ich spreche diesen Punkt im Unterricht direkt an und stärke die Erwartungen für eine ruhige Lernzeit.",
+      support:
+        "Ich halte die nächsten Schritte in der Schule klar und prüfe, welche Unterstützung jetzt am sinnvollsten ist.",
+      general:
+        "Ich werde diesen Punkt in der Schule weiter aufgreifen und die nächsten Schritte klar und praktikabel halten.",
+    }
+    return byIssue[issueKind]
+  }
+
+  const studentLabel = studentFirstName?.trim() || "the student"
+  const byTone: Record<ToneKey, Record<RecoveryIssueKind, string>> = {
+    warm: {
+      bullying_safety:
+        "I will speak with the staff involved, check what happened today, and follow this up promptly so the situation is handled carefully in school.",
+      homework: `I will go through what is missing with ${studentLabel} in class, make the next task clear, and help re-establish a steadier homework routine.`,
+      lateness: `I will follow this up with ${studentLabel} in school, restate the expectation around arrival, and help build a steadier start to lessons.`,
+      grading:
+        "I will review the work and the marking carefully, then come back to you with a clear explanation of what I have checked.",
+      behaviour:
+        "I will speak with the student in school, restate the classroom expectation calmly, and help reset the pattern before it grows further.",
+      disruption:
+        "I will address this in class, revisit the lesson routines that support calm learning, and reinforce the expectation clearly.",
+      support:
+        "I will keep the next steps clear in school, check what support will help most, and make sure that support feels manageable.",
+      general:
+        "I will follow this up in school, keep the next steps clear, and approach it in a steady way.",
+    },
+    professional: {
+      bullying_safety:
+        "I will speak with the staff involved, check what happened today, and follow this up promptly in school.",
+      homework:
+        "I will go through what is missing in class, make the next task and deadline clear, and check that the expectations are understood.",
+      lateness:
+        "I will follow this up in school, make the expectations around arrival clear, and keep the start of lessons consistent.",
+      grading:
+        "I will review the work and the marking carefully, then come back to you with a clear explanation.",
+      behaviour:
+        "I will address this directly in school and follow it up calmly so the expectation is clear.",
+      disruption:
+        "I will address this directly in class and reinforce the expectations for lesson time.",
+      support:
+        "I will keep the next steps clear in school and check what support will help most now.",
+      general:
+        "I will follow this up in school and keep the next steps clear and practical.",
+    },
+    direct: {
+      bullying_safety:
+        "I will speak with the staff involved today, establish what happened, and come back to you once that has been checked.",
+      homework:
+        "I will go through what is missing tomorrow, make the next deadline clear, and expect the work to be handed in on time from this point.",
+      lateness:
+        "I will address this tomorrow, restate the expectation around arriving on time, and keep that expectation consistent.",
+      grading:
+        "I will review the work and the marking, then reply with a clear explanation.",
+      behaviour:
+        "I will address this directly in school and make the classroom expectation clear.",
+      disruption:
+        "I will address this directly in class and make the expectation for lesson time clear.",
+      support:
+        "I will set out the next steps clearly in school and confirm what support will be in place.",
+      general:
+        "I will follow this up in school and set out the next steps clearly.",
+    },
+    empathetic: {
+      bullying_safety:
+        "I will speak with the staff involved, check what happened today, and follow this up promptly so I can give you a clear update.",
+      homework: `I will check in with ${studentLabel} in class, go through what is missing, and make sure the next task feels clear rather than overwhelming.`,
+      lateness: `I will check in with ${studentLabel} in school, go over the start-of-day expectations again, and help make the routine clearer.`,
+      grading:
+        "I will review the work and the marking carefully, then come back to you with a clear explanation once I have checked it properly.",
+      behaviour:
+        "I will address this in school, make the expectation clear, and help the student reset the pattern without escalating it further.",
+      disruption:
+        "I will address this in class, revisit the routines that help lesson time stay settled, and make the next step clear.",
+      support:
+        "I will keep the next steps clear in school, check what support will help most, and make sure the support is manageable.",
+      general:
+        "I will follow this up in school, keep the next steps clear, and make sure the approach feels manageable.",
+    },
+  }
+  return byTone[tone][issueKind]
+}
+
+function buildRecoveryFollowUp(language: LanguageKey, tone: ToneKey, issueKind: RecoveryIssueKind) {
+  if (language === "de") {
+    if (issueKind === "bullying_safety") {
+      return "Sobald ich den Ablauf geprüft habe, gebe ich Ihnen eine Rückmeldung."
+    }
+    return tone === "warm"
+      ? "Wenn danach eine kurze Rückmeldung hilfreich ist, melde ich mich noch einmal bei Ihnen."
+      : "Wenn danach eine weitere Rückmeldung sinnvoll ist, melde ich mich noch einmal bei Ihnen."
+  }
+  if (issueKind === "bullying_safety") {
+    const byTone: Record<ToneKey, string> = {
+      warm: "I know this will feel serious, and I will come back to you as soon as I have checked the detail.",
+      professional: "As soon as I have checked the detail, I will come back to you with an update.",
+      direct: "I will come back to you as soon as I have established what happened.",
+      empathetic: "I appreciate how upsetting this will have been, and I will come back to you as soon as I have checked the detail.",
+    }
+    return byTone[tone]
+  }
+  const byTone: Record<ToneKey, string> = {
+    warm:
+      "If it would help, please do let me know if you are seeing the same pattern at home, and I will follow up again after I have checked this in school.",
+    professional:
+      "I wanted to make you aware of the pattern early, and I will follow up again if a further update is needed.",
+    direct:
+      "I wanted to raise this now so it can be addressed before it becomes a wider pattern.",
+    empathetic:
+      "I did not want this to become a bigger source of pressure, so I wanted to let you know now and I will follow up again after I have checked in at school.",
+  }
+  return byTone[tone]
+}
+
+function buildReportCommentRecovery(context: DraftFallbackContext, issueKind: RecoveryIssueKind) {
+  const comments =
+    context.language === "de"
+      ? {
+          homework: "Arbeitet im Unterricht verlässlich mit und zeigt ein solides Verständnis. Sollte Hausaufgaben regelmäßiger abschließen, um die Lernfortschritte besser zu sichern.",
+          lateness: "Arbeitet nach dem Unterrichtsbeginn konzentriert mit und beteiligt sich sachlich. Sollte pünktlicher erscheinen, um den Einstieg in die Lernphase sicherer zu nutzen.",
+          behaviour: "Arbeitet in vielen Phasen konzentriert mit und beteiligt sich sachlich. Sollte im Umgang mit anderen noch konstanter ruhig und respektvoll bleiben.",
+          disruption: "Bringt fachlich passende Beiträge ein und reagiert auf Rückmeldungen. Sollte die Lernzeit konstanter ruhig halten, um durchgehend konzentriert zu arbeiten.",
+          bullying_safety: "Beschreibt belastende Situationen zunehmend klar und nimmt Rückmeldungen ernst auf. Arbeitet daran, Konflikte ruhig anzusprechen und sich in angespannten Momenten sicherer zu orientieren.",
+          grading: "Arbeitet inhaltlich sicher und kann wesentliche Anforderungen erfüllen. Sollte Rückmeldungen zur Bewertung gezielter aufgreifen, um schriftliche Leistungen weiter zu schärfen.",
+          support: "Arbeitet grundsätzlich mit und nutzt Unterstützung zunehmend zielgerichtet. Benötigt weiterhin klare Hilfen und verlässliche Strukturen, um selbstständiger zu arbeiten.",
+          general: "Zeigt in mehreren Bereichen eine stabile Entwicklung und arbeitet zunehmend sicherer mit. Sollte die nächsten Lernschritte weiterhin verlässlich und konzentriert umsetzen.",
+        }
+      : {
+          homework: "Works steadily in class and shows sound understanding of the material. Should complete homework more regularly so that learning is reinforced consistently.",
+          lateness: "Works productively once lessons begin and contributes appropriately. Should arrive more punctually so that the start of learning time is used well.",
+          behaviour: "Contributes appropriately in many parts of the day and responds to guidance. Should be more consistently calm and respectful in interactions with others.",
+          disruption: "Makes relevant contributions and responds to guidance. Should keep lesson time calmer so that concentration is sustained more consistently.",
+          bullying_safety: "Describes difficult situations with growing clarity and responds thoughtfully to support. Is working on raising concerns calmly and feeling more secure in challenging moments.",
+          grading: "Meets key assessment expectations and shows secure understanding. Should use feedback on marked work more consistently to sharpen written responses.",
+          support: "Engages with support and is beginning to work with greater independence. Would benefit from clear routines and continued guidance to strengthen independent work.",
+          general: "Shows steady development across several areas and is working with greater consistency. Should continue to develop concentration and consistency in day-to-day work.",
+        }
+
+  return comments[issueKind]
+}
+
+export function buildTeacherNotesRecoveryDraft(
+  context: DraftFallbackContext,
+  greetingLine: string,
+  closingBlock: string,
+) {
+  const issueKind = detectRecoveryIssueKind(context.sourceSituation, context.language)
+  return [
+    ISSUE_SUBJECTS[context.language][issueKind],
+    greetingLine,
+    buildTeacherDraftOpening(context.language, context.tone, issueKind, context.studentFirstName),
+    buildRecoveryAction(context.language, context.tone, issueKind, context.studentFirstName),
+    buildRecoveryFollowUp(context.language, context.tone, issueKind),
+    closingBlock,
+  ].join("\n\n")
+}
+
+export function buildFallbackDraftResult(context: DraftFallbackContext): RecoveryDraftResult {
+  const issueKind = detectRecoveryIssueKind(context.sourceSituation, context.language)
+  const templateFamily = `${context.generationMetadata.mode}_${context.generationMetadata.direction}_${issueKind}`
+  const sourceAnchors = [...ISSUE_ANCHORS[context.language][issueKind]]
+  const greetingLine = resolveGreetingLine(context)
+  const closingBlock = buildClosingBlock(context.language, context.teacherSignatureName)
+
+  if (context.mode === "report_comment") {
+    return {
+      text: buildReportCommentRecovery(context, issueKind),
+      templateFamily,
+      issueKind,
+      sourceAnchors,
+    }
+  }
+
+  if (greetingLine && isSafeDraftTeacherNotesRecovery(context)) {
+    return {
+      text: buildTeacherNotesRecoveryDraft(context, greetingLine, closingBlock),
+      templateFamily,
+      issueKind,
+      sourceAnchors,
+    }
+  }
+
+  const opening =
+    context.generationMetadata.direction === "parent_to_teacher"
+      ? buildParentReplyOpening(context.language, context.tone, issueKind)
+      : buildTeacherDraftOpening(
+          context.language,
+          context.tone,
+          issueKind,
+          context.studentFirstName,
+        )
+
+  return {
+    text: [
+      ISSUE_SUBJECTS[context.language][issueKind],
+      greetingLine,
+      opening,
+      buildRecoveryAction(context.language, context.tone, issueKind, context.studentFirstName),
+      buildRecoveryFollowUp(context.language, context.tone, issueKind),
+      closingBlock,
+    ]
+      .filter(Boolean)
+      .join("\n\n"),
+    templateFamily,
+    issueKind,
+    sourceAnchors,
+  }
 }
 
 export function buildFallbackDraft(context: DraftFallbackContext) {
-  const toneText = FALLBACK_TONE_TEXT[context.language][context.tone]
-  const langCopy = FALLBACK_LANGUAGE_COPY[context.language]
-  const studentProps = {
-    firstName: context.studentFirstName,
-    pronoun: context.studentPronounPreference,
-  }
-  const nameLine = buildNameLine(context, studentProps)
-  const instruction = buildInstructionLine(context, studentProps)
-  const closingBlock = buildClosingBlock(context.language, context.teacherSignatureName)
-  const finalGreetingLine = context.greetingFinal && context.greeting?.text?.trim()
-  const parentFacingLine = resolveParentFacingLine(toneText, context.generationMetadata.direction)
-  if (finalGreetingLine) {
-    // Final greeting - do not override
-    if (context.mode === "parent_message") {
-      return `${langCopy.subject}\n${finalGreetingLine}\n${nameLine}\n${instruction}\n${parentFacingLine}\n${langCopy.nextStep}\n${closingBlock}`
-    }
-    return `${finalGreetingLine}\n${nameLine}\n${instruction}\n${toneText.report} ${langCopy.reportSuffix}`
-  }
-  if (context.mode === "parent_message") {
-    return `${langCopy.subject}\n${langCopy.parentGreeting}\n${nameLine}\n${instruction}\n${parentFacingLine}\n${langCopy.nextStep}\n${closingBlock}`
-  }
-  return `${nameLine}\n${instruction}\n${toneText.report} ${langCopy.reportSuffix}`
+  return buildFallbackDraftResult(context).text
 }
 
-interface ProviderRequestInput {
+export interface ProviderRequestInput {
   situation: string
   generationMetadata: GenerationMetadata
   signatureBlock?: string
@@ -221,10 +635,16 @@ interface ProviderRequestInput {
   }
 }
 
-interface ProviderFallbackResult {
+export interface ProviderFallbackResult {
   result: ProviderResult
   usedFallback: boolean
   errorCode: string | null
+  recoveryMeta?: {
+    templateFamily: string
+    issueKind: RecoveryIssueKind
+    sourceAnchors: string[]
+    stage: "provider_fallback"
+  }
 }
 
 export async function generateDraftWithFallback(
@@ -235,22 +655,13 @@ export async function generateDraftWithFallback(
   const start = Date.now()
   try {
     const result = await runner(input)
-    return {
-      result,
-      usedFallback: false,
-      errorCode: null,
-    }
+    return { result, usedFallback: false, errorCode: null }
   } catch (error) {
     const duration = Date.now() - start
-    const fallbackMeta: ProviderMeta = {
-      modelUsed: "fallback",
-      latencyMs: duration,
-    }
-    const errorCode = error instanceof Error && error.name !== "Error" ? error.name : "PROVIDER_ERROR"
-    const fallbackResult: ProviderResult = {
-      text: buildFallbackDraft(context),
-      providerMeta: fallbackMeta,
-    }
+    const fallbackMeta: ProviderMeta = { modelUsed: "fallback", latencyMs: duration }
+    const errorCode =
+      error instanceof Error && error.name !== "Error" ? error.name : "PROVIDER_ERROR"
+    const recovery = buildFallbackDraftResult(context)
     console.error("[draft] fallback_used", {
       requestId: context.requestId,
       uidHash: context.uidHash,
@@ -260,14 +671,20 @@ export async function generateDraftWithFallback(
       direction: context.generationMetadata.direction,
       tone: context.tone,
       language: context.language,
+      templateFamily: recovery.templateFamily,
+      issueKind: recovery.issueKind,
       errorMessage: error instanceof Error ? error.message : "unknown",
     })
     return {
-      result: fallbackResult,
+      result: { text: recovery.text, providerMeta: fallbackMeta },
       usedFallback: true,
       errorCode,
+      recoveryMeta: {
+        templateFamily: recovery.templateFamily,
+        issueKind: recovery.issueKind,
+        sourceAnchors: recovery.sourceAnchors,
+        stage: "provider_fallback",
+      },
     }
   }
 }
-
-export type { DraftFallbackContext, ProviderRequestInput }

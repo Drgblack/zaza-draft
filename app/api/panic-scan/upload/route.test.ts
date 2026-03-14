@@ -26,6 +26,37 @@ const firestore = {
 }
 
 describe("panic scan upload route", () => {
+  function createFakeFile() {
+    return {
+      arrayBuffer: async () => Buffer.from("data"),
+      name: "panic.png",
+      type: "image/png",
+      size: 4,
+    }
+  }
+
+  function createFakeFormData({
+    file = createFakeFile(),
+    platform = "web",
+    sessionId = "session-123",
+    uiLocale = "en-GB",
+  }: {
+    file?: ReturnType<typeof createFakeFile> | string
+    platform?: string
+    sessionId?: string | null
+    uiLocale?: string | null
+  } = {}) {
+    return {
+      get: (key: string) => {
+        if (key === "file") return file
+        if (key === "platform") return platform
+        if (key === "sessionId") return sessionId
+        if (key === "uiLocale") return uiLocale
+        return null
+      },
+    }
+  }
+
   beforeEach(() => {
     vi.resetAllMocks()
     process.env.OPENAI_API_KEY = "test-key"
@@ -63,23 +94,8 @@ describe("panic scan upload route", () => {
   })
 
   it("returns structured JSON when analysis fails", async () => {
-    const fakeFile = {
-      arrayBuffer: async () => Buffer.from("data"),
-      name: "panic.png",
-      type: "image/png",
-      size: 4,
-    }
-    const fakeFormData = {
-      get: (key: string) => {
-        if (key === "file") return fakeFile
-        if (key === "platform") return "web"
-        if (key === "sessionId") return "session-123"
-        return null
-      },
-    }
-
     const request = {
-      formData: async () => fakeFormData,
+      formData: async () => createFakeFormData(),
       headers: new Headers({
         Authorization: "Bearer token",
       }),
@@ -98,16 +114,13 @@ describe("panic scan upload route", () => {
   })
 
   it("rejects suspicious client paths instead of an uploaded file", async () => {
-    const fakeFormData = {
-      get: (key: string) => {
-        if (key === "file") return "C:\\Users\\User\\Downloads\\zaza-draft-app-123.json"
-        if (key === "platform") return "web"
-        return null
-      },
-    }
-
     const request = {
-      formData: async () => fakeFormData,
+      formData: async () =>
+        createFakeFormData({
+          file: "C:\\Users\\User\\Downloads\\zaza-draft-app-123.json",
+          uiLocale: null,
+          sessionId: null,
+        }),
       headers: new Headers({
         Authorization: "Bearer token",
       }),
@@ -125,22 +138,8 @@ describe("panic scan upload route", () => {
     vi.mocked(performVisionOcr).mockResolvedValue(
       ["Gmail", "Inbox", "99+", "Sehr geehrte Eltern,", "Mit freundlichen Grüßen"].join("\n"),
     )
-    const fakeFile = {
-      arrayBuffer: async () => Buffer.from("data"),
-      name: "panic.png",
-      type: "image/png",
-      size: 4,
-    }
-    const fakeFormData = {
-      get: (key: string) => {
-        if (key === "file") return fakeFile
-        if (key === "platform") return "web"
-        return null
-      },
-    }
-
     const request = {
-      formData: async () => fakeFormData,
+      formData: async () => createFakeFormData(),
       headers: new Headers({
         Authorization: "Bearer token",
       }),
@@ -177,22 +176,8 @@ describe("panic scan upload route", () => {
       },
     })
 
-    const fakeFile = {
-      arrayBuffer: async () => Buffer.from("data"),
-      name: "panic.png",
-      type: "image/png",
-      size: 4,
-    }
-    const fakeFormData = {
-      get: (key: string) => {
-        if (key === "file") return fakeFile
-        if (key === "platform") return "mobile_ios"
-        return null
-      },
-    }
-
     const request = {
-      formData: async () => fakeFormData,
+      formData: async () => createFakeFormData({ platform: "mobile_ios" }),
       headers: new Headers({
         Authorization: "Bearer token",
       }),
@@ -203,14 +188,236 @@ describe("panic scan upload route", () => {
 
     expect(response.status).toBe(200)
     expect(body.ok).toBe(true)
+    expect(analyzePanicMessage).toHaveBeenCalledWith(
+      expect.stringContaining("Sehr geehrte Eltern"),
+      "en",
+    )
     expect(firestoreSet).toHaveBeenCalledWith(
       expect.objectContaining({
         extractedTextClean: "My child came home upset about the homework load.",
         cleanConfidence: 0.44,
+        analysisLanguage: "en",
+        analysisLanguageSource: "ui_locale",
         classification: expect.objectContaining({
           messageType: "parent_complaint",
           confidenceScore: 84,
         }),
+        status: "completed",
+      }),
+      { merge: true },
+    )
+  })
+
+  it("uses the active German UI locale for German analysis", async () => {
+    vi.mocked(performVisionOcr).mockResolvedValue(
+      [
+        "Dear parents,",
+        "I am very concerned about the homework situation this week.",
+        "My son said he was overwhelmed after class, confused about the instructions, and worried about completing everything tonight.",
+        "I would appreciate a clear explanation and some reassurance about what is expected next.",
+      ].join("\n"),
+    )
+    vi.mocked(cleanOcrText).mockReturnValue({
+      cleanText:
+        "Dear parents,\nI am very concerned about the homework situation this week.\nMy son said he was overwhelmed after class, confused about the instructions, and worried about completing everything tonight.\nI would appreciate a clear explanation and some reassurance about what is expected next.",
+      confidence: 0.66,
+      removedLines: 1,
+    })
+    vi.mocked(analyzePanicMessage).mockResolvedValue({
+      classification: {
+        messageType: "parent_complaint",
+        emotionalTone: "concerned",
+        riskLevel: "low",
+        urgency: "medium",
+        confidenceScore: 72,
+      },
+      analysis: {
+        summary: "Eltern sorgen sich wegen der Hausaufgaben.",
+        emotionalInterpretation: "Die Nachricht klingt besorgt.",
+        professionalRisk: "Geringes Eskalationsrisiko.",
+        likelyMeaning: "Die Eltern wünschen sich Klarheit.",
+        suggestedResponse: "offer_clarification",
+      },
+    })
+
+    const request = {
+      formData: async () =>
+        createFakeFormData({
+          uiLocale: "de-DE",
+          sessionId: "session-de",
+        }),
+      headers: new Headers({
+        Authorization: "Bearer token",
+      }),
+    } as unknown as Request
+
+    const response = await POST(request)
+
+    expect(response.status).toBe(200)
+    expect(analyzePanicMessage).toHaveBeenCalledWith(
+      expect.stringContaining("I am very concerned about the homework situation this week."),
+      "de",
+    )
+    expect(firestoreSet).toHaveBeenCalledWith(
+      expect.objectContaining({
+        analysisLanguage: "de",
+        analysisLanguageSource: "ui_locale",
+      }),
+      { merge: true },
+    )
+  })
+
+  it("keeps an English screenshot in German analysis when the active UI locale is German", async () => {
+    vi.mocked(performVisionOcr).mockResolvedValue(
+      [
+        "My child came home upset after maths and said the class felt unfair.",
+        "She told me the lesson moved too quickly, the worksheet was confusing, and she felt embarrassed asking for help in front of the group.",
+        "I need to understand what happened and how this will be handled tomorrow.",
+      ].join(" "),
+    )
+    vi.mocked(cleanOcrText).mockReturnValue({
+      cleanText:
+        "My child came home upset after maths and said the class felt unfair. She told me the lesson moved too quickly, the worksheet was confusing, and she felt embarrassed asking for help in front of the group. I need to understand what happened and how this will be handled tomorrow.",
+      confidence: 0.61,
+      removedLines: 0,
+    })
+    vi.mocked(analyzePanicMessage).mockResolvedValue({
+      classification: {
+        messageType: "parent_complaint",
+        emotionalTone: "angry",
+        riskLevel: "medium",
+        urgency: "medium",
+        confidenceScore: 79,
+      },
+      analysis: {
+        summary: "Eltern melden eine Beschwerde.",
+        emotionalInterpretation: "Die Nachricht klingt verärgert.",
+        professionalRisk: "Mittleres Eskalationsrisiko.",
+        likelyMeaning: "Die Eltern erwarten eine Rückmeldung.",
+        suggestedResponse: "acknowledge_concern",
+      },
+    })
+
+    const request = {
+      formData: async () =>
+        createFakeFormData({
+          uiLocale: "de",
+          sessionId: "session-en-text-de-ui",
+        }),
+      headers: new Headers({
+        Authorization: "Bearer token",
+        "Accept-Language": "en-GB,en;q=0.9",
+      }),
+    } as unknown as Request
+
+    const response = await POST(request)
+
+    expect(response.status).toBe(200)
+    expect(analyzePanicMessage).toHaveBeenCalledWith(
+      expect.stringContaining("My child came home upset after maths"),
+      "de",
+    )
+    expect(firestoreSet).toHaveBeenCalledWith(
+      expect.objectContaining({
+        analysisLanguage: "de",
+        analysisLanguageSource: "ui_locale",
+      }),
+      { merge: true },
+    )
+  })
+
+  it("does not reuse a previous locale across Panic Scan runs or sessions", async () => {
+    vi.mocked(performVisionOcr)
+      .mockResolvedValueOnce(
+        [
+          "My child was very upset after science today.",
+          "He said the group work broke down, he felt blamed by the class, and he did not understand why the task changed so quickly.",
+          "Please explain what happened and what support he will have tomorrow.",
+        ].join(" "),
+      )
+      .mockResolvedValueOnce(
+        [
+          "Mein Kind war nach dem Unterricht heute sehr aufgebracht.",
+          "Er sagte, dass die Gruppenarbeit chaotisch war, die Aufgabe plötzlich geändert wurde und er sich vor der Klasse bloßgestellt gefühlt hat.",
+          "Bitte erklären Sie mir, was passiert ist und wie Sie morgen weiter vorgehen.",
+        ].join(" "),
+      )
+    vi.mocked(cleanOcrText)
+      .mockReturnValueOnce({
+        cleanText:
+          "My child was very upset after science today. He said the group work broke down, he felt blamed by the class, and he did not understand why the task changed so quickly. Please explain what happened and what support he will have tomorrow.",
+        confidence: 0.72,
+        removedLines: 0,
+      })
+      .mockReturnValueOnce({
+        cleanText:
+          "Mein Kind war nach dem Unterricht heute sehr aufgebracht. Er sagte, dass die Gruppenarbeit chaotisch war, die Aufgabe plötzlich geändert wurde und er sich vor der Klasse bloßgestellt gefühlt hat. Bitte erklären Sie mir, was passiert ist und wie Sie morgen weiter vorgehen.",
+        confidence: 0.71,
+        removedLines: 0,
+      })
+    vi.mocked(analyzePanicMessage).mockResolvedValue({
+      classification: {
+        messageType: "parent_complaint",
+        emotionalTone: "angry",
+        riskLevel: "medium",
+        urgency: "medium",
+        confidenceScore: 80,
+      },
+      analysis: {
+        summary: "Stub summary",
+        emotionalInterpretation: "Stub tone",
+        professionalRisk: "Stub risk",
+        likelyMeaning: "Stub meaning",
+        suggestedResponse: "acknowledge_concern",
+      },
+    })
+
+    const firstResponse = await POST(
+      {
+        formData: async () =>
+          createFakeFormData({
+            uiLocale: "en",
+            sessionId: "session-en",
+          }),
+        headers: new Headers({
+          Authorization: "Bearer token",
+        }),
+      } as unknown as Request,
+    )
+    const secondResponse = await POST(
+      {
+        formData: async () =>
+          createFakeFormData({
+            uiLocale: "de",
+            sessionId: "session-de",
+          }),
+        headers: new Headers({
+          Authorization: "Bearer token",
+        }),
+      } as unknown as Request,
+    )
+
+    expect(firstResponse.status).toBe(200)
+    expect(secondResponse.status).toBe(200)
+    expect(vi.mocked(analyzePanicMessage).mock.calls.map((call) => call[1])).toEqual(["en", "de"])
+    expect(firestoreSet).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({
+        extractedTextClean:
+          "My child was very upset after science today. He said the group work broke down, he felt blamed by the class, and he did not understand why the task changed so quickly. Please explain what happened and what support he will have tomorrow.",
+        analysisLanguage: "en",
+        analysisLanguageSource: "ui_locale",
+        status: "completed",
+      }),
+      { merge: true },
+    )
+    expect(firestoreSet).toHaveBeenNthCalledWith(
+      4,
+      expect.objectContaining({
+        extractedTextClean:
+          "Mein Kind war nach dem Unterricht heute sehr aufgebracht. Er sagte, dass die Gruppenarbeit chaotisch war, die Aufgabe plötzlich geändert wurde und er sich vor der Klasse bloßgestellt gefühlt hat. Bitte erklären Sie mir, was passiert ist und wie Sie morgen weiter vorgehen.",
+        analysisLanguage: "de",
+        analysisLanguageSource: "ui_locale",
         status: "completed",
       }),
       { merge: true },

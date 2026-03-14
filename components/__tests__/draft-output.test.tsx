@@ -177,6 +177,29 @@ Dr Greg Blackburn`
     expect(signature.className).toContain("border-t")
   })
 
+  it("falls back to the raw draft text signature when a stale structure omits the signoff", () => {
+    const staleStructure: DraftStructure = {
+      subject: "Homework update",
+      paragraphs: [
+        "Hello,",
+        "I wanted to give you a clear update about today's maths lesson.",
+      ],
+    }
+    const rawDraft = `Subject: Homework update
+
+Hello,
+
+I wanted to give you a clear update about today's maths lesson.
+
+Kind regards,
+Dr Greg Blackburn`
+
+    render(<DraftOutput {...baseProps} draftText={rawDraft} structure={staleStructure} />)
+    const body = screen.getByTestId("draft-output-body")
+    const signature = within(body).getByText((text) => text.includes("Kind regards,") && text.includes("Dr Greg Blackburn"))
+    expect(signature).toBeInTheDocument()
+  })
+
   it("renders the full body for parent messages that start with a generic hello greeting", () => {
     const rawDraft = `Subject: Homework update
 

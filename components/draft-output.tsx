@@ -58,7 +58,8 @@ export function DraftOutput({
   const modeKey = (metadata.modeUsed ?? DEFAULT_DRAFT_MODE) as keyof typeof MODE_LABEL_KEYS
   const modeLabel = t(MODE_LABEL_KEYS[modeKey])
   const { displaySubject, displayParagraphs, signatureParagraph } = useMemo(() => {
-    const baseStructure = structure ?? formatDraftText(draftText, locale)
+    const parsedDraftText = formatDraftText(draftText, locale)
+    const baseStructure = structure ?? parsedDraftText
     const resolvedStructure =
       modeKey === "report_comment"
         ? sanitizeReportCommentStructure(baseStructure, locale)
@@ -85,6 +86,21 @@ export function DraftOutput({
         const nameLine = paragraphs.pop()
         const closingLine = paragraphs.pop()
         signature = `${closingLine}\n${nameLine}`
+      }
+    }
+    if (!signature && modeKey === "parent_message") {
+      const fallbackParagraphs = [...(parsedDraftText.paragraphs ?? [])]
+      const fallbackLastParagraph = fallbackParagraphs[fallbackParagraphs.length - 1]
+      const fallbackPenultimateParagraph = fallbackParagraphs[fallbackParagraphs.length - 2]
+      if (fallbackLastParagraph && CLOSING_REGEX.test(fallbackLastParagraph)) {
+        signature = fallbackLastParagraph
+      } else if (
+        fallbackPenultimateParagraph &&
+        fallbackLastParagraph &&
+        CLOSING_REGEX.test(fallbackPenultimateParagraph) &&
+        looksLikeSignatureLine(fallbackLastParagraph)
+      ) {
+        signature = `${fallbackPenultimateParagraph}\n${fallbackLastParagraph}`
       }
     }
     return {

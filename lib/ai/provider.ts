@@ -118,6 +118,62 @@ function buildDirectionInstruction(direction: MessageDirection) {
   }
 }
 
+function buildParentFacingToneInstructions(input: ProviderInput) {
+  if (input.mode !== "parent_message" || !isParentFacingDraft(input.generationMetadata.direction)) {
+    return []
+  }
+
+  if (input.language === "de") {
+    return [
+      `Preserve the selected ${input.tone} tone in German and keep it teacher-authored, calm, concrete, and school-appropriate.`,
+    ]
+  }
+
+  switch (input.tone) {
+    case "warm":
+      return [
+        "Warm tone contract: sound gently relational and collaborative, as a teacher who wants to work with the parent rather than simply notify them.",
+        "Warm wording should use brief partnership language such as 'I wanted to let you know' or 'I wanted to send a quick update', while still naming the issue early.",
+        "Do not turn warm into vague reassurance, therapy language, or support-bot empathy.",
+      ]
+    case "professional":
+      return [
+        "Professional tone contract: sound calm, measured, and factual without becoming cold or stiff.",
+        "Professional wording should be clear and neutral, with minimal softening and no unnecessary emotional padding.",
+        "Do not let professional drift into corporate, managerial, or HR-style phrasing.",
+      ]
+    case "direct":
+      return [
+        "Direct tone contract: be concise, explicit, and clear about the issue, expectation, and next step.",
+        "Direct wording should use shorter sentences, less cushioning, and no unnecessary reassurance once the point is clear.",
+        "Do not turn direct into rude, abrupt, or accusatory language.",
+      ]
+    case "empathetic":
+      return [
+        "Empathetic tone contract: acknowledge the child's difficulty or the parent's worry more explicitly than warm, while staying grounded in the actual school issue.",
+        "Empathetic wording should briefly show understanding, then move quickly to a concrete teacher action and a realistic next step.",
+        "Do not let empathetic drift into customer-support phrasing, counselling language, or a narration of your own tone-management process.",
+      ]
+  }
+}
+
+function buildToneRecoveryInstruction(input: ProviderInput) {
+  if (input.mode !== "parent_message" || !isParentFacingDraft(input.generationMetadata.direction)) {
+    return "Keep the selected tone visible in the rewrite instead of collapsing back to generic calm teacher language."
+  }
+
+  switch (input.tone) {
+    case "warm":
+      return "Keep the rewrite visibly warm: collaborative, gently phrased, and partnership-focused, without sounding gushy or vague."
+    case "professional":
+      return "Keep the rewrite visibly professional: measured, factual, and calm, without extra softening or corporate phrasing."
+    case "direct":
+      return "Keep the rewrite visibly direct: concise, plain, and clear about the expectation and next step, without becoming sharp."
+    case "empathetic":
+      return "Keep the rewrite visibly empathetic: acknowledge the difficulty more than warm would, then move to a concrete teacher action without sounding like support copy."
+  }
+}
+
 function buildSafeDraftInstructions(input: ProviderInput) {
   switch (input.generationMetadata.direction) {
     case "teacher_to_parent":
@@ -273,6 +329,16 @@ const PROMPT_BUILDERS: Record<GenerationInputMode, (input: ProviderInput) => str
   voice_to_calm: buildVoiceToCalmInstructions,
 }
 
+function buildContinuationInstruction(input: ProviderInput) {
+  if (
+    input.generationMetadata.mode === "safe_draft" &&
+    input.generationMetadata.direction === "teacher_internal_notes"
+  ) {
+    return `This greeting needs a full teacher-authored message. After the opening line, write at least three short paragraphs that turn the teacher's own notes into a calm parent update, keep strictly to the facts in the notes, rewrite harsh wording safely, and do not imply that the parent raised a complaint unless the source explicitly says so. ${buildToneRecoveryInstruction(input)}`
+  }
+  return `This greeting needs a full reply; after the opening line, provide at least three short paragraphs that acknowledge the concern, outline a practical next step, and invite a calm discussion. ${buildToneRecoveryInstruction(input)}`
+}
+
 export function buildSystemPrompt(input: ProviderInput) {
   const systemLines = [
     "You are Zara Draft, an assistant for K-12 teachers who writes professional, concise communications for parents and colleagues.",
@@ -297,6 +363,7 @@ export function buildSystemPrompt(input: ProviderInput) {
     "For parent-facing teacher messages, close with a short reassurance about aiming to support the student positively and helping them feel confident and successful at school.",
     "Prefer the student's first name once or twice, then use the provided pronouns naturally; avoid repeating 'the student'.",
     PRONOUN_INSTRUCTIONS[input.pronounPreference],
+    ...buildParentFacingToneInstructions(input),
     buildDirectionInstruction(input.generationMetadata.direction),
     MODE_PROMPT_INSTRUCTIONS[input.mode],
     ...PROMPT_BUILDERS[input.generationMetadata.prompt_builder](input),
@@ -374,7 +441,16 @@ export function buildSystemPrompt(input: ProviderInput) {
       `Avoid these style problems: ${input.teacherAuthenticityViolations.types.join(", ")}.`,
       `Do not use these phrases: ${dedupedPhrases.join(", ")}.`,
       "Replace vague empathy with a brief reference to the specific issue and a practical next step.",
+      buildToneRecoveryInstruction(input),
     )
+    if (
+      input.generationMetadata.mode === "safe_draft" &&
+      input.generationMetadata.direction === "teacher_internal_notes"
+    ) {
+      systemLines.push(
+        "Keep the recovery strictly in teacher-note-to-parent framing. Do not write as if the parent contacted the teacher first, and do not introduce phrases such as 'thank you for bringing this to my attention' or 'your child came home upset' unless those facts appear in the notes.",
+      )
+    }
   }
   systemLines.push(
     "Treat the cleaned notes that follow as your primary source and use the original notes only for background; do not repeat the original wording.",
@@ -465,9 +541,7 @@ export function buildSystemPrompt(input: ProviderInput) {
   }
 
   if (input.forceContinuation) {
-    systemLines.push(
-      "This greeting needs a full reply; after the opening line, provide at least three short paragraphs that acknowledge the concern, outline a practical next step, and invite a calm discussion.",
-    )
+    systemLines.push(buildContinuationInstruction(input))
   }
 
   if (input.rewrite) {
