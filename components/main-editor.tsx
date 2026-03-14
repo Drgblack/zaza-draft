@@ -96,6 +96,15 @@ type EnforcedGreeting = {
   name?: string | null
   source?: GreetingSource | null
 }
+type SourceFlow = "safe_draft" | "panic_scan" | "voice_to_calm"
+
+type PanicScanHandoffState = {
+  sourceFlow: "panic_scan"
+  originalContent: string
+  bannerVisible: boolean
+  greeting?: EnforcedGreeting | null
+}
+
 const LOADING_MESSAGES = [
   "Analyzing your request...",
   "Understanding context...",
@@ -271,7 +280,12 @@ export function MainEditor({ canExport = true }: MainEditorProps = {}) {
   const [draftStructure, setDraftStructure] = useState<DraftStructure | null>(null)
   const [deescalationSummary, setDeescalationSummary] = useState<DeescalationSummary | null>(null)
   const [enforcedGreeting, setEnforcedGreeting] = useState<EnforcedGreeting | null>(null)
-  const [pendingSituationRaw, setPendingSituationRaw] = useState<string | null>(null)
+  const [sourceFlow, setSourceFlow] = useState<SourceFlow>("safe_draft")
+  const [panicScanHandoff, setPanicScanHandoff] = useState<PanicScanHandoffState | null>(null)
+  const [lastGenerationSignature, setLastGenerationSignature] = useState<{
+    content: string
+    mode: ModeKey
+  } | null>(null)
   const [subject, setSubject] = useState("")
   const [gradeLevel, setGradeLevel] = useState("")
   const [studentFirstNameInput, setStudentFirstNameInput] = useState("")
@@ -311,18 +325,29 @@ export function MainEditor({ canExport = true }: MainEditorProps = {}) {
   const [outOfScopeNotice, setOutOfScopeNotice] = useState(false)
   const [outOfScopeMessage, setOutOfScopeMessage] = useState("")
   const [loadingMessageIndex, setLoadingMessageIndex] = useState(0)
-  const showOutOfScopeNotice = (message: string, code = "OUT_OF_SCOPE") => {
-    setOutOfScopeMessage(message)
-    setOutOfScopeNotice(true)
+  const resetGeneratedOutput = useCallback(() => {
     setGeneratedDraft(null)
     setDraftMetadata(null)
     setDraftStructure(null)
     setDeescalationSummary(null)
+    setInputReframeTier(null)
+    setLastGenerationSignature(null)
+  }, [])
+
+  const clearPanicScanHandoff = useCallback(() => {
+    setPanicScanHandoff(null)
+    setEnforcedGreeting(null)
+    setSourceFlow("safe_draft")
+  }, [])
+
+  const showOutOfScopeNotice = (message: string, code = "OUT_OF_SCOPE") => {
+    setOutOfScopeMessage(message)
+    setOutOfScopeNotice(true)
+    resetGeneratedOutput()
     setBlockedLanguageContext(null)
     setSensitivePreview(null)
     setGenerationError(null)
     setGenerationAction(null)
-    setInputReframeTier(null)
     setIsGenerating(false)
     logClientEvent("draft_generate_out_of_scope", { code })
   }
@@ -387,10 +412,17 @@ export function MainEditor({ canExport = true }: MainEditorProps = {}) {
         const maybePayload = parsed as { cleaned?: string; raw?: string; greeting?: EnforcedGreeting }
         if (typeof maybePayload.cleaned === "string") {
           setContent(maybePayload.cleaned)
+          setPanicScanHandoff({
+            sourceFlow: "panic_scan",
+            originalContent: maybePayload.cleaned,
+            bannerVisible: true,
+            greeting: maybePayload.greeting ?? null,
+          })
+          setSourceFlow("panic_scan")
+          setMode("parent_message")
         } else {
           setContent(stored)
         }
-        setPendingSituationRaw(maybePayload.raw ?? null)
         if (maybePayload.greeting?.text) {
           setEnforcedGreeting(maybePayload.greeting)
         }
@@ -403,8 +435,54 @@ export function MainEditor({ canExport = true }: MainEditorProps = {}) {
     setPrefillApplied(true)
   }, [content, prefillApplied])
 
+  const handleContentChange = (nextContent: string) => {
+    const nextTrimmed = nextContent.trim()
+
+    if (panicScanHandoff && nextTrimmed !== panicScanHandoff.originalContent.trim()) {
+      clearPanicScanHandoff()
+    }
+
+    if (lastGenerationSignature && nextTrimmed !== lastGenerationSignature.content) {
+      resetGeneratedOutput()
+      setGenerationError(null)
+      setGenerationAction(null)
+      setSensitivePreview(null)
+      setBlockedLanguageContext(null)
+      setOutOfScopeNotice(false)
+      setOutOfScopeMessage("")
+    }
+
+    setContent(nextContent)
+  }
+
+  const handleModeChange = (nextMode: ModeKey) => {
+    if (nextMode === mode) {
+      return
+    }
+
+    if (panicScanHandoff && nextMode !== "parent_message") {
+      clearPanicScanHandoff()
+    }
+
+    if (lastGenerationSignature && lastGenerationSignature.mode !== nextMode) {
+      resetGeneratedOutput()
+      setGenerationError(null)
+      setGenerationAction(null)
+      setSensitivePreview(null)
+      setBlockedLanguageContext(null)
+      setOutOfScopeNotice(false)
+      setOutOfScopeMessage("")
+    }
+
+    setMode(nextMode)
+  }
+
+  const dismissPanicScanBanner = () => {
+    clearPanicScanHandoff()
+  }
+
   useEffect(() => {
-    if (!isReturningFromPanicScan || panicScanReturnHandled) {
+    if (!isReturningFromPanicScan || panicScanReturnHandled || !panicScanHandoff?.bannerVisible) {
       return
     }
     if (!prefillApplied || !content.trim()) {
@@ -419,7 +497,7 @@ export function MainEditor({ canExport = true }: MainEditorProps = {}) {
     }
     textarea?.scrollIntoView({ behavior: "smooth", block: "center" })
     setPanicScanReturnHandled(true)
-  }, [content, isReturningFromPanicScan, panicScanReturnHandled, prefillApplied])
+  }, [content, isReturningFromPanicScan, panicScanHandoff?.bannerVisible, panicScanReturnHandled, prefillApplied])
 
   useEffect(() => {
     let isMounted = true
@@ -674,7 +752,7 @@ export function MainEditor({ canExport = true }: MainEditorProps = {}) {
       }
     }
 
-    payload.situationRaw = pendingSituationRaw?.trim() || trimmedContent
+    payload.situationRaw = trimmedContent
 
     if (options.rewrite) {
       payload.rewrite = true
@@ -689,6 +767,7 @@ export function MainEditor({ canExport = true }: MainEditorProps = {}) {
       language: languageChoice,
       pronounPreference,
       mode,
+      sourceFlow,
       studentFirstNameProvided: Boolean(sanitizedStudentFirstName),
     })
 
@@ -755,6 +834,7 @@ export function MainEditor({ canExport = true }: MainEditorProps = {}) {
       logClientEvent("draft_generate_succeeded", {
         tone: selectedTone,
         language: languageChoice,
+        sourceFlow,
         wordCount: data.data.metadata.wordCount,
         pronounPreference,
         resolvedPronounPreference: data.data.metadata.pronounResolution?.resolvedPreference ?? pronounPreference,
@@ -773,6 +853,10 @@ export function MainEditor({ canExport = true }: MainEditorProps = {}) {
       setDraftStructure(data.data.formattedDraft ?? null)
       setDeescalationSummary(data.data.deescalationSummary ?? null)
       setEnforcedGreeting(data.data.greeting ?? null)
+      setLastGenerationSignature({
+        content: trimmedContent,
+        mode,
+      })
       setUsage(data.data.usage)
       const now = new Date()
       saveLastRunTimestamp(now)
@@ -833,6 +917,9 @@ export function MainEditor({ canExport = true }: MainEditorProps = {}) {
   }, [draftMetadata?.generatedAt])
 
   const loadSnippet = (snippet: SnippetHistoryItem) => {
+    clearPanicScanHandoff()
+    resetGeneratedOutput()
+    setLastGenerationSignature(null)
     setContent(snippet.generatedText)
     setSelectedTone(snippet.tone as ToneKey)
     setLanguageChoice(snippet.language as DraftLanguage)
@@ -875,6 +962,7 @@ export function MainEditor({ canExport = true }: MainEditorProps = {}) {
     if (!generatedDraft) {
       return
     }
+    clearPanicScanHandoff()
     setContent(generatedDraft)
     focusEditor()
   }
@@ -914,9 +1002,19 @@ export function MainEditor({ canExport = true }: MainEditorProps = {}) {
                 : "Let's keep it crisp and professional."}
             </p>
           </div>
-          {isReturningFromPanicScan && (
+          {panicScanHandoff?.bannerVisible && (
             <div className="rounded-2xl border border-white/20 bg-purple-900/40 px-4 py-3 text-sm text-white/90">
-              {t("panicScanReturnNote")}
+              <div className="flex items-start justify-between gap-3">
+                <p>{t("panicScanReturnNote")}</p>
+                <button
+                  type="button"
+                  onClick={dismissPanicScanBanner}
+                  className="text-xs font-semibold uppercase tracking-[0.12em] text-white/70 hover:text-white"
+                  aria-label={locale === "de-DE" ? "Panic-Scan-Hinweis schließen" : "Dismiss Panic Scan handoff"}
+                >
+                  {locale === "de-DE" ? "Schließen" : "Dismiss"}
+                </button>
+              </div>
             </div>
           )}
 
@@ -974,7 +1072,7 @@ export function MainEditor({ canExport = true }: MainEditorProps = {}) {
               <textarea
                 ref={textareaRef}
                 value={content}
-                onChange={(e) => setContent(e.target.value)}
+                onChange={(e) => handleContentChange(e.target.value)}
                 onInput={adjustTextareaHeight}
                 placeholder={
                   locale === "de-DE"
@@ -1040,7 +1138,7 @@ Examples:
               <SegmentedControl
                 options={modeControlOptions}
                 value={mode}
-                onChange={(value) => setMode(value as ModeKey)}
+                onChange={(value) => handleModeChange(value as ModeKey)}
                 ariaLabel={t("editor.mode.label")}
                 className="border-none bg-transparent p-0 shadow-none"
               />

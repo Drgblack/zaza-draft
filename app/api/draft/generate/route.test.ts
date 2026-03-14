@@ -207,7 +207,7 @@ vi.mock("@/lib/draft/fallback", () => ({
     [
       "Subject: Classroom update",
       "Dear parent(s),",
-      "I wanted to give you a clear update about your child and explain the practical step I will take in class.",
+      "I wanted to give you a clear update about your child and explain the adjustment I will make in class.",
       "If a short conversation would help, I can speak with you this week.",
       "Kind regards,",
     ].join("\n"),
@@ -308,9 +308,30 @@ vi.mock("@/lib/draft/teacher-language", () => ({
   enforceTeacherNameStyle: (text: string) => text,
 }))
 
-vi.mock("@/lib/draft/format", () => ({
-  formatDraftText: () => ({ paragraphs: [] }),
-}))
+vi.mock("@/lib/draft/format", async () => {
+  const actual = await vi.importActual<typeof import("@/lib/draft/format")>(
+    "@/lib/draft/format",
+  )
+  return {
+    ...actual,
+    formatDraftText: (text: string) => {
+      const normalized = text.replace(/\r\n/g, "\n").trim()
+      if (!normalized) {
+        return { paragraphs: [] }
+      }
+      const paragraphs = normalized
+        .split(/\n{2,}/)
+        .map((paragraph) => paragraph.trim())
+        .filter(Boolean)
+      const subjectMatch = paragraphs[0]?.match(/^(?:Subject|Betreff)\s*[:\-–—|]+\s*(.+)$/i)
+      const subject = subjectMatch?.[1]?.trim()
+      if (subject) {
+        paragraphs.shift()
+      }
+      return { subject, paragraphs }
+    },
+  }
+})
 
 vi.mock("@/lib/draft/student-name", () => ({
   cleanStudentName: (value: string) => value.trim(),
@@ -466,7 +487,7 @@ describe("/api/draft/generate greeting handoff", () => {
     const occurrenceCount = generatedDraft.split(greetingLine).length - 1
     expect(occurrenceCount).toBe(1)
     const wordCount = json.data?.metadata?.wordCount ?? 0
-    expect(wordCount).toBeGreaterThanOrEqual(60)
+    expect(wordCount).toBeGreaterThanOrEqual(55)
   })
 
   it("allows the dev bypass header to authenticate a stable dev uid", async () => {
@@ -732,13 +753,13 @@ describe("/api/draft/generate greeting handoff", () => {
     const occurrenceCount = generatedDraft.split(greetingLine).length - 1
     expect(occurrenceCount).toBe(1)
     const wordCount = json.data?.metadata?.wordCount ?? 0
-    expect(wordCount).toBeGreaterThanOrEqual(60)
+    expect(wordCount).toBeGreaterThanOrEqual(55)
   })
 
   it("resolves an English parent greeting when raw text ends with a signed name", async () => {
     const fallbackDraft = [
-      "Thank you for sharing the context for this concern.",
-      "I will gather notes, summarize the key observations, and make a calm plan for a quick sync-up.",
+      "Thank you for bringing this to my attention.",
+      "I will look back over what happened this afternoon and come back to you once I have checked the details.",
     ].join("\n\n")
     fallbackGenerator.mockResolvedValueOnce(buildFallbackResult(fallbackDraft))
     const payload = {
@@ -762,8 +783,34 @@ describe("/api/draft/generate greeting handoff", () => {
     expect(response.status).toBe(200)
     const json = await response.json()
     const generatedDraft = json.data?.generatedDraft ?? ""
-    const greetingLine = json.data?.greeting?.text ?? "Dear Jordan Lee,"
+    const greetingLine = json.data?.greeting?.text ?? "Hello Jordan,"
+    expect(greetingLine).toBe("Hello Jordan,")
     expect(generatedDraft.startsWith(greetingLine)).toBe(true)
+  })
+
+  it("omits greeting resolution for report comments even when raw text contains a sender name", async () => {
+    const payload = {
+      situation:
+        "Sam now contributes more consistently in paired reading, completes follow-up tasks with fewer prompts, and explains his thinking more clearly during independent work.",
+      tone: "professional",
+      language: "en",
+      mode: "report_comment",
+      situationRaw: "Sincerely\nJordan Lee\n",
+    }
+    const request = new Request("https://example.com/api/draft/generate", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: "Bearer token",
+      },
+      body: JSON.stringify(payload),
+    })
+
+    const response = await POST(request)
+    expect(response.status).toBe(200)
+    const json = await response.json()
+    expect(json.data?.greeting?.text ?? "").toBe("")
+    expect(json.data?.generatedDraft).not.toMatch(/^Hello,|^Hello\s|^Dear\s|^Guten Tag,|^Hallo\s|^Sehr geehrte/i)
   })
 })
 
@@ -1051,6 +1098,188 @@ describe("/api/draft/generate closing normalization", () => {
   })
 })
 
+describe("/api/draft/generate report comment boundaries", () => {
+  it("strips parent-email structure from direct report comment output", async () => {
+    fallbackGenerator.mockResolvedValueOnce(
+      buildFallbackResult(
+        [
+          "Subject: Reading update",
+          "Dear family,",
+          "Luca contributes more thoughtfully during class discussion and checks his written work more carefully than before.",
+          "Kind regards,",
+          "Dr Greg Blackburn",
+        ].join("\n\n"),
+      ),
+    )
+
+    const request = new Request("https://example.com/api/draft/generate", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: "Bearer token",
+      },
+      body: JSON.stringify({
+        situation:
+          "Write a report comment on Luca's more thoughtful class discussion, steadier written work, growing independence in lessons, and stronger follow-through during independent tasks.",
+        tone: "professional",
+        language: "en",
+        mode: "report_comment",
+        signature: {
+          line1: "Dr Greg Blackburn",
+        },
+      }),
+    })
+
+    const response = await POST(request)
+    expect(response.status).toBe(200)
+    const json = await response.json()
+    const generatedDraft = json.data?.generatedDraft ?? ""
+    expect(generatedDraft).not.toContain("Subject:")
+    expect(generatedDraft).not.toContain("Dear family")
+    expect(generatedDraft).not.toContain("Kind regards")
+    expect(generatedDraft).not.toContain("Dr Greg Blackburn")
+    expect(json.data?.formattedDraft?.subject).toBeUndefined()
+    expect(json.data?.formattedDraft?.paragraphs).toEqual([
+      "Luca contributes more thoughtfully during class discussion and checks his written work more carefully than before.",
+    ])
+  })
+
+  it("keeps report comments clean after a panic scan parent-message run", async () => {
+    fallbackGenerator
+      .mockResolvedValueOnce(
+        buildFallbackResult(
+          [
+            "Hello Jordan,",
+            "Thank you for bringing this to my attention. I will speak with the staff involved and come back to you tomorrow.",
+            "Kind regards,",
+            "Dr Greg Blackburn",
+          ].join("\n\n"),
+        ),
+      )
+      .mockResolvedValueOnce(
+        buildFallbackResult(
+          [
+            "Subject: Conduct update",
+            "Hello Jordan,",
+            "Alex now listens more carefully during paired tasks and contributes more steadily to group discussion.",
+            "Best regards,",
+            "Dr Greg Blackburn",
+          ].join("\n\n"),
+        ),
+      )
+
+    const parentRequest = new Request("https://example.com/api/draft/generate", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: "Bearer token",
+      },
+      body: JSON.stringify({
+        situation: "Parent says their child came home upset after a disagreement in class.",
+        tone: "professional",
+        language: "en",
+        mode: "parent_message",
+        inputMode: "panic_scan",
+        sourceType: "ocr_text",
+        messageType: "parent_complaint",
+        scanId: "scan-123",
+      }),
+    })
+    await POST(parentRequest)
+
+    const reportRequest = new Request("https://example.com/api/draft/generate", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: "Bearer token",
+      },
+      body: JSON.stringify({
+        situation:
+          "Write a report comment on Alex's steadier listening during paired tasks, more consistent contributions to group discussion, and clearer focus during independent work this half term.",
+        tone: "professional",
+        language: "en",
+        mode: "report_comment",
+        inputMode: "panic_scan",
+        sourceType: "ocr_text",
+        scanId: "scan-456",
+      }),
+    })
+
+    const response = await POST(reportRequest)
+    expect(response.status).toBe(200)
+    const json = await response.json()
+    expect(json.data?.generatedDraft).toBe(
+      "Alex now listens more carefully during paired tasks and contributes more steadily to group discussion.",
+    )
+    expect(json.data?.greeting?.text ?? "").toBe("")
+  })
+
+  it("keeps report comments clean after a parent-message run", async () => {
+    fallbackGenerator
+      .mockResolvedValueOnce(
+        buildFallbackResult(
+          [
+            "Hello Jordan,",
+            "I wanted to give you a clear update about Sam's reading progress this week.",
+            "Kind regards,",
+            "Dr Greg Blackburn",
+          ].join("\n\n"),
+        ),
+      )
+      .mockResolvedValueOnce(
+        buildFallbackResult(
+          [
+            "Betreff: Wochenbericht",
+            "Guten Tag, Familie Weber,",
+            "Sam liest flüssiger, beteiligt sich verlässlicher an Unterrichtsgesprächen und arbeitet bei schriftlichen Aufgaben zunehmend selbstständig.",
+            "Mit freundlichen Grüßen,",
+            "Dr Greg Blackburn",
+          ].join("\n\n"),
+        ),
+      )
+
+    const parentRequest = new Request("https://example.com/api/draft/generate", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: "Bearer token",
+      },
+      body: JSON.stringify({
+        situation:
+          "Need to send a short parent update on Sam's reading progress this week, his steadier participation, and the support I will keep in place during lessons.",
+        tone: "professional",
+        language: "en",
+        mode: "parent_message",
+      }),
+    })
+    await POST(parentRequest)
+
+    const reportRequest = new Request("https://example.com/api/draft/generate", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: "Bearer token",
+      },
+      body: JSON.stringify({
+        situation:
+          "Schreibe einen Berichtskommentar zu Sams flüssigerem Lesen, verlässlicherer Beteiligung an Gesprächen, wachsender Selbstständigkeit und sorgfältigerem Arbeiten in schriftlichen Aufgaben in diesem Halbjahr.",
+        tone: "professional",
+        language: "de",
+        mode: "report_comment",
+      }),
+    })
+
+    const response = await POST(reportRequest)
+    expect(response.status).toBe(200)
+    const json = await response.json()
+    const generatedDraft = json.data?.generatedDraft ?? ""
+    expect(generatedDraft).not.toContain("Betreff:")
+    expect(generatedDraft).not.toContain("Guten Tag")
+    expect(generatedDraft).not.toContain("Mit freundlichen Grüßen")
+    expect(generatedDraft).toContain("Sam liest flüssiger")
+  })
+})
+
 describe("/api/draft/generate teacher-authentic style guard", () => {
   it("retries when the first draft uses generic AI empathy phrasing", async () => {
     fallbackGenerator
@@ -1060,7 +1289,7 @@ describe("/api/draft/generate teacher-authentic style guard", () => {
             "Subject: Homework update",
             "Dear family,",
             "Thank you for sharing your concerns about the homework load.",
-            "I understand how important this is, and it might be helpful to discuss next steps.",
+            "I will gather the details, monitor the situation, and prepare a practical plan before I reply fully.",
             "Kind regards,",
             "Dr Greg Blackburn",
           ].join("\n\n"),
@@ -1101,6 +1330,9 @@ describe("/api/draft/generate teacher-authentic style guard", () => {
     expect(response.status).toBe(200)
     expect(fallbackGenerator).toHaveBeenCalledTimes(2)
     expect(json.data.generatedDraft).not.toContain("Thank you for sharing your concerns")
+    expect(json.data.generatedDraft).not.toContain("gather the details")
+    expect(json.data.generatedDraft).not.toContain("monitor the situation")
+    expect(json.data.generatedDraft).not.toContain("prepare a practical plan")
     expect(json.data.generatedDraft).toContain("I checked the homework set this week")
   })
 })

@@ -1,5 +1,7 @@
 import { MessageType as PanicMessageType } from "@/lib/panic-scan/types"
 import { isDebugEnabled } from "@/lib/debug"
+import type { DraftMode, DraftTone } from "@/lib/types"
+import type { MessageDirection } from "@/lib/generation/classification"
 
 export type NameConfidenceLevel = "NONE" | "LOW" | "MEDIUM" | "HIGH"
 
@@ -9,6 +11,13 @@ export interface SafeNameScore {
 }
 
 export type GreetingLocale = "de" | "en"
+type GreetingFormality = "standard" | "formal"
+
+const PARENT_FACING_DIRECTIONS: MessageDirection[] = [
+  "parent_to_teacher",
+  "teacher_to_parent",
+  "teacher_internal_notes",
+]
 
 const SIGNOFFS: Record<GreetingLocale, RegExp[]> = {
   de: [
@@ -50,6 +59,23 @@ const HONORIFICS = ["Herr", "Frau", "Mr", "Mrs", "Ms", "Dr", "Prof", "Professor"
 
 const TITLE_TOKENS = ["Dr", "Dr.", "Prof", "Prof.", "Professor"]
 
+const ENGLISH_HONORIFICS = new Map([
+  ["mr", "Mr"],
+  ["mr.", "Mr"],
+  ["mrs", "Mrs"],
+  ["mrs.", "Mrs"],
+  ["ms", "Ms"],
+  ["ms.", "Ms"],
+  ["miss", "Miss"],
+  ["mx", "Mx"],
+  ["mx.", "Mx"],
+])
+
+const GERMAN_HONORIFICS = new Map([
+  ["herr", "Herr"],
+  ["frau", "Frau"],
+])
+
 const MESSAGE_TYPE_TREE_MAPPING: Record<PanicMessageType | string, string> = {
   parent_complaint: "formal_complaint",
   urgent_request: "formal_complaint",
@@ -75,6 +101,162 @@ function looksLikeUiChrome(candidate: string) {
 
 function cleanCandidate(value: string) {
   return value.trim().replace(/^[^A-Za-zÄÖÜäöüßÉÈéèĆć]+|[^A-Za-zÄÖÜäöüßÉÈéèĆć]+$/g, "").replace(/\s+/g, " ")
+}
+
+function isParentFacingMode(mode?: DraftMode, direction?: MessageDirection) {
+  return mode === "parent_message" && (!direction || PARENT_FACING_DIRECTIONS.includes(direction))
+}
+
+function normalizeMessageType(messageType?: string) {
+  if (!messageType) {
+    return undefined
+  }
+  return MESSAGE_TYPE_TREE_MAPPING[messageType] ?? messageType
+}
+
+function resolveGreetingFormality(
+  locale: GreetingLocale,
+  tone?: DraftTone,
+  messageType?: string,
+) {
+  const normalizedMessageType = normalizeMessageType(messageType)
+  if (normalizedMessageType === "formal_complaint") {
+    return "formal" satisfies GreetingFormality
+  }
+  if (locale === "de" && tone === "direct") {
+    return "formal" satisfies GreetingFormality
+  }
+  return "standard" satisfies GreetingFormality
+}
+
+interface ParsedName {
+  cleaned: string
+  firstName: string | null
+  lastName: string | null
+  honorific: string | null
+  academicTitles: string[]
+  displayName: string
+  salutationConfidence: NameConfidenceLevel
+}
+
+function parseNameParts(fullName: string): ParsedName {
+  const cleaned = cleanCandidate(fullName)
+  const tokens = cleaned.split(/\s+/).filter(Boolean)
+  if (!tokens.length) {
+    return {
+      cleaned,
+      firstName: null,
+      lastName: null,
+      honorific: null,
+      academicTitles: [],
+      displayName: "",
+      salutationConfidence: "NONE",
+    }
+  }
+
+  let cursor = 0
+  let honorific: string | null = null
+  const firstToken = tokens[cursor]?.toLowerCase()
+  if (firstToken && (ENGLISH_HONORIFICS.has(firstToken) || GERMAN_HONORIFICS.has(firstToken))) {
+    honorific = tokens[cursor].replace(/\.\s*$/, "")
+    cursor += 1
+  }
+
+  const academicTitles: string[] = []
+  while (cursor < tokens.length && TITLE_TOKENS.includes(tokens[cursor].replace(/\.\s*$/, ""))) {
+    const title = tokens[cursor].replace(/\.\s*$/, "")
+    academicTitles.push(title === "Dr" ? "Dr." : title)
+    cursor += 1
+  }
+
+  const nameTokens = tokens.slice(cursor)
+  const firstName = nameTokens[0] ?? null
+  const lastName = nameTokens.length >= 2 ? nameTokens[nameTokens.length - 1] : firstName
+  const displayName = [...academicTitles, ...nameTokens].join(" ").trim()
+
+  let salutationConfidence: NameConfidenceLevel = "LOW"
+  if (honorific && lastName) {
+    salutationConfidence = "HIGH"
+  } else if (academicTitles.length && lastName) {
+    salutationConfidence = "MEDIUM"
+  } else if (nameTokens.length >= 2) {
+    salutationConfidence = "MEDIUM"
+  } else if (!nameTokens.length) {
+    salutationConfidence = "NONE"
+  }
+
+  return {
+    cleaned,
+    firstName,
+    lastName,
+    honorific,
+    academicTitles,
+    displayName,
+    salutationConfidence,
+  }
+}
+
+interface GreetingPolicyInput {
+  locale: GreetingLocale
+  mode?: DraftMode
+  direction?: MessageDirection
+  tone?: DraftTone
+  messageType?: string
+  allowEnglishFullName?: boolean
+}
+
+function buildNamedGreeting(fullName: string, input: GreetingPolicyInput): string {
+  const parsed = parseNameParts(fullName)
+  const formality = resolveGreetingFormality(input.locale, input.tone, input.messageType)
+
+  if (!parsed.displayName && !parsed.firstName) {
+    return buildFallbackGreeting(input)
+  }
+
+  if (input.locale === "en") {
+    const englishHonorific = parsed.honorific
+      ? ENGLISH_HONORIFICS.get(parsed.honorific.toLowerCase())
+      : null
+    if (englishHonorific && parsed.lastName && formality === "formal") {
+      return `Dear ${englishHonorific} ${parsed.lastName},`
+    }
+    if (parsed.academicTitles.length && parsed.displayName) {
+      return `Hello ${parsed.displayName},`
+    }
+    if (parsed.firstName) {
+      return `Hello ${parsed.firstName},`
+    }
+    if (input.allowEnglishFullName && parsed.displayName) {
+      return `Hello ${parsed.displayName},`
+    }
+    return "Hello,"
+  }
+
+  const germanHonorific = parsed.honorific
+    ? GERMAN_HONORIFICS.get(parsed.honorific.toLowerCase())
+    : null
+  if (germanHonorific && parsed.lastName && parsed.salutationConfidence === "HIGH") {
+    if (formality === "formal") {
+      const prefix = germanHonorific === "Herr" ? "Sehr geehrter Herr" : "Sehr geehrte Frau"
+      return `${prefix} ${parsed.lastName},`
+    }
+    return `Hallo ${germanHonorific} ${parsed.lastName},`
+  }
+  if (parsed.displayName) {
+    return `Guten Tag, ${parsed.displayName},`
+  }
+  return "Guten Tag,"
+}
+
+function buildFallbackGreeting(input: GreetingPolicyInput): string {
+  if (!isParentFacingMode(input.mode, input.direction)) {
+    return ""
+  }
+
+  if (input.locale === "de") {
+    return "Guten Tag,"
+  }
+  return "Hello,"
 }
 
 export function extractSignatureName(cleanedText: string, locale: GreetingLocale): string | null {
@@ -177,28 +359,12 @@ export function scoreSafeName(candidate: string, locale: GreetingLocale): SafeNa
   return { level: "NONE", score }
 }
 
-export function greetingWithName(locale: GreetingLocale, fullName: string): string {
-  const cleaned = cleanCandidate(fullName)
-  if (locale === "de") {
-    return `Guten Tag, ${cleaned},`
-  }
-  return `Hello ${cleaned},`
-}
-
-function fallbackGreeting(locale: GreetingLocale, messageType?: string): string {
-  if (locale === "de") {
-    if (messageType === "formal_complaint") {
-      return "Sehr geehrte Damen und Herren,"
-    }
-    if (messageType === "parent_message") {
-      return "Liebe Eltern,"
-    }
-    return "Liebe Erziehungsberechtigte,"
-  }
-  if (messageType === "parent_message") {
-    return "Dear Parent / Carer,"
-  }
-  return "Hello,"
+export function greetingWithName(
+  locale: GreetingLocale,
+  fullName: string,
+  input: Omit<GreetingPolicyInput, "locale"> = {},
+): string {
+  return buildNamedGreeting(fullName, { ...input, locale })
 }
 
 export type GreetingSource = "resolved-name" | "generic-fallback"
@@ -208,6 +374,7 @@ export interface GreetingResult {
   safeName?: string
   confidence: NameConfidenceLevel
   source: GreetingSource
+  final: boolean
 }
 
 export interface GreetingDecision {
@@ -226,21 +393,43 @@ export interface ResolveGreetingArgs {
   locale: GreetingLocale
   messageType?: string
   recipientOverride?: string | null
+  mode?: DraftMode
+  direction?: MessageDirection
+  tone?: DraftTone
+  allowEnglishFullName?: boolean
 }
 
 export function resolveGreeting(args: ResolveGreetingArgs): GreetingResult {
   const locale = args.locale === "de" ? "de" : "en"
   const override = args.recipientOverride?.trim()
-  const messageType = MESSAGE_TYPE_TREE_MAPPING[args.messageType ?? ""] ?? args.messageType
+  const messageType = normalizeMessageType(args.messageType)
+  const policyInput: GreetingPolicyInput = {
+    locale,
+    mode: args.mode,
+    direction: args.direction,
+    tone: args.tone,
+    messageType,
+    allowEnglishFullName: args.allowEnglishFullName,
+  }
+
+  if (!isParentFacingMode(args.mode, args.direction)) {
+    return {
+      greeting: "",
+      confidence: "NONE",
+      source: "generic-fallback",
+      final: false,
+    }
+  }
 
   if (override) {
     const overrideScore = scoreSafeName(override, locale)
     if (overrideScore.level === "HIGH" || overrideScore.level === "MEDIUM") {
       return {
-        greeting: greetingWithName(locale, override),
+        greeting: greetingWithName(locale, override, policyInput),
         safeName: override,
         confidence: overrideScore.level,
         source: "resolved-name",
+        final: true,
       }
     }
   }
@@ -250,18 +439,20 @@ export function resolveGreeting(args: ResolveGreetingArgs): GreetingResult {
     const signatureScore = scoreSafeName(signatureName, locale)
     if (signatureScore.level === "HIGH" || signatureScore.level === "MEDIUM") {
       return {
-        greeting: greetingWithName(locale, signatureName),
+        greeting: greetingWithName(locale, signatureName, policyInput),
         safeName: signatureName,
         confidence: signatureScore.level,
         source: "resolved-name",
+        final: true,
       }
     }
   }
 
   return {
-    greeting: fallbackGreeting(locale, messageType),
+    greeting: buildFallbackGreeting(policyInput),
     confidence: "NONE",
     source: "generic-fallback",
+    final: true,
   }
 }
 

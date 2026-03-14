@@ -77,5 +77,10 @@ describe("panic scan generate-reply route", () => {
       panicClassificationConfidence: 82,
     })
     expect(body.situationRaw).toContain("My child came home upset")
+    expect(body.greeting).toEqual({
+      text: "Hello Jordan,",
+      name: "Jordan Lee",
+    })
+    expect(body.greetingFinal).toBe(true)
   })
 })

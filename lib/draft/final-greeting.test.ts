@@ -9,6 +9,9 @@ describe("final greeting guard", () => {
       cleanedOcrText: "Beschwerde über den Unterricht.\n\nMit freundlichen Grüßen\nElena Martínez\n",
       locale: "de",
       messageType: "parent_complaint",
+      mode: "parent_message",
+      direction: "parent_to_teacher",
+      tone: "professional",
     })
     expect(greeting.greeting).toBe("Guten Tag, Elena Martínez,")
     const generatedBody = "Vielen Dank für die Nachricht.\nWir nehmen die Rückmeldung ernst."
@@ -21,6 +24,9 @@ describe("final greeting guard", () => {
       cleanedOcrText: "Mit freundlichen Grüßen\nDr. Markus Schneider\n",
       locale: "de",
       messageType: "parent_complaint",
+      mode: "parent_message",
+      direction: "parent_to_teacher",
+      tone: "professional",
     })
     expect(greeting.greeting).toBe("Guten Tag, Dr. Markus Schneider,")
     const generatedBody = "Sehr geehrte Eltern,\nIch habe Ihre Angaben zur Kenntnis genommen."

@@ -97,16 +97,15 @@ export async function POST(request: NextRequest) {
     cleanedOcrText: textForGreeting,
     locale: resolvedDraftLanguage,
     messageType: data?.classification?.messageType ?? null,
+    mode: "parent_message",
+    direction: "parent_to_teacher",
+    tone: (payload.tone ?? "professional") as "warm" | "professional" | "direct" | "empathetic",
   })
   const normalizedGreeting = greetingResult.greeting.trim()
-  const hasSafeConfidence =
-    greetingResult.confidence === "MEDIUM" || greetingResult.confidence === "HIGH"
-  const greetingDidResolveName = greetingResult.source === "resolved-name"
-  let greetingFinal =
-    hasSafeConfidence && greetingDidResolveName && normalizedGreeting.length > 0
+  let greetingFinal = Boolean(greetingResult.final && normalizedGreeting.length > 0)
   const debugEnabled =
     isDebugEnabled(requestUrl.searchParams) || request.headers.get("x-debug") === "1"
-  if (hasSafeConfidence && greetingDidResolveName && normalizedGreeting.length === 0 && debugEnabled) {
+  if (greetingResult.final && normalizedGreeting.length === 0 && debugEnabled) {
     console.debug("[panic-scan] resolved name confidence high, but greeting text is empty; forcing fallback", {
       scanId,
     })

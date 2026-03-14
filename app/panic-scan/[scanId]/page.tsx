@@ -310,13 +310,12 @@ export default function PanicScanResultPage() {
       cleanedOcrText: normalizedText,
       locale: greetingLocale,
       messageType: messageTypeValue,
+      mode: "parent_message",
+      direction: "parent_to_teacher",
+      tone: "professional",
     })
     const trimmedGreeting = greetingResult.greeting.trim()
-    const hasSafeConfidence =
-      greetingResult.confidence === "MEDIUM" || greetingResult.confidence === "HIGH"
-    const greetingDidResolveName = greetingResult.source === "resolved-name"
-    const greetingFinal =
-      hasSafeConfidence && greetingDidResolveName && trimmedGreeting.length > 0
+    const greetingFinal = Boolean(greetingResult.final && trimmedGreeting.length > 0)
     const greetingPayload = {
       text: trimmedGreeting || greetingResult.greeting,
       confidence: greetingResult.confidence,

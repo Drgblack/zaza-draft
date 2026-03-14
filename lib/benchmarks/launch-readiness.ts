@@ -7,6 +7,8 @@ import type { LaunchBenchmarkCase } from "./launch-readiness.fixtures"
 export const LAUNCH_READINESS_RUBRIC = {
   directionCorrect: "The draft must clearly sound like the teacher or school, not the parent.",
   boutiqueTeacherTone: "The draft should sound grounded, teacher-authored, and specific rather than generic AI support copy.",
+  englishBoutiqueQuality:
+    "English parent-message outputs must use natural greetings, concrete school-authentic actions, and avoid support-bot framing.",
   deEscalationQuality: "High-tension replies should stay calm, bounded, and practical.",
   safety: "The draft must not introduce blocked language, careless minimisation, or unsafe handling of serious concerns.",
   formattingCorrect: "Formatting must match the mode, including subject/greeting/sign-off rules and a single closing block.",
@@ -20,6 +22,7 @@ export interface LaunchBenchmarkEvaluationResult {
   checks: {
     directionCorrect: boolean
     boutiqueTeacherTone: boolean
+    englishBoutiqueQuality: boolean
     deEscalationQuality: boolean
     safety: boolean
     formattingCorrect: boolean
@@ -34,6 +37,28 @@ const GREETING_REGEX =
   /^(dear|hi|hello|good (morning|afternoon|evening)|guten tag|hallo|liebe|lieber|sehr geehrte|sehr geehrter)\b/i
 const CLOSING_LINE_REGEX =
   /^(kind regards|best regards|regards|yours sincerely|yours faithfully|sincerely|mit freundlichen grüßen|mit freundlichen gruessen|freundliche grüße|freundliche gruesse|herzliche grüße|herzliche gruesse)[,]?\s*$/i
+const ENGLISH_FULL_NAME_HELLO_REGEX =
+  /^hello\s+[A-ZÀ-ÖØ-Ý][\p{L}'’-]+(?:\s+[A-ZÀ-ÖØ-Ý][\p{L}'’-]+)+,\s*$/imu
+const ENGLISH_GENERIC_GREETING_PATTERNS = [/^dear\s+family,\s*$/im, /^dear\s+parent(?:\(s\))?,\s*$/im]
+const ENGLISH_SUPPORT_BOT_PATTERNS = [
+  /thank you for sharing your concerns/i,
+  /please feel free to reach out/i,
+  /my priority is to address it calmly and respectfully/i,
+  /i understand how important this is/i,
+  /i want to respond carefully/i,
+]
+const ENGLISH_MANAGERIAL_NEXT_STEP_PATTERNS = [
+  /gather the details/i,
+  /summarize the key observations/i,
+  /prepare a practical plan/i,
+  /monitor the situation/i,
+  /keep an eye on it/i,
+]
+const ENGLISH_GENERIC_OPENING_PATTERNS = [
+  /^thank you for sharing your concerns\b/im,
+  /^i understand how important this is\b/im,
+  /^i want to respond carefully\b/im,
+]
 const WRONG_SPEAKER_PATTERNS = [
   /\bmy child\b/i,
   /\bmy son\b/i,
@@ -132,6 +157,21 @@ function hasClosing(text: string) {
   return getClosingStarterCount(text) > 0
 }
 
+function getBodyParagraphs(text: string, locale: LaunchBenchmarkCase["locale"]) {
+  const formatted = formatDraftText(text, locale)
+  const paragraphs = [...(formatted.paragraphs ?? [])]
+  if (paragraphs.length && GREETING_REGEX.test(paragraphs[0]?.trim() ?? "")) {
+    paragraphs.shift()
+  }
+  if (paragraphs.length && CLOSING_LINE_REGEX.test(paragraphs[paragraphs.length - 1]?.trim() ?? "")) {
+    paragraphs.pop()
+  }
+  if (paragraphs.length && CLOSING_LINE_REGEX.test(paragraphs[paragraphs.length - 2]?.trim() ?? "")) {
+    paragraphs.splice(-2, 2)
+  }
+  return paragraphs
+}
+
 function hasDuplicateTeacherName(text: string) {
   const matches = normalizeText(text).match(/dr greg blackburn/gi) ?? []
   return matches.length > 1
@@ -208,6 +248,57 @@ function hasLowConfidenceOverreach(text: string) {
   return LOW_CONFIDENCE_OVERREACH.some((phrase) => normalized.includes(phrase))
 }
 
+export interface EnglishBoutiqueQualityGateResult {
+  passed: boolean
+  failures: string[]
+}
+
+export function evaluateEnglishBoutiqueQualityGate(
+  benchmark: LaunchBenchmarkCase,
+  output: string,
+): EnglishBoutiqueQualityGateResult {
+  if (benchmark.locale !== "en") {
+    return { passed: true, failures: [] }
+  }
+
+  const normalizedOutput = normalizeText(output)
+  const failures: string[] = []
+
+  if (benchmark.draftMode === "parent_message") {
+    if (ENGLISH_FULL_NAME_HELLO_REGEX.test(normalizedOutput)) {
+      failures.push("English greeting uses 'Hello Firstname Lastname,' instead of a natural parent-facing form.")
+    }
+    if (ENGLISH_GENERIC_GREETING_PATTERNS.some((pattern) => pattern.test(normalizedOutput))) {
+      failures.push("English greeting sounds generic rather than natural and teacher-authentic.")
+    }
+    if (ENGLISH_SUPPORT_BOT_PATTERNS.some((pattern) => pattern.test(normalizedOutput))) {
+      failures.push("English parent message uses support-bot phrasing.")
+    }
+    if (ENGLISH_MANAGERIAL_NEXT_STEP_PATTERNS.some((pattern) => pattern.test(normalizedOutput))) {
+      failures.push("English parent message uses abstract managerial next-step language.")
+    }
+    if (!hasClosing(normalizedOutput)) {
+      failures.push("English parent message is missing the required closing block.")
+    }
+
+    const firstBodyParagraph = getBodyParagraphs(normalizedOutput, benchmark.locale)[0] ?? ""
+    if (ENGLISH_GENERIC_OPENING_PATTERNS.some((pattern) => pattern.test(firstBodyParagraph))) {
+      failures.push("English opening sounds generic rather than grounded in the actual issue.")
+    }
+  }
+
+  if (benchmark.draftMode === "report_comment") {
+    if (hasSubject(normalizedOutput) || hasGreeting(normalizedOutput) || hasClosing(normalizedOutput)) {
+      failures.push("English report comment leaks email framing such as a subject, greeting, or sign-off.")
+    }
+  }
+
+  return {
+    passed: failures.length === 0,
+    failures,
+  }
+}
+
 function isFormattingCorrect(benchmark: LaunchBenchmarkCase, output: string, failures: string[]) {
   const wordCount = countWords(output)
   const formatted = formatDraftText(output, benchmark.locale)
@@ -271,6 +362,7 @@ export function evaluateLaunchBenchmarkOutput(
 ): LaunchBenchmarkEvaluationResult {
   const failures: string[] = []
   const normalizedOutput = normalizeText(output)
+  const englishBoutiqueGate = evaluateEnglishBoutiqueQualityGate(benchmark, normalizedOutput)
   const toneViolations = detectTeacherAuthenticityViolations(normalizedOutput, {
     language: benchmark.locale,
     mode: benchmark.draftMode,
@@ -309,10 +401,14 @@ export function evaluateLaunchBenchmarkOutput(
   if (hasPlaceholderArtifacts(normalizedOutput)) {
     failures.push("Contains unresolved placeholders or artifacts.")
   }
+  failures.push(...englishBoutiqueGate.failures)
 
   const formattingCorrect = isFormattingCorrect(benchmark, normalizedOutput, failures)
   const directionCorrect = !hasWrongSpeakerSignals(normalizedOutput)
-  const boutiqueTeacherTone = toneViolations.length === 0 && !includesForbidden(normalizedOutput, benchmark.evaluation.forbiddenPhrases)
+  const boutiqueTeacherTone =
+    toneViolations.length === 0 &&
+    !includesForbidden(normalizedOutput, benchmark.evaluation.forbiddenPhrases) &&
+    englishBoutiqueGate.passed
   const deEscalationQuality =
     benchmark.tension !== "high" ||
     (!hasHighRiskMinimiser(normalizedOutput) &&
@@ -329,6 +425,7 @@ export function evaluateLaunchBenchmarkOutput(
   const checks = {
     directionCorrect,
     boutiqueTeacherTone,
+    englishBoutiqueQuality: englishBoutiqueGate.passed,
     deEscalationQuality,
     safety,
     formattingCorrect,
@@ -348,6 +445,9 @@ export function evaluateLaunchBenchmarkOutput(
       `Check mode fit: expected ${benchmark.expectedMode} for ${benchmark.source}.`,
       "Check whether the draft feels sendable without manual cleanup.",
       "Check whether the response is specific to the issue rather than generic support language.",
+      ...(benchmark.locale === "en"
+        ? ["Check that the greeting and opening would sound natural in a real English school-parent exchange."]
+        : []),
     ],
   }
 }

@@ -22,6 +22,36 @@ export const TEACHER_AUTHENTICITY_BENCHMARKS: TeacherAuthenticityBenchmark[] = [
       "I have checked the homework set this week and can see why it felt heavy at home. I will trim tomorrow's follow-up task and speak with Noah in class so the workload is clearer.",
   },
   {
+    id: "en-panic-angry-accusation",
+    language: "en",
+    mode: "parent_message",
+    direction: "parent_to_teacher",
+    shouldReject:
+      "Thank you for sharing your concern; my priority is to address it calmly and respectfully. As a next step, I will gather the details, summarize the key observations, and prepare a practical plan.",
+    shouldAccept:
+      "Thank you for bringing this to my attention. I will speak with the staff involved this morning and look into what happened, then I will come back to you with an update.",
+  },
+  {
+    id: "en-panic-safety-concern",
+    language: "en",
+    mode: "parent_message",
+    direction: "parent_to_teacher",
+    shouldReject:
+      "I understand how important this is and want to respond carefully. I will keep an eye on it tomorrow and it might be helpful to discuss gentle support once I have summarized the key observations.",
+    shouldAccept:
+      "I'm sorry to hear that Mia felt unsafe today. I am speaking with the staff involved straight away and checking exactly what happened so I can update you as soon as I can.",
+  },
+  {
+    id: "en-panic-grading-complaint",
+    language: "en",
+    mode: "parent_message",
+    direction: "parent_to_teacher",
+    shouldReject:
+      "Thank you for sharing your concerns about the grade. I will prepare a practical plan and keep the focus on supporting your child.",
+    shouldAccept:
+      "Thank you for flagging this. I will look back over the marked work this afternoon and come back to you once I have checked how the grade was applied.",
+  },
+  {
     id: "en-safe-draft-notes",
     language: "en",
     mode: "parent_message",
@@ -37,7 +67,7 @@ export const TEACHER_AUTHENTICITY_BENCHMARKS: TeacherAuthenticityBenchmark[] = [
     mode: "parent_message",
     direction: "teacher_to_parent",
     shouldReject:
-      "I understand how important this is for your family, and please feel free to reach out if it might be helpful to discuss.",
+      "I understand how important this is for your family, and I will gather the details, monitor the situation, and please feel free to reach out if it might be helpful to discuss.",
     shouldAccept:
       "Ava settled well into the new reading group today and joined in more confidently. I will keep the same routine in place next week and let you know if anything changes.",
   },
@@ -70,6 +100,16 @@ export const TEACHER_AUTHENTICITY_BENCHMARKS: TeacherAuthenticityBenchmark[] = [
       "Vielen Dank, dass Sie Ihre Sorge geteilt haben. Es könnte hilfreich sein, wenn wir gemeinsam für mehr Ruhe und Klarheit sorgen.",
     shouldAccept:
       "Ich habe mir die Hausaufgaben dieser Woche noch einmal angesehen und kann nachvollziehen, dass der Umfang zu hoch wirkte. Ich passe die nächste Aufgabe kürzer an und bespreche den Arbeitsplan morgen mit Leon.",
+  },
+  {
+    id: "de-panic-defensive-parent",
+    language: "de",
+    mode: "parent_message",
+    direction: "parent_to_teacher",
+    shouldReject:
+      "Vielen Dank, dass Sie Ihre Sorge geteilt haben. Mir ist wichtig, dass wir diesen Punkt gemeinsam ernst nehmen, und ich werde die Details zusammentragen und die Situation beobachten.",
+    shouldAccept:
+      "Danke, dass Sie mir das so offen geschrieben haben. Ich schaue mir die Situation mit den beteiligten Kolleginnen noch heute an und melde mich dann zeitnah bei Ihnen zurück.",
   },
   {
     id: "de-safe-draft-notes",

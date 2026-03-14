@@ -7,6 +7,8 @@ const GREETING_REGEX =
   /^\s*(Dear|Hi|Hello|Parents|Family|Team|Good (?:morning|afternoon|evening)|Liebe|Guten Tag|Hallo|Sehr geehrte)/i
 export const CLOSING_REGEX =
   /\b(?:Kind|Warm|Best|Many)\s+regards,|Sincerely,|Yours sincerely,|Best wishes,|With thanks,|Thanks,|Mit freundlichen Grüßen,|Mit freundlichen Gruessen,|Herzliche Grüße,|Herzliche Gruesse,/i
+const CLOSING_LINE_REGEX =
+  /^(?:Kind|Warm|Best|Many)\s+regards,|^Sincerely,|^Yours sincerely,|^Best wishes,|^With thanks,|^Thanks,|^Mit freundlichen Grüßen,|^Mit freundlichen Gruessen,|^Herzliche Grüße,|^Herzliche Gruesse,/i
 const SUBJECT_LABELS = ["Subject", "Betreff"] as const
 const SUBJECT_SEPARATOR_REGEX = "[:\\-–—|]+"
 const SUBJECT_REGEX = new RegExp(
@@ -223,6 +225,63 @@ function splitLeadingGreeting(sentences: string[], trimmedBody: string, locale?:
   return [greetingFragment, remainder, ...sentences.slice(1)]
 }
 
+function looksLikeSignatureLine(line: string) {
+  const trimmed = line.trim()
+  if (!trimmed) {
+    return false
+  }
+  if (trimmed.length > 80) {
+    return false
+  }
+  if (/[.!?]{2,}/.test(trimmed)) {
+    return false
+  }
+  return /[A-Za-zÀ-ÖØ-öø-ÿÄÖÜäöüß]/u.test(trimmed)
+}
+
+function extractTrailingClosingBlock(body: string) {
+  const normalized = body.replace(/\r\n/g, "\n").trim()
+  if (!normalized) {
+    return { body: "", closingBlock: null as string | null }
+  }
+
+  const lines = normalized.split("\n")
+  while (lines.length && !lines[lines.length - 1].trim()) {
+    lines.pop()
+  }
+
+  for (let i = lines.length - 1; i >= 0; i -= 1) {
+    const candidate = lines[i].trim()
+    if (!candidate || !CLOSING_LINE_REGEX.test(candidate)) {
+      continue
+    }
+
+    const trailingLines = lines
+      .slice(i + 1)
+      .map((line) => line.trim())
+      .filter(Boolean)
+
+    if (
+      trailingLines.length <= 3 &&
+      trailingLines.every((line) => looksLikeSignatureLine(line))
+    ) {
+      return {
+        body: lines.slice(0, i).join("\n").trimEnd(),
+        closingBlock: [candidate, ...trailingLines].join("\n"),
+      }
+    }
+
+    if (trailingLines.length === 0) {
+      return {
+        body: lines.slice(0, i).join("\n").trimEnd(),
+        closingBlock: candidate,
+      }
+    }
+  }
+
+  return { body: normalized, closingBlock: null as string | null }
+}
+
 function calculateMinParagraphCount(bodyLength: number, sentenceCount: number) {
   if (bodyLength > LONG_BODY_THRESHOLD && sentenceCount >= MIN_SENTENCES_FOR_MULTIPLE_PARAGRAPHS) {
     return 3
@@ -347,12 +406,15 @@ function buildParagraphs(body: string, locale?: string): string[] {
     return []
   }
 
-  const sentenceCandidates = getSentencesFromText(trimmedBody, locale)
+  const { body: bodyWithoutClosing, closingBlock } = extractTrailingClosingBlock(trimmedBody)
+  const workingBody = bodyWithoutClosing || trimmedBody
+
+  const sentenceCandidates = getSentencesFromText(workingBody, locale)
   if (!sentenceCandidates.length) {
-    return [trimmedBody]
+    return [workingBody, ...(closingBlock ? [closingBlock] : [])].filter(Boolean)
   }
 
-  const normalizedSentences = splitLeadingGreeting(sentenceCandidates, trimmedBody, locale)
+  const normalizedSentences = splitLeadingGreeting(sentenceCandidates, workingBody, locale)
   const sentences = [...normalizedSentences]
   let greeting: string | null = null
   if (sentences.length && GREETING_REGEX.test(sentences[0])) {
@@ -360,7 +422,7 @@ function buildParagraphs(body: string, locale?: string): string[] {
   }
 
   let closingParagraph: string | null = null
-  const closingIndex = sentences.findIndex((sentence) => CLOSING_REGEX.test(sentence))
+  const closingIndex = closingBlock ? -1 : sentences.findIndex((sentence) => CLOSING_REGEX.test(sentence))
   if (closingIndex >= 0) {
     closingParagraph = sentences.slice(closingIndex).join(" ").trim()
     sentences.splice(closingIndex)
@@ -375,7 +437,7 @@ function buildParagraphs(body: string, locale?: string): string[] {
   const assembled = [
     ...(greeting ? [greeting] : []),
     ...bodyParagraphs,
-    ...(closingParagraph ? [closingParagraph] : []),
+    ...(closingBlock ? [closingBlock] : closingParagraph ? [closingParagraph] : []),
   ].filter(Boolean)
 
   if (assembled.length) {

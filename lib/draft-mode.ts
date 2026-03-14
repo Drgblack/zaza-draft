@@ -17,7 +17,7 @@ export const MODE_PROMPT_INSTRUCTIONS: Record<DraftMode, string> = {
   parent_message:
     "Frame the output as a parent message: start with a subject line prefixed with 'Subject:', include a greeting to the parent(s), write two to four concise paragraphs, keep the tone calm and teacher-authored, ground the message in the actual issue raised, and close with one practical next step.",
   report_comment:
-    "Frame the output as a report comment: write two to five sentences with no greeting or 'Dear', keep the language neutral and report-appropriate, focus on evidence and progress, and avoid parent-facing warmth or calls to action such as 'please contact me' or 'call me'.",
+    "Frame the output as a report comment: write two to five concise sentences with no subject line, no greeting, and no sign-off; keep the language observational, neutral, and suitable for direct inclusion in a report or comment bank; avoid parent-facing warmth, conversational email framing, or calls to action such as 'please contact me' or 'call me'.",
 }
 
 export function resolveDraftMode(value: unknown): DraftMode | null {

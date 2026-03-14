@@ -139,7 +139,7 @@ vi.mock("@/lib/draft/fallback", () => ({
     [
       "Subject: Classroom update",
       "Dear parent(s),",
-      "I wanted to give you a clear update about your child and explain the practical step I will take in class.",
+      "I wanted to give you a clear update about your child and explain the adjustment I will make in class.",
       "If a short conversation would help, I can speak with you this week.",
       "Kind regards,",
     ].join("\n"),
@@ -166,11 +166,25 @@ vi.mock("@/lib/draft/teacher-language", () => ({
   enforceTeacherNameStyle: (text: string) => text,
 }))
 
-vi.mock("@/lib/draft/format", () => ({
-  formatDraftText: () => ({
-    sections: [],
-  }),
-}))
+vi.mock("@/lib/draft/format", async () => {
+  const actual = await vi.importActual<typeof import("@/lib/draft/format")>(
+    "@/lib/draft/format",
+  )
+  return {
+    ...actual,
+    formatDraftText: (text: string) => {
+      const normalized = text.replace(/\r\n/g, "\n").trim()
+      if (!normalized) {
+        return { paragraphs: [] }
+      }
+      const paragraphs = normalized
+        .split(/\n{2,}/)
+        .map((paragraph) => paragraph.trim())
+        .filter(Boolean)
+      return { paragraphs }
+    },
+  }
+})
 
 vi.mock("@/lib/draft/student-name", () => ({
   cleanStudentName: (value: string) => value,

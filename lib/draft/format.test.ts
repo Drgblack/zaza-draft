@@ -150,6 +150,36 @@ Frau Mueller`
     expect(formatted.paragraphs[formatted.paragraphs.length - 1]).toContain("Warm regards,")
   })
 
+  it("preserves a canonical English closing block with the sender name on its own line", () => {
+    const draft = `Subject: Weekly check-in
+
+Dear family,
+
+I wanted to give you a short update about Ella's written work this week.
+
+I will keep monitoring her stamina next week and let you know how that goes.
+
+Kind regards,
+Dr Greg Blackburn`
+    const formatted = formatDraftText(draft, "en-GB")
+    expect(formatted.paragraphs[formatted.paragraphs.length - 1]).toBe("Kind regards,\nDr Greg Blackburn")
+  })
+
+  it("preserves a canonical German closing block with the sender name on its own line", () => {
+    const draft = `Betreff: Rückmeldung
+
+Guten Tag,
+
+Ich melde mich mit einer kurzen Rückmeldung zur heutigen Situation.
+
+Ich werde den Ablauf noch einmal prüfen und mich morgen bei Ihnen melden.
+
+Mit freundlichen Grüßen,
+Dr Greg Blackburn`
+    const formatted = formatDraftText(draft, "de-DE")
+    expect(formatted.paragraphs[formatted.paragraphs.length - 1]).toBe("Mit freundlichen Grüßen,\nDr Greg Blackburn")
+  })
+
   it("normalizes newline-split salutations before formatting", () => {
     const draft = "Dear Mrs.\n\nPatel,\n\nThank you for your patience."
     const formatted = formatDraftText(draft)

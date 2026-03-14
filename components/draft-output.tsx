@@ -5,6 +5,7 @@ import { useEffect, useMemo, useRef, useState } from "react"
 import { SaveDraftModal } from "./save-draft-modal"
 import type { DraftMode } from "@/lib/types"
 import { DraftStructure, formatDraftText, CLOSING_REGEX } from "@/lib/draft/format"
+import { sanitizeReportCommentStructure } from "@/lib/draft/report-comment"
 import { MODE_LABEL_KEYS, DEFAULT_DRAFT_MODE } from "@/lib/draft-mode"
 import { useLocale } from "@/hooks/use-locale"
 import { useSearchParams } from "next/navigation"
@@ -57,12 +58,34 @@ export function DraftOutput({
   const modeKey = (metadata.modeUsed ?? DEFAULT_DRAFT_MODE) as keyof typeof MODE_LABEL_KEYS
   const modeLabel = t(MODE_LABEL_KEYS[modeKey])
   const { displaySubject, displayParagraphs, signatureParagraph } = useMemo(() => {
-    const resolvedStructure = structure ?? formatDraftText(draftText, locale)
+    const baseStructure = structure ?? formatDraftText(draftText, locale)
+    const resolvedStructure =
+      modeKey === "report_comment"
+        ? sanitizeReportCommentStructure(baseStructure, locale)
+        : baseStructure
     const subject = modeKey === "parent_message" ? resolvedStructure.subject : undefined
     const paragraphs = [...(resolvedStructure.paragraphs ?? [])]
     let signature: string | undefined
-    if (paragraphs.length && CLOSING_REGEX.test(paragraphs[paragraphs.length - 1])) {
-      signature = paragraphs.pop()
+    const looksLikeSignatureLine = (value: string) => {
+      const trimmed = value.trim()
+      if (!trimmed || trimmed.length > 80) {
+        return false
+      }
+      if (/[.!?]{2,}/.test(trimmed)) {
+        return false
+      }
+      return /[A-Za-zÀ-ÖØ-öø-ÿÄÖÜäöüß]/u.test(trimmed)
+    }
+    if (modeKey === "parent_message" && paragraphs.length) {
+      const lastParagraph = paragraphs[paragraphs.length - 1]
+      const penultimateParagraph = paragraphs[paragraphs.length - 2]
+      if (CLOSING_REGEX.test(lastParagraph)) {
+        signature = paragraphs.pop()
+      } else if (penultimateParagraph && CLOSING_REGEX.test(penultimateParagraph) && looksLikeSignatureLine(lastParagraph)) {
+        const nameLine = paragraphs.pop()
+        const closingLine = paragraphs.pop()
+        signature = `${closingLine}\n${nameLine}`
+      }
     }
     return {
       displaySubject: subject,

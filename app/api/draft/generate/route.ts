@@ -50,6 +50,7 @@ import {
 import { resolveTeacherSignatureName } from "@/lib/draft/teacher-signature"
 import { normalizeClosingBlock } from "@/lib/draft/ensure-single-signoff"
 import { detectTeacherAuthenticityViolations, type TeacherAuthenticityViolation } from "@/lib/draft/teacher-authenticity"
+import { sanitizeReportCommentStructure, sanitizeReportCommentText } from "@/lib/draft/report-comment"
 import { isValidDraftRequest, OUT_OF_SCOPE_REDIRECT_MESSAGE } from "./scope-guard"
 import { isDebugEnabled } from "@/lib/debug"
 import { classifyGenerationRequest, type GenerationMetadata, type SourceType } from "@/lib/generation/classification"
@@ -151,7 +152,17 @@ const EXTRA_SIGNOFF_PATTERNS = [/mit nachdruck/i]
 
 const STRONG_ENGLISH_PATTERNS = [/Subject:/i, /\bDear\b/i, /\bKind regards\b/i, /\bBest regards\b/i, /\bThank you\b/i, /\bPlease\b/i]
 
-function detectTrailingName(raw: string, locale: GreetingLocale) {
+interface GreetingPolicyOverrides {
+  mode?: DraftMode
+  direction?: GenerationMetadata["direction"]
+  tone?: ToneKey
+  messageType?: string
+}
+
+function detectTrailingName(raw: string, locale: GreetingLocale, policy: GreetingPolicyOverrides = {}) {
+  if (policy.mode === "report_comment" || policy.direction === "report_comment") {
+    return null
+  }
   const lines = raw
     .split(/\n+/)
     .map((line) => line.trim())
@@ -167,7 +178,7 @@ function detectTrailingName(raw: string, locale: GreetingLocale) {
       continue
     }
     return {
-      greeting: greetingWithName(locale, candidate),
+      greeting: greetingWithName(locale, candidate, policy),
       confidence: score.level,
       safeName: candidate,
       source: "resolved-name" as GreetingSource,
@@ -241,14 +252,14 @@ function buildDeterministicTemplateBody(greetingLine: string, language?: string)
   const isGerman = language?.toLowerCase().startsWith("de")
   const paragraphs = isGerman
     ? [
-        "Vielen Dank, dass Sie Ihre Perspektive geteilt haben; mir ist wichtig, dass wir diesen Punkt gemeinsam ernst nehmen.",
-        "Als n?f?'?,Ã¯Â¿Â½chsten Schritt werde ich das Verhalten weiterhin dokumentieren und ein kurzes Reflexionsgespr?f?'?,Ã¯Â¿Â½ch mit dem Kind vorbereiten, das wir danach mit Ihnen reflektieren k?f?'?,Ã¯Â¿Â½nnen.",
-        "Bitte schlagen Sie zwei kurze Termine vor, an denen wir telefonisch oder per Videocall die n?f?'?,Ã¯Â¿Â½chsten Schritte besprechen und offene Fragen beantworten.",
+        "Es tut mir leid zu hören, dass Ihr Kind heute so belastet nach Hause gekommen ist.",
+        "Ich werde mit den beteiligten Kolleginnen und Kollegen sprechen und mir genau ansehen, was heute passiert ist.",
+        "Ich melde mich so bald wie möglich mit einer Rückmeldung bei Ihnen; wenn es danach sinnvoll ist, können wir gern kurz telefonieren.",
       ]
     : [
-        "Thank you for sharing your concern; my priority is to address it calmly and respectfully.",
-        "As a next step, I will gather the details, summarize the key observations, and prepare a practical plan we can work through together.",
-        "Please let me know a couple of times that work for you so we can have a quick phone or video call to stay aligned.",
+        "I'm sorry to hear that your child came home so upset today.",
+        "I will speak with the staff involved and look into what happened as soon as I am back in school.",
+        "I'll come back to you as soon as I can with an update, and if it would help after that we can arrange a short call.",
       ]
   return `${greetingLine}\n\n${paragraphs.join("\n\n")}`
 }
@@ -309,7 +320,10 @@ function detectTrustGradeViolations(text: string): TrustGradeViolation[] {
   )
 }
 
-function detectExtraSignoffName(raw: string, locale: GreetingLocale) {
+function detectExtraSignoffName(raw: string, locale: GreetingLocale, policy: GreetingPolicyOverrides = {}) {
+  if (policy.mode === "report_comment" || policy.direction === "report_comment") {
+    return null
+  }
   const lines = raw
     .split(/\n+/)
     .map((line) => line.trim())
@@ -322,7 +336,7 @@ function detectExtraSignoffName(raw: string, locale: GreetingLocale) {
       const score = scoreSafeName(candidate, locale)
       if (score.level === "MEDIUM" || score.level === "HIGH") {
         return {
-          greeting: greetingWithName(locale, candidate),
+          greeting: greetingWithName(locale, candidate, policy),
           confidence: score.level,
           safeName: candidate,
           source: "resolved-name" as GreetingSource,
@@ -350,40 +364,53 @@ function resolveGreetingFromRawText(
   raw: string,
   language: string | undefined,
   messageType?: string,
+  mode?: DraftMode,
+  direction?: GenerationMetadata["direction"],
+  tone?: ToneKey,
+  recipientOverride?: string | null,
 ) {
   const sanitized = sanitizeEmailText(raw)
   const cleaned = sanitized.cleanText.trim()
-  if (!cleaned) {
-    return null
-  }
   const locale = language?.toLowerCase().startsWith("de") ? "de" : "en"
-  const extraSignoff = detectExtraSignoffName(cleaned, locale)
-  if (extraSignoff) {
-    return extraSignoff
-  }
-  const trailingName = detectTrailingName(cleaned, locale)
-  if (trailingName) {
-    return trailingName
+  if (cleaned) {
+    const extraSignoff = detectExtraSignoffName(cleaned, locale, {
+      mode,
+      direction,
+      tone,
+      messageType,
+    })
+    if (extraSignoff) {
+      return extraSignoff
+    }
+    const trailingName = detectTrailingName(cleaned, locale, {
+      mode,
+      direction,
+      tone,
+      messageType,
+    })
+    if (trailingName) {
+      return trailingName
+    }
   }
   const greetingResult = resolveGreeting({
     cleanedOcrText: cleaned,
     locale,
     messageType,
+    mode,
+    direction,
+    tone,
+    recipientOverride,
   })
   const normalizedGreeting = normalizeGreetingValue(greetingResult.greeting)
     const normalizedSafeName = greetingResult.safeName
       ? normalizeName(greetingResult.safeName)
       : null
-  const hasSafeConfidence =
-    greetingResult.confidence === "MEDIUM" || greetingResult.confidence === "HIGH"
-  const greetingDidResolveName = greetingResult.source === "resolved-name"
-  const greetingFinal = hasSafeConfidence && greetingDidResolveName && normalizedGreeting.length > 0
   return {
     greeting: normalizedGreeting || greetingResult.greeting,
     confidence: greetingResult.confidence,
     safeName: normalizedSafeName ?? null,
     source: greetingResult.source,
-    final: greetingFinal,
+    final: Boolean(greetingResult.final && (normalizedGreeting || greetingResult.greeting)),
   }
 }
 
@@ -534,15 +561,18 @@ export async function POST(request: Request) {
     greetingText = ""
     greetingConfidence = "NONE"
     greetingSource = "generic-fallback"
-    greetingName = null
     greetingFinal = false
   }
 
-  if (!greetingText && payload.situationRaw) {
+  if (!greetingText || shouldResetGreeting) {
     const resolvedGreeting = resolveGreetingFromRawText(
-      payload.situationRaw,
+      payload.situationRaw ?? "",
       language,
       payload.messageType,
+      mode ?? undefined,
+      generationTrace?.metadata.direction,
+      tone,
+      greetingName,
     )
     if (resolvedGreeting) {
       greetingText = normalizeGreetingValue(resolvedGreeting.greeting)
@@ -556,6 +586,10 @@ export async function POST(request: Request) {
       }
       greetingFinal = resolvedGreeting.final
     }
+  }
+
+  if (!greetingFinal && greetingText && mode === "parent_message" && generationTrace?.metadata.direction !== "report_comment") {
+    greetingFinal = true
   }
 
   const finalGreetingLine = greetingFinal ? greetingText : null
@@ -939,7 +973,11 @@ export async function POST(request: Request) {
       pronounPreference: resolvedPronounPreference,
       resolvedPronounPreference: resolvedPronounPreference,
     })
-    return applyFinalGreetingGuard(curated, finalGreetingLine)
+    curated = applyFinalGreetingGuard(curated, finalGreetingLine)
+    if (mode === "report_comment") {
+      curated = sanitizeReportCommentText(curated)
+    }
+    return curated
   }
   const FALLBACK_SIGNATURES = {
     en: "Your child's teacher",
@@ -1015,15 +1053,19 @@ export async function POST(request: Request) {
       generatedDraft = applyGermanNormalization(generatedDraft)
     }
     generatedDraft = normalizeClosingForMode(generatedDraft)
-    formattedDraftStructure = formatDraftText(generatedDraft, language)
+    formattedDraftStructure =
+      mode === "report_comment"
+        ? sanitizeReportCommentStructure(formatDraftText(generatedDraft, language), language)
+        : formatDraftText(generatedDraft, language)
     bodyParagraphCount = getParagraphCountExcludingGreeting(formattedDraftStructure, finalGreetingLine)
     bodyWordCount = countWords(generatedDraft)
   }
 
   finalizeAndFormatDraft(generatedDraft)
+  const shouldUseGreetingRecoveryTemplate = Boolean(finalGreetingLine && greetingSource === "resolved-name")
   const evaluateBodyNeedsRetry = () =>
     Boolean(
-      finalGreetingLine &&
+      shouldUseGreetingRecoveryTemplate &&
         (bodyWordCount < MIN_BODY_WORDS || bodyParagraphCount < MIN_BODY_PARAGRAPHS),
     )
 

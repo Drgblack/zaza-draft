@@ -141,6 +141,42 @@ describe("DraftOutput formatting", () => {
     expect(signature.className).toContain("border-t")
   })
 
+  it("combines split closing and sender lines into one rendered signature block", () => {
+    const splitSignatureStructure: DraftStructure = {
+      subject: "Homework update",
+      paragraphs: [
+        "Dear family,",
+        "Johnny has been trying hard this week.",
+        "Kind regards,",
+        "Dr Greg Blackburn",
+      ],
+    }
+
+    render(<DraftOutput {...baseProps} structure={splitSignatureStructure} />)
+    const body = screen.getByTestId("draft-output-body")
+    const signature = within(body).getByText((text) => text.includes("Kind regards,") && text.includes("Dr Greg Blackburn"))
+    expect(signature).toBeInTheDocument()
+    expect(signature.className).toContain("border-t")
+    expect(within(body).queryByText(/^Dr Greg Blackburn$/)).not.toBeInTheDocument()
+  })
+
+  it("renders canonical closing blocks from raw draft text for parent messages", () => {
+    const rawDraft = `Subject: Homework update
+
+Dear family,
+
+Johnny has been trying hard this week.
+
+Kind regards,
+Dr Greg Blackburn`
+
+    render(<DraftOutput {...baseProps} draftText={rawDraft} structure={undefined} />)
+    const body = screen.getByTestId("draft-output-body")
+    const signature = within(body).getByText((text) => text.includes("Kind regards,") && text.includes("Dr Greg Blackburn"))
+    expect(signature).toBeInTheDocument()
+    expect(signature.className).toContain("border-t")
+  })
+
   it("does not render a subject when the report comment mode is active", () => {
     render(
       <DraftOutput
@@ -150,7 +186,33 @@ describe("DraftOutput formatting", () => {
       />,
     )
     expect(screen.queryByText("Subject: Update on homework")).not.toBeInTheDocument()
-    expect(screen.getByText("Johnny has been trying hard this week.")).toBeInTheDocument()
+    expect(screen.getByText(/Johnny has been trying hard this week\./)).toBeInTheDocument()
+  })
+
+  it("strips greeting and signature residue when rendering report comments", () => {
+    const contaminatedStructure: DraftStructure = {
+      subject: "Update on homework",
+      paragraphs: [
+        "Dear family,",
+        "Johnny has been trying hard this week.",
+        "Kind regards,",
+        "Dr Greg Blackburn",
+      ],
+    }
+
+    render(
+      <DraftOutput
+        {...baseProps}
+        metadata={{ ...baseProps.metadata, modeUsed: "report_comment" }}
+        structure={contaminatedStructure}
+      />,
+    )
+
+    const body = screen.getByTestId("draft-output-body")
+    expect(within(body).queryByText("Dear family,")).not.toBeInTheDocument()
+    expect(within(body).queryByText(/Kind regards,/)).not.toBeInTheDocument()
+    expect(within(body).queryByText("Dr Greg Blackburn")).not.toBeInTheDocument()
+    expect(within(body).getByText("Johnny has been trying hard this week.")).toBeInTheDocument()
   })
 
   it("matches the snapshot for structured output", () => {

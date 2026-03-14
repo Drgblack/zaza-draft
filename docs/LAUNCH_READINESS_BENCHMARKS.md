@@ -24,8 +24,28 @@ The fixtures live in `lib/benchmarks/launch-readiness.fixtures.ts`. Each case de
 
 1. Run the automated suite with `pnpm vitest run lib/benchmarks/launch-readiness.test.ts`.
 2. For staging or pre-launch review, generate fresh outputs for each benchmark input and run them through `evaluateLaunchBenchmarkOutput()` in `lib/benchmarks/launch-readiness.ts`.
-3. Treat any failure in direction correctness, safety, or formatting correctness as a launch blocker.
+3. Treat any failure in direction correctness, safety, formatting correctness, or the English boutique quality gate as a launch blocker for the English-first release pass.
 4. Review borderline passes manually, especially the high-risk and low-confidence OCR cases.
+
+## English-First QA Rules
+
+For the current launch pass, English parent-message and Panic Scan quality is the primary benchmark target. German cases still run on every suite execution, but they are acting as regression protection rather than style-optimisation targets.
+
+The English boutique gate now fails when an English output:
+
+- uses `Hello Firstname Lastname,`
+- uses support-bot phrasing such as `Thank you for sharing your concerns` or `Please feel free to reach out`
+- uses abstract next-step wording such as `gather the details`, `summarize the key observations`, or `prepare a practical plan`
+- omits the closing block in a parent-facing draft
+- leaks subject/greeting/sign-off framing into a report comment
+
+For English manual review, prefer:
+
+- `Hello Karen,` when only a first and last name are known
+- an opening that names the actual issue in the first sentence
+- one believable school-side next step
+- one canonical closing block only
+- no greeting or sign-off in report-comment mode
 
 ## What reviewers should look for
 

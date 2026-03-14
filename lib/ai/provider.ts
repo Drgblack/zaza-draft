@@ -125,6 +125,7 @@ function buildSafeDraftInstructions(input: ProviderInput) {
         "This request comes from Safe Draft typed teacher input.",
         "Preserve the teacher as the author throughout. Do not thank the parent for writing unless that wording is explicitly present in the teacher draft.",
         "Keep the message warm but efficient. Lead with the real classroom issue or update, not a generic empathy opener.",
+        "When you mention a next step, make it a concrete school action such as checking the work, adjusting the class routine, following up with colleagues, or arranging a short meeting if needed.",
       ]
     case "teacher_internal_notes":
       return [
@@ -133,23 +134,26 @@ function buildSafeDraftInstructions(input: ProviderInput) {
         "Do not respond as though an incoming parent email was pasted here.",
         "Do not open with phrases such as 'thank you for sharing your concerns' or similar parent-reply language unless the source is explicitly classified as parent_to_teacher.",
         "Name the concrete issue early and write in the voice of an experienced teacher sending a real update home.",
+        "Turn the notes into concrete teacher actions: what you checked, what you will adjust in class, who you will speak with, or when you will follow up. Avoid abstract process wording such as 'gather the details' or 'prepare a plan'.",
       ]
     case "report_comment":
       return [
         "This request comes from Safe Draft report-comment mode.",
-        "Write a concise teacher-authored report comment with no greeting and no parent reply framing.",
-        "Keep it observational, school-appropriate, and free of emotional padding.",
+        "Write a concise teacher-authored report comment with no subject line, no greeting, no sign-off, and no parent reply framing.",
+        "Keep it observational, school-appropriate, and free of emotional padding or conversational email wording.",
+        "Write something that could be pasted directly into a report or comment bank without further cleanup.",
       ]
     case "parent_to_teacher":
       return [
         "This Safe Draft request was unexpectedly classified as parent_to_teacher.",
         "Keep the output teacher-authored and bounded. Do not switch into the parent's voice.",
-        "Acknowledge the specific issue in one sentence, then move to what has been checked, what will happen next, or what boundary applies.",
+        "Acknowledge the specific issue in one sentence, then move to a concrete teacher action, what has been checked, or what boundary applies.",
       ]
   }
 }
 
 function buildPanicScanInstructions(input: ProviderInput) {
+  const normalizedSource = `${input.originalSituation ?? ""}\n${input.situation}`.toLowerCase()
   const instructions = [
     "This request comes from Panic Scan OCR.",
     "Treat OCR provenance as authoritative. The cleaned OCR text is the primary source and must not be rewritten as if it came from typed teacher notes.",
@@ -160,9 +164,29 @@ function buildPanicScanInstructions(input: ProviderInput) {
     case "parent_to_teacher":
       instructions.push(
         "Interpret the OCR text as a parent message to the teacher and write a calm, professional teacher reply to the parent.",
-        "Acknowledge the specific concern in neutral language before outlining next steps.",
-        "Keep the tone de-escalating and bounded; do not sound like customer support, HR, or counselling copy.",
+        "Open like a real teacher replying to an upset parent: acknowledge what the child or parent is upset about, recognise the seriousness if needed, and give one believable immediate step you will take.",
+        "Keep the tone de-escalating and bounded; do not sound like customer support, HR, counselling copy, or a teacher narrating their own tone-management process.",
+        "Preferred opening pattern: one natural sentence acknowledging the concern, one concrete sentence about what you will check or who you will speak with, then a brief line about when you will update the parent.",
+        "Believable wording includes lines such as 'I'm sorry to hear that Jake was so upset today.', 'Thank you for bringing this to my attention.', 'I will speak with the staff involved and look into what happened.', and 'I'll come back to you as soon as I can with an update.'",
+        "Avoid lines such as 'my priority is to address it calmly and respectfully', 'summarize the key observations', 'prepare a practical plan', or other customer-support / HR phrasing.",
       )
+      if (/(bully|bullying|unsafe|safety|safeguard|safeguarding|hit|hurt|pushed|afraid|scared|crying|weinen|sicherheit|gemobbt|mobbing|verletzt)/i.test(normalizedSource)) {
+        instructions.push(
+          "If the message raises a bullying, safety, or safeguarding concern, open by recognising that seriousness directly and say that you will speak with the staff involved and check what happened today. Do not minimise it or suggest it was probably a misunderstanding.",
+        )
+      } else if (/(grade|grading|graded|mark|marked|test score|assessment|homework mark|note\b|noten|bewertung|bewertet)/i.test(normalizedSource)) {
+        instructions.push(
+          "If the message is a grading complaint, open by acknowledging the concern about the marking and say that you will review the work or the marking before replying in detail. Keep it factual rather than managerial.",
+        )
+      } else if (/(not trying to be difficult|not attacking|not blaming|don't want trouble|defensive|ich will keinen ärger|ich greife sie nicht an|ich möchte keinen streit)/i.test(normalizedSource)) {
+        instructions.push(
+          "If the parent sounds defensive or hesitant, open gently and show that you have understood the concern without over-soothing. Then give one clear step you will take.",
+        )
+      } else if (/(furious|angry|outraged|unacceptable|how dare|ridiculous|disgrace|empört|wütend|inakzeptabel|unerhört)/i.test(normalizedSource)) {
+        instructions.push(
+          "If the parent sounds angry or accusatory, open by acknowledging the seriousness without mirroring the accusation. Then state plainly what you will check and when you will follow up.",
+        )
+      }
       break
     case "teacher_to_parent":
       instructions.push(
@@ -179,7 +203,7 @@ function buildPanicScanInstructions(input: ProviderInput) {
     case "report_comment":
       instructions.push(
         "The OCR appears to contain report-comment material. Return a report-style output only.",
-        "Keep the wording concise, observational, and school-appropriate.",
+        "Keep the wording concise, observational, school-appropriate, and free of greeting, sign-off, or parent-email language.",
       )
       break
   }
@@ -205,6 +229,7 @@ function buildVoiceToCalmInstructions(input: ProviderInput) {
       instructions.push(
         "The transcript appears to contain an incoming parent message. Write a calm, professional teacher reply to the parent.",
         "Keep the reply measured, specific, and bounded rather than warmly generic.",
+        "Use believable school actions rather than abstract process language: say what you will check, who you will speak with, or when you will follow up.",
       )
       break
     case "teacher_to_parent":
@@ -217,13 +242,13 @@ function buildVoiceToCalmInstructions(input: ProviderInput) {
       instructions.push(
         "Convert the teacher's spoken notes into a calm teacher-authored parent-facing message.",
         "Do not behave like a reply to a parent unless the direction is explicitly parent_to_teacher.",
-        "Remove venting and filler, keep the real issue clear, and turn it into concise teacher language with a practical next step.",
+        "Remove venting and filler, keep the real issue clear, and turn it into concise teacher language with one concrete next step in school.",
       )
       break
     case "report_comment":
       instructions.push(
         "Convert the spoken notes into a concise report comment with no greeting or sign-off.",
-        "Use brief observational sentences rather than reflective or emotional language.",
+        "Use brief observational sentences rather than reflective, emotional, or parent-facing language.",
       )
       break
   }
@@ -245,6 +270,8 @@ export function buildSystemPrompt(input: ProviderInput) {
     "Sound like a calm, experienced teacher writing a real message, not a chatbot, therapist, HR partner, or customer-support agent.",
     "Open with the actual issue, update, or boundary from the source text rather than a generic empathy formula.",
     "Prefer concrete teacher language: what you noticed, what has been checked, what will happen next, and what support or boundary is appropriate in school.",
+    "When describing next steps, use believable school actions such as speaking with staff involved, reviewing the work, checking what happened, adjusting the class routine, following up with an update, or arranging a short meeting if needed.",
+    "Avoid managerial process wording such as 'gather the details', 'summarize the key observations', 'monitor the situation', 'keep an eye on it', or 'prepare a practical plan'.",
     "Avoid generic empathy boilerplate, counselling language, corporate phrasing, abstract suggestions, and inflated reassurance.",
     "Do not use lines such as 'thank you for sharing your concerns', 'I understand how important this is', 'I understand how overwhelming this feels', 'It might be helpful to discuss', or 'Please feel free to reach out' unless the exact source genuinely demands that wording.",
     "Keep warmth brief and believable. Do not over-apologise, over-promise, or sound like a bot trying to be nice.",
