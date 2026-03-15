@@ -126,6 +126,28 @@ function normalizeText(value?: string | null) {
   return (value ?? "").toLowerCase().replace(/\s+/g, " ").trim()
 }
 
+function inferStudentFirstNameFromSource(source?: string | null) {
+  const raw = (source ?? "").trim()
+  if (!raw) {
+    return undefined
+  }
+
+  const patterns = [/\b([A-Z][a-z]{2,}) came home\b/, /\b([A-Z][a-z]{2,}) says\b/, /\b([A-Z][a-z]{2,}) had\b/]
+  for (const pattern of patterns) {
+    const match = raw.match(pattern)
+    const candidate = match?.[1]?.trim()
+    if (candidate && !["Hello", "Dear", "Parent", "Karen"].includes(candidate)) {
+      return candidate
+    }
+  }
+
+  return undefined
+}
+
+function resolveStudentFirstName(context: DraftFallbackContext) {
+  return context.studentFirstName?.trim() || inferStudentFirstNameFromSource(context.sourceSituation)
+}
+
 function resolveGreetingLine(context: DraftFallbackContext) {
   if (context.greetingFinal && context.greeting?.text?.trim()) {
     return normalizeParentFacingGreetingLine(
@@ -169,7 +191,12 @@ function detectRecoveryIssueKind(source: string | undefined, language: LanguageK
   return "general"
 }
 
-function buildParentReplyOpening(language: LanguageKey, tone: ToneKey, issueKind: RecoveryIssueKind) {
+function buildParentReplyOpening(
+  language: LanguageKey,
+  tone: ToneKey,
+  issueKind: RecoveryIssueKind,
+  studentFirstName?: string,
+) {
   if (language === "de") {
     const byTone: Record<ToneKey, Record<RecoveryIssueKind, string>> = {
       warm: {
@@ -216,9 +243,10 @@ function buildParentReplyOpening(language: LanguageKey, tone: ToneKey, issueKind
     return byTone[tone][issueKind]
   }
 
+  const studentLabel = studentFirstName?.trim() || "your child"
   const byTone: Record<ToneKey, Record<RecoveryIssueKind, string>> = {
     warm: {
-      bullying_safety: "Thank you for getting in touch about this.",
+      bullying_safety: `I'm really sorry to hear ${studentLabel} had such a difficult experience today, and I can hear how worrying this has been.`,
       homework: "Thank you for getting in touch about this.",
       lateness: "Thank you for getting in touch about this.",
       grading: "Thank you for getting in touch about this.",
@@ -228,7 +256,7 @@ function buildParentReplyOpening(language: LanguageKey, tone: ToneKey, issueKind
       general: "Thank you for getting in touch.",
     },
     professional: {
-      bullying_safety: "Thank you for your message.",
+      bullying_safety: `Thank you for letting me know about this. I completely understand why this is so concerning for ${studentLabel} and for you.`,
       homework: "Thank you for your message.",
       lateness: "Thank you for your message.",
       grading: "Thank you for your message.",
@@ -238,7 +266,7 @@ function buildParentReplyOpening(language: LanguageKey, tone: ToneKey, issueKind
       general: "Thank you for your message.",
     },
     direct: {
-      bullying_safety: "I have received your message.",
+      bullying_safety: "Thank you for letting me know. I take what you have shared very seriously.",
       homework: "I have received your message.",
       lateness: "I have received your message.",
       grading: "I have received your message.",
@@ -248,7 +276,7 @@ function buildParentReplyOpening(language: LanguageKey, tone: ToneKey, issueKind
       general: "I have read your message.",
     },
     empathetic: {
-      bullying_safety: "Thank you for letting me know.",
+      bullying_safety: `I'm really sorry to hear ${studentLabel} had such a difficult experience today. I completely understand why this is worrying.`,
       homework: "Thank you for letting me know.",
       lateness: "Thank you for letting me know.",
       grading: "Thank you for letting me know.",
@@ -602,10 +630,11 @@ function buildRecoveryAction(
   }
 
   const studentLabel = studentFirstName?.trim() || "the student"
+  const namedChild = studentFirstName?.trim() || "the student"
   const byTone: Record<ToneKey, Record<RecoveryIssueKind, string>> = {
     warm: {
       bullying_safety:
-        "I will speak with the staff involved, check what happened today, and follow this up promptly so the situation is handled carefully in school.",
+        `I did not personally witness this during class, but I take what you have shared very seriously. I will speak with ${namedChild} privately tomorrow morning, speak with the other students involved, and check with the staff who were on duty at lunchtime.`,
       homework: `I will go through what is missing with ${studentLabel} in class, make the next task clear, and help re-establish a steadier homework routine.`,
       lateness: `I will follow this up with ${studentLabel} in school, restate the expectation around arrival, and help build a steadier start to lessons.`,
       grading:
@@ -621,7 +650,7 @@ function buildRecoveryAction(
     },
     professional: {
       bullying_safety:
-        "I will speak with the staff involved, check what happened today, and follow this up promptly in school.",
+        `I did not personally witness this during class, but I take what you have shared very seriously. I will speak with ${namedChild} privately, speak with the other students involved, and check with the staff who were on duty at lunchtime.`,
       homework:
         "I will go through what is missing in class, make the next task and deadline clear, and check that the expectations are understood.",
       lateness:
@@ -639,7 +668,7 @@ function buildRecoveryAction(
     },
     direct: {
       bullying_safety:
-        "I will speak with the staff involved today, establish what happened, and come back to you once that has been checked.",
+        `I did not personally witness this during class, but I am treating your report seriously. I will speak with ${namedChild} privately, speak with the other students involved, and establish what happened with the staff who were on duty.`,
       homework:
         "I will go through what is missing tomorrow, make the next deadline clear, and expect the work to be handed in on time from this point.",
       lateness:
@@ -657,7 +686,7 @@ function buildRecoveryAction(
     },
     empathetic: {
       bullying_safety:
-        "I will speak with the staff involved, check what happened today, and follow this up promptly so I can give you a clear update.",
+        `I did not personally witness this during class, but that does not lessen how seriously I take what you have shared. I will speak with ${namedChild} privately, speak with the other students involved, and check with the staff who were on duty at lunchtime.`,
       homework: `I will check in with ${studentLabel} in class, go through what is missing, and make sure the next task feels clear rather than overwhelming.`,
       lateness: `I will check in with ${studentLabel} in school, go over the start-of-day expectations again, and help make the routine clearer.`,
       grading:
@@ -675,7 +704,12 @@ function buildRecoveryAction(
   return byTone[tone][issueKind]
 }
 
-function buildRecoveryFollowUp(language: LanguageKey, tone: ToneKey, issueKind: RecoveryIssueKind) {
+function buildRecoveryFollowUp(
+  language: LanguageKey,
+  tone: ToneKey,
+  issueKind: RecoveryIssueKind,
+  studentFirstName?: string,
+) {
   if (language === "de") {
     if (issueKind === "bullying_safety") {
       return "Sobald ich den Ablauf geprüft habe, gebe ich Ihnen eine Rückmeldung."
@@ -685,11 +719,14 @@ function buildRecoveryFollowUp(language: LanguageKey, tone: ToneKey, issueKind: 
       : "Wenn danach eine weitere Rückmeldung sinnvoll ist, melde ich mich noch einmal bei Ihnen."
   }
   if (issueKind === "bullying_safety") {
+    const studentLabel = studentFirstName?.trim() || "your child"
     const byTone: Record<ToneKey, string> = {
-      warm: "I know this will feel serious, and I will come back to you as soon as I have checked the detail.",
-      professional: "As soon as I have checked the detail, I will come back to you with an update.",
-      direct: "I will come back to you as soon as I have established what happened.",
-      empathetic: "I appreciate how upsetting this will have been, and I will come back to you as soon as I have checked the detail.",
+      warm: `Would you be available for a short phone call tomorrow afternoon, or would you prefer to meet in person? Working together is the best way for us to support ${studentLabel} well.`,
+      professional:
+        "Would you be available for a short phone call tomorrow afternoon, or would you prefer to meet in person once I have spoken to everyone involved?",
+      direct:
+        "I would like to speak with you directly once I have checked this. Are you available for a short phone call tomorrow afternoon, or would you prefer to meet in person?",
+      empathetic: `Would you be available for a short phone call tomorrow afternoon, or would you prefer to meet in person? Working together is the best way for us to support ${studentLabel} well.`,
     }
     return byTone[tone]
   }
@@ -738,13 +775,14 @@ export function buildTeacherNotesRecoveryDraft(
   greetingLine: string,
   closingBlock: string,
 ) {
+  const resolvedStudentFirstName = resolveStudentFirstName(context)
   const issueClusters = resolveTeacherNoteIssueClusters(context)
   if (issueClusters.length > 1) {
     return [
       buildTeacherNotesMultiIssueSubject(
         context.language,
         issueClusters,
-        context.studentFirstName,
+        resolvedStudentFirstName,
       ),
       greetingLine,
       buildTeacherNotesMultiIssueOpening(context, issueClusters),
@@ -758,9 +796,9 @@ export function buildTeacherNotesRecoveryDraft(
   return [
     ISSUE_SUBJECTS[context.language][issueKind],
     greetingLine,
-    buildTeacherDraftOpening(context.language, context.tone, issueKind, context.studentFirstName),
-    buildRecoveryAction(context.language, context.tone, issueKind, context.studentFirstName),
-    buildRecoveryFollowUp(context.language, context.tone, issueKind),
+    buildTeacherDraftOpening(context.language, context.tone, issueKind, resolvedStudentFirstName),
+    buildRecoveryAction(context.language, context.tone, issueKind, resolvedStudentFirstName),
+    buildRecoveryFollowUp(context.language, context.tone, issueKind, resolvedStudentFirstName),
     closingBlock,
   ].join("\n\n")
 }
@@ -781,6 +819,7 @@ export function buildFallbackDraftResult(context: DraftFallbackContext): Recover
     : [...ISSUE_ANCHORS[context.language][issueKind]]
   const greetingLine = resolveGreetingLine(context)
   const closingBlock = buildClosingBlock(context.language, context.teacherSignatureName)
+  const resolvedStudentFirstName = resolveStudentFirstName(context)
 
   if (context.mode === "report_comment") {
     return {
@@ -802,12 +841,12 @@ export function buildFallbackDraftResult(context: DraftFallbackContext): Recover
 
   const opening =
     context.generationMetadata.direction === "parent_to_teacher"
-      ? buildParentReplyOpening(context.language, context.tone, issueKind)
+      ? buildParentReplyOpening(context.language, context.tone, issueKind, resolvedStudentFirstName)
       : buildTeacherDraftOpening(
           context.language,
           context.tone,
           issueKind,
-          context.studentFirstName,
+          resolvedStudentFirstName,
         )
 
   return {
@@ -815,8 +854,8 @@ export function buildFallbackDraftResult(context: DraftFallbackContext): Recover
       ISSUE_SUBJECTS[context.language][issueKind],
       greetingLine,
       opening,
-      buildRecoveryAction(context.language, context.tone, issueKind, context.studentFirstName),
-      buildRecoveryFollowUp(context.language, context.tone, issueKind),
+      buildRecoveryAction(context.language, context.tone, issueKind, resolvedStudentFirstName),
+      buildRecoveryFollowUp(context.language, context.tone, issueKind, resolvedStudentFirstName),
       closingBlock,
     ]
       .filter(Boolean)

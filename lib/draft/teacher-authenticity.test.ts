@@ -74,6 +74,27 @@ describe("teacher authenticity benchmark set", () => {
     )
   })
 
+  it("rejects banned high-risk panic scan phrasing and generic closers", () => {
+    const violations = detectTeacherAuthenticityViolations(
+      "I know this will feel serious. I wanted to follow up on what happened today. Please don't hesitate to reach out.",
+      {
+        language: "en",
+        mode: "parent_message",
+        direction: "parent_to_teacher",
+        sourceText:
+          "Jake came home angry and upset saying nobody listened when another child pushed him at lunchtime at school. Karen wants to know what happened in class and why nobody called.",
+      },
+    )
+
+    expect(violations.map((violation) => violation.phrase)).toEqual(
+      expect.arrayContaining([
+        "i know this will feel serious",
+        "i wanted to follow up on what happened today",
+        "please don't hesitate to reach out",
+      ]),
+    )
+  })
+
   it("rejects product-mediated calm-update phrasing in parent-facing drafts", () => {
     const violations = detectTeacherAuthenticityViolations(
       "I wanted to send a calm update about today's issue and explain the next step in school.",

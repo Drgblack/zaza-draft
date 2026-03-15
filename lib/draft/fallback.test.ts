@@ -245,8 +245,9 @@ describe("fallback drafting signature hygiene", () => {
 
     const text = buildFallbackDraft(context)
     expect(text).toContain("Subject: Follow-up on today's incident")
-    expect(text).toContain("I have received your message.")
-    expect(text).toContain("I will speak with the staff involved today, establish what happened")
+    expect(text).toContain("Thank you for letting me know. I take what you have shared very seriously.")
+    expect(text).toContain("I did not personally witness this during class")
+    expect(text).toContain("phone call tomorrow afternoon")
     expect(text).not.toContain("prepare a practical plan")
   })
 
@@ -274,6 +275,33 @@ describe("fallback drafting signature hygiene", () => {
       expect(output.toLowerCase()).not.toContain("brief, calm update")
       expect(output).toContain("Best regards,\nDr Greg Blackburn")
     })
+  })
+
+  it("uses the high-risk panic scan fallback framework for the Jake/Karen incident case", () => {
+    const text = buildFallbackDraft({
+      ...baseContext,
+      language: "en",
+      tone: "empathetic",
+      teacherSignatureName: "Dr Greg Blackburn",
+      studentFirstName: undefined,
+      generationMetadata: {
+        mode: "panic_scan",
+        direction: "parent_to_teacher",
+        source_type: "ocr_text",
+        locale: "en",
+        prompt_builder: "panic_scan",
+      },
+      sourceSituation:
+        "Jake came home angry and upset saying nobody listened when another child pushed him at lunchtime at school. Karen wants to know what happened in class and why nobody called.",
+    })
+
+    expect(text).toContain("Jake")
+    expect(text).toMatch(/I'?m really sorry to hear|I completely understand why this is concerning|I can hear how worrying this has been/i)
+    expect(text).toMatch(/speak with Jake privately|speak with the other students involved|speak with any witnesses/i)
+    expect(text).toMatch(/phone call|meet in person|meeting/i)
+    expect(text.toLowerCase()).not.toContain("i know this will feel serious")
+    expect(text.toLowerCase()).not.toContain("i wanted to follow up on what happened today")
+    expect(text.toLowerCase()).not.toContain("please don't hesitate to reach out")
   })
 
   it("keeps report comment fallback mode-appropriate", () => {

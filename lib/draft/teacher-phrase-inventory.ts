@@ -17,11 +17,20 @@ export const ENGLISH_PARENT_REPLY_PARROTING_BANNED_PHRASES = [
   "i wanted to update you regarding the incident",
 ]
 
+export const ENGLISH_HIGH_RISK_PARENT_REPLY_BANNED_PHRASES = [
+  "i know this will feel serious",
+  "i wanted to follow up on what happened today",
+  "i wanted to update you regarding the incident",
+  "please don't hesitate to reach out",
+  "i appreciate how upsetting this will have been",
+]
+
 export const ENGLISH_PARENT_FACING_PHRASE_INVENTORY: Record<
   EnglishParentFacingTone,
   {
     teacherUpdateOpenings: string[]
     parentReplyOpenings: string[]
+    highRiskParentReplyOpenings: string[]
     actionPatterns: string[]
     followUpPatterns: string[]
   }
@@ -36,6 +45,11 @@ export const ENGLISH_PARENT_FACING_PHRASE_INVENTORY: Record<
       "Thank you for letting me know.",
       "I appreciate you getting in touch about this.",
       "I have received your message and will look into this promptly.",
+    ],
+    highRiskParentReplyOpenings: [
+      "I'm really sorry to hear [child] had such a difficult experience.",
+      "Thank you for letting me know — I can hear how worrying this has been.",
+      "I completely understand why this is concerning, and I take what you've shared very seriously.",
     ],
     actionPatterns: [
       "I will go through what is missing in class and make the next step clear.",
@@ -58,6 +72,11 @@ export const ENGLISH_PARENT_FACING_PHRASE_INVENTORY: Record<
       "I appreciate you getting in touch about this.",
       "I have received your message and will look into this promptly.",
     ],
+    highRiskParentReplyOpenings: [
+      "I'm really sorry to hear [child] had such a difficult experience.",
+      "Thank you for letting me know — I can hear how worrying this has been.",
+      "I completely understand why this is concerning, and I take what you've shared very seriously.",
+    ],
     actionPatterns: [
       "I will review the work carefully and come back to you with a clear explanation.",
       "I will follow this up in school and keep the next steps clear.",
@@ -79,6 +98,11 @@ export const ENGLISH_PARENT_FACING_PHRASE_INVENTORY: Record<
       "I have read your message and will look into this today.",
       "I will review this and come back to you.",
     ],
+    highRiskParentReplyOpenings: [
+      "Thank you for letting me know. I take what you have shared very seriously.",
+      "I have received your message and will address this promptly.",
+      "I understand why this is concerning, and I am treating it seriously.",
+    ],
     actionPatterns: [
       "I will address this directly in school and make the expectation clear.",
       "I will review this and come back to you with a clear answer.",
@@ -99,6 +123,11 @@ export const ENGLISH_PARENT_FACING_PHRASE_INVENTORY: Record<
       "Thank you for letting me know.",
       "I appreciate you getting in touch about this.",
       "I have received your message and will look into this promptly.",
+    ],
+    highRiskParentReplyOpenings: [
+      "I'm really sorry to hear [child] had such a difficult experience.",
+      "Thank you for letting me know — I can hear how worrying this has been.",
+      "I completely understand why this is concerning, and I take what you've shared very seriously.",
     ],
     actionPatterns: [
       "I will check in tomorrow and make sure the next step feels clear rather than overwhelming.",

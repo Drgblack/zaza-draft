@@ -289,6 +289,12 @@ describeIfLive("draft quality integration", () => {
       expect(output).not.toMatch(GERMAN_LEAK_REGEX)
       expect(output.trim()).toMatch(SIGNOFF_BLOCK_REGEX)
       expect(output.toLowerCase()).not.toContain("calm update")
+      expect(output.toLowerCase()).not.toContain("i know this will feel serious")
+      expect(output.toLowerCase()).not.toContain("i wanted to follow up on what happened today")
+      expect(output.toLowerCase()).not.toContain("i understand he came home")
+      expect(output).toMatch(/I'?m really sorry to hear|I can hear how worrying this has been|I completely understand why this is concerning/i)
+      expect(output).toMatch(/speak with Jake privately|speak with the other students involved|staff who were on duty|what happened in class/i)
+      expect(output).toMatch(/phone call|meet in person|meeting/i)
     },
     120000,
   )

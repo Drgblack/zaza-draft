@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest"
 
 import {
   ENGLISH_PARENT_FACING_BANNED_PHRASES,
+  ENGLISH_HIGH_RISK_PARENT_REPLY_BANNED_PHRASES,
   ENGLISH_PARENT_REPLY_PARROTING_BANNED_PHRASES,
   ENGLISH_PARENT_FACING_PHRASE_INVENTORY,
 } from "./teacher-phrase-inventory"
@@ -18,6 +19,7 @@ describe("teacher phrase inventory", () => {
     for (const tone of Object.values(ENGLISH_PARENT_FACING_PHRASE_INVENTORY)) {
       expect(tone.teacherUpdateOpenings.length).toBeGreaterThan(0)
       expect(tone.parentReplyOpenings.length).toBeGreaterThan(0)
+      expect(tone.highRiskParentReplyOpenings.length).toBeGreaterThan(0)
       expect(tone.actionPatterns.length).toBeGreaterThan(0)
       expect(tone.followUpPatterns.length).toBeGreaterThan(0)
     }
@@ -27,6 +29,7 @@ describe("teacher phrase inventory", () => {
     const phrases = Object.values(ENGLISH_PARENT_FACING_PHRASE_INVENTORY).flatMap((tone) => [
       ...tone.teacherUpdateOpenings,
       ...tone.parentReplyOpenings,
+      ...tone.highRiskParentReplyOpenings,
       ...tone.actionPatterns,
       ...tone.followUpPatterns,
     ])
@@ -46,6 +49,20 @@ describe("teacher phrase inventory", () => {
     const normalizedPhrases = phrases.map((phrase) => phrase.toLowerCase())
 
     ENGLISH_PARENT_REPLY_PARROTING_BANNED_PHRASES.forEach((bannedPhrase) => {
+      normalizedPhrases.forEach((phrase) => {
+        expect(phrase).not.toContain(bannedPhrase)
+      })
+    })
+  })
+
+  it("keeps banned high-risk incident phrasing out of the preferred inventory", () => {
+    const phrases = Object.values(ENGLISH_PARENT_FACING_PHRASE_INVENTORY).flatMap((tone) => [
+      ...tone.highRiskParentReplyOpenings,
+      ...tone.followUpPatterns,
+    ])
+    const normalizedPhrases = phrases.map((phrase) => phrase.toLowerCase())
+
+    ENGLISH_HIGH_RISK_PARENT_REPLY_BANNED_PHRASES.forEach((bannedPhrase) => {
       normalizedPhrases.forEach((phrase) => {
         expect(phrase).not.toContain(bannedPhrase)
       })

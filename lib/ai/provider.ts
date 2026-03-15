@@ -238,10 +238,15 @@ function buildSafeDraftInstructions(input: ProviderInput) {
 
 function buildPanicScanInstructions(input: ProviderInput) {
   const normalizedSource = `${input.originalSituation ?? ""}\n${input.situation}`.toLowerCase()
+  const isHighRiskPanicScan =
+    /(bully|bullying|unsafe|safety|safeguard|safeguarding|hit|hurt|pushed|punched|kicked|fight|altercation|afraid|scared|crying|distressed|upset|incident|witness|lunchtime|playground|breaktime|repeated pattern|every day|again and again|nobody listened)/i.test(
+      normalizedSource,
+    )
   const instructions = [
     "This request comes from Panic Scan OCR.",
     "Treat OCR provenance as authoritative. The cleaned OCR text is the primary source and must not be rewritten as if it came from typed teacher notes.",
     "Default assumption: the uploaded screenshot is a message received by the teacher from a parent or guardian. Unless the metadata shows unusually strong outgoing-teacher evidence, write only as the teacher replying to that incoming message.",
+    `Risk tier for this Panic Scan reply: ${isHighRiskPanicScan ? "HIGH_RISK" : "STANDARD"}.`,
   ]
 
   switch (input.generationMetadata.direction) {
@@ -258,9 +263,19 @@ function buildPanicScanInstructions(input: ProviderInput) {
         `Believable parent-reply openings include ${formatEnglishPhraseExamples("professional", "parentReplyOpenings")}. Believable next-step lines include ${formatEnglishPhraseExamples("professional", "actionPatterns")}.`,
         "Avoid lines such as 'my priority is to address it calmly and respectfully', 'summarize the key observations', 'prepare a practical plan', or other customer-support / HR phrasing.",
       )
-      if (/(bully|bullying|unsafe|safety|safeguard|safeguarding|hit|hurt|pushed|afraid|scared|crying|weinen|sicherheit|gemobbt|mobbing|verletzt)/i.test(normalizedSource)) {
+      if (isHighRiskPanicScan) {
         instructions.push(
-          "If the message raises a bullying, safety, or safeguarding concern, open by recognising that seriousness directly and say that you will speak with the staff involved and check what happened today. Do not minimise it or suggest it was probably a misunderstanding.",
+          "HIGH RISK Panic Scan framework: use a trained-teacher safeguarding response rather than a generic helpful-responder template.",
+          "Open with genuine emotional acknowledgement. Briefly recognise the child's difficult experience and the parent's worry without telling the parent how they feel.",
+          `Believable high-risk openings include ${formatEnglishPhraseExamples("empathetic", "highRiskParentReplyOpenings")}.`,
+          "Do not use lines such as 'I know this will feel serious', 'I wanted to follow up on what happened today', 'I understand he/she came home upset', or 'I wanted to update you regarding the incident'.",
+          "If you did not witness the incident, say so honestly without dismissing the report. Make clear that not witnessing it does not reduce how seriously you take it.",
+          "Name concrete investigation steps: speak with the child privately, speak with the other students involved, speak with any witnesses or staff on duty, and review what happened.",
+          "Do not over-promise outcomes and do not claim certainty before you have checked the facts.",
+          "Offer a real conversation such as a phone call or in-person meeting with a suggested time. High-risk cases should not be closed with email alone.",
+          "Close by reinforcing partnership briefly and genuinely, not with a generic closer.",
+          "Do not minimise it or suggest it was probably a misunderstanding.",
+          "Do not use generic closers such as 'Please don't hesitate to reach out'.",
         )
       } else if (/(grade|grading|graded|mark|marked|test score|assessment|homework mark|note\b|noten|bewertung|bewertet)/i.test(normalizedSource)) {
         instructions.push(

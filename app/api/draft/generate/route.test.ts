@@ -2207,6 +2207,72 @@ describe("/api/draft/generate teacher-authentic style guard", () => {
     expect(json.data.generatedDraft).not.toContain("I wanted to update you regarding the incident")
   })
 
+  it("retries high-risk panic scan replies that use generic or condescending safety language", async () => {
+    fallbackGenerator
+      .mockResolvedValueOnce(
+        buildFallbackResult(
+          [
+            "Subject: Follow-up on today's concern",
+            "Hello Karen,",
+            "I know this will feel serious.",
+            "I wanted to follow up on what happened today.",
+            "I will look into this.",
+            "Please don't hesitate to reach out.",
+            "Kind regards,",
+            "Dr Greg Blackburn",
+          ].join("\n\n"),
+        ),
+      )
+      .mockResolvedValueOnce(
+        buildFallbackResult(
+          [
+            "Subject: Follow-up on today's concern",
+            "Hello Karen,",
+            "I'm really sorry to hear Jake had such a difficult experience today. I completely understand why this is worrying.",
+            "I did not personally witness this during class, but I take what you have shared very seriously.",
+            "I will speak with Jake privately tomorrow morning, speak with the other students involved, and check with the staff who were on duty at lunchtime.",
+            "Would you be available for a short phone call tomorrow afternoon, or would you prefer to meet in person?",
+            "Kind regards,",
+            "Dr Greg Blackburn",
+          ].join("\n\n"),
+        ),
+      )
+
+    const request = new Request("https://example.com/api/draft/generate", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: "Bearer token",
+      },
+      body: JSON.stringify({
+        situation:
+          "Jake came home angry and upset saying nobody listened when another child pushed him at lunchtime at school. Karen wants to know what happened in class and why nobody called.",
+        tone: "empathetic",
+        language: "en",
+        mode: "parent_message",
+        inputMode: "panic_scan",
+        sourceType: "ocr_text",
+        messageType: "parent_complaint",
+        scanId: "scan-790",
+        signature: {
+          line1: "Dr Greg Blackburn",
+        },
+      }),
+    })
+
+    const response = await POST(request)
+    const json = await response.json()
+
+    expect(response.status).toBe(200)
+    expect(fallbackGenerator).toHaveBeenCalledTimes(2)
+    expect(json.data.generatedDraft).toContain("I'm really sorry to hear Jake had such a difficult experience today.")
+    expect(json.data.generatedDraft).toContain("I will speak with Jake privately tomorrow morning")
+    expect(json.data.generatedDraft).toContain("Would you be available for a short phone call tomorrow afternoon")
+    expect(json.data.generatedDraft).not.toContain("I know this will feel serious")
+    expect(json.data.generatedDraft).not.toContain("I wanted to follow up on what happened today")
+    expect(json.data.generatedDraft).not.toContain("Please don't hesitate to reach out")
+  })
+
   it("preserves the selected tone through teacher-authenticity retry attempts", async () => {
     fallbackGenerator
       .mockResolvedValueOnce(

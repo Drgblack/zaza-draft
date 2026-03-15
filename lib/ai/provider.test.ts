@@ -123,8 +123,36 @@ describe("buildSystemPrompt", () => {
       pronounPreference: "auto",
     })
 
-    expect(prompt).toContain("If the message raises a bullying, safety, or safeguarding concern")
+    expect(prompt).toContain("Risk tier for this Panic Scan reply: HIGH_RISK.")
+    expect(prompt).toContain("HIGH RISK Panic Scan framework")
     expect(prompt).toContain("Do not minimise it or suggest it was probably a misunderstanding.")
+  })
+
+  it("applies the full high-risk panic scan framework for bullying or safety complaints", () => {
+    const prompt = buildSystemPrompt({
+      situation:
+        "Jake came home angry and upset saying nobody listened when another child pushed him at lunchtime at school. Karen wants to know what happened in class and why nobody called.",
+      generationMetadata: {
+        mode: "panic_scan",
+        direction: "parent_to_teacher",
+        source_type: "ocr_text",
+        locale: "en",
+        prompt_builder: "panic_scan",
+      },
+      tone: "empathetic",
+      language: "en",
+      mode: "parent_message",
+      pronounPreference: "auto",
+    })
+
+    expect(prompt).toContain("HIGH RISK Panic Scan framework")
+    expect(prompt).toContain("Open with genuine emotional acknowledgement")
+    expect(prompt).toContain("If you did not witness the incident, say so honestly without dismissing the report")
+    expect(prompt).toContain("Name concrete investigation steps")
+    expect(prompt).toContain("Offer a real conversation such as a phone call or in-person meeting")
+    expect(prompt).toContain("'I know this will feel serious'")
+    expect(prompt).toContain("'I wanted to follow up on what happened today'")
+    expect(prompt).toContain("Do not use generic closers such as 'Please don't hesitate to reach out'")
   })
 
   it("adds cautious guidance for low-confidence panic scan OCR", () => {

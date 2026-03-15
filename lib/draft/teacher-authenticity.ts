@@ -6,6 +6,7 @@ import {
 } from "@/lib/draft/teacher-note-issues"
 import {
   ENGLISH_PARENT_FACING_BANNED_PHRASES,
+  ENGLISH_HIGH_RISK_PARENT_REPLY_BANNED_PHRASES,
   ENGLISH_PARENT_REPLY_PARROTING_BANNED_PHRASES,
 } from "@/lib/draft/teacher-phrase-inventory"
 
@@ -127,6 +128,12 @@ function resolveRules(language: DraftLanguage, mode: DraftMode) {
   return localeRules.filter((rule) => !rule.modes || rule.modes.includes(mode))
 }
 
+function isHighRiskParentComplaint(text: string) {
+  return /\b(bully|bullying|unsafe|safety|safeguard|safeguarding|hit|hurt|pushed|punch|kick|fight|altercation|afraid|scared|crying|distressed|upset|incident|witness|lunchtime|playground|breaktime|repeated pattern)\b/i.test(
+    text,
+  )
+}
+
 export function detectTeacherAuthenticityViolations(
   text: string | undefined | null,
   options: TeacherAuthenticityOptions,
@@ -156,6 +163,23 @@ export function detectTeacherAuthenticityViolations(
       type: "customer_support",
       phrase: options.language === "de" ? "liebe eltern" : "dear parent",
     })
+  }
+
+  if (
+    options.language === "en" &&
+    options.mode === "parent_message" &&
+    options.direction === "parent_to_teacher" &&
+    isHighRiskParentComplaint(normalize(options.sourceText ?? ""))
+  ) {
+    for (const phrase of ENGLISH_HIGH_RISK_PARENT_REPLY_BANNED_PHRASES) {
+      if (normalized.includes(phrase) && !seen.has(phrase)) {
+        seen.add(phrase)
+        violations.push({
+          type: "customer_support",
+          phrase,
+        })
+      }
+    }
   }
 
   if (options.direction === "teacher_internal_notes") {
