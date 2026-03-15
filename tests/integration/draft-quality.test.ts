@@ -64,7 +64,7 @@ const SALLY_INPUT =
   "Hello Parent, did you know that Sally is late to school every single day and she is very disruptive when she finally arrives. She is silly in class and annoys me to death! And, the homework is just awful. She needs to get a grip and you should tell her that too! If I don't see her improve she will get sent to the Principal's office."
 
 const JAKE_PANIC_INPUT =
-  "Jake came home angry and upset saying nobody listened when another child pushed him at lunchtime. Karen wants to know what happened and why nobody called."
+  "This is a message from Jake's parent to his teacher. Jake came home angry and upset saying nobody listened when another child pushed him at lunchtime at school. Karen wants to know what happened in class and why nobody called."
 
 const SIGNOFF_BLOCK_REGEX = /\n\n(?:Best|Kind|Warm) regards,?\n.+$/s
 const GERMAN_LEAK_REGEX = /\b(?:Betreff|Liebe|Mit freundlichen|Rückmeldung|Hausaufgaben|Guten Tag)\b/i
