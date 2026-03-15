@@ -6,7 +6,11 @@ import {
   ImageRun,
   Packer,
   Paragraph,
-  Tab,
+  PositionalTab,
+  PositionalTabAlignment,
+  PositionalTabLeader,
+  PositionalTabRelativeTo,
+  TabStopPosition,
   TabStopType,
   TextRun,
 } from "docx"
@@ -42,7 +46,7 @@ function createFooter() {
         tabStops: [
           {
             type: TabStopType.RIGHT,
-            position: 9360,
+            position: TabStopPosition.MAX,
           },
         ],
         children: [
@@ -51,7 +55,15 @@ function createFooter() {
             size: FOOTER_FONT_SIZE,
             color: "808080",
           }),
-          new Tab(),
+          new TextRun({
+            children: [
+              new PositionalTab({
+                alignment: PositionalTabAlignment.RIGHT,
+                relativeTo: PositionalTabRelativeTo.MARGIN,
+                leader: PositionalTabLeader.NONE,
+              }),
+            ],
+          }),
           new TextRun({
             text: "Zaza — Just Teach",
             size: FOOTER_FONT_SIZE,
