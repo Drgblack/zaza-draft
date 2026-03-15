@@ -6,17 +6,21 @@ import { buildPdfBuffer } from "@/lib/export/pdf"
 
 async function main() {
   const pdfBuffer = await buildPdfBuffer(
-    [
-      "Subject: Classroom Update",
-      "",
-      "Dear Parent/Guardian,",
-      "",
-      "I wanted to share a short update about the lesson today.",
-      "The student found it difficult to stay focused during parts of the session.",
-      "",
-      "Kind regards,",
-      "Teacher",
-    ].join("\n"),
+    {
+      draftText: [
+        "Subject: Classroom Update",
+        "",
+        "Dear Parent/Guardian,",
+        "",
+        "I wanted to share a short update about the lesson today.",
+        "The student found it difficult to stay focused during parts of the session.",
+        "",
+        "Kind regards,",
+        "Teacher",
+      ].join("\n"),
+      language: "en",
+      mode: "parent_message",
+    },
   )
 
   const outputPath = path.join(process.cwd(), "tmp-export-smoke-test.pdf")

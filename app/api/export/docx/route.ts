@@ -111,6 +111,7 @@ export async function POST(request: Request) {
 
   const buffer = await buildDocxBuffer({
     draftText,
+    language: payload?.language,
     tone: payload?.tone,
     mode: payload?.mode,
   })

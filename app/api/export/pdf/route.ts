@@ -67,7 +67,11 @@ export async function POST(request: Request) {
     )
   }
 
-  const buffer = await buildPdfBuffer(payload.draftText.trim())
+  const buffer = await buildPdfBuffer({
+    draftText: payload.draftText.trim(),
+    language: typeof payload.language === "string" ? payload.language : undefined,
+    mode: typeof payload.mode === "string" ? payload.mode : undefined,
+  })
   const body = new Uint8Array(buffer)
 
   const headers = new Headers()
