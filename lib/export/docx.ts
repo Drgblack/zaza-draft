@@ -3,14 +3,15 @@ import {
   BorderStyle,
   Document,
   Footer,
+  ImageRun,
   Packer,
   Paragraph,
-  Table,
-  TableCell,
-  TableRow,
+  Tab,
+  TabStopType,
   TextRun,
-  WidthType,
 } from "docx"
+import fs from "node:fs/promises"
+import path from "node:path"
 import { getExportSubjectLabel, resolveExportLayout } from "@/lib/export/layout"
 
 interface DocxOptions {
@@ -22,6 +23,7 @@ interface DocxOptions {
 
 const BODY_FONT_SIZE = 24
 const FOOTER_FONT_SIZE = 18
+const BRAND_PURPLE = "8B5CF6"
 const PAGE_MARGINS = {
   top: 1440,
   right: 1080,
@@ -35,77 +37,87 @@ const PAGE_MARGINS = {
 function createFooter() {
   return new Footer({
     children: [
-      new Table({
-        width: {
-          size: 100,
-          type: WidthType.PERCENTAGE,
-        },
-        borders: {
-          top: { style: BorderStyle.NONE, size: 0, color: "FFFFFF" },
-          bottom: { style: BorderStyle.NONE, size: 0, color: "FFFFFF" },
-          left: { style: BorderStyle.NONE, size: 0, color: "FFFFFF" },
-          right: { style: BorderStyle.NONE, size: 0, color: "FFFFFF" },
-          insideHorizontal: { style: BorderStyle.NONE, size: 0, color: "FFFFFF" },
-          insideVertical: { style: BorderStyle.NONE, size: 0, color: "FFFFFF" },
-        },
-        rows: [
-          new TableRow({
-            children: [
-              new TableCell({
-                width: {
-                  size: 50,
-                  type: WidthType.PERCENTAGE,
-                },
-                borders: {
-                  top: { style: BorderStyle.NONE, size: 0, color: "FFFFFF" },
-                  bottom: { style: BorderStyle.NONE, size: 0, color: "FFFFFF" },
-                  left: { style: BorderStyle.NONE, size: 0, color: "FFFFFF" },
-                  right: { style: BorderStyle.NONE, size: 0, color: "FFFFFF" },
-                },
-                children: [
-                  new Paragraph({
-                    spacing: { before: 0, after: 0 },
-                    children: [
-                      new TextRun({
-                        text: "zazadraft.com",
-                        size: FOOTER_FONT_SIZE,
-                        color: "808080",
-                      }),
-                    ],
-                  }),
-                ],
-              }),
-              new TableCell({
-                width: {
-                  size: 50,
-                  type: WidthType.PERCENTAGE,
-                },
-                borders: {
-                  top: { style: BorderStyle.NONE, size: 0, color: "FFFFFF" },
-                  bottom: { style: BorderStyle.NONE, size: 0, color: "FFFFFF" },
-                  left: { style: BorderStyle.NONE, size: 0, color: "FFFFFF" },
-                  right: { style: BorderStyle.NONE, size: 0, color: "FFFFFF" },
-                },
-                children: [
-                  new Paragraph({
-                    alignment: AlignmentType.RIGHT,
-                    spacing: { before: 0, after: 0 },
-                    children: [
-                      new TextRun({
-                        text: "Zaza — Just Teach",
-                        size: FOOTER_FONT_SIZE,
-                        color: "808080",
-                      }),
-                    ],
-                  }),
-                ],
-              }),
-            ],
+      new Paragraph({
+        spacing: { before: 0, after: 0 },
+        tabStops: [
+          {
+            type: TabStopType.RIGHT,
+            position: 9360,
+          },
+        ],
+        children: [
+          new TextRun({
+            text: "zazadraft.com",
+            size: FOOTER_FONT_SIZE,
+            color: "808080",
+          }),
+          new Tab(),
+          new TextRun({
+            text: "Zaza — Just Teach",
+            size: FOOTER_FONT_SIZE,
+            color: "808080",
           }),
         ],
       }),
     ],
   })
+}
+
+async function createBrandBlock() {
+  const logoPath = path.join(process.cwd(), "public", "z-logo.png")
+  const logoData = await fs.readFile(logoPath)
+
+  return [
+    new Paragraph({
+      spacing: {
+        before: 0,
+        after: 40,
+      },
+      children: [
+        new ImageRun({
+          data: logoData,
+          type: "png",
+          transformation: {
+            width: 40,
+            height: 40,
+          },
+        }),
+        new TextRun({
+          text: "  Zaza Draft",
+          bold: true,
+          color: BRAND_PURPLE,
+          size: 30,
+        }),
+      ],
+    }),
+    new Paragraph({
+      spacing: {
+        before: 0,
+        after: 160,
+      },
+      children: [
+        new TextRun({
+          text: "Professional export",
+          size: 19,
+          color: "808080",
+        }),
+      ],
+    }),
+    new Paragraph({
+      spacing: {
+        before: 0,
+        after: 220,
+      },
+      border: {
+        bottom: {
+          color: "D5D9E1",
+          size: 6,
+          style: BorderStyle.SINGLE,
+        },
+      },
+      children: [],
+    }),
+  ]
 }
 
 export async function buildDocxBuffer({ draftText, language, mode }: DocxOptions) {
@@ -115,7 +127,7 @@ export async function buildDocxBuffer({ draftText, language, mode }: DocxOptions
     mode,
   })
 
-  const children: Paragraph[] = []
+  const children: Paragraph[] = await createBrandBlock()
 
   if (layout.subject) {
     children.push(
