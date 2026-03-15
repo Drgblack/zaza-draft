@@ -1,33 +1,38 @@
 import assert from "node:assert"
-import { POST } from "../app/api/export/pdf/route"
+import fs from "node:fs"
+import path from "node:path"
+import { PDFDocument } from "pdf-lib"
+import { buildPdfBuffer } from "@/lib/export/pdf"
 
 async function main() {
-  const payload = {
-    draftText: "Dear parents, the student is improving.",
-    tone: "warm",
-    mode: "parent_message",
-    language: "en",
-  }
+  const pdfBuffer = await buildPdfBuffer(
+    [
+      "Subject: Classroom Update",
+      "",
+      "Dear Parent/Guardian,",
+      "",
+      "I wanted to share a short update about the lesson today.",
+      "The student found it difficult to stay focused during parts of the session.",
+      "",
+      "Kind regards,",
+      "Teacher",
+    ].join("\n"),
+  )
 
-  const request = new Request("http://localhost/api/export/pdf", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(payload),
-  })
+  const outputPath = path.join(process.cwd(), "tmp-export-smoke-test.pdf")
+  fs.writeFileSync(outputPath, pdfBuffer)
 
-  const response = await POST(request)
-  assert.strictEqual(response.status, 200, "PDF export should return 200")
-  const contentType = response.headers.get("content-type")
-  assert(contentType?.includes("application/pdf"), "Content-Type should be application/pdf")
-  const buffer = await response.arrayBuffer()
-  const signature = new Uint8Array(buffer.slice(0, 4))
+  const signature = new Uint8Array(pdfBuffer.subarray(0, 4))
   assert.strictEqual(signature[0], 0x25, "PDF should start with %")
   assert.strictEqual(signature[1], 0x50, "PDF should start with P")
   assert.strictEqual(signature[2], 0x44, "PDF should start with D")
   assert.strictEqual(signature[3], 0x46, "PDF should start with F")
-  console.log("PDF export route test passed.")
+
+  const reopened = await PDFDocument.load(pdfBuffer)
+  assert(reopened.getPageCount() >= 1, "Generated PDF should contain at least one page")
+  assert(fs.existsSync(outputPath), "Smoke test PDF file should be written to disk")
+
+  console.log(`PDF export smoke test passed: ${outputPath}`)
 }
 
 main().catch((error) => {

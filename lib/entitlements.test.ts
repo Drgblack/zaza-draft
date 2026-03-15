@@ -5,6 +5,7 @@ import { afterEach, describe, expect, it, vi } from "vitest"
 import * as usageModule from "./usage"
 import { getUserEntitlements } from "./entitlements"
 import { getCurrentMonthKey } from "./usage"
+import { refreshForcedProUserIds } from "@/lib/dev/forced-pro-users"
 
 const usageRecord = {
   month: getCurrentMonthKey(),
@@ -54,6 +55,9 @@ function createMockFirestore(userDoc: Record<string, unknown>, licenceDocs: Reco
 
 afterEach(() => {
   vi.restoreAllMocks()
+  process.env.FORCE_PRO_USER_IDS = ""
+  process.env.NODE_ENV = "test"
+  refreshForcedProUserIds()
 })
 
 describe("getUserEntitlements override checks", () => {
@@ -150,5 +154,19 @@ describe("getUserEntitlements override checks", () => {
 
     const entitlements = await getUserEntitlements("uid", db)
     expect(entitlements.plan).toBe("free")
+  })
+
+  it("forces a development UID to pro with unlimited usage", async () => {
+    process.env.NODE_ENV = "development"
+    process.env.FORCE_PRO_USER_IDS = "Zht5UDJoSjhXAW8aKnDSd5IViDk1"
+    refreshForcedProUserIds()
+
+    const db = createMockFirestore({}, {})
+
+    const entitlements = await getUserEntitlements("Zht5UDJoSjhXAW8aKnDSd5IViDk1", db)
+    expect(entitlements.plan).toBe("pro")
+    expect(entitlements.usage.unlimited).toBe(true)
+    expect(entitlements.usage.limit).toBeNull()
+    expect(entitlements.isProSubscriber).toBe(true)
   })
 })

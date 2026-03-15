@@ -1,8 +1,10 @@
-import PDFDocument from "pdfkit"
 import { NextResponse } from "next/server"
 import { authorizeFirebaseRequest, FirebaseAuthorizationError } from "@/lib/firebase/server"
 import { extractBearerToken } from "@/lib/auth/bearer"
 import { hasDraftEntitlementAccess, resolveDraftEntitlement } from "@/lib/draft-entitlements"
+import { buildPdfBuffer } from "@/lib/export/pdf"
+
+export const runtime = "nodejs"
 
 const FILENAME_PREFIX = "zaza-draft"
 
@@ -13,35 +15,6 @@ function generateTimestampedFilename(): string {
 
 function validateDraftText(draftText: unknown): draftText is string {
   return typeof draftText === "string" && draftText.trim().length > 0
-}
-
-function buildPdfBuffer(text: string): Promise<Buffer> {
-  const doc = new PDFDocument({
-    autoFirstPage: false,
-    size: "A4",
-    margin: 48,
-  })
-  const chunks: Buffer[] = []
-
-  doc.on("data", (chunk) => chunks.push(Buffer.from(chunk)))
-
-  const completion = new Promise<Buffer>((resolve, reject) => {
-    doc.on("end", () => resolve(Buffer.concat(chunks)))
-    doc.on("error", reject)
-  })
-
-  doc.addPage()
-  doc.font("Times-Roman")
-  doc.fontSize(12)
-  const lines = text.split(/\r?\n/)
-  for (const line of lines) {
-    doc.text(line, {
-      lineGap: 4,
-    })
-  }
-  doc.end()
-
-  return completion
 }
 
 export async function POST(request: Request) {

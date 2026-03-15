@@ -60,6 +60,8 @@ import { isValidDraftRequest, OUT_OF_SCOPE_REDIRECT_MESSAGE } from "./scope-guar
 import { isDebugEnabled } from "@/lib/debug"
 import { classifyGenerationRequest, type GenerationMetadata, type SourceType } from "@/lib/generation/classification"
 import { applyFinalGreetingGuard } from "@/lib/draft/final-greeting"
+import { runSafetyEngine, type SafetyEngineOutput } from "@/src/lib/safetyEngine"
+import { detectTopicKeyword } from "@/src/lib/safetyEngine/topicDetector"
 import {
   GreetingDecision,
   greetingWithName,
@@ -127,6 +129,7 @@ interface GenerateDraftRequest {
   sourceType?: SourceType
   ocrConfidence?: number
   panicClassificationConfidence?: number
+  documentationMode?: boolean
 }
 
 function buildContextLine(context?: GenerateDraftRequest["context"]) {
@@ -202,6 +205,107 @@ function containsStrongEnglishSignals(text: string) {
 
 function countWords(text: string) {
   return text.split(/\s+/).filter(Boolean).length
+}
+
+function resolveDocumentationTopicLabel(
+  rawMessage: string,
+  safetyAnalysis: SafetyEngineOutput | null,
+) {
+  const sanitizeDocumentationTopic = (topic: string) => {
+    const normalized = topic.trim().toLowerCase()
+    if (["adhd", "add", "autism", "dyslexia", "sen", "learning difficulty"].includes(normalized)) {
+      return "learning and attention needs"
+    }
+    return topic
+  }
+
+  const keyword = detectTopicKeyword(rawMessage)
+  if (keyword) {
+    return sanitizeDocumentationTopic(keyword)
+  }
+
+  const escalationSignal = safetyAnalysis?.triggeredSignals.find(
+    (signal) => signal.category === "escalation",
+  )
+  if (escalationSignal) {
+    return sanitizeDocumentationTopic(escalationSignal.label)
+  }
+
+  const labelAttachmentSignal = safetyAnalysis?.triggeredSignals.find(
+    (signal) => signal.id === "acc_label_attachment",
+  )
+  if (labelAttachmentSignal) {
+    return sanitizeDocumentationTopic(labelAttachmentSignal.label)
+  }
+
+  return null
+}
+
+function splitDocumentationSentences(rawMessage: string): string[] {
+  const sentences = rawMessage.match(/[^.!?]+[.!?]?/g)
+
+  if (!sentences) {
+    return []
+  }
+
+  return sentences.map((sentence) => sentence.trim()).filter(Boolean)
+}
+
+function normalizeDocumentationSentence(sentence: string): string {
+  return sentence
+    .replace(/\byour child\b/gi, "The student")
+    .replace(/\byour son\b/gi, "The student")
+    .replace(/\byour daughter\b/gi, "The student")
+    .replace(/^(he|she|they)\b/i, "The student")
+    .replace(
+      /\bI think (he|she|they) (has|have|might have|could have) (ADHD|autism|dyslexia|anxiety|depression|ODD|ADD)\b/gi,
+      "The student may benefit from assessment for learning and attention needs",
+    )
+    .replace(
+      /\b(seems to have|appears to have|might be|could be) (ADHD|autism|dyslexia|anxiety|depression|ODD|ADD)\b/gi,
+      "may benefit from assessment for learning and attention needs",
+    )
+    .replace(
+      /\b(ADHD|autism|dyslexia|anxiety|depression|ODD|ADD|emotional problems|emotional issues|psychological issues|psychological problems|mental health concerns)\b/gi,
+      "social and emotional needs",
+    )
+    .replace(
+      /\b(seems to have|appears to have|appears to be struggling with)\s+social and emotional needs\b/gi,
+      "may need follow-up for social and emotional needs",
+    )
+    .replace(/\b(deliberately|intentionally|on purpose)\b/gi, "")
+    .replace(/\b(chose to|decided to|trying to)\b/gi, "")
+    .replace(/\bI've told you this before\b/gi, "The teacher recorded that this had been raised previously.")
+    .replace(
+      /\bIf this continues we will have to involve the head teacher\b/gi,
+      "Further school follow-up may be required if the pattern continues.",
+    )
+    .replace(/([.!?]){2,}/g, "$1")
+    .replace(/\s+/g, " ")
+    .trim()
+}
+
+function buildDocumentationFallbackDraft(rawMessage: string, documentationTopic: string | null) {
+  const today = new Date().toISOString().split("T")[0]
+  const sentences = splitDocumentationSentences(rawMessage)
+  const observationSentence =
+    normalizeDocumentationSentence(sentences[0] ?? "The teacher recorded a classroom concern.")
+  const actionSentence = normalizeDocumentationSentence(
+    sentences[1] ?? "The teacher recorded that the concern had been raised previously.",
+  )
+  const outcomeSentence = normalizeDocumentationSentence(
+    sentences[2] ?? "Further school follow-up may be required if the pattern continues.",
+  )
+
+  return [
+    `Date: ${today} | Context: ${documentationTopic ?? "general"}`,
+    "",
+    `Observation: ${observationSentence}`,
+    `Action Taken: ${actionSentence}`,
+    `Outcome: ${outcomeSentence}`,
+    "",
+    "This record is for documentation purposes.",
+  ].join("\n")
 }
 
 const MIN_BODY_WORDS = 60
@@ -834,11 +938,42 @@ export async function POST(request: Request) {
     situation,
   )
   const resolvedPronounPreference = pronounResolution.resolvedPreference
+  const safetyEngineMessageDirection =
+    mode === "parent_message" ? "teacher_to_parent" : generationMetadata.direction
+
+  console.log("[safety-engine] input", {
+    messageDirection: safetyEngineMessageDirection,
+    inputMode: generationMetadata.mode,
+    messageLength: countWords(situation),
+  })
+
+  const safetyAnalysis = await runSafetyEngine({
+    rawMessage: situation,
+    messageDirection: safetyEngineMessageDirection,
+    inputMode: generationMetadata.mode,
+  })
+  console.log("[draft] safety analysis resolved", {
+    requestId,
+    riskLevel: safetyAnalysis?.riskLevel ?? null,
+    professionalRiskFlagCount: safetyAnalysis?.professionalRiskFlags.length ?? 0,
+    documentationModeAvailable: safetyAnalysis?.documentationModeAvailable ?? false,
+  })
+  const documentationModeActive = Boolean(
+    payload.documentationMode && safetyAnalysis?.documentationModeAvailable,
+  )
+  const documentationTopic = documentationModeActive
+    ? resolveDocumentationTopicLabel(situation, safetyAnalysis)
+    : null
   const sanitizedInput = sanitizeEmailText(situation)
   const cleanedSituationText = sanitizedInput.cleanText
   const requiresSubjectDetail = Boolean(payload.context?.subject)
+  const compactParentMessageAllowed =
+    mode === "parent_message" &&
+    sanitizedInput.wordCount >= 10 &&
+    splitDocumentationSentences(cleanedSituationText).length >= 2
   const insufficientInput =
-    sanitizedInput.wordCount < 20 || (requiresSubjectDetail && sanitizedInput.substantiveLines === 0)
+    (!compactParentMessageAllowed && sanitizedInput.wordCount < 20) ||
+    (requiresSubjectDetail && sanitizedInput.substantiveLines === 0)
   if (insufficientInput) {
     return fail(
       422,
@@ -1106,6 +1241,7 @@ export async function POST(request: Request) {
     situation: currentSituation,
     generationMetadata,
     originalSituation: originalSituationForPrompt,
+    documentationSourceText: situation,
     tone,
     language,
     context: sanitizedContext,
@@ -1131,6 +1267,9 @@ export async function POST(request: Request) {
     ocrConfidence: payload.ocrConfidence,
     panicClassificationConfidence: payload.panicClassificationConfidence,
     uiLocale: normalizedUiLocale,
+    safetyAnalysis,
+    documentationMode: documentationModeActive,
+    documentationTopic,
   }
   const fallbackContext: DraftFallbackContext = {
     mode,
@@ -1177,6 +1316,9 @@ export async function POST(request: Request) {
     recoveryTrace.events.push({ source, reason, templateFamily })
   }
   const buildSourceGroundedRecoveryDraft = (reason: string) => {
+    if (documentationModeActive) {
+      return
+    }
     // UX decision C: if recovery converges on a generic draft, replace it with a deterministic
     // source-grounded recovery built from the active input rather than surfacing the generic text
     // or failing with an opaque error.
@@ -1251,6 +1393,10 @@ export async function POST(request: Request) {
     pushRecoveryEvent("deterministic_fallback", reason, issue.templateFamily)
   }
   const finalizeDraft = (text: string) => {
+    if (documentationModeActive) {
+      return text.trim()
+    }
+
     let curated = enforcePronouns(text, resolvedPronounPreference)
     curated = enforceTeacherNameStyle(curated, {
       firstName: studentNameForPayload || undefined,
@@ -1268,6 +1414,9 @@ export async function POST(request: Request) {
     de: "Ihre Klassenlehrkraft",
   }
   const normalizeClosingForMode = (text: string) =>
+    documentationModeActive
+      ? text.trim()
+      :
     normalizeClosingBlock(text, {
       locale: language,
       omit: mode === "report_comment" || !resolvedSignature.appendForMode[mode],
@@ -1277,14 +1426,98 @@ export async function POST(request: Request) {
         : FALLBACK_SIGNATURES.en,
     })
   const finalizeDraftWithSignature = (text: string) =>
-    normalizeClosingForMode(applySignatureToDraft(finalizeDraft(text), resolvedSignature, mode))
+    documentationModeActive
+      ? finalizeDraft(text)
+      : normalizeClosingForMode(applySignatureToDraft(finalizeDraft(text), resolvedSignature, mode))
   const finalizeWithGreeting = (text: string) =>
-    removeDuplicateGreeting(finalizeDraftWithSignature(text), finalGreetingLine)
-  const runDraft = (forceLanguage = false, forceContinuation = false) =>
-    generateDraftWithFallback(
+    documentationModeActive
+      ? finalizeDraftWithSignature(text)
+      : removeDuplicateGreeting(finalizeDraftWithSignature(text), finalGreetingLine)
+  const runDraft = async (forceLanguage = false, forceContinuation = false) => {
+    if (documentationModeActive) {
+      try {
+        console.log("[draft] generation call start", {
+          requestId,
+          documentationMode: true,
+          forceLanguage,
+          forceContinuation,
+          riskLevel: safetyAnalysis?.riskLevel ?? null,
+          professionalRiskFlagCount: safetyAnalysis?.professionalRiskFlags.length ?? 0,
+          inputReframedTier,
+          preview: currentSituation.slice(0, 200),
+        })
+        const result = await generateDraft({
+          ...providerInput,
+          forceLanguage,
+          forceContinuation,
+        })
+        console.log("[draft] generation call result", {
+          requestId,
+          documentationMode: true,
+          modelUsed: result.providerMeta.modelUsed,
+          latencyMs: result.providerMeta.latencyMs ?? null,
+          preview: result.text.slice(0, 200),
+        })
+
+        return {
+          result,
+          usedFallback: false,
+          errorCode: null,
+        }
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : String(error)
+        const errorStack = error instanceof Error ? error.stack : undefined
+
+        console.error("[draft] Documentation mode generation failed", {
+          message: errorMessage,
+          stack: errorStack,
+          generationMode: generationMetadata.mode,
+          messageDirection: generationMetadata.direction,
+          documentationTopic,
+        })
+
+        return {
+          result: {
+            text: buildDocumentationFallbackDraft(
+              providerInput.documentationSourceText ?? situation,
+              documentationTopic,
+            ),
+            providerMeta: {
+              modelUsed: "documentation-mode-fallback",
+              latencyMs: 0,
+            },
+          },
+          usedFallback: true,
+          errorCode: "DOCUMENTATION_MODE_FALLBACK",
+        }
+      }
+    }
+
+    console.log("[draft] generation call start", {
+      requestId,
+      documentationMode: false,
+      forceLanguage,
+      forceContinuation,
+      riskLevel: safetyAnalysis?.riskLevel ?? null,
+      professionalRiskFlagCount: safetyAnalysis?.professionalRiskFlags.length ?? 0,
+      inputReframedTier,
+      preview: currentSituation.slice(0, 200),
+    })
+    const result = await generateDraftWithFallback(
       { ...providerInput, forceLanguage, forceContinuation },
       fallbackContext,
     )
+    console.log("[draft] generation call result", {
+      requestId,
+      documentationMode: false,
+      usedFallback: result.usedFallback,
+      errorCode: result.errorCode ?? null,
+      modelUsed: result.result.providerMeta.modelUsed,
+      latencyMs: result.result.providerMeta.latencyMs ?? null,
+      preview: result.result.text.slice(0, 200),
+    })
+    return result
+  }
 
   let draftAttempt = await runDraft()
   let providerResult = draftAttempt.result
@@ -1317,6 +1550,7 @@ export async function POST(request: Request) {
   }
 
   const shouldNormalizeGermanParentMessage =
+    !documentationModeActive &&
     mode === "parent_message" &&
     (language?.toLowerCase().startsWith("de") || normalizedUiLocale?.toLowerCase().startsWith("de"))
 
@@ -1344,6 +1578,13 @@ export async function POST(request: Request) {
   const finalizeAndFormatDraft = (draftText?: string) => {
     if (draftText) {
       generatedDraft = draftText
+    }
+    if (documentationModeActive) {
+      generatedDraft = generatedDraft.trim()
+      formattedDraftStructure = formatDraftText(generatedDraft, language)
+      bodyParagraphCount = formattedDraftStructure.paragraphs.filter((paragraph) => paragraph.trim()).length
+      bodyWordCount = countWords(generatedDraft)
+      return
     }
     if (shouldNormalizeGermanParentMessage) {
       generatedDraft = applyGermanNormalization(generatedDraft)
@@ -1377,6 +1618,13 @@ export async function POST(request: Request) {
   }
 
   const enforceFinalVisibleSignoff = () => {
+    if (documentationModeActive) {
+      formattedDraftStructure = formatDraftText(generatedDraft, language)
+      bodyParagraphCount = formattedDraftStructure.paragraphs.filter((paragraph) => paragraph.trim()).length
+      bodyWordCount = countWords(generatedDraft)
+      return
+    }
+
     if (mode === "report_comment") {
       formattedDraftStructure = sanitizeReportCommentStructure(
         formatDraftText(generatedDraft, language),
@@ -1401,7 +1649,9 @@ export async function POST(request: Request) {
   }
 
   finalizeAndFormatDraft(generatedDraft)
-  const shouldUseGreetingRecoveryTemplate = Boolean(finalGreetingLine && greetingSource === "resolved-name")
+  const shouldUseGreetingRecoveryTemplate = Boolean(
+    !documentationModeActive && finalGreetingLine && greetingSource === "resolved-name",
+  )
   const evaluateBodyNeedsRetry = () =>
     Boolean(
       shouldUseGreetingRecoveryTemplate &&
@@ -1409,12 +1659,13 @@ export async function POST(request: Request) {
     )
 
   const hasMinimumParentMessageOutput = () =>
+    documentationModeActive ||
     mode !== "parent_message" ||
     (bodyParagraphCount >= MIN_PARENT_MESSAGE_PARAGRAPHS &&
       bodyWordCount >= MIN_PARENT_MESSAGE_MEANINGFUL_WORDS)
 
   const recoverCollapsedParentMessageOutput = async () => {
-    if (mode !== "parent_message" || hasMinimumParentMessageOutput()) {
+    if (documentationModeActive || mode !== "parent_message" || hasMinimumParentMessageOutput()) {
       return
     }
 
@@ -1469,6 +1720,10 @@ export async function POST(request: Request) {
     pushRecoveryEvent("deterministic_fallback", "MIN_OUTPUT_TEMPLATE")
   }
   const applyGenericRecoveryGuardIfNeeded = () => {
+    if (documentationModeActive) {
+      return
+    }
+
     const genericRecovery = detectGenericRecoveryOutput(
       generatedDraft,
       currentSituation,
@@ -1911,9 +2166,15 @@ export async function POST(request: Request) {
     usage: usageAfterGeneration,
     snippetId,
     deescalationSummary,
+    safetyAnalysis,
+    documentationModeActive,
   })
   } catch (error) {
-    console.error("[draft] Unexpected error", error)
+    console.error("[draft] Unexpected error", {
+      message: error instanceof Error ? error.message : String(error),
+      stack: error instanceof Error ? error.stack : undefined,
+      documentationMode: Boolean(payload.documentationMode),
+    })
     return fail(500, "INTERNAL", "An unexpected error occurred.")
   }
 }

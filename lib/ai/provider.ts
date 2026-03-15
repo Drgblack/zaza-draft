@@ -22,17 +22,21 @@ import {
   type GreetingDecision,
   type NameConfidenceLevel,
 } from "@/lib/draft/greeting-resolution"
+import type { SafetyEngineOutput } from "@/src/lib/safetyEngine"
 
-function getOpenAiApiKey() {
-  return process.env.OPENAI_API_KEY
+const ANTHROPIC_API_URL = "https://api.anthropic.com/v1/messages"
+const DEFAULT_ANTHROPIC_MODEL = "claude-sonnet-4-20250514"
+
+function getAnthropicApiKey() {
+  return process.env.ANTHROPIC_API_KEY
 }
 
 function getEnvModelPrimary() {
-  return process.env.OPENAI_MODEL_PRIMARY || process.env.OPENAI_MODEL || null
+  return process.env.ANTHROPIC_MODEL_PRIMARY || DEFAULT_ANTHROPIC_MODEL
 }
 
 function getEnvModelFallback() {
-  return process.env.OPENAI_MODEL_FALLBACK ?? null
+  return process.env.ANTHROPIC_MODEL_FALLBACK ?? null
 }
 
 function forceFailPrimary() {
@@ -43,6 +47,7 @@ interface ProviderInput {
   situation: string
   generationMetadata: GenerationMetadata
   originalSituation?: string
+  documentationSourceText?: string
   tone: DraftTone
   language: DraftLanguage
   context?: {
@@ -80,6 +85,9 @@ interface ProviderInput {
     types: string[]
     phrases: string[]
   }
+  safetyAnalysis?: SafetyEngineOutput | null
+  documentationMode?: boolean
+  documentationTopic?: string | null
 }
 
 export interface ProviderMeta {
@@ -94,7 +102,7 @@ export interface ProviderResult {
 }
 
 class ProviderError extends Error {
-  constructor(message: string, public status?: number, public openAIErrorCode?: string) {
+  constructor(message: string, public status?: number, public providerErrorCode?: string) {
     super(message)
     this.name = "ProviderError"
   }
@@ -109,6 +117,23 @@ const PRONOUN_INSTRUCTIONS: Record<PronounPreference, string> = {
   they: "Use they/them pronouns consistently throughout the draft.",
   avoid: "Avoid gendered pronouns entirely and rely on neutral constructions such as 'the student' or 'this learner'.",
 }
+
+const SAFETY_REWRITE_INSTRUCTIONS = {
+  accusation:
+    "Replace any accusatory phrasing with observation-based language. Use 'I noticed' or 'During [time]' instead of 'your child refuses'.",
+  escalation:
+    "Remove or soften any consequence or escalation language. Replace with collaborative next steps.",
+  frustration:
+    "Remove any language that reveals teacher frustration. Maintain a calm, professional tone.",
+  negative_generalisation:
+    "Replace generalising statements with specific, time-bounded observations.",
+  prescriptive_demand:
+    "Remove any directives to the parent. Replace with collaborative invitations.",
+  emotional_coldness:
+    "Add a warm greeting if absent. Add a collaboration invitation if absent.",
+  professional_risk:
+    "Remove any diagnostic speculation, motive attribution, or psychological interpretation. Replace risky phrasing with the general category of concern in safe, parent-facing language while staying specific enough that the parent knows what the conversation is about. For example: instead of 'ADHD' use 'some learning and attention challenges'; instead of 'deliberately disrupts' use 'some persistent behavioural patterns during lessons'; instead of 'emotional problems' use 'some social and emotional difficulties'. Never reduce the concern to vague placeholders such as 'a classroom concern' or 'some issues' on their own. Where appropriate, suggest SENCO or pastoral referral.",
+} as const
 
 function isParentFacingDraft(direction: MessageDirection) {
   return direction === "parent_to_teacher" || direction === "teacher_to_parent" || direction === "teacher_internal_notes"
@@ -385,7 +410,78 @@ function buildContinuationInstruction(input: ProviderInput) {
   return `This greeting needs a full reply; after the opening line, provide at least three short paragraphs that acknowledge the concern, outline a practical next step, and invite a calm discussion. ${buildToneRecoveryInstruction(input)}`
 }
 
+function buildDocumentationModePrompt(input: ProviderInput) {
+  const today = new Date().toISOString().split("T")[0]
+  const detectedTopic = input.documentationTopic ?? "general"
+  const rawMessage = input.documentationSourceText ?? input.originalSituation ?? input.situation
+
+  return `You are writing an objective school incident record, not a parent communication.
+
+Rules:
+1. Begin with: Date: ${today} | Context: ${detectedTopic}
+2. Use only past-tense observable verbs: left, spoke, walked, took
+3. Never use: you, your child, he is, she is, problem, behaviour issues
+4. Structure exactly as: Observation → Action Taken → Outcome
+5. No emotional language. No adjectives describing character or intent.
+6. End with: "This record is for documentation purposes."
+7. Use third person: "The student" or [child name] if known
+8. If the source includes diagnostic speculation, motive attribution, or psychological interpretation, rewrite it into safe documentation language rather than repeating it.
+9. Replace "I think he might have ADHD" with "The student may benefit from assessment for learning and attention needs."
+10. Replace motive language such as "deliberately disrupts" with the observable action only.
+11. Replace psychological interpretation with safe pastoral wording such as "The student may need follow-up for social and emotional needs."
+12. Only document what is explicitly stated in the source text. Do not infer, elaborate, or add specific details not present in the input.
+13. If the source is vague, the record must also be vague. Write only what can be directly attributed to the source.
+
+Input: ${rawMessage}`
+}
+
+function buildSafetyAnalysisInstructions(input: ProviderInput) {
+  if (!input.safetyAnalysis || input.documentationMode) {
+    return []
+  }
+
+  const triggeredLabels = input.safetyAnalysis.triggeredSignals.map((signal) => signal.label)
+  const categories = new Set(
+    input.safetyAnalysis.triggeredSignals.map((signal) => signal.category),
+  )
+
+  if (input.safetyAnalysis.professionalRiskFlags.length > 0) {
+    categories.add("professional_risk")
+  }
+
+  const rewriteInstructions = Array.from(categories)
+    .map((category) => {
+      if (category === "mitigating") {
+        return null
+      }
+
+      return SAFETY_REWRITE_INSTRUCTIONS[category as keyof typeof SAFETY_REWRITE_INSTRUCTIONS] ?? null
+    })
+    .filter((instruction): instruction is string => Boolean(instruction))
+
+  return [
+    "Communication Safety Analysis:",
+    `- Risk level: ${input.safetyAnalysis.riskLevel}`,
+    `- Triggered signals: ${triggeredLabels.join(", ") || "None"}`,
+    `- Tone classification: ${input.safetyAnalysis.toneClass}`,
+    "Rewriting instructions based on detected signals:",
+    ...rewriteInstructions.map((instruction) => `- ${instruction}`),
+    "Hard constraints for this rewrite:",
+    "- The rewritten message MUST include the specific behaviour or concern from the original message. Never replace it with generic phrases such as 'a classroom concern', 'some issues', or 'a concern in class'.",
+    "- The rewritten message MUST make clear what happened, when or where it happened if that is stated in the source, and what the teacher would like to happen next.",
+    "- Only change framing and tone. Keep the factual content, pattern, and school context from the original message.",
+    "- If the original says a student 'refuses to listen', rewrite it as the same concern in observation-based language, for example: 'I've noticed that following instructions has sometimes been challenging.'",
+    "- A parent reading the rewritten message should understand the exact concern without needing to ask a follow-up question.",
+    "Never hallucinate specific facts, dates, or incidents not in the original message.",
+    "Preserve the core information. Only change tone and framing.",
+  ]
+}
+
 export function buildSystemPrompt(input: ProviderInput) {
+  if (input.documentationMode) {
+    return buildDocumentationModePrompt(input)
+  }
+
   const systemLines = [
     "You are Zara Draft, an assistant for K-12 teachers who writes professional, concise communications for parents and colleagues.",
     "Always stay factual: do not invent facts that were not provided in the prompt. When details are missing, keep the response neutral and ask for clarification.",
@@ -414,6 +510,7 @@ export function buildSystemPrompt(input: ProviderInput) {
     buildDirectionInstruction(input.generationMetadata.direction),
     MODE_PROMPT_INSTRUCTIONS[input.mode],
     ...PROMPT_BUILDERS[input.generationMetadata.prompt_builder](input),
+    ...buildSafetyAnalysisInstructions(input),
   ]
 
   if (input.generationMetadata.direction === "parent_to_teacher") {
@@ -640,9 +737,7 @@ function delay(ms: number) {
 function resolveModels() {
   const primary = getEnvModelPrimary()
   if (!primary) {
-    throw new ProviderError(
-      "Missing OpenAI model configuration (OPENAI_MODEL_PRIMARY or OPENAI_MODEL)",
-    )
+    throw new ProviderError("Missing Anthropic model configuration (ANTHROPIC_MODEL_PRIMARY)")
   }
 
   return {
@@ -668,6 +763,25 @@ interface FetchPayload {
 
 function buildBasePayload(input: ProviderInput): FetchPayload {
   const system = buildSystemPrompt(input)
+  if ((input.safetyAnalysis?.professionalRiskFlags.length ?? 0) > 0) {
+    console.log("[provider] professional-risk full prompt", {
+      documentationMode: Boolean(input.documentationMode),
+      generationMode: input.generationMetadata.mode,
+      direction: input.generationMetadata.direction,
+      prompt: system,
+    })
+  }
+  if (input.documentationMode) {
+    return {
+      messages: [
+        { role: "system", content: system },
+        { role: "user", content: input.documentationSourceText ?? input.originalSituation ?? input.situation },
+      ],
+      temperature: 0.2,
+      top_p: 0.1,
+      max_tokens: 400,
+    }
+  }
   const sampling = resolveGenerationSamplingConfig({
     mode: input.mode,
     generationMetadata: input.generationMetadata,
@@ -733,7 +847,7 @@ function isTransientOpenAIError(error: unknown) {
       return true
     }
 
-    if (error.openAIErrorCode === "rate_limit_exceeded") {
+    if (error.providerErrorCode === "rate_limit_exceeded") {
       return true
     }
 
@@ -754,33 +868,50 @@ function isTransientOpenAIError(error: unknown) {
   return false
 }
 
-async function callOpenAIModel(model: string, payload: FetchPayload): Promise<GenerationResult> {
-  const openAiKey = getOpenAiApiKey()
-  if (!openAiKey) {
-    throw new ProviderError("Missing AI provider key (OPENAI_API_KEY)")
+function extractAnthropicTextContent(payload: any) {
+  const content = Array.isArray(payload?.content) ? payload.content : []
+  return content
+    .filter((item: { type?: string; text?: string }) => item?.type === "text" && typeof item.text === "string")
+    .map((item: { text: string }) => item.text)
+    .join("")
+    .trim()
+}
+
+async function callAnthropicModel(model: string, payload: FetchPayload): Promise<GenerationResult> {
+  const anthropicKey = getAnthropicApiKey()
+  if (!anthropicKey) {
+    throw new ProviderError("Missing Anthropic API key (ANTHROPIC_API_KEY)")
   }
 
-  const buildRequestPayload = (seedOverride = payload.seed) => ({
-    ...payload,
-    model,
-    ...(seedOverride === undefined ? {} : { seed: seedOverride }),
-  })
+  const system = payload.messages.find((message) => message.role === "system")?.content ?? ""
+  const messages = payload.messages
+    .filter((message) => message.role !== "system")
+    .map((message) => ({
+      role: message.role,
+      content: message.content,
+    }))
 
-  const requestOnce = async (requestPayload: Record<string, unknown>) => {
-    return fetch("https://api.openai.com/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${openAiKey}`,
-      },
-      body: JSON.stringify(requestPayload),
-    })
+  const requestPayload = {
+    model,
+    system,
+    messages,
+    temperature: payload.temperature,
+    top_p: payload.top_p,
+    max_tokens: payload.max_tokens,
   }
 
   const start = Date.now()
   let response: Response
   try {
-    response = await requestOnce(buildRequestPayload())
+    response = await fetch(ANTHROPIC_API_URL, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-api-key": anthropicKey,
+        "anthropic-version": "2023-06-01",
+      },
+      body: JSON.stringify(requestPayload),
+    })
   } catch (error) {
     throw new ProviderError(
       `AI_GENERATION_FAILED: ${error instanceof Error ? error.message : "Network error"}`,
@@ -795,52 +926,26 @@ async function callOpenAIModel(model: string, payload: FetchPayload): Promise<Ge
     json = null
   }
 
-  let latencyMs = Date.now() - start
+  const latencyMs = Date.now() - start
 
   if (!response.ok) {
-    const errorMessage = String(json?.error?.message ?? "").toLowerCase()
-    const code = json?.error?.code
-    if (
-      payload.seed !== undefined &&
-      response.status === 400 &&
-      (code === "unsupported_parameter" || errorMessage.includes("seed"))
-    ) {
-      try {
-        response = await requestOnce(buildRequestPayload(undefined))
-        const retryText = await response.text()
-        try {
-          json = JSON.parse(retryText)
-        } catch {
-          json = null
-        }
-        latencyMs = Date.now() - start
-      } catch (error) {
-        throw new ProviderError(
-          `AI_GENERATION_FAILED: ${error instanceof Error ? error.message : "Network error"}`,
-        )
-      }
-      if (!response.ok) {
-        throw new ProviderError(
-          `AI_GENERATION_FAILED: ${response.status} ${response.statusText}`,
-          response.status,
-          json?.error?.code,
-        )
-      }
-    } else {
-      throw new ProviderError(
-        `AI_GENERATION_FAILED: ${response.status} ${response.statusText}`,
-        response.status,
-        code,
-      )
-    }
+    throw new ProviderError(
+      `AI_GENERATION_FAILED: ${response.status} ${response.statusText}`,
+      response.status,
+      json?.error?.type ?? json?.error?.code,
+    )
   }
 
-  const result = json?.choices?.[0]?.message?.content?.trim()
+  const result = extractAnthropicTextContent(json)
   if (!result) {
     throw new ProviderError("AI_GENERATION_FAILED: No content returned")
   }
 
-  const tokensUsed = json?.usage?.total_tokens
+  const tokensUsed =
+    typeof json?.usage?.input_tokens === "number" && typeof json?.usage?.output_tokens === "number"
+      ? json.usage.input_tokens + json.usage.output_tokens
+      : undefined
+
   return {
     text: result,
     latencyMs,
@@ -859,7 +964,7 @@ async function callWithFallback(payload: FetchPayload): Promise<GenerationResult
       simulatedFailure = true
       throw new ProviderError("Simulated primary failure", 503)
     }
-    return callOpenAIModel(primary, payload)
+    return callAnthropicModel(primary, payload)
   }
 
   try {
@@ -867,7 +972,7 @@ async function callWithFallback(payload: FetchPayload): Promise<GenerationResult
   } catch (error) {
     console.warn("[provider] primary model failed", {
       status: error instanceof ProviderError ? error.status : undefined,
-      code: error instanceof ProviderError ? error.openAIErrorCode : undefined,
+      code: error instanceof ProviderError ? error.providerErrorCode : undefined,
     })
     lastError = error instanceof Error ? error : new Error("Unknown error")
 
@@ -892,7 +997,7 @@ async function callWithFallback(payload: FetchPayload): Promise<GenerationResult
   }
 
   console.info("[provider] falling back to secondary model", { fallbackModel: fallback })
-  return callOpenAIModel(fallback, payload)
+  return callAnthropicModel(fallback, payload)
 }
 
 export async function generateDraft(input: ProviderInput): Promise<ProviderResult> {

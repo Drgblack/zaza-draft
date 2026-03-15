@@ -12,6 +12,12 @@ import { DeescalationBanner } from "@/components/deescalation-banner"
 import { MiniInsightsBar } from "@/components/MiniInsightsBar"
 import { ContextualWellbeingTip } from "@/components/ContextualWellbeingTip"
 import { ReframeExplanation } from "@/components/reframe-explanation"
+import { SafetyBadge } from "@/src/components/SafetyBadge"
+import { TriggerList } from "@/src/components/TriggerList"
+import { ReactionForecast } from "@/src/components/ReactionForecast"
+import { ExplanationPanel } from "@/src/components/ExplanationPanel"
+import { ProfessionalRiskBanner } from "@/src/components/ProfessionalRiskBanner"
+import { DocumentationModeButton } from "@/src/components/DocumentationModeButton"
 import { useAuth } from "@/hooks/use-auth"
 import { logClientEvent } from "@/lib/analytics"
 import type { PlanType } from "@/lib/usage"
@@ -30,6 +36,7 @@ import type { LucideIcon } from "lucide-react"
 import { formatGreetingDisplay } from "@/lib/text/greeting-display"
 import { saveLastRunTimestamp } from "@/lib/diagnostics/local-storage"
 import { resolveTeacherSignatureName } from "@/lib/draft/teacher-signature"
+import type { SafetyEngineOutput } from "@/src/lib/safetyEngine"
 
 const TONE_OPTIONS = [
   { id: "warm", key: "tone.warm" },
@@ -279,6 +286,8 @@ export function MainEditor({ canExport = true }: MainEditorProps = {}) {
   const [draftMetadata, setDraftMetadata] = useState<any>(null)
   const [draftStructure, setDraftStructure] = useState<DraftStructure | null>(null)
   const [deescalationSummary, setDeescalationSummary] = useState<DeescalationSummary | null>(null)
+  const [safetyAnalysis, setSafetyAnalysis] = useState<SafetyEngineOutput | null>(null)
+  const [documentationModeActive, setDocumentationModeActive] = useState(false)
   const [enforcedGreeting, setEnforcedGreeting] = useState<EnforcedGreeting | null>(null)
   const [sourceFlow, setSourceFlow] = useState<SourceFlow>("safe_draft")
   const [panicScanHandoff, setPanicScanHandoff] = useState<PanicScanHandoffState | null>(null)
@@ -330,6 +339,8 @@ export function MainEditor({ canExport = true }: MainEditorProps = {}) {
     setDraftMetadata(null)
     setDraftStructure(null)
     setDeescalationSummary(null)
+    setSafetyAnalysis(null)
+    setDocumentationModeActive(false)
     setInputReframeTier(null)
     setLastGenerationSignature(null)
   }, [])
@@ -672,7 +683,9 @@ export function MainEditor({ canExport = true }: MainEditorProps = {}) {
     return () => clearInterval(interval)
   }, [isGenerating])
 
-  const handleGenerate = async (options: { rewrite?: boolean; previousDraft?: string } = {}) => {
+  const handleGenerate = async (
+    options: { rewrite?: boolean; previousDraft?: string; documentationMode?: boolean } = {},
+  ) => {
     const trimmedContent = content.trim()
     if (!trimmedContent || isGenerating) {
       return
@@ -695,6 +708,7 @@ export function MainEditor({ canExport = true }: MainEditorProps = {}) {
     setDraftStructure(null)
     setDeescalationSummary(null)
     setInputReframeTier(null)
+    setDocumentationModeActive(Boolean(options.documentationMode))
     setBlockedLanguageContext(null)
     setOutOfScopeNotice(false)
     setOutOfScopeMessage("")
@@ -761,6 +775,8 @@ export function MainEditor({ canExport = true }: MainEditorProps = {}) {
     if (options.previousDraft) {
       payload.previousDraft = options.previousDraft
     }
+
+    payload.documentationMode = Boolean(options.documentationMode)
 
     logClientEvent("draft_generate_requested", {
       tone: selectedTone,
@@ -848,10 +864,15 @@ export function MainEditor({ canExport = true }: MainEditorProps = {}) {
         setInputReframeTier(null)
       }
 
+      const nextSafetyOutput = data.data.safetyAnalysis ?? null
+
       setGeneratedDraft(data.data.generatedDraft)
       setDraftMetadata(data.data.metadata)
       setDraftStructure(data.data.formattedDraft ?? null)
       setDeescalationSummary(data.data.deescalationSummary ?? null)
+      setSafetyAnalysis(nextSafetyOutput)
+      console.log("safetyOutput", nextSafetyOutput)
+      setDocumentationModeActive(Boolean(data.data.documentationModeActive))
       setEnforcedGreeting(data.data.greeting ?? null)
       setLastGenerationSignature({
         content: trimmedContent,
@@ -979,6 +1000,10 @@ export function MainEditor({ canExport = true }: MainEditorProps = {}) {
     handleGenerate({ rewrite: true, previousDraft: generatedDraft })
   }
 
+  const handleActivateDocumentationMode = () => {
+    void handleGenerate({ documentationMode: true })
+  }
+
   const buildSha =
     process.env.VERCEL_GIT_COMMIT_SHA ??
     process.env.NEXT_PUBLIC_VERCEL_GIT_COMMIT_SHA ??
@@ -1068,7 +1093,7 @@ export function MainEditor({ canExport = true }: MainEditorProps = {}) {
               )
             })}
             </div>
-            <section className="glass shadow-lg rounded-xl p-6 sm:p-8 transition-all duration-200 border border-white/40 dark:border-white/30 bg-white/90 dark:bg-white/15 backdrop-blur-[32px]">
+          <section className="glass shadow-lg rounded-xl p-6 sm:p-8 transition-all duration-200 border border-white/40 dark:border-white/30 bg-white/90 dark:bg-white/15 backdrop-blur-[32px]">
               <textarea
                 ref={textareaRef}
                 value={content}
@@ -1103,6 +1128,12 @@ Examples:
                   : "Do not include student full names, email addresses, phone numbers, or street addresses."}
               </p>
             </section>
+            {safetyAnalysis && (
+              <TriggerList
+                triggeredSignals={safetyAnalysis.triggeredSignals as any}
+                riskLevel={safetyAnalysis.riskLevel}
+              />
+            )}
           </section>
 
           {outOfScopeNotice && (
@@ -1415,7 +1446,7 @@ Examples:
         )}
 
         {generatedDraft && draftMetadata && (
-          <div className="mt-8 space-y-2">
+          <div className="mt-8 space-y-3">
             <DraftOutput
               draftText={generatedDraft}
               tone={draftMetadata.toneUsed ?? selectedTone}
@@ -1431,10 +1462,29 @@ Examples:
               structure={draftStructure ?? undefined}
               canExport={canExport}
               getIdToken={getIdToken}
+              headerBadge={<SafetyBadge riskLevel={safetyAnalysis?.riskLevel} />}
+              headerBanner={<ProfessionalRiskBanner flags={safetyAnalysis?.professionalRiskFlags} />}
+              resultModeBadge={documentationModeActive ? "Documentation Mode" : null}
             />
+            {safetyAnalysis && (
+              <ReactionForecast
+                forecast={safetyAnalysis.reactionForecast}
+                riskLevel={safetyAnalysis.riskLevel}
+              />
+            )}
+            {safetyAnalysis && (
+              <ExplanationPanel
+                explanationLines={safetyAnalysis.explanationLines}
+                riskLevel={safetyAnalysis.riskLevel}
+              />
+            )}
             {deescalationSummary?.wasDeescalated && (
               <DeescalationBanner summary={deescalationSummary} />
             )}
+            <DocumentationModeButton
+              available={Boolean(safetyAnalysis?.documentationModeAvailable)}
+              onActivate={handleActivateDocumentationMode}
+            />
           </div>
         )}
         {generatedDraft && draftMetadata && explanationTier && (

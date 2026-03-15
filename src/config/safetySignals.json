@@ -1,0 +1,467 @@
+{
+  "signals": [
+    {
+      "id": "acc_your_child_negative",
+      "category": "accusation",
+      "label": "Direct accusation",
+      "weight": 10,
+      "patterns": [
+        "your child (refuses|won't|will not|keeps|never|always|constantly)",
+        "your son (refuses|won't|will not|keeps|never|always)",
+        "your daughter (refuses|won't|will not|keeps|never|always)"
+      ],
+      "matchMode": "any",
+      "proximityBoost": true,
+      "detectionNote": "Only fires when negative verb follows within 5 words"
+    },
+    {
+      "id": "acc_absolute_negative",
+      "category": "accusation",
+      "label": "Absolute negative statement",
+      "weight": 9,
+      "patterns": ["\\balways\\b", "\\bnever\\b", "\\bconstantly\\b", "\\brepeatedly\\b"],
+      "matchMode": "any",
+      "proximityBoost": false,
+      "detectionNote": "Must co-occur with behaviour word — use requiresCoContext in v2",
+      "requiresCoContext": ["acc_judgement_label", "neg_state_claim"]
+    },
+    {
+      "id": "acc_character_claim",
+      "category": "accusation",
+      "label": "Character judgement",
+      "weight": 10,
+      "patterns": [
+        "\\b(he|she|they) is (lazy|rude|defiant|difficult|disrespectful|aggressive|disruptive)\\b",
+        "\\byour child is (lazy|rude|defiant|difficult|disrespectful|aggressive|disruptive)\\b"
+      ],
+      "matchMode": "any",
+      "proximityBoost": true,
+      "detectionNote": "State verb + trait noun pattern"
+    },
+    {
+      "id": "acc_refusal_language",
+      "category": "accusation",
+      "label": "Refusal language",
+      "weight": 9,
+      "patterns": ["refuses to", "will not follow", "won't cooperate", "declines to", "won't listen"],
+      "matchMode": "any",
+      "proximityBoost": false,
+      "detectionNote": "Strong signal; rarely neutral in parent messages"
+    },
+    {
+      "id": "acc_judgement_label",
+      "category": "accusation",
+      "label": "Judgement label",
+      "weight": 8,
+      "patterns": ["\\b(lazy|rude|defiant|aggressive|disruptive|difficult|disrespectful)\\b"],
+      "matchMode": "any",
+      "proximityBoost": false,
+      "detectionNote": "Fires on adjective alone; lower weight than character claim"
+    },
+    {
+      "id": "acc_label_attachment",
+      "category": "accusation",
+      "label": "Labelling the child",
+      "weight": 10,
+      "patterns": ["a problem student", "a difficult child", "the disruptive one", "a troublemaker"],
+      "matchMode": "any",
+      "proximityBoost": false,
+      "detectionNote": "Rare but extreme — always fires regardless of context"
+    },
+    {
+      "id": "esc_administrative_threat",
+      "category": "escalation",
+      "label": "Administrative escalation",
+      "weight": 9,
+      "patterns": [
+        "the principal",
+        "head teacher",
+        "formal process",
+        "school policy requires",
+        "disciplinary action",
+        "formal complaint"
+      ],
+      "matchMode": "any",
+      "proximityBoost": false,
+      "detectionNote": "Only fire when paired with negative framing — use requiresCoContext in v2"
+    },
+    {
+      "id": "esc_consequence_framing",
+      "category": "escalation",
+      "label": "Consequence threat",
+      "weight": 8,
+      "patterns": [
+        "if this continues",
+        "if we don't see improvement",
+        "unless things change",
+        "we will have to",
+        "we may need to",
+        "we are left with no choice"
+      ],
+      "matchMode": "any",
+      "proximityBoost": true,
+      "detectionNote": "Conditional + consequence structure"
+    },
+    {
+      "id": "esc_formal_documentation",
+      "category": "escalation",
+      "label": "Formal documentation reference",
+      "weight": 9,
+      "patterns": [
+        "I am writing to formally",
+        "for the record",
+        "I want this noted",
+        "I wish to place on record"
+      ],
+      "matchMode": "any",
+      "proximityBoost": false,
+      "detectionNote": "Strong signal regardless of surrounding tone"
+    },
+    {
+      "id": "esc_deadline_pressure",
+      "category": "escalation",
+      "label": "Urgency pressure",
+      "weight": 7,
+      "patterns": [
+        "\\bimmediately\\b",
+        "\\burgently\\b",
+        "as soon as possible",
+        "by (monday|tuesday|wednesday|thursday|friday|tomorrow)"
+      ],
+      "matchMode": "any",
+      "proximityBoost": false,
+      "detectionNote": "Lower weight alone; higher when stacked"
+    },
+    {
+      "id": "fru_repetition_fatigue",
+      "category": "frustration",
+      "label": "Repetition fatigue",
+      "weight": 6,
+      "patterns": [
+        "as I('ve| have) mentioned",
+        "I already told",
+        "this is not the first time",
+        "\\bagain\\b",
+        "\\bstill\\b"
+      ],
+      "matchMode": "any",
+      "proximityBoost": false,
+      "detectionNote": "again and still are common false positives — stacking required for High"
+    },
+    {
+      "id": "fru_exhaustion",
+      "category": "frustration",
+      "label": "Teacher exhaustion",
+      "weight": 6,
+      "patterns": [
+        "I don't know what else to do",
+        "I've tried everything",
+        "nothing seems to work",
+        "I'm at a loss"
+      ],
+      "matchMode": "any",
+      "proximityBoost": false,
+      "detectionNote": "Strong emotional signal; low false-positive risk"
+    },
+    {
+      "id": "fru_passive_aggressive",
+      "category": "frustration",
+      "label": "Passive-aggressive phrasing",
+      "weight": 5,
+      "patterns": ["\\bapparently\\b", "\\bsupposedly\\b", "it would seem", "one might think", "\\bsomehow\\b"],
+      "matchMode": "any",
+      "proximityBoost": false,
+      "detectionNote": "Context-sensitive; apparently alone is low risk"
+    },
+    {
+      "id": "fru_emotional_intensifier",
+      "category": "frustration",
+      "label": "Emotional intensifier",
+      "weight": 4,
+      "patterns": ["\\bhonestly\\b", "\\bfrankly\\b", "I have to be direct", "to be blunt", "I have to say"],
+      "matchMode": "any",
+      "proximityBoost": false,
+      "detectionNote": "Low weight alone; stacks easily"
+    },
+    {
+      "id": "neg_state_claim",
+      "category": "negative_generalisation",
+      "label": "State claim without evidence",
+      "weight": 7,
+      "patterns": ["\\b(he|she|they) is (\\w+ ){0,2}(disruptive|a problem|difficult|rude|lazy)\\b"],
+      "matchMode": "any",
+      "proximityBoost": false,
+      "detectionNote": "Fires on state verb + trait label with no time/event anchor"
+    },
+    {
+      "id": "neg_global_failure",
+      "category": "negative_generalisation",
+      "label": "Global failure framing",
+      "weight": 6,
+      "patterns": [
+        "across all subjects",
+        "in every lesson",
+        "throughout the day",
+        "all day",
+        "every single"
+      ],
+      "matchMode": "any",
+      "proximityBoost": false,
+      "detectionNote": "Scope word + negative behaviour pattern"
+    },
+    {
+      "id": "neg_comparative_diminishment",
+      "category": "negative_generalisation",
+      "label": "Unfavourable comparison",
+      "weight": 8,
+      "patterns": [
+        "unlike other students",
+        "most children",
+        "compared to the class",
+        "other students don't",
+        "the rest of the class"
+      ],
+      "matchMode": "any",
+      "proximityBoost": false,
+      "detectionNote": "High false-positive risk; only meaningful with negative context"
+    },
+    {
+      "id": "pre_parental_directive",
+      "category": "prescriptive_demand",
+      "label": "Prescriptive demand",
+      "weight": 8,
+      "patterns": [
+        "you need to",
+        "you must",
+        "you should",
+        "it is your responsibility",
+        "you have to",
+        "you are required to"
+      ],
+      "matchMode": "any",
+      "proximityBoost": true,
+      "detectionNote": "Authority-challenging; maps to Hostile/Resentful reaction, distinct from Defensive"
+    },
+    {
+      "id": "pre_rhetorical_accusation",
+      "category": "prescriptive_demand",
+      "label": "Accusatory question",
+      "weight": 7,
+      "patterns": [
+        "why can't (he|she|they)",
+        "why won't (he|she|they)",
+        "why does (he|she) always",
+        "why haven't you"
+      ],
+      "matchMode": "any",
+      "proximityBoost": false,
+      "detectionNote": "Rhetorical questions that imply blame"
+    },
+    {
+      "id": "cold_no_greeting",
+      "category": "emotional_coldness",
+      "label": "No greeting",
+      "weight": 3,
+      "patterns": ["^(Dear|Hello|Hi|Good morning|Good afternoon)"],
+      "matchMode": "absence",
+      "proximityBoost": false,
+      "detectionNote": "Absence rule — fires if message does not begin with greeting"
+    },
+    {
+      "id": "cold_no_collaboration",
+      "category": "emotional_coldness",
+      "label": "No collaboration invitation",
+      "weight": 4,
+      "patterns": [
+        "work together",
+        "working together",
+        "could we",
+        "would you be",
+        "I'd welcome",
+        "let's",
+        "together we",
+        "your support",
+        "your input"
+      ],
+      "matchMode": "absence",
+      "proximityBoost": false,
+      "detectionNote": "Absence rule — fires if none of these patterns found in full message"
+    },
+    {
+      "id": "pro_medical_speculation",
+      "category": "professional_risk",
+      "label": "Medical or diagnostic speculation",
+      "weight": 15,
+      "patterns": [
+        "I think (he|she|they) (has|have|might have|could have)",
+        "seems to have (ADHD|autism|dyslexia|anxiety|depression|ODD|ADD)",
+        "might be (autistic|dyslexic|anxious|depressed)",
+        "could be (ADHD|a sign of|related to)",
+        "\\b(ADHD|autism|dyslexia|ODD|sensory processing)\\b"
+      ],
+      "matchMode": "any",
+      "proximityBoost": false,
+      "detectionNote": "Fires on diagnostic terms or speculative phrasing. High false-positive risk for ADHD — only fire when paired with speculative verb. Bare ADHD mention always fires."
+    },
+    {
+      "id": "pro_motive_attribution",
+      "category": "professional_risk",
+      "label": "Motive attribution",
+      "weight": 15,
+      "patterns": [
+        "he (deliberately|intentionally|on purpose|chose to|decided to)",
+        "she (deliberately|intentionally|on purpose|chose to|decided to)",
+        "they (deliberately|intentionally|on purpose|chose to|decided to)",
+        "knew (exactly|what he was|what she was) doing",
+        "trying to (disrupt|provoke|cause)"
+      ],
+      "matchMode": "any",
+      "proximityBoost": false,
+      "detectionNote": "Asserting intent is legally dangerous — cannot be observed, only inferred."
+    },
+    {
+      "id": "pro_psychological_interpretation",
+      "category": "professional_risk",
+      "label": "Psychological interpretation",
+      "weight": 15,
+      "patterns": [
+        "seems (depressed|anxious|disturbed|troubled|withdrawn|unstable)",
+        "appears to be (struggling emotionally|mentally|psychologically)",
+        "emotional (problems|issues|difficulties)",
+        "psychological (issues|problems|needs)",
+        "mental health (concerns|issues|problems)"
+      ],
+      "matchMode": "any",
+      "proximityBoost": false,
+      "detectionNote": "Teachers should describe observable behaviour only and direct to SENCO channels."
+    },
+    {
+      "id": "pro_legal_certainty",
+      "category": "professional_risk",
+      "label": "Overstatement of certainty",
+      "weight": 15,
+      "patterns": [
+        "I know (for certain|for sure|without doubt) that",
+        "it is clear that (he|she|they)",
+        "there is no doubt",
+        "I can confirm that (he|she) (stole|lied|cheated|hit|attacked|threatened)"
+      ],
+      "matchMode": "any",
+      "proximityBoost": false,
+      "detectionNote": "Stating certainty about serious incidents before formal investigation is legally risky."
+    },
+    {
+      "id": "mit_collaborative_opener",
+      "category": "mitigating",
+      "label": "Collaborative opener",
+      "weight": -6,
+      "patterns": [
+        "I wanted to reach out",
+        "I'd love to find a way",
+        "I'm hoping we can",
+        "I wanted to connect",
+        "reaching out to discuss"
+      ],
+      "matchMode": "any",
+      "proximityBoost": true,
+      "detectionNote": "Strong negative weight; proximityBoost applies to opening sentence"
+    },
+    {
+      "id": "mit_empathy",
+      "category": "mitigating",
+      "label": "Empathy acknowledgement",
+      "weight": -5,
+      "patterns": [
+        "I understand",
+        "I know this can be",
+        "I appreciate",
+        "I realise",
+        "this must be",
+        "it can be difficult"
+      ],
+      "matchMode": "any",
+      "proximityBoost": false,
+      "detectionNote": "Watch for formulaic uses"
+    },
+    {
+      "id": "mit_evidence_phrasing",
+      "category": "mitigating",
+      "label": "Evidence-based phrasing",
+      "weight": -8,
+      "patterns": [
+        "I observed",
+        "during today's lesson",
+        "during this (week|lesson|class|session)",
+        "on (\\d+|three|four|five|several) occasions",
+        "this week I noticed",
+        "I noticed that",
+        "at approximately",
+        "during (maths|reading|lunch|break)"
+      ],
+      "matchMode": "any",
+      "proximityBoost": false,
+      "detectionNote": "Strongest mitigating signal — time + event anchoring is very safe"
+    },
+    {
+      "id": "mit_positive_observation",
+      "category": "mitigating",
+      "label": "Positive observation",
+      "weight": -7,
+      "patterns": [
+        "has been (making|showing|demonstrating|working)",
+        "real effort",
+        "I've noticed improvement",
+        "doing well",
+        "strength",
+        "enjoying",
+        "engaged when"
+      ],
+      "matchMode": "any",
+      "proximityBoost": false,
+      "detectionNote": "Must be specific — formulaic positives like 'he's a great kid but' do not fire"
+    },
+    {
+      "id": "mit_meeting_invitation",
+      "category": "mitigating",
+      "label": "Meeting invitation",
+      "weight": -6,
+      "patterns": [
+        "would you be open to a call",
+        "could we meet",
+        "I'd welcome your thoughts",
+        "could we arrange",
+        "happy to discuss",
+        "available to talk"
+      ],
+      "matchMode": "any",
+      "proximityBoost": true,
+      "detectionNote": "Closing invitation carries extra weight via proximityBoost"
+    },
+    {
+      "id": "mit_solution_framing",
+      "category": "mitigating",
+      "label": "Solution framing",
+      "weight": -5,
+      "patterns": [
+        "here's what we're trying",
+        "I've spoken with",
+        "we're working on",
+        "we have put in place",
+        "a strategy we're using"
+      ],
+      "matchMode": "any",
+      "proximityBoost": false,
+      "detectionNote": "Shows teacher agency without blame transfer"
+    },
+    {
+      "id": "mit_child_name",
+      "category": "mitigating",
+      "label": "Child named warmly",
+      "weight": -4,
+      "patterns": [],
+      "matchMode": "any",
+      "proximityBoost": false,
+      "detectionNote": "Implementation note: inject child name from user context at runtime. Fires when child's first name appears and message is not high-accusation."
+    }
+  ]
+}

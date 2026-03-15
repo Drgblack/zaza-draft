@@ -1,5 +1,6 @@
 import type { Firestore } from "firebase-admin/firestore"
 import { getUserEntitlements, type UserEntitlements } from "@/lib/entitlements"
+import { isForcedProUser } from "@/lib/dev/forced-pro-users"
 import {
   fetchZazaIdEntitlement,
   type ResolvedDraftEntitlement,
@@ -7,6 +8,7 @@ import {
 } from "@/lib/zaza-id/entitlements"
 
 export type DraftEntitlementResolutionSource =
+  | "development_override"
   | "remote"
   | "remote_terminal"
   | "local_fallback"
@@ -52,6 +54,37 @@ function buildLocalEntitlement(uid: string): ResolvedDraftEntitlement {
   }
 }
 
+function buildDevelopmentOverrideEntitlement(uid: string): ResolvedDraftEntitlement {
+  return {
+    userId: uid,
+    productKey: "draft",
+    hasAccess: true,
+    accessType: "comp",
+    expiresAt: null,
+    source: "direct",
+    sourceOrgId: null,
+    orgId: null,
+    licenceId: null,
+    status: "active",
+  }
+}
+
+function buildForcedProLocalEntitlements(uid: string, local: UserEntitlements): UserEntitlements {
+  return {
+    ...local,
+    plan: "pro",
+    usageRecord: local.usageRecord,
+    usage: {
+      ...local.usage,
+      plan: "pro",
+      limit: null,
+      remaining: null,
+      unlimited: true,
+    },
+    isProSubscriber: true,
+  }
+}
+
 function buildNoAccessEntitlement(uid: string): ResolvedDraftEntitlement {
   return {
     userId: uid,
@@ -77,7 +110,25 @@ export async function resolveDraftEntitlement({
   idToken,
   localEntitlements,
 }: ResolveDraftEntitlementOptions): Promise<DraftEntitlementResolution> {
+  const forceProUserIdsSet = Boolean((process.env.FORCE_PRO_USER_IDS ?? "").trim())
+  const devOverrideFiring = isForcedProUser(uid)
+
+  console.log("[draft-entitlement] resolve", {
+    uid,
+    forceProUserIdsSet,
+    devOverrideFiring,
+  })
+
   const loadLocalEntitlements = async () => localEntitlements ?? getUserEntitlements(uid, firestore)
+
+  if (devOverrideFiring) {
+    const local = buildForcedProLocalEntitlements(uid, await loadLocalEntitlements())
+    return {
+      entitlement: buildDevelopmentOverrideEntitlement(uid),
+      source: "development_override",
+      localEntitlements: local,
+    }
+  }
 
   if (!isZazaIdEntitlementsEnabled()) {
     const local = await loadLocalEntitlements()

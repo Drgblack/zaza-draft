@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
+import { refreshForcedProUserIds } from "@/lib/dev/forced-pro-users"
 
 const mockAuthorizeFirebaseRequest = vi.fn()
 const mockGetUserEntitlements = vi.fn()
@@ -92,11 +93,16 @@ function mockRemote(status: number, payload: unknown) {
 describe("/api/account/status Zaza ID entitlement wiring", () => {
   const originalBaseUrl = process.env.ZAZA_ID_BASE_URL
   const originalFlag = process.env.ZAZA_ID_ENTITLEMENTS_ENABLED
+  const originalForcedProUserIds = process.env.FORCE_PRO_USER_IDS
+  const originalNodeEnv = process.env.NODE_ENV
 
   beforeEach(() => {
     vi.clearAllMocks()
     process.env.ZAZA_ID_BASE_URL = "https://zaza-id-and-licences.vercel.app"
     process.env.ZAZA_ID_ENTITLEMENTS_ENABLED = "1"
+    process.env.FORCE_PRO_USER_IDS = ""
+    process.env.NODE_ENV = "test"
+    refreshForcedProUserIds()
     global.fetch = vi.fn()
     mockIsInternalQaUid.mockReturnValue(false)
     mockGetUserEntitlements.mockResolvedValue(localEntitlements)
@@ -113,6 +119,9 @@ describe("/api/account/status Zaza ID entitlement wiring", () => {
   afterEach(() => {
     process.env.ZAZA_ID_BASE_URL = originalBaseUrl
     process.env.ZAZA_ID_ENTITLEMENTS_ENABLED = originalFlag
+    process.env.FORCE_PRO_USER_IDS = originalForcedProUserIds
+    process.env.NODE_ENV = originalNodeEnv
+    refreshForcedProUserIds()
   })
 
   it("uses remote entitlement when the feature flag is enabled", async () => {
@@ -177,6 +186,35 @@ describe("/api/account/status Zaza ID entitlement wiring", () => {
     expect(response.status).toBe(200)
     expect(payload.data.draftEntitlementSource).toBe("local_disabled")
     expect(payload.data.draftEntitlement.hasAccess).toBe(true)
+    expect(global.fetch).not.toHaveBeenCalled()
+  })
+
+  it("forces a listed development UID to pro without calling remote entitlements", async () => {
+    process.env.NODE_ENV = "development"
+    process.env.FORCE_PRO_USER_IDS = "uid-1"
+    refreshForcedProUserIds()
+
+    const response = await GET(buildRequest(true))
+    const payload = await response.json()
+
+    expect(response.status).toBe(200)
+    expect(payload.data.draftEntitlementSource).toBe("development_override")
+    expect(payload.data.draftEntitlement).toEqual(
+      expect.objectContaining({
+        userId: "uid-1",
+        hasAccess: true,
+        status: "active",
+      }),
+    )
+    expect(payload.data.plan).toBe("pro")
+    expect(payload.data.usage).toEqual(
+      expect.objectContaining({
+        plan: "pro",
+        unlimited: true,
+        limit: null,
+        remaining: null,
+      }),
+    )
     expect(global.fetch).not.toHaveBeenCalled()
   })
 })

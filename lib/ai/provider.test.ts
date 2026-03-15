@@ -1,8 +1,255 @@
-import { describe, expect, it } from "vitest"
+import { afterEach, describe, expect, it, vi } from "vitest"
 
-import { buildSystemPrompt } from "./provider"
+import { buildSystemPrompt, generateDraft } from "./provider"
+
+const ORIGINAL_ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY
+const ORIGINAL_ANTHROPIC_MODEL_PRIMARY = process.env.ANTHROPIC_MODEL_PRIMARY
+
+afterEach(() => {
+  process.env.ANTHROPIC_API_KEY = ORIGINAL_ANTHROPIC_API_KEY
+  process.env.ANTHROPIC_MODEL_PRIMARY = ORIGINAL_ANTHROPIC_MODEL_PRIMARY
+  vi.unstubAllGlobals()
+  vi.restoreAllMocks()
+})
 
 describe("buildSystemPrompt", () => {
+  it("forces safety rewrites to preserve the concrete concern instead of collapsing into generic wording", () => {
+    const prompt = buildSystemPrompt({
+      situation:
+        "Your child refuses to listen and constantly disrupts the class. I've told you this before. If this continues we will have to involve the head teacher.",
+      generationMetadata: {
+        mode: "safe_draft",
+        direction: "teacher_to_parent",
+        source_type: "typed_text",
+        locale: "en",
+        prompt_builder: "safe_draft",
+      },
+      tone: "professional",
+      language: "en",
+      mode: "parent_message",
+      pronounPreference: "auto",
+      safetyAnalysis: {
+        riskScore: 82,
+        riskLevel: "high",
+        triggeredSignals: [
+          {
+            id: "acc_refusal_language",
+            category: "accusation",
+            label: "Refusal language",
+            weight: 9,
+            adjustedWeight: 9,
+            patterns: ["refuses to"],
+            matchMode: "any",
+            proximityBoost: false,
+            detectionNote: "Strong signal",
+            matchedPhrase: "refuses to listen",
+          },
+          {
+            id: "esc_consequence_framing",
+            category: "escalation",
+            label: "Consequence threat",
+            weight: 8,
+            adjustedWeight: 8,
+            patterns: ["if this continues"],
+            matchMode: "any",
+            proximityBoost: true,
+            detectionNote: "Conditional consequence",
+            matchedPhrase: "If this continues",
+          },
+        ],
+        toneClass: "accusatory",
+        topicSensitivity: "medium",
+        reactionForecast: {
+          collaborative: 12,
+          concerned: 18,
+          defensive: 42,
+          hostile: 18,
+          confused: 10,
+        },
+        explanationLines: [],
+        documentationModeAvailable: true,
+        professionalRiskFlags: [],
+        structuralImbalance: false,
+      },
+    })
+
+    expect(prompt).toContain("The rewritten message MUST include the specific behaviour or concern from the original message.")
+    expect(prompt).toContain("Never replace it with generic phrases such as 'a classroom concern'")
+    expect(prompt).toContain("The rewritten message MUST make clear what happened, when or where it happened if that is stated in the source, and what the teacher would like to happen next.")
+    expect(prompt).toContain("Only change framing and tone. Keep the factual content, pattern, and school context from the original message.")
+    expect(prompt).toContain(
+      "If the original says a student 'refuses to listen', rewrite it as the same concern in observation-based language",
+    )
+    expect(prompt).toContain("A parent reading the rewritten message should understand the exact concern without needing to ask a follow-up question.")
+  })
+
+  it("tells professional-risk rewrites to keep a specific safe category of concern", () => {
+    const prompt = buildSystemPrompt({
+      situation:
+        "I think he might have ADHD. He deliberately disrupts the class and seems to have emotional problems.",
+      generationMetadata: {
+        mode: "safe_draft",
+        direction: "teacher_to_parent",
+        source_type: "typed_text",
+        locale: "en",
+        prompt_builder: "safe_draft",
+      },
+      tone: "professional",
+      language: "en",
+      mode: "parent_message",
+      pronounPreference: "auto",
+      safetyAnalysis: {
+        riskScore: 48,
+        riskLevel: "medium",
+        triggeredSignals: [],
+        toneClass: "clinical",
+        topicSensitivity: "high",
+        reactionForecast: {
+          collaborative: 20,
+          concerned: 20,
+          defensive: 40,
+          hostile: 0,
+          confused: 20,
+        },
+        explanationLines: [],
+        documentationModeAvailable: false,
+        professionalRiskFlags: [
+          {
+            signalId: "pro_medical_speculation",
+            label: "Medical or diagnostic speculation",
+            matchedPhrase: "ADHD",
+          },
+        ],
+        structuralImbalance: false,
+      },
+    })
+
+    expect(prompt).toContain("instead of 'ADHD' use 'some learning and attention challenges'")
+    expect(prompt).toContain("instead of 'deliberately disrupts' use 'some persistent behavioural patterns during lessons'")
+    expect(prompt).toContain("instead of 'emotional problems' use 'some social and emotional difficulties'")
+    expect(prompt).toContain("Never reduce the concern to vague placeholders such as 'a classroom concern' or 'some issues' on their own.")
+  })
+
+  it("adds professional-risk substitutions to the documentation mode prompt", () => {
+    const prompt = buildSystemPrompt({
+      situation:
+        "I think he might have ADHD. He deliberately disrupts the class and seems to have emotional problems.",
+      documentationSourceText:
+        "I think he might have ADHD. He deliberately disrupts the class and seems to have emotional problems.",
+      generationMetadata: {
+        mode: "safe_draft",
+        direction: "teacher_to_parent",
+        source_type: "typed_text",
+        locale: "en",
+        prompt_builder: "safe_draft",
+      },
+      tone: "professional",
+      language: "en",
+      mode: "parent_message",
+      pronounPreference: "auto",
+      documentationMode: true,
+      documentationTopic: "learning support",
+    })
+
+    expect(prompt).toContain("Begin with: Date:")
+    expect(prompt).toContain('Replace "I think he might have ADHD" with "The student may benefit from assessment for learning and attention needs."')
+    expect(prompt).toContain('Replace motive language such as "deliberately disrupts" with the observable action only.')
+    expect(prompt).toContain("Replace psychological interpretation with safe pastoral wording")
+    expect(prompt).toContain("Only document what is explicitly stated in the source text. Do not infer, elaborate, or add specific details not present in the input.")
+    expect(prompt).toContain("If the source is vague, the record must also be vague. Write only what can be directly attributed to the source.")
+  })
+
+  it("logs the full assembled prompt for professional-risk requests", async () => {
+    process.env.ANTHROPIC_API_KEY = "test-key"
+    process.env.ANTHROPIC_MODEL_PRIMARY = "test-model"
+
+    const consoleLogSpy = vi.spyOn(console, "log").mockImplementation(() => undefined)
+    const fetchSpy = vi.fn().mockResolvedValue({
+      ok: true,
+      text: async () =>
+        JSON.stringify({
+          content: [{ type: "text", text: "Draft text" }],
+          model: "test-model",
+          usage: { input_tokens: 20, output_tokens: 22 },
+        }),
+    })
+    vi.stubGlobal(
+      "fetch",
+      fetchSpy,
+    )
+
+    const result = await generateDraft({
+      situation:
+        "I think he might have ADHD. He deliberately disrupts the class and seems to have emotional problems.",
+      generationMetadata: {
+        mode: "safe_draft",
+        direction: "teacher_to_parent",
+        source_type: "typed_text",
+        locale: "en",
+        prompt_builder: "safe_draft",
+      },
+      tone: "professional",
+      language: "en",
+      mode: "parent_message",
+      pronounPreference: "auto",
+      safetyAnalysis: {
+        riskScore: 48,
+        riskLevel: "medium",
+        triggeredSignals: [],
+        toneClass: "clinical",
+        topicSensitivity: "high",
+        reactionForecast: {
+          collaborative: 20,
+          concerned: 20,
+          defensive: 40,
+          hostile: 0,
+          confused: 20,
+        },
+        explanationLines: [],
+        documentationModeAvailable: false,
+        professionalRiskFlags: [
+          {
+            signalId: "pro_medical_speculation",
+            label: "Medical or diagnostic speculation",
+            matchedPhrase: "ADHD",
+          },
+        ],
+        structuralImbalance: false,
+      },
+    })
+
+    expect(result.text).toBe("Draft text")
+    expect(result.providerMeta.modelUsed).toBe("test-model")
+    expect(fetchSpy).toHaveBeenCalledWith(
+      "https://api.anthropic.com/v1/messages",
+      expect.objectContaining({
+        method: "POST",
+        headers: expect.objectContaining({
+          "x-api-key": "test-key",
+          "anthropic-version": "2023-06-01",
+        }),
+      }),
+    )
+
+    expect(consoleLogSpy).toHaveBeenCalledWith(
+      "[provider] professional-risk full prompt",
+      expect.objectContaining({
+        documentationMode: false,
+        generationMode: "safe_draft",
+        direction: "teacher_to_parent",
+        prompt: expect.stringContaining("some learning and attention challenges"),
+      }),
+    )
+    expect(consoleLogSpy).toHaveBeenCalledWith(
+      "[provider] professional-risk full prompt",
+      expect.objectContaining({
+        prompt: expect.stringContaining(
+          "Never reduce the concern to vague placeholders such as 'a classroom concern' or 'some issues' on their own.",
+        ),
+      }),
+    )
+  })
+
   it("avoids mojibake characters in the prompt contract", () => {
     const prompt = buildSystemPrompt({
       situation: "Die Eltern beschreiben die Hausaufgabenlast und bitten um einen Plan.",

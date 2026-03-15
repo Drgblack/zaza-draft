@@ -1,4 +1,12 @@
-import { Document, HeadingLevel, Packer, Paragraph } from "docx"
+import {
+  Document,
+  Footer,
+  HeadingLevel,
+  Packer,
+  Paragraph,
+  Tab,
+  TextRun,
+} from "docx"
 
 interface DocxOptions {
   draftText: string
@@ -11,6 +19,28 @@ export async function buildDocxBuffer({ draftText, tone, mode }: DocxOptions) {
   const doc = new Document({
     sections: [
       {
+        footers: {
+          default: new Footer({
+            children: [
+              new Paragraph({
+                rightTabStop: 9026,
+                children: [
+                  new TextRun({
+                    text: "zazadraft.com",
+                    size: 18,
+                    color: "808080",
+                  }),
+                  new Tab(),
+                  new TextRun({
+                    text: "Zaza — Just Teach",
+                    size: 18,
+                    color: "808080",
+                  }),
+                ],
+              }),
+            ],
+          }),
+        },
         children: [
           new Paragraph({
             text: "Zaza Draft Output",

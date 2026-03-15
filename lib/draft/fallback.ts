@@ -11,6 +11,7 @@ import {
   type TeacherNoteIssueCluster,
 } from "@/lib/draft/teacher-note-issues"
 import type { DraftMode, PronounPreference } from "@/lib/types"
+import type { SafetyEngineOutput } from "@/src/lib/safetyEngine"
 
 export const ALLOWED_TONES = ["warm", "professional", "direct", "empathetic"] as const
 export const ALLOWED_LANGUAGES = ["en", "de"] as const
@@ -875,6 +876,7 @@ export interface ProviderRequestInput {
   generationMetadata: GenerationMetadata
   signatureBlock?: string
   originalSituation?: string
+  documentationSourceText?: string
   tone: ToneKey
   language: LanguageKey
   context?: {
@@ -911,6 +913,9 @@ export interface ProviderRequestInput {
     types: string[]
     phrases: string[]
   }
+  safetyAnalysis?: SafetyEngineOutput | null
+  documentationMode?: boolean
+  documentationTopic?: string | null
 }
 
 export interface ProviderFallbackResult {

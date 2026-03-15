@@ -2,6 +2,7 @@ import type { Firestore } from "firebase-admin/firestore"
 
 import { buildUsageResponse, fetchUsageRecord, type MonthlyUsageRecord, type PlanType, type UsageOverview } from "./usage"
 import { isInternalQaUid } from "@/lib/auth/internal-qa"
+import { isForcedProUser } from "@/lib/dev/forced-pro-users"
 import { isProOrQa } from "./plan/is-pro-or-qa"
 
 export interface UserEntitlements {
@@ -136,6 +137,7 @@ async function fetchSchoolLicence(
 
 
 export async function getUserEntitlements(uid: string, db: Firestore): Promise<UserEntitlements> {
+  const forcedProUser = isForcedProUser(uid)
   const userRef = db.collection("users").doc(uid)
   const snapshot = await userRef.get()
   const docData = snapshot.data()
@@ -159,10 +161,13 @@ export async function getUserEntitlements(uid: string, db: Firestore): Promise<U
       : []
   const hasDomainLicence = licenceRecords.length > 0
   const subscriptionPlan = isProOrQa(basePlan, uid) ? "pro" : "free"
-  const plan: PlanType = planOverrideActive || hasDomainLicence ? "pro" : subscriptionPlan
+  const plan: PlanType =
+    forcedProUser || planOverrideActive || hasDomainLicence ? "pro" : subscriptionPlan
   const usageRecord = await fetchUsageRecord(uid, db)
-  const usage = buildUsageResponse(usageRecord, plan, { unlimited: isInternalQaUid(uid) })
-  const isProSubscriber = basePlan === "pro"
+  const usage = buildUsageResponse(usageRecord, plan, {
+    unlimited: isInternalQaUid(uid) || plan === "pro",
+  })
+  const isProSubscriber = forcedProUser || basePlan === "pro"
 
   return {
     plan,

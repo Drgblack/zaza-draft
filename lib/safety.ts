@@ -32,6 +32,18 @@ function escapeRegexLiteral(input: string): string {
   return input.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
 }
 
+function isDateLikeValue(value: string) {
+  const trimmed = value.trim()
+  return (
+    /^\d{4}-\d{2}-\d{2}$/.test(trimmed) ||
+    /^\d{1,2}[./-]\d{1,2}[./-]\d{2,4}$/.test(trimmed)
+  )
+}
+
+function shouldIgnoreSensitiveMatch(type: SensitivePatternType, match: string) {
+  return type === "phone" && isDateLikeValue(match)
+}
+
 /**
  * Detects email, phone, and street address patterns and provides a sanitized copy.
  */
@@ -42,6 +54,9 @@ export function detectSensitiveContent(input: string) {
     const matcher = ensureGlobal(pattern.regex)
     let match: RegExpExecArray | null
     while ((match = matcher.exec(input))) {
+      if (shouldIgnoreSensitiveMatch(pattern.type, match[0])) {
+        continue
+      }
       matches.push({
         type: pattern.type,
         match: match[0],
@@ -51,7 +66,11 @@ export function detectSensitiveContent(input: string) {
 
   const sanitized = PATTERNS.reduce((acc, pattern) => {
     const replacer = ensureGlobal(pattern.regex)
-    return acc.replace(replacer, `[REDACTED ${pattern.type.toUpperCase()}]`)
+    return acc.replace(replacer, (value) =>
+      shouldIgnoreSensitiveMatch(pattern.type, value)
+        ? value
+        : `[REDACTED ${pattern.type.toUpperCase()}]`,
+    )
   }, input)
 
   return {

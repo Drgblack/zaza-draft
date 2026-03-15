@@ -1,12 +1,14 @@
 import { describe, expect, it, vi, beforeAll, afterAll, beforeEach } from "vitest"
 import { getFirebaseAdmin } from "@/lib/firebase/admin"
 import { authorizeFirebaseRequest } from "@/lib/firebase/server"
+import { generateDraft } from "@/lib/ai/provider"
 import { generateDraftWithFallback } from "@/lib/draft/fallback"
 import { POST } from "@/app/api/draft/generate/route"
 import { buildUsageResponse, getCurrentMonthKey, incrementUsage } from "@/lib/usage"
 import { getUserEntitlements } from "@/lib/entitlements"
 import { isInternalQaUid, shouldRespectUsageLimit } from "@/lib/auth/internal-qa"
 import { resolveDraftEntitlement } from "@/lib/draft-entitlements"
+import { runSafetyEngine } from "@/src/lib/safetyEngine"
 
 interface TrustGradeViolation {
   type: string
@@ -105,6 +107,14 @@ vi.mock("@/lib/firebase/admin", () => ({
   }),
 }))
 
+vi.mock("@/lib/ai/provider", async () => {
+  const actual = await vi.importActual<typeof import("@/lib/ai/provider")>("@/lib/ai/provider")
+  return {
+    ...actual,
+    generateDraft: vi.fn(),
+  }
+})
+
 vi.mock("@/lib/safety", () => ({
   detectSensitiveContent: vi.fn().mockImplementation((text) => ({ sanitized: text, matches: [] })),
   detectBlockedLanguage: vi.fn().mockReturnValue({ detected: false }),
@@ -118,6 +128,10 @@ vi.mock("@/lib/safety", () => ({
 
 vi.mock("@/lib/analytics", () => ({
   logServerEvent: vi.fn(),
+}))
+
+vi.mock("@/src/lib/safetyEngine", () => ({
+  runSafetyEngine: vi.fn(),
 }))
 
 vi.mock("@/lib/usage", () => ({
@@ -351,6 +365,7 @@ vi.mock("@/lib/draft/fallback", () => {
 })
 
 const fallbackGenerator = vi.mocked(generateDraftWithFallback)
+const mockedGenerateDraft = vi.mocked(generateDraft)
 const mockedBuildUsageResponse = vi.mocked(buildUsageResponse)
 const mockedIncrementUsage = vi.mocked(incrementUsage)
 const mockedGetCurrentMonthKey = vi.mocked(getCurrentMonthKey)
@@ -359,10 +374,57 @@ const mockedShouldRespectUsageLimit = vi.mocked(shouldRespectUsageLimit)
 const mockedIsInternalQaUid = vi.mocked(isInternalQaUid)
 const mockedAuthorizeFirebaseRequest = vi.mocked(authorizeFirebaseRequest)
 const mockedResolveDraftEntitlement = vi.mocked(resolveDraftEntitlement)
+const mockedRunSafetyEngine = vi.mocked(runSafetyEngine)
 beforeEach(() => {
   vi.clearAllMocks()
   fallbackGenerator.mockReset()
   fallbackGenerator.mockResolvedValue(buildFallbackResult(getLongDraft()))
+  mockedGenerateDraft.mockReset()
+  mockedGenerateDraft.mockResolvedValue({
+    text: [
+      "Date: 2026-03-15 | Context: general",
+      "",
+      "Observation: The student spoke over others during the lesson.",
+      "Action Taken: The teacher recorded the incident for follow-up.",
+      "Outcome: Further review is required.",
+      "",
+      "This record is for documentation purposes.",
+    ].join("\n"),
+    providerMeta: {
+      modelUsed: "test-model",
+      latencyMs: 10,
+    },
+  })
+  mockedRunSafetyEngine.mockReset()
+  mockedRunSafetyEngine.mockResolvedValue({
+    riskScore: 82,
+    riskLevel: "high",
+    triggeredSignals: [
+      {
+        id: "esc_administrative_threat",
+        category: "escalation",
+        label: "Administrative escalation",
+        weight: 9,
+        patterns: ["head teacher"],
+        matchMode: "any",
+        proximityBoost: false,
+        detectionNote: "Strong escalation signal",
+      },
+    ],
+    toneClass: "accusatory",
+    topicSensitivity: "medium",
+    reactionForecast: {
+      collaborative: 10,
+      concerned: 15,
+      defensive: 45,
+      hostile: 20,
+      confused: 10,
+    },
+    explanationLines: [],
+    documentationModeAvailable: true,
+    professionalRiskFlags: [],
+    structuralImbalance: false,
+  })
   mockedBuildUsageResponse.mockReturnValue({
     currentMonthUsage: 1,
     limit: 10,
@@ -2857,5 +2919,142 @@ describe("/api/draft/generate usage entitlement parity", () => {
       expect(json.data?.usage?.remaining).toBe(9)
       expect(mockedIncrementUsage).toHaveBeenCalled()
     })
+  })
+})
+
+describe("/api/draft/generate documentation mode", () => {
+  it("falls back to a documentation record when documentation-mode generation throws", async () => {
+    mockedGenerateDraft.mockRejectedValueOnce(new Error("Missing AI provider key (OPENAI_API_KEY)"))
+
+    const request = new Request("https://example.com/api/draft/generate", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: "Bearer token",
+      },
+      body: JSON.stringify({
+        situation:
+          "Your child refuses to listen and constantly disrupts the class. I've told you this before. If this continues we will have to involve the head teacher.",
+        tone: "professional",
+        language: "en",
+        uiLocale: "en-GB",
+        mode: "parent_message",
+        documentationMode: true,
+      }),
+    })
+
+    const response = await POST(request)
+    expect(response.status).toBe(200)
+    const json = await response.json()
+    expect(json.data?.documentationModeActive).toBe(true)
+    expect(json.data?.generatedDraft).toContain("Date:")
+    expect(json.data?.generatedDraft).toContain("Observation:")
+    expect(json.data?.generatedDraft).toContain("Action Taken:")
+    expect(json.data?.generatedDraft).toContain("Outcome:")
+    expect(json.data?.generatedDraft).toContain("The student refuses to listen and constantly disrupts the class.")
+    expect(json.data?.generatedDraft).toContain("The teacher recorded that this had been raised previously.")
+    expect(json.data?.generatedDraft).toContain("Further school follow-up may be required if the pattern continues.")
+    expect(json.data?.generatedDraft).toContain("This record is for documentation purposes.")
+  })
+
+  it("sanitizes professional-risk phrasing in documentation fallback output", async () => {
+    mockedGenerateDraft.mockRejectedValueOnce(new Error("Missing AI provider key (OPENAI_API_KEY)"))
+
+    const request = new Request("https://example.com/api/draft/generate", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: "Bearer token",
+      },
+      body: JSON.stringify({
+        situation:
+          "I think he might have ADHD. He deliberately disrupts the class and seems to have emotional problems.",
+        tone: "professional",
+        language: "en",
+        uiLocale: "en-GB",
+        mode: "parent_message",
+        documentationMode: true,
+      }),
+    })
+
+    const response = await POST(request)
+    expect(response.status).toBe(200)
+    const json = await response.json()
+    const generatedDraft = json.data?.generatedDraft ?? ""
+
+    expect(json.data?.documentationModeActive).toBe(true)
+    expect(generatedDraft).toContain("Date: 2026-03-15")
+    expect(generatedDraft).not.toContain("[REDACTED PHONE]")
+    expect(generatedDraft).toContain("assessment for learning and attention needs")
+    expect(generatedDraft).not.toContain("I think he might have may benefit")
+    expect(generatedDraft).not.toContain("ADHD")
+    expect(generatedDraft).not.toContain("deliberately")
+    expect(generatedDraft).not.toContain("emotional problems")
+    expect(generatedDraft).toContain("This record is for documentation purposes.")
+  })
+})
+
+describe("/api/draft/generate professional risk handling", () => {
+  it("still returns a draft when professional risk flags are present", async () => {
+    mockedRunSafetyEngine.mockResolvedValueOnce({
+      riskScore: 48,
+      riskLevel: "medium",
+      triggeredSignals: [],
+      toneClass: "clinical",
+      topicSensitivity: "high",
+      reactionForecast: {
+        collaborative: 20,
+        concerned: 20,
+        defensive: 40,
+        hostile: 0,
+        confused: 20,
+      },
+      explanationLines: [],
+      documentationModeAvailable: false,
+      professionalRiskFlags: [
+        {
+          signalId: "pro_medical_speculation",
+          label: "Medical or diagnostic speculation",
+          matchedPhrase: "I think he might have ADHD",
+        },
+        {
+          signalId: "pro_motive_attribution",
+          label: "Motive attribution",
+          matchedPhrase: "He deliberately disrupts the class",
+        },
+        {
+          signalId: "pro_psychological_interpretation",
+          label: "Psychological interpretation",
+          matchedPhrase: "seems to have emotional problems",
+        },
+      ],
+      structuralImbalance: false,
+    })
+
+    const request = new Request("https://example.com/api/draft/generate", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: "Bearer token",
+      },
+      body: JSON.stringify({
+        situation:
+          "I think he might have ADHD. He deliberately disrupts the class and seems to have emotional problems.",
+        tone: "professional",
+        language: "en",
+        mode: "parent_message",
+      }),
+    })
+
+    const response = await POST(request)
+    expect(response.status).toBe(200)
+
+    const json = await response.json()
+    expect(json.success).toBe(true)
+    expect(json.data.generatedDraft).toBeTruthy()
+    expect(json.data.safetyAnalysis?.professionalRiskFlags).toHaveLength(3)
+    expect(json.data.safetyAnalysis?.professionalRiskFlags[0]?.signalId).toBe(
+      "pro_medical_speculation",
+    )
   })
 })

@@ -59,7 +59,7 @@ export async function GET(request: Request) {
         plan: entitlements.plan,
         usage: entitlements.usage,
         diagnostics: diagnosticsPayload,
-        aiConfigured: Boolean(process.env.OPENAI_API_KEY),
+        aiConfigured: Boolean(process.env.ANTHROPIC_API_KEY),
       },
     })
   } catch (error) {

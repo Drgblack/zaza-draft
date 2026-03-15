@@ -1,8 +1,9 @@
 "use client"
 
 import { Copy, Check, Save, FileText, Edit3, RefreshCw, AlertCircle, ChevronDown, Repeat } from "lucide-react"
-import { useEffect, useMemo, useRef, useState } from "react"
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react"
 import { SaveDraftModal } from "./save-draft-modal"
+import { Badge } from "@/components/ui/badge"
 import type { DraftMode } from "@/lib/types"
 import {
   DraftStructure,
@@ -36,6 +37,9 @@ interface DraftOutputProps {
   buildSha?: string
   canExport?: boolean
   getIdToken?: () => Promise<string | null>
+  headerBadge?: ReactNode
+  headerBanner?: ReactNode
+  resultModeBadge?: string | null
 }
 
 export function DraftOutput({
@@ -53,6 +57,9 @@ export function DraftOutput({
   buildSha,
   canExport = true,
   getIdToken,
+  headerBadge,
+  headerBanner,
+  resultModeBadge,
 }: DraftOutputProps) {
   const [copied, setCopied] = useState(false)
   const [showSaveModal, setShowSaveModal] = useState(false)
@@ -341,14 +348,24 @@ export function DraftOutput({
               <Check className="text-green-600 dark:text-green-400" size={20} />
             </div>
             <div>
-            <h3 className="font-semibold text-gray-900 dark:text-gray-100">{t("draft.generatedTitle")}</h3>
+              <div className="flex flex-wrap items-center gap-2">
+                <h3 className="font-semibold text-gray-900 dark:text-gray-100">{t("draft.generatedTitle")}</h3>
+                {headerBadge}
+                {resultModeBadge ? (
+                  <Badge variant="secondary" className="rounded-full px-3 py-1 text-[11px] font-semibold tracking-wide">
+                    {resultModeBadge}
+                  </Badge>
+                ) : null}
+              </div>
               <p className="text-sm text-gray-500 dark:text-gray-400">
-              {metadata.wordCount} words • {t(`tone.${tone}`)}
+                {metadata.wordCount} words • {t(`tone.${tone}`)}
               </p>
               <p className="text-xs text-gray-500 dark:text-gray-400">{t("draft.modeLabel", { mode: modeLabel })}</p>
             </div>
           </div>
         </div>
+
+        {headerBanner ? <div className="mb-4">{headerBanner}</div> : null}
 
         {actionMessage && (
           <p className="mt-2 text-xs text-white/70 dark:text-white/60">{actionMessage}</p>
