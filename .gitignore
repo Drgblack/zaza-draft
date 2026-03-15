@@ -48,3 +48,5 @@ data/names/*.zip
 tmp_*.js
 _fix-*.ps1
 /.local-trash/
+
+.env.test.local
