@@ -203,7 +203,7 @@ describe("fallback drafting signature hygiene", () => {
     }
 
     const text = buildFallbackDraft(context)
-    expect(text).toContain("Thank you for your message about homework.")
+    expect(text).toContain("Thank you for your message.")
     expect(text).toContain("I will go through what is missing in class")
     expect(text).not.toContain("Thank you for raising this with me.")
   })
@@ -245,7 +245,7 @@ describe("fallback drafting signature hygiene", () => {
 
     const text = buildFallbackDraft(context)
     expect(text).toContain("Subject: Follow-up on today's incident")
-    expect(text).toContain("I have read your message about what happened today.")
+    expect(text).toContain("I have received your message.")
     expect(text).toContain("I will speak with the staff involved today, establish what happened")
     expect(text).not.toContain("prepare a practical plan")
   })

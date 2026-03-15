@@ -248,10 +248,14 @@ function buildPanicScanInstructions(input: ProviderInput) {
     case "parent_to_teacher":
       instructions.push(
         "Interpret the OCR text as a parent message to the teacher and write a calm, professional teacher reply to the parent.",
-        "Open like a real teacher replying to an upset parent: acknowledge what the child or parent is upset about, recognise the seriousness if needed, and give one believable immediate step you will take.",
+        "When the source is a parent-reported incident or complaint, the teacher reply must acknowledge receipt, not restate facts.",
+        "Do not repeat information the parent provided back to them as if it is new information.",
+        "Open with a brief acknowledgement only, then move straight to what you will check or who you will speak with.",
+        "Never open with lines such as 'I understand he came home upset...' or 'I wanted to update you regarding the incident...' when those details came from the parent message.",
+        "Open like a real teacher replying to an upset parent: acknowledge the message briefly, recognise the seriousness if needed, and give one believable immediate step you will take.",
         "Keep the tone de-escalating and bounded; do not sound like customer support, HR, counselling copy, or a teacher narrating their own tone-management process.",
         "Preferred opening pattern: one natural sentence acknowledging the concern, one concrete sentence about what you will check or who you will speak with, then a brief line about when you will update the parent.",
-        `Believable parent-reply openings include ${formatEnglishPhraseExamples("empathetic", "parentReplyOpenings")}. Believable next-step lines include ${formatEnglishPhraseExamples("professional", "actionPatterns")}.`,
+        `Believable parent-reply openings include ${formatEnglishPhraseExamples("professional", "parentReplyOpenings")}. Believable next-step lines include ${formatEnglishPhraseExamples("professional", "actionPatterns")}.`,
         "Avoid lines such as 'my priority is to address it calmly and respectfully', 'summarize the key observations', 'prepare a practical plan', or other customer-support / HR phrasing.",
       )
       if (/(bully|bullying|unsafe|safety|safeguard|safeguarding|hit|hurt|pushed|afraid|scared|crying|weinen|sicherheit|gemobbt|mobbing|verletzt)/i.test(normalizedSource)) {
@@ -398,10 +402,17 @@ export function buildSystemPrompt(input: ProviderInput) {
   ]
 
   if (input.generationMetadata.direction === "parent_to_teacher") {
-    systemLines.push(
-      "In the first paragraph (after any resolved greeting), restate the parent's stated concern in neutral language before moving toward next steps.",
-      "Unless the parent is explicitly discussing behaviour, avoid generic 'behavior documentation' phrasing and keep the focus on the actual concern being raised.",
-    )
+    if (input.generationMetadata.mode === "panic_scan") {
+      systemLines.push(
+        "For Panic Scan parent complaints, do not restate the incident details back to the parent in the opening paragraph. Acknowledge receipt briefly and move to the concrete school-side next step.",
+        "Unless the parent is explicitly discussing behaviour, avoid generic 'behavior documentation' phrasing and keep the focus on the actual concern being raised.",
+      )
+    } else {
+      systemLines.push(
+        "In the first paragraph (after any resolved greeting), restate the parent's stated concern in neutral language before moving toward next steps.",
+        "Unless the parent is explicitly discussing behaviour, avoid generic 'behavior documentation' phrasing and keep the focus on the actual concern being raised.",
+      )
+    }
   }
 
   if (input.mode === "parent_message" && isParentFacingDraft(input.generationMetadata.direction)) {

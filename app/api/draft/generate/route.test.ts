@@ -2150,6 +2150,63 @@ describe("/api/draft/generate teacher-authentic style guard", () => {
     expect(json.data.meta.recovery.templateFamily).toBe("source_grounded_bullying_safety")
   })
 
+  it("retries panic scan replies that parrot the parent's incident report back to them", async () => {
+    fallbackGenerator
+      .mockResolvedValueOnce(
+        buildFallbackResult(
+          [
+            "Subject: Follow-up on today's concern",
+            "Hello Karen,",
+            "I understand he came home upset after being pushed by another student.",
+            "I wanted to update you regarding the incident Jake experienced in class.",
+            "Kind regards,",
+            "Dr Greg Blackburn",
+          ].join("\n\n"),
+        ),
+      )
+      .mockResolvedValueOnce(
+        buildFallbackResult(
+          [
+            "Subject: Follow-up on today's concern",
+            "Hello Karen,",
+            "Thank you for getting in touch about this.",
+            "I will speak with the staff involved and check what happened at lunchtime today.",
+            "I will come back to you once I have reviewed this properly.",
+            "Kind regards,",
+            "Dr Greg Blackburn",
+          ].join("\n\n"),
+        ),
+      )
+
+    const request = new Request("https://example.com/api/draft/generate", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: "Bearer token",
+      },
+      body: JSON.stringify({
+        situation:
+          "Jake came home angry and upset saying nobody listened when another child pushed him at lunchtime. Karen wants to know what happened and why nobody called.",
+        tone: "professional",
+        language: "en",
+        mode: "parent_message",
+        inputMode: "panic_scan",
+        sourceType: "ocr_text",
+        messageType: "parent_complaint",
+        scanId: "scan-789",
+      }),
+    })
+
+    const response = await POST(request)
+    const json = await response.json()
+
+    expect(response.status).toBe(200)
+    expect(fallbackGenerator).toHaveBeenCalledTimes(2)
+    expect(json.data.generatedDraft).toContain("Thank you for getting in touch about this.")
+    expect(json.data.generatedDraft).not.toContain("I understand he came home upset")
+    expect(json.data.generatedDraft).not.toContain("I wanted to update you regarding the incident")
+  })
+
   it("preserves the selected tone through teacher-authenticity retry attempts", async () => {
     fallbackGenerator
       .mockResolvedValueOnce(

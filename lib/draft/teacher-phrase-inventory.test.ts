@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest"
 
 import {
   ENGLISH_PARENT_FACING_BANNED_PHRASES,
+  ENGLISH_PARENT_REPLY_PARROTING_BANNED_PHRASES,
   ENGLISH_PARENT_FACING_PHRASE_INVENTORY,
 } from "./teacher-phrase-inventory"
 
@@ -32,6 +33,19 @@ describe("teacher phrase inventory", () => {
     const normalizedPhrases = phrases.map((phrase) => phrase.toLowerCase())
 
     ENGLISH_PARENT_FACING_BANNED_PHRASES.forEach((bannedPhrase) => {
+      normalizedPhrases.forEach((phrase) => {
+        expect(phrase).not.toContain(bannedPhrase)
+      })
+    })
+  })
+
+  it("keeps parent-reply parroting openings out of the preferred inventory", () => {
+    const phrases = Object.values(ENGLISH_PARENT_FACING_PHRASE_INVENTORY).flatMap((tone) => [
+      ...tone.parentReplyOpenings,
+    ])
+    const normalizedPhrases = phrases.map((phrase) => phrase.toLowerCase())
+
+    ENGLISH_PARENT_REPLY_PARROTING_BANNED_PHRASES.forEach((bannedPhrase) => {
       normalizedPhrases.forEach((phrase) => {
         expect(phrase).not.toContain(bannedPhrase)
       })

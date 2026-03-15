@@ -4,7 +4,10 @@ import {
   detectTeacherNoteIssueClusters,
   type TeacherNoteIssueCluster,
 } from "@/lib/draft/teacher-note-issues"
-import { ENGLISH_PARENT_FACING_BANNED_PHRASES } from "@/lib/draft/teacher-phrase-inventory"
+import {
+  ENGLISH_PARENT_FACING_BANNED_PHRASES,
+  ENGLISH_PARENT_REPLY_PARROTING_BANNED_PHRASES,
+} from "@/lib/draft/teacher-phrase-inventory"
 
 export type TeacherAuthenticityViolationType =
   | "generic_empathy"
@@ -55,6 +58,10 @@ const ENGLISH_RULES: PhraseRule[] = [
   ...ENGLISH_PARENT_FACING_BANNED_PHRASES.map((phrase) => ({
     phrase,
     type: "corporate_tone" as const,
+  })),
+  ...ENGLISH_PARENT_REPLY_PARROTING_BANNED_PHRASES.map((phrase) => ({
+    phrase,
+    type: "customer_support" as const,
   })),
   { phrase: "subject:", type: "customer_support", modes: ["report_comment"] },
   { phrase: "dear family", type: "customer_support", modes: ["report_comment"] },

@@ -16,7 +16,7 @@ describe("sanitizeCleanedMessage", () => {
       "Thanks for your note.",
     ].join("\n")
 
-    expect(sanitizeCleanedMessage(raw)).toBe("Hi Ms. Riley,\nThanks for your note.")
+    expect(sanitizeCleanedMessage(raw)).toBe("Hi Ms. Riley, Thanks for your note.")
   })
 
   it("collapses blank runs of whitespace-only lines", () => {
@@ -34,7 +34,7 @@ describe("sanitizeCleanedMessage", () => {
       "Thank you for sharing the update.",
     ].join("\n")
 
-    expect(sanitizeCleanedMessage(raw)).toBe("Dear Ms. Riley,\nThank you for sharing the update.")
+    expect(sanitizeCleanedMessage(raw)).toBe("Dear Ms. Riley, Thank you for sharing the update.")
   })
 
   it("keeps legitimate 'X of Y' statements inside longer sentences", () => {
@@ -55,6 +55,25 @@ describe("sanitizeCleanedMessage", () => {
 
     expect(sanitizeCleanedMessage(raw)).toBe(
       ["Dear Mrs Patel,", "", "The message you need to respond to is below.", "", "Mrs Patel"].join("\n"),
+    )
+  })
+
+  it("reflows OCR line wraps into normal paragraph text while preserving paragraph breaks", () => {
+    const raw = [
+      "Jake came home angry and upset",
+      "saying nobody listened when another child",
+      "pushed him at lunchtime.",
+      "",
+      "I want to know what happened",
+      "and why nobody called.",
+    ].join("\n")
+
+    expect(sanitizeCleanedMessage(raw)).toBe(
+      [
+        "Jake came home angry and upset saying nobody listened when another child pushed him at lunchtime.",
+        "",
+        "I want to know what happened and why nobody called.",
+      ].join("\n"),
     )
   })
 })

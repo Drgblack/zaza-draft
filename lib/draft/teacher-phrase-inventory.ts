@@ -9,6 +9,14 @@ export const ENGLISH_PARENT_FACING_BANNED_PHRASES = [
   "calm update on",
 ]
 
+export const ENGLISH_PARENT_REPLY_PARROTING_BANNED_PHRASES = [
+  "i understand he came home",
+  "i understand she came home",
+  "i understand they came home",
+  "i understand your child came home",
+  "i wanted to update you regarding the incident",
+]
+
 export const ENGLISH_PARENT_FACING_PHRASE_INVENTORY: Record<
   EnglishParentFacingTone,
   {
@@ -25,9 +33,9 @@ export const ENGLISH_PARENT_FACING_PHRASE_INVENTORY: Record<
       "I wanted to follow up on...",
     ],
     parentReplyOpenings: [
-      "Thank you for letting me know about...",
-      "Thank you for getting in touch about...",
-      "I wanted to follow up on what you raised about...",
+      "Thank you for letting me know.",
+      "I appreciate you getting in touch about this.",
+      "I have received your message and will look into this promptly.",
     ],
     actionPatterns: [
       "I will go through what is missing in class and make the next step clear.",
@@ -46,9 +54,9 @@ export const ENGLISH_PARENT_FACING_PHRASE_INVENTORY: Record<
       "I wanted to make you aware of...",
     ],
     parentReplyOpenings: [
-      "Thank you for your message about...",
-      "I wanted to update you on the concern you raised about...",
-      "I wanted to follow up on your message about...",
+      "Thank you for your message.",
+      "I appreciate you getting in touch about this.",
+      "I have received your message and will look into this promptly.",
     ],
     actionPatterns: [
       "I will review the work carefully and come back to you with a clear explanation.",
@@ -67,9 +75,9 @@ export const ENGLISH_PARENT_FACING_PHRASE_INVENTORY: Record<
       "I need to make you aware that...",
     ],
     parentReplyOpenings: [
-      "I have read your message about...",
-      "I am following up on your message about...",
-      "I want to be clear about the next step on this issue.",
+      "I have received your message.",
+      "I have read your message and will look into this today.",
+      "I will review this and come back to you.",
     ],
     actionPatterns: [
       "I will address this directly in school and make the expectation clear.",
@@ -88,9 +96,9 @@ export const ENGLISH_PARENT_FACING_PHRASE_INVENTORY: Record<
       "I just wanted to let you know that...",
     ],
     parentReplyOpenings: [
-      "I'm sorry to hear that...",
-      "Thank you for bringing this to my attention.",
-      "I wanted to follow up on what happened today.",
+      "Thank you for letting me know.",
+      "I appreciate you getting in touch about this.",
+      "I have received your message and will look into this promptly.",
     ],
     actionPatterns: [
       "I will check in tomorrow and make sure the next step feels clear rather than overwhelming.",

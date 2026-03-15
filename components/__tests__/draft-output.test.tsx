@@ -200,6 +200,36 @@ Dr Greg Blackburn`
     expect(signature).toBeInTheDocument()
   })
 
+  it("rebuilds the signature from metadata when neither the structure nor raw text exposes it cleanly", () => {
+    const staleStructure: DraftStructure = {
+      subject: "Homework update",
+      paragraphs: [
+        "Dear Parent/Carer,",
+        "I wanted to give you a clear update about today's maths lesson.",
+      ],
+    }
+
+    render(
+      <DraftOutput
+        {...baseProps}
+        draftText={`Subject: Homework update
+
+Dear Parent/Carer,
+
+I wanted to give you a clear update about today's maths lesson.`}
+        structure={staleStructure}
+        metadata={{
+          ...baseProps.metadata,
+          signatureBlock: "Dr Greg Blackburn",
+        }}
+      />,
+    )
+
+    const body = screen.getByTestId("draft-output-body")
+    const signature = within(body).getByText((text) => text.includes("Kind regards,") && text.includes("Dr Greg Blackburn"))
+    expect(signature).toBeInTheDocument()
+  })
+
   it("renders the repaired unknown-recipient greeting as its own line in the final output", () => {
     const rawDraft = `Subject: Homework update
 

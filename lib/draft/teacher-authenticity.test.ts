@@ -54,6 +54,26 @@ describe("teacher authenticity benchmark set", () => {
     expect(violations).toEqual([])
   })
 
+  it("rejects panic scan replies that parrot a parent-reported incident back to the parent", () => {
+    const violations = detectTeacherAuthenticityViolations(
+      "I understand he came home upset after being pushed by another student. I wanted to update you regarding the incident Jake experienced in class.",
+      {
+        language: "en",
+        mode: "parent_message",
+        direction: "parent_to_teacher",
+        sourceText:
+          "Jake came home angry and upset saying nobody listened when another child pushed him at lunchtime. Karen wants to know what happened and why nobody called.",
+      },
+    )
+
+    expect(violations.map((violation) => violation.phrase)).toEqual(
+      expect.arrayContaining([
+        "i understand he came home",
+        "i wanted to update you regarding the incident",
+      ]),
+    )
+  })
+
   it("rejects product-mediated calm-update phrasing in parent-facing drafts", () => {
     const violations = detectTeacherAuthenticityViolations(
       "I wanted to send a calm update about today's issue and explain the next step in school.",

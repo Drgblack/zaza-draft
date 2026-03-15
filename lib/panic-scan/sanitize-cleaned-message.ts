@@ -52,16 +52,21 @@ export function sanitizeCleanedMessage(raw?: string | null) {
     return ""
   }
   const lines = raw.split(/\r?\n/)
-  const sanitizedLines: string[] = []
-  let lastWasBlank = false
+  const paragraphs: string[] = []
+  let currentParagraph: string[] = []
+
+  const flushParagraph = () => {
+    if (!currentParagraph.length) {
+      return
+    }
+    paragraphs.push(currentParagraph.join(" ").replace(/\s+/g, " ").trim())
+    currentParagraph = []
+  }
 
   for (const line of lines) {
     const trimmed = line.trim()
     if (!trimmed) {
-      if (sanitizedLines.length && !lastWasBlank) {
-        sanitizedLines.push("")
-      }
-      lastWasBlank = true
+      flushParagraph()
       continue
     }
 
@@ -69,10 +74,10 @@ export function sanitizeCleanedMessage(raw?: string | null) {
       continue
     }
 
-    sanitizedLines.push(trimmed)
-    lastWasBlank = false
+    currentParagraph.push(trimmed)
   }
 
-  const joined = sanitizedLines.join("\n").replace(/\n{3,}/g, "\n\n").trim()
+  flushParagraph()
+  const joined = paragraphs.join("\n\n").replace(/\n{3,}/g, "\n\n").trim()
   return joined
 }
