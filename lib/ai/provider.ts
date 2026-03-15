@@ -457,7 +457,14 @@ function buildSafetyAnalysisInstructions(input: ProviderInput) {
 
       return SAFETY_REWRITE_INSTRUCTIONS[category as keyof typeof SAFETY_REWRITE_INSTRUCTIONS] ?? null
     })
-    .filter((instruction): instruction is string => Boolean(instruction))
+    .filter(
+      (
+        instruction,
+      ): instruction is Exclude<
+        (typeof SAFETY_REWRITE_INSTRUCTIONS)[keyof typeof SAFETY_REWRITE_INSTRUCTIONS],
+        null
+      > => instruction !== null,
+    )
 
   return [
     "Communication Safety Analysis:",

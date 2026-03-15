@@ -731,6 +731,7 @@ const DEBUG_DRAFT_LOGS = process.env.NODE_ENV !== "production" || process.env.DE
 
 export async function POST(request: Request) {
   const requestId = randomUUID()
+  let documentationModeRequested = false
   const responseHeaders = {
     "x-request-id": requestId,
   }
@@ -774,6 +775,7 @@ export async function POST(request: Request) {
     } catch (error) {
       return fail(400, "INVALID_JSON", "Payload must be JSON.")
     }
+    documentationModeRequested = Boolean(payload?.documentationMode)
 
     if (!payload || typeof payload !== "object") {
       return fail(422, "VALIDATION", "Payload must be a JSON object.")
@@ -2173,7 +2175,7 @@ export async function POST(request: Request) {
     console.error("[draft] Unexpected error", {
       message: error instanceof Error ? error.message : String(error),
       stack: error instanceof Error ? error.stack : undefined,
-      documentationMode: Boolean(payload.documentationMode),
+      documentationMode: documentationModeRequested,
     })
     return fail(500, "INTERNAL", "An unexpected error occurred.")
   }
