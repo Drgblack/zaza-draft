@@ -1362,44 +1362,6 @@ Examples:
 
           {!outOfScopeNotice && showWellbeingInsights && <ContextualWellbeingTip />}
 
-          <section className="space-y-3">
-            <SegmentedControl
-              options={toneControlOptions}
-              value={selectedTone}
-              onChange={(value) => setSelectedTone(value as ToneKey)}
-              className="bg-white/10 border-white/20 dark:bg-white/5 dark:border-white/10 shadow-inner"
-            />
-          </section>
-
-          <section className="space-y-2">
-            <span className="text-sm font-semibold text-gray-800 dark:text-gray-200 mb-2">
-              {t("editor.rewriteMode.label")}
-            </span>
-            <p className="text-xs text-gray-600 dark:text-gray-400 mb-3">
-              {t("editor.rewriteMode.helper")}
-            </p>
-            <div className="bg-white/10 border border-white/20 dark:bg-white/5 dark:border-white/10 rounded-xl p-1 shadow-inner">
-              <SegmentedControl
-                options={[
-                  {
-                    value: "standard",
-                    label: t("editor.rewriteMode.standard"),
-                    ariaLabel: t("editor.rewriteMode.standard"),
-                  },
-                  {
-                    value: "forward_safe",
-                    label: t("editor.rewriteMode.forwardSafe"),
-                    ariaLabel: t("editor.rewriteMode.forwardSafe"),
-                  },
-                ]}
-                value={rewriteMode}
-                onChange={(value) => setRewriteMode(value as RewriteMode)}
-                ariaLabel={t("editor.rewriteMode.label")}
-                className="border-none bg-transparent p-0 shadow-none"
-              />
-            </div>
-          </section>
-
           <section className="space-y-2">
             <span className="text-sm font-semibold text-gray-800 dark:text-gray-200 mb-2">{t("editor.mode.label")}</span>
             <p className="text-xs text-gray-600 dark:text-gray-400 mb-3">{t("editor.mode.helper")}</p>
@@ -1414,63 +1376,117 @@ Examples:
             </div>
           </section>
 
-          <section className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            <select
-              value={languageChoice}
-              onChange={handleLanguageChange}
-              aria-label={t("languageDropdown.label")}
-              className="bg-white/80 dark:bg-gray-800/80 border border-gray-300 dark:border-gray-600 shadow-sm rounded-xl px-4 py-3 text-gray-900 dark:text-white font-medium focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 hover:border-purple-400 dark:hover:border-purple-500 transition-colors"
-            >
-              <option value="en">English</option>
-              <option value="de">Deutsch</option>
-            </select>
-            <select
-              value={pronounPreference}
-              onChange={(event) => setPronounPreference(event.target.value as PronounPreference)}
-              className="bg-white/80 dark:bg-gray-800/80 border border-gray-300 dark:border-gray-600 shadow-sm rounded-xl px-4 py-3 text-gray-900 dark:text-white font-medium focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 hover:border-purple-400 dark:hover:border-purple-500 transition-colors"
-            >
-              {PRONOUN_OPTIONS.map((option) => (
-                <option key={option.id} value={option.id}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
-          </section>
-
           <section>
             <details className="rounded-xl bg-white/10 dark:bg-white/5 border border-white/20 dark:border-white/10 shadow-lg">
               <summary className="flex items-center justify-between px-4 py-3 cursor-pointer text-sm font-semibold text-white/90">
-                <span>{t("editor.details.summaryTitle")}</span>
-                <span className="text-xs text-white/60">{t("editor.details.summaryHint")}</span>
+                <span>{t("editor.advanced.summaryTitle")}</span>
+                <span className="text-xs text-white/60">{t("editor.advanced.summaryHint")}</span>
               </summary>
-              <div className="px-4 pb-4">
-                <div className="mt-3 grid grid-cols-1 md:grid-cols-3 gap-3">
-                  <div className="min-w-[200px] space-y-1">
-                    <input
-                      value={studentFirstNameInput}
-                      onChange={(event) => setStudentFirstNameInput(event.target.value)}
-                      placeholder={t("editor.studentName.placeholder")}
-                      className="w-full bg-white/90 dark:bg-white/10 rounded-xl border border-white/40 dark:border-white/30 px-4 py-3 text-gray-900 dark:text-white font-medium shadow-sm focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-2"
+              <div className="px-4 pb-4 pt-1 space-y-5">
+                <section className="space-y-3">
+                  <p className="text-xs font-medium uppercase tracking-[0.12em] text-white/60">
+                    {t("editor.advanced.toneSection")}
+                  </p>
+                  <SegmentedControl
+                    options={toneControlOptions}
+                    value={selectedTone}
+                    onChange={(value) => setSelectedTone(value as ToneKey)}
+                    className="bg-white/10 border-white/20 dark:bg-white/5 dark:border-white/10 shadow-inner"
+                  />
+                </section>
+
+                <section className="space-y-2">
+                  <span className="text-sm font-semibold text-gray-800 dark:text-gray-200">
+                    {t("editor.rewriteMode.label")}
+                  </span>
+                  <p className="text-xs text-gray-600 dark:text-gray-400">
+                    {t("editor.rewriteMode.helper")}
+                  </p>
+                  <div className="bg-white/10 border border-white/20 dark:bg-white/5 dark:border-white/10 rounded-xl p-1 shadow-inner">
+                    <SegmentedControl
+                      options={[
+                        {
+                          value: "standard",
+                          label: t("editor.rewriteMode.standard"),
+                          ariaLabel: t("editor.rewriteMode.standard"),
+                        },
+                        {
+                          value: "forward_safe",
+                          label: t("editor.rewriteMode.forwardSafe"),
+                          ariaLabel: t("editor.rewriteMode.forwardSafe"),
+                        },
+                      ]}
+                      value={rewriteMode}
+                      onChange={(value) => setRewriteMode(value as RewriteMode)}
+                      ariaLabel={t("editor.rewriteMode.label")}
+                      className="border-none bg-transparent p-0 shadow-none"
                     />
-                    {displayedStudentFirstName && (
-                      <p className="text-xs text-white/60">
-                        {t("editor.studentName.display", { name: displayedStudentFirstName })}
-                      </p>
-                    )}
                   </div>
-                  <input
-                    value={subject}
-                    onChange={(event) => setSubject(event.target.value)}
-                    placeholder={t("editor.placeholder.subject")}
-                    className="bg-white/90 dark:bg-white/10 rounded-xl border border-white/40 dark:border-white/30 px-4 py-3 text-gray-900 dark:text-white font-medium shadow-sm focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-2"
-                  />
-                  <input
-                    value={gradeLevel}
-                    onChange={(event) => setGradeLevel(event.target.value)}
-                    placeholder={t("editor.placeholder.gradeLevel")}
-                    className="bg-white/90 dark:bg-white/10 rounded-xl border border-white/40 dark:border-white/30 px-4 py-3 text-gray-900 dark:text-white font-medium shadow-sm focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-2"
-                  />
-                </div>
+                </section>
+
+                <section className="space-y-3">
+                  <p className="text-xs font-medium uppercase tracking-[0.12em] text-white/60">
+                    {t("editor.advanced.languageSection")}
+                  </p>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <select
+                      value={languageChoice}
+                      onChange={handleLanguageChange}
+                      aria-label={t("languageDropdown.label")}
+                      className="bg-white/80 dark:bg-gray-800/80 border border-gray-300 dark:border-gray-600 shadow-sm rounded-xl px-4 py-3 text-gray-900 dark:text-white font-medium focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 hover:border-purple-400 dark:hover:border-purple-500 transition-colors"
+                    >
+                      <option value="en">English</option>
+                      <option value="de">Deutsch</option>
+                    </select>
+                    <select
+                      value={pronounPreference}
+                      onChange={(event) => setPronounPreference(event.target.value as PronounPreference)}
+                      className="bg-white/80 dark:bg-gray-800/80 border border-gray-300 dark:border-gray-600 shadow-sm rounded-xl px-4 py-3 text-gray-900 dark:text-white font-medium focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 hover:border-purple-400 dark:hover:border-purple-500 transition-colors"
+                    >
+                      {PRONOUN_OPTIONS.map((option) => (
+                        <option key={option.id} value={option.id}>
+                          {option.label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </section>
+
+                <section className="space-y-3">
+                  <div className="flex items-center justify-between gap-3">
+                    <p className="text-xs font-medium uppercase tracking-[0.12em] text-white/60">
+                      {t("editor.details.summaryTitle")}
+                    </p>
+                    <span className="text-xs text-white/60">{t("editor.details.summaryHint")}</span>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                    <div className="min-w-[200px] space-y-1">
+                      <input
+                        value={studentFirstNameInput}
+                        onChange={(event) => setStudentFirstNameInput(event.target.value)}
+                        placeholder={t("editor.studentName.placeholder")}
+                        className="w-full bg-white/90 dark:bg-white/10 rounded-xl border border-white/40 dark:border-white/30 px-4 py-3 text-gray-900 dark:text-white font-medium shadow-sm focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-2"
+                      />
+                      {displayedStudentFirstName && (
+                        <p className="text-xs text-white/60">
+                          {t("editor.studentName.display", { name: displayedStudentFirstName })}
+                        </p>
+                      )}
+                    </div>
+                    <input
+                      value={subject}
+                      onChange={(event) => setSubject(event.target.value)}
+                      placeholder={t("editor.placeholder.subject")}
+                      className="bg-white/90 dark:bg-white/10 rounded-xl border border-white/40 dark:border-white/30 px-4 py-3 text-gray-900 dark:text-white font-medium shadow-sm focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-2"
+                    />
+                    <input
+                      value={gradeLevel}
+                      onChange={(event) => setGradeLevel(event.target.value)}
+                      placeholder={t("editor.placeholder.gradeLevel")}
+                      className="bg-white/90 dark:bg-white/10 rounded-xl border border-white/40 dark:border-white/30 px-4 py-3 text-gray-900 dark:text-white font-medium shadow-sm focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-2"
+                    />
+                  </div>
+                </section>
               </div>
             </details>
           </section>

@@ -117,10 +117,6 @@ function countEventsByTeacherIntents(
 
 export function buildWeeklyReflection(events: InsightEventRecord[]): WeeklyReflection | null {
   const draftsCreated = countEventsByName(events, "draft_created")
-  if (draftsCreated === 0) {
-    return null
-  }
-
   const rewriteAccepted = countEventsByName(events, "rewrite_accepted")
   const riskFlagsTriggered = countEventsByName(events, "risk_flag_triggered")
   const documentationModeUsage =
@@ -144,25 +140,37 @@ export function buildWeeklyReflection(events: InsightEventRecord[]): WeeklyRefle
   const progressFocusedDrafts =
     countEventsByTeacherIntents(events, ["share_progress", "praise_student"]) +
     countDraftEventsByMessageContexts(events, ["report_comment", "student_feedback"])
+  const parentMessageDrafts = countDraftEventsByMessageContexts(events, ["parent_email"])
   const complaintFocusedDrafts = countEventsByTeacherIntents(events, ["respond_to_complaint"])
   const expectationsFocusedDrafts = countEventsByTeacherIntents(events, [
     "clarify_expectations",
   ])
+  const signalCount =
+    draftsCreated +
+    rewriteAccepted +
+    riskFlagsTriggered +
+    documentationModeUsage +
+    afterHoursDrafts +
+    weekendDrafts +
+    behaviourFocusedDrafts +
+    progressFocusedDrafts +
+    complaintFocusedDrafts +
+    expectationsFocusedDrafts
+
+  if (signalCount === 0) {
+    return null
+  }
 
   if (documentationModeUsage > 0) {
     return { key: "insights.weeklyReflection.documentation" }
   }
 
-  if (behaviourFocusedDrafts >= 2 && (rewriteAccepted >= 2 || riskFlagsTriggered >= 1)) {
+  if (behaviourFocusedDrafts >= 1 && (rewriteAccepted >= 1 || riskFlagsTriggered >= 1)) {
     return { key: "insights.weeklyReflection.behaviourTone" }
   }
 
-  if (rewriteAccepted >= 2 && riskFlagsTriggered >= 1) {
+  if (rewriteAccepted >= 1 && riskFlagsTriggered >= 1) {
     return { key: "insights.weeklyReflection.softening" }
-  }
-
-  if (progressFocusedDrafts >= 2) {
-    return { key: "insights.weeklyReflection.progress" }
   }
 
   if (complaintFocusedDrafts >= 1) {
@@ -173,8 +181,16 @@ export function buildWeeklyReflection(events: InsightEventRecord[]): WeeklyRefle
     return { key: "insights.weeklyReflection.expectations" }
   }
 
-  if (schoolHoursDrafts >= Math.max(2, outOfHoursDrafts + 1) && outOfHoursDrafts <= 1) {
+  if (
+    parentMessageDrafts >= 1 &&
+    schoolHoursDrafts >= Math.max(1, outOfHoursDrafts + 1) &&
+    outOfHoursDrafts <= 1
+  ) {
     return { key: "insights.weeklyReflection.schoolHours" }
+  }
+
+  if (progressFocusedDrafts >= 1) {
+    return { key: "insights.weeklyReflection.progress" }
   }
 
   return { key: "insights.weeklyReflection.general" }

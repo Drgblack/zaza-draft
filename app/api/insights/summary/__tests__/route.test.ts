@@ -342,4 +342,21 @@ describe("GET /api/insights/summary", () => {
     expect(response.status).toBe(200)
     expect(json.summary.weeklyReflection.key).toBe("insights.weeklyReflection.complaints")
   })
+
+  it("generates a weekly reflection from minimal documentation-only activity", async () => {
+    testState.analyticsEvents = [
+      createDraftEvent("teacher-1", {
+        timestamp: "2026-03-20T10:00:00.000Z",
+        event_name: "documentation_mode_enabled",
+        message_context: "incident_record",
+        workflow_type: "documentation_mode",
+      }),
+    ]
+
+    const response = await GET(new Request("http://localhost/api/insights/summary?rangeDays=30"))
+    const json = await response.json()
+
+    expect(response.status).toBe(200)
+    expect(json.summary.weeklyReflection.key).toBe("insights.weeklyReflection.documentation")
+  })
 })

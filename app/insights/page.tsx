@@ -403,6 +403,9 @@ export default function InsightsPage() {
               <h1 className="text-3xl font-bold text-white drop-shadow-lg">
                 {insightsHeading}
               </h1>
+              <p className="mt-2 max-w-3xl text-sm leading-relaxed text-white/80 sm:text-base">
+                {t("insights.explainer")}
+              </p>
               <p className="text-white/90 mt-1">{t("insights.subtitle")}</p>
             </div>
             <div className="flex items-center gap-3">
@@ -461,6 +464,23 @@ export default function InsightsPage() {
               </p>
             </Card>
           )}
+          {!summaryLoading && weeklyReflectionText && (
+            <Card className="rounded-3xl border border-white/30 bg-white/92 p-6 shadow-2xl shadow-purple-500/10 backdrop-blur-2xl dark:border-white/20 dark:bg-white/10">
+              <div className="flex items-start gap-4">
+                <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-amber-200 via-pink-200 to-violet-200 text-2xl shadow-sm dark:from-amber-400/30 dark:via-pink-400/20 dark:to-violet-400/30">
+                  ✍️
+                </div>
+                <div className="space-y-1">
+                  <p className="text-sm font-semibold uppercase tracking-[0.14em] text-gray-500 dark:text-white/60">
+                    {t("insights.weeklyReflection.title")}
+                  </p>
+                  <p className="text-lg font-semibold leading-relaxed text-gray-900 dark:text-white">
+                    {weeklyReflectionText}
+                  </p>
+                </div>
+              </div>
+            </Card>
+          )}
           {!summaryLoading && !hasMetrics && (
             <Card className="rounded-3xl border border-dashed border-gray-300 bg-white/80 dark:border-gray-700 dark:bg-white/5 p-8 text-center">
               <p className="text-xl font-semibold text-gray-900 dark:text-white">
@@ -476,23 +496,6 @@ export default function InsightsPage() {
           )}
           {hasMetrics && (
             <>
-              {weeklyReflectionText && (
-                <Card className="rounded-3xl border border-white/30 bg-white/92 p-6 shadow-2xl shadow-purple-500/10 backdrop-blur-2xl dark:border-white/20 dark:bg-white/10">
-                  <div className="flex items-start gap-4">
-                    <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-amber-200 via-pink-200 to-violet-200 text-2xl shadow-sm dark:from-amber-400/30 dark:via-pink-400/20 dark:to-violet-400/30">
-                      ✍️
-                    </div>
-                    <div className="space-y-1">
-                      <p className="text-sm font-semibold uppercase tracking-[0.14em] text-gray-500 dark:text-white/60">
-                        {t("insights.weeklyReflection.title")}
-                      </p>
-                      <p className="text-lg font-semibold leading-relaxed text-gray-900 dark:text-white">
-                        {weeklyReflectionText}
-                      </p>
-                    </div>
-                  </div>
-                </Card>
-              )}
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-10">
           <StatCard
             title={t("insights.timeSaved.title")}
