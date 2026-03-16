@@ -1,10 +1,40 @@
 import { NextResponse } from "next/server"
+
+import { buildTeacherHash } from "@/lib/analytics-identifiers"
 import { authorizeFirebaseRequest, FirebaseAuthorizationError } from "@/lib/firebase/server"
 import {
   buildFallbackInsightsSummary,
-  buildInsightsSummaryFromSnippets,
+  buildInsightsSummaryFromEvents,
+  type InsightEventRecord,
   normalizeInsightsRangeDays,
 } from "@/lib/insights/summary"
+
+function splitEventsByRange(
+  events: InsightEventRecord[],
+  currentRangeStartIso: string,
+  previousRangeStartIso: string,
+) {
+  const currentEvents: InsightEventRecord[] = []
+  const previousEvents: InsightEventRecord[] = []
+
+  for (const event of events) {
+    const timestamp = event.timestamp
+    if (!timestamp) {
+      continue
+    }
+
+    if (timestamp >= currentRangeStartIso) {
+      currentEvents.push(event)
+      continue
+    }
+
+    if (timestamp >= previousRangeStartIso) {
+      previousEvents.push(event)
+    }
+  }
+
+  return { currentEvents, previousEvents }
+}
 
 export async function GET(req: Request) {
   try {
@@ -14,44 +44,45 @@ export async function GET(req: Request) {
       throw new FirebaseAuthorizationError("Firebase admin not configured", 500)
     }
 
-    const userSnap = await firestore.collection("users").doc(uid).get()
-    const userData = userSnap.exists ? userSnap.data() : null
     const requestedRange = new URL(req.url).searchParams.get("rangeDays")
     const rangeDays = normalizeInsightsRangeDays(requestedRange)
     const now = Date.now()
     const currentRangeStart = new Date(now - rangeDays * 86_400_000).toISOString()
     const previousRangeStart = new Date(now - rangeDays * 2 * 86_400_000).toISOString()
-    const userRef = firestore.collection("users").doc(uid)
-    const snippetCollection = userRef.collection("snippets")
+    const fourWeekTrendStart = new Date(now - 28 * 86_400_000).toISOString()
+    const fetchStart = previousRangeStart < fourWeekTrendStart ? previousRangeStart : fourWeekTrendStart
+    const teacherHash = buildTeacherHash(uid)
 
-    const [currentSnippetsSnap, previousSnippetsSnap] = await Promise.all([
-      snippetCollection
-        .where("createdAt", ">=", currentRangeStart)
-        .orderBy("createdAt", "desc")
-        .limit(500)
-        .get(),
-      snippetCollection
-        .where("createdAt", ">=", previousRangeStart)
-        .where("createdAt", "<", currentRangeStart)
-        .orderBy("createdAt", "desc")
-        .limit(500)
-        .get(),
-    ])
+    const eventsSnapshot = await firestore
+      .collection("analyticsEvents")
+      .where("teacher_hash", "==", teacherHash)
+      .where("timestamp", ">=", fetchStart)
+      .orderBy("timestamp", "desc")
+      .limit(2000)
+      .get()
 
-    const generationCount =
-      (userData?.monthlyUsage && typeof userData.monthlyUsage.generationCount === "number")
-        ? userData.monthlyUsage.generationCount
-        : 0
-
+    const events = eventsSnapshot.docs.map((doc) => doc.data() as InsightEventRecord)
+    const { currentEvents, previousEvents } = splitEventsByRange(
+      events,
+      currentRangeStart,
+      previousRangeStart,
+    )
+    const recentEvents = events.filter((event) =>
+      typeof event.timestamp === "string" && event.timestamp >= fourWeekTrendStart,
+    )
+    const weeklyReflectionStart = new Date(now - 7 * 86_400_000).toISOString()
+    const weeklyEvents = events.filter(
+      (event) => typeof event.timestamp === "string" && event.timestamp >= weeklyReflectionStart,
+    )
     const summary =
-      currentSnippetsSnap.size > 0
-        ? buildInsightsSummaryFromSnippets(
-            currentSnippetsSnap.docs.map((doc) => doc.data()),
-            previousSnippetsSnap.docs.map((doc) => doc.data()),
+      events.length > 0
+        ? buildInsightsSummaryFromEvents(
+            currentEvents,
+            previousEvents,
+            recentEvents,
+            weeklyEvents,
           )
-        : requestedRange
-          ? buildFallbackInsightsSummary(0, userData?.updatedAt ?? null)
-          : buildFallbackInsightsSummary(generationCount, userData?.updatedAt ?? null)
+        : buildFallbackInsightsSummary(0, null)
 
     return NextResponse.json({ success: true, summary })
   } catch (error) {

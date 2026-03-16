@@ -1,4 +1,5 @@
 import type { NextRequest } from "next/server"
+import type { DecodedIdToken } from "firebase-admin/auth"
 import { getFirebaseAdmin, getFirebaseCredentialError } from "@/lib/firebase/admin"
 
 type FirebaseAdminContext = ReturnType<typeof getFirebaseAdmin>
@@ -14,6 +15,7 @@ export async function authorizeFirebaseRequest(
   request: Request | NextRequest,
 ): Promise<{
   uid: string
+  decodedToken: DecodedIdToken
   auth: FirebaseAdminContext["auth"]
   firestore: FirebaseAdminContext["firestore"]
   storage: FirebaseAdminContext["storage"]
@@ -35,6 +37,7 @@ export async function authorizeFirebaseRequest(
     const decoded = await auth.verifyIdToken(idToken)
     return {
       uid: decoded.uid,
+      decodedToken: decoded,
       auth,
       firestore,
       storage,

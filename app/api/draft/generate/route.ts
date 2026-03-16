@@ -62,6 +62,7 @@ import { classifyGenerationRequest, type GenerationMetadata, type SourceType } f
 import { applyFinalGreetingGuard } from "@/lib/draft/final-greeting"
 import { runSafetyEngine, type SafetyEngineOutput } from "@/src/lib/safetyEngine"
 import { detectTopicKeyword } from "@/src/lib/safetyEngine/topicDetector"
+import { classifyTeacherIntent } from "@/lib/teacher-intent"
 import {
   GreetingDecision,
   greetingWithName,
@@ -103,6 +104,7 @@ interface GenerateDraftRequest {
     gradeLevel?: string
   }
   rewrite?: boolean
+  forwardSafeRewrite?: boolean
   previousDraft?: string
   pronounPreference?: PronounPreference
   mode?: DraftMode
@@ -285,24 +287,45 @@ function normalizeDocumentationSentence(sentence: string): string {
     .trim()
 }
 
-function buildDocumentationFallbackDraft(rawMessage: string, documentationTopic: string | null) {
+function extractDocumentationLocation(rawMessage: string): string {
+  const normalizedMessage = rawMessage.replace(/\s+/g, " ").trim()
+  const locationPatterns = [
+    /\b(in|at|during)\s+the\s+(classroom|playground|corridor|hallway|canteen|cafeteria|library|assembly hall|sports hall|gym|lunch hall|dining hall|school office|reception|bus queue|play area|lesson|class)\b/i,
+    /\b(on|during)\s+(breaktime|lunchtime|the playground|the corridor|the bus|the trip)\b/i,
+  ]
+
+  for (const pattern of locationPatterns) {
+    const match = normalizedMessage.match(pattern)
+    if (match) {
+      return match[0].replace(/\s+/g, " ").trim()
+    }
+  }
+
+  return "Not specified"
+}
+
+function buildDocumentationFallbackDraft(rawMessage: string) {
   const today = new Date().toISOString().split("T")[0]
   const sentences = splitDocumentationSentences(rawMessage)
-  const observationSentence =
-    normalizeDocumentationSentence(sentences[0] ?? "The teacher recorded a classroom concern.")
-  const actionSentence = normalizeDocumentationSentence(
+  const observedBehaviour = normalizeDocumentationSentence(
+    sentences[0] ?? "The teacher recorded a classroom concern.",
+  )
+  const teacherResponse = normalizeDocumentationSentence(
     sentences[1] ?? "The teacher recorded that the concern had been raised previously.",
   )
-  const outcomeSentence = normalizeDocumentationSentence(
-    sentences[2] ?? "Further school follow-up may be required if the pattern continues.",
+  const followUpAction = normalizeDocumentationSentence(
+    sentences[2] ?? "No follow-up action recorded.",
   )
+  const location = extractDocumentationLocation(rawMessage)
 
   return [
-    `Date: ${today} | Context: ${documentationTopic ?? "general"}`,
+    "Incident Record",
     "",
-    `Observation: ${observationSentence}`,
-    `Action Taken: ${actionSentence}`,
-    `Outcome: ${outcomeSentence}`,
+    `Date: ${today}`,
+    `Location: ${location}`,
+    `Observed behaviour: ${observedBehaviour}`,
+    `Teacher response: ${teacherResponse}`,
+    `Follow-up action: ${followUpAction}`,
     "",
     "This record is for documentation purposes.",
   ].join("\n")
@@ -1248,6 +1271,7 @@ export async function POST(request: Request) {
     language,
     context: sanitizedContext,
     rewrite: Boolean(payload.rewrite),
+    forwardSafeRewrite: Boolean(payload.forwardSafeRewrite),
     previousDraft: payload.previousDraft,
     pronounPreference: resolvedPronounPreference,
     mode,
@@ -1480,10 +1504,7 @@ export async function POST(request: Request) {
 
         return {
           result: {
-            text: buildDocumentationFallbackDraft(
-              providerInput.documentationSourceText ?? situation,
-              documentationTopic,
-            ),
+            text: buildDocumentationFallbackDraft(providerInput.documentationSourceText ?? situation),
             providerMeta: {
               modelUsed: "documentation-mode-fallback",
               latencyMs: 0,
@@ -1982,6 +2003,14 @@ export async function POST(request: Request) {
 
   const latencyMs = Date.now() - requestStart
   const safetyFlagList = safetyFlags.size ? Array.from(safetyFlags) : ["no-sensitive-content"]
+  const teacherIntent = classifyTeacherIntent({
+    situation: cleanedSituationText,
+    draftMode: mode,
+    documentationMode: documentationModeActive,
+    messageType: payload.messageType ?? null,
+    messageDirection: generationMetadata.direction,
+    safetyAnalysis,
+  })
 
   const metadata = {
     userId: uid,
@@ -2004,6 +2033,8 @@ export async function POST(request: Request) {
     requestedAt: requestedAt.toISOString(),
     contextUsed: sanitizedContext,
     signatureBlock: resolvedSignature.block,
+    teacherIntent,
+    forwardSafeRewrite: Boolean(payload.forwardSafeRewrite && payload.rewrite),
     sanitizedInput: {
       wordCount: sanitizedInput.wordCount,
       substantiveLines: sanitizedInput.substantiveLines,
@@ -2094,6 +2125,8 @@ export async function POST(request: Request) {
     inputReframed,
     inputReframedTier,
     safetyFlags: metadata.safetyFlags,
+    teacherIntent: metadata.teacherIntent,
+    forwardSafeRewrite: metadata.forwardSafeRewrite,
     latencyMs,
     generationTime: metadata.generationTime,
     usage: usageAfterGeneration,

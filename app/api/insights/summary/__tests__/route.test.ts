@@ -1,18 +1,25 @@
-import { beforeEach, describe, expect, it, vi } from "vitest"
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
+
 import { GET } from "@/app/api/insights/summary/route"
+import { buildTeacherHash } from "@/lib/analytics-identifiers"
 import { authorizeFirebaseRequest } from "@/lib/firebase/server"
+
+type AnalyticsEventRecord = {
+  teacher_hash: string
+  event_name: string
+  timestamp: string
+  message_context: string
+  workflow_type: string
+  time_context: string
+  edit_depth: number
+  risk_flag?: string | null
+  teacher_intent?: string | null
+}
 
 const testState = vi.hoisted(() => ({
   uid: "teacher-1",
-  lastRequestedUid: null as string | null,
-  users: {} as Record<
-    string,
-    {
-      monthlyUsage?: { generationCount?: number }
-      updatedAt?: string | null
-      snippets?: Array<{ createdAt: string }>
-    }
-  >,
+  lastTeacherHash: null as string | null,
+  analyticsEvents: [] as AnalyticsEventRecord[],
 }))
 
 vi.mock("@/lib/firebase/server", () => ({
@@ -22,9 +29,16 @@ vi.mock("@/lib/firebase/server", () => ({
   },
 }))
 
-function buildQuery(records: Array<{ createdAt: string }>, filters: Array<{ field: string; op: string; value: string }> = [], take = 500) {
+function buildQuery(
+  records: AnalyticsEventRecord[],
+  filters: Array<{ field: string; op: string; value: string }> = [],
+  take = 2000,
+) {
   return {
     where(field: string, op: string, value: string) {
+      if (field === "teacher_hash" && op === "==") {
+        testState.lastTeacherHash = value
+      }
       return buildQuery(records, [...filters, { field, op, value }], take)
     },
     orderBy() {
@@ -35,24 +49,28 @@ function buildQuery(records: Array<{ createdAt: string }>, filters: Array<{ fiel
     },
     async get() {
       let filtered = [...records]
+
       for (const filter of filters) {
-        if (filter.field !== "createdAt") {
-          continue
-        }
         filtered = filtered.filter((record) => {
+          const value = String((record as Record<string, unknown>)[filter.field] ?? "")
+          if (filter.op === "==") {
+            return value === filter.value
+          }
           if (filter.op === ">=") {
-            return record.createdAt >= filter.value
+            return value >= filter.value
           }
           if (filter.op === "<") {
-            return record.createdAt < filter.value
+            return value < filter.value
           }
           return true
         })
       }
-      filtered.sort((left, right) => right.createdAt.localeCompare(left.createdAt))
+
+      filtered.sort((left, right) => right.timestamp.localeCompare(left.timestamp))
       const docs = filtered.slice(0, take).map((record) => ({
         data: () => record,
       }))
+
       return {
         size: docs.length,
         docs,
@@ -64,34 +82,36 @@ function buildQuery(records: Array<{ createdAt: string }>, filters: Array<{ fiel
 function createFirestoreStub() {
   return {
     collection(name: string) {
-      expect(name).toBe("users")
-      return {
-        doc(uid: string) {
-          testState.lastRequestedUid = uid
-          const userRecord = testState.users[uid] ?? {}
-          return {
-            async get() {
-              return {
-                exists: uid in testState.users,
-                data: () => userRecord,
-              }
-            },
-            collection(childName: string) {
-              expect(childName).toBe("snippets")
-              return buildQuery(userRecord.snippets ?? [])
-            },
-          }
-        },
-      }
+      expect(name).toBe("analyticsEvents")
+      return buildQuery(testState.analyticsEvents)
     },
+  }
+}
+
+function createDraftEvent(
+  uid: string,
+  overrides: Partial<AnalyticsEventRecord>,
+): AnalyticsEventRecord {
+  return {
+    teacher_hash: buildTeacherHash(uid),
+    event_name: "draft_created",
+    timestamp: "2026-03-16T09:00:00.000Z",
+    message_context: "parent_email",
+    workflow_type: "new_message",
+    time_context: "school_hours",
+    edit_depth: 0,
+    ...overrides,
   }
 }
 
 describe("GET /api/insights/summary", () => {
   beforeEach(() => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date("2026-03-21T12:00:00.000Z"))
+    vi.stubEnv("ANALYTICS_HASH_SALT", "unit-test-salt")
     testState.uid = "teacher-1"
-    testState.lastRequestedUid = null
-    testState.users = {}
+    testState.lastTeacherHash = null
+    testState.analyticsEvents = []
     vi.clearAllMocks()
     vi.mocked(authorizeFirebaseRequest).mockImplementation(
       async () =>
@@ -102,17 +122,21 @@ describe("GET /api/insights/summary", () => {
     )
   })
 
-  it("builds insights from real snippet activity even when monthly usage stays at zero", async () => {
+  afterEach(() => {
+    vi.useRealTimers()
+    vi.unstubAllEnvs()
+  })
+
+  it("builds insights from append-only draft events", async () => {
     testState.uid = "qa-teacher"
-    testState.users = {
-      "qa-teacher": {
-        monthlyUsage: { generationCount: 0 },
-        snippets: [
-          { createdAt: "2026-03-16T09:00:00.000Z" },
-          { createdAt: "2026-03-15T09:00:00.000Z" },
-        ],
-      },
-    }
+    testState.analyticsEvents = [
+      createDraftEvent("qa-teacher", {
+        timestamp: "2026-03-16T09:00:00.000Z",
+      }),
+      createDraftEvent("qa-teacher", {
+        timestamp: "2026-03-15T09:00:00.000Z",
+      }),
+    ]
 
     const response = await GET(new Request("http://localhost/api/insights/summary?rangeDays=30"))
     const json = await response.json()
@@ -124,34 +148,31 @@ describe("GET /api/insights/summary", () => {
     expect(json.summary.currentStreak.days).toBe(2)
   })
 
-  it("respects the authenticated user when selecting insight data", async () => {
+  it("respects the authenticated user when selecting event data", async () => {
     testState.uid = "teacher-b"
-    testState.users = {
-      "teacher-a": {
-        snippets: [{ createdAt: "2026-03-16T09:00:00.000Z" }],
-      },
-      "teacher-b": {
-        monthlyUsage: { generationCount: 0 },
-        snippets: [],
-      },
-    }
+    testState.analyticsEvents = [
+      createDraftEvent("teacher-a", {
+        timestamp: "2026-03-16T09:00:00.000Z",
+      }),
+    ]
 
     const response = await GET(new Request("http://localhost/api/insights/summary?rangeDays=30"))
     const json = await response.json()
 
     expect(response.status).toBe(200)
-    expect(testState.lastRequestedUid).toBe("teacher-b")
+    expect(testState.lastTeacherHash).toBe(buildTeacherHash("teacher-b"))
     expect(json.summary.draftsCreated.total).toBe(0)
   })
 
-  it("filters snippet activity to the requested date range", async () => {
-    const recent = new Date(Date.now() - 2 * 86_400_000).toISOString()
-    const older = new Date(Date.now() - 40 * 86_400_000).toISOString()
-    testState.users = {
-      "teacher-1": {
-        snippets: [{ createdAt: recent }, { createdAt: older }],
-      },
-    }
+  it("filters event activity to the requested date range", async () => {
+    testState.analyticsEvents = [
+      createDraftEvent("teacher-1", {
+        timestamp: "2026-03-14T13:00:00.000Z",
+      }),
+      createDraftEvent("teacher-1", {
+        timestamp: "2026-02-01T09:00:00.000Z",
+      }),
+    ]
 
     const shortRangeResponse = await GET(new Request("http://localhost/api/insights/summary?rangeDays=7"))
     const shortRangeJson = await shortRangeResponse.json()
@@ -162,35 +183,143 @@ describe("GET /api/insights/summary", () => {
     expect(longRangeJson.summary.draftsCreated.total).toBe(2)
   })
 
-  it("falls back to the monthly usage counter when snippet history is absent", async () => {
-    testState.users = {
-      "teacher-1": {
-        monthlyUsage: { generationCount: 4 },
-        updatedAt: "2026-03-16T09:00:00.000Z",
-      },
-    }
-
+  it("returns zeroed insights when no consented analytics events exist", async () => {
     const response = await GET(new Request("http://localhost/api/insights/summary"))
     const json = await response.json()
 
     expect(response.status).toBe(200)
-    expect(json.summary.draftsCreated.total).toBe(4)
-    expect(json.summary.timeSaved.minutes).toBe(12)
+    expect(json.summary.draftsCreated.total).toBe(0)
+    expect(json.summary.timeSaved.minutes).toBe(0)
   })
 
-  it("does not let the monthly counter override an explicit empty date range", async () => {
-    testState.users = {
-      "teacher-1": {
-        monthlyUsage: { generationCount: 4 },
-        updatedAt: "2026-03-16T09:00:00.000Z",
-        snippets: [],
-      },
-    }
+  it("returns teacher communication load trends from weekly event data", async () => {
+    testState.analyticsEvents = [
+      createDraftEvent("teacher-1", {
+        timestamp: "2026-02-26T09:00:00.000Z",
+        event_name: "risk_flag_triggered",
+      }),
+      createDraftEvent("teacher-1", {
+        timestamp: "2026-02-27T09:00:00.000Z",
+        event_name: "rewrite_accepted",
+      }),
+      createDraftEvent("teacher-1", {
+        timestamp: "2026-02-28T09:00:00.000Z",
+        time_context: "weekend",
+      }),
+      createDraftEvent("teacher-1", {
+        timestamp: "2026-03-01T09:00:00.000Z",
+        time_context: "weekend",
+      }),
+      createDraftEvent("teacher-1", {
+        timestamp: "2026-03-03T09:00:00.000Z",
+      }),
+      createDraftEvent("teacher-1", {
+        timestamp: "2026-03-04T19:00:00.000Z",
+        time_context: "after_hours",
+      }),
+      createDraftEvent("teacher-1", {
+        timestamp: "2026-03-05T09:00:00.000Z",
+      }),
+      createDraftEvent("teacher-1", {
+        timestamp: "2026-03-06T09:00:00.000Z",
+        event_name: "rewrite_accepted",
+      }),
+      createDraftEvent("teacher-1", {
+        timestamp: "2026-03-07T09:00:00.000Z",
+        event_name: "risk_flag_triggered",
+      }),
+      createDraftEvent("teacher-1", {
+        timestamp: "2026-03-10T09:00:00.000Z",
+        event_name: "rewrite_accepted",
+      }),
+      createDraftEvent("teacher-1", {
+        timestamp: "2026-03-11T09:00:00.000Z",
+        event_name: "rewrite_accepted",
+      }),
+      createDraftEvent("teacher-1", {
+        timestamp: "2026-03-12T09:00:00.000Z",
+        event_name: "rewrite_accepted",
+      }),
+      createDraftEvent("teacher-1", {
+        timestamp: "2026-03-14T09:00:00.000Z",
+        time_context: "weekend",
+      }),
+      createDraftEvent("teacher-1", {
+        timestamp: "2026-03-13T09:00:00.000Z",
+        event_name: "risk_flag_triggered",
+      }),
+      createDraftEvent("teacher-1", {
+        timestamp: "2026-03-15T09:00:00.000Z",
+        event_name: "risk_flag_triggered",
+      }),
+      createDraftEvent("teacher-1", {
+        timestamp: "2026-03-16T19:00:00.000Z",
+        time_context: "after_hours",
+      }),
+      createDraftEvent("teacher-1", {
+        timestamp: "2026-03-17T09:00:00.000Z",
+        event_name: "rewrite_accepted",
+      }),
+      createDraftEvent("teacher-1", {
+        timestamp: "2026-03-18T09:00:00.000Z",
+        event_name: "rewrite_accepted",
+      }),
+      createDraftEvent("teacher-1", {
+        timestamp: "2026-03-19T09:00:00.000Z",
+        event_name: "risk_flag_triggered",
+      }),
+      createDraftEvent("teacher-1", {
+        timestamp: "2026-03-20T09:00:00.000Z",
+        event_name: "risk_flag_triggered",
+      }),
+    ]
+
+    const response = await GET(new Request("http://localhost/api/insights/summary?rangeDays=30"))
+    const json = await response.json()
+
+    expect(response.status).toBe(200)
+    expect(json.summary.communicationLoad.score).toBe(22)
+    expect(json.summary.communicationLoad.trend).toBe(-19)
+    expect(json.summary.communicationLoad.fourWeekTrend).toEqual([24, 18, 27, 22])
+    expect(json.summary.communicationLoad.improvementIndicator).toBe("improving")
+  })
+
+  it("does not let older event data override an explicitly empty current range", async () => {
+    testState.analyticsEvents = [
+      createDraftEvent("teacher-1", {
+        timestamp: "2026-02-01T09:00:00.000Z",
+      }),
+    ]
 
     const response = await GET(new Request("http://localhost/api/insights/summary?rangeDays=7"))
     const json = await response.json()
 
     expect(response.status).toBe(200)
     expect(json.summary.draftsCreated.total).toBe(0)
+  })
+
+  it("builds the weekly reflection from the last 7 days only", async () => {
+    testState.analyticsEvents = [
+      createDraftEvent("teacher-1", {
+        timestamp: "2026-03-19T10:00:00.000Z",
+        teacher_intent: "respond_to_complaint",
+      }),
+      createDraftEvent("teacher-1", {
+        timestamp: "2026-03-18T10:00:00.000Z",
+        teacher_intent: "respond_to_complaint",
+      }),
+      createDraftEvent("teacher-1", {
+        timestamp: "2026-03-02T10:00:00.000Z",
+        event_name: "documentation_mode_enabled",
+        message_context: "incident_record",
+        workflow_type: "documentation_mode",
+      }),
+    ]
+
+    const response = await GET(new Request("http://localhost/api/insights/summary?rangeDays=30"))
+    const json = await response.json()
+
+    expect(response.status).toBe(200)
+    expect(json.summary.weeklyReflection.key).toBe("insights.weeklyReflection.complaints")
   })
 })

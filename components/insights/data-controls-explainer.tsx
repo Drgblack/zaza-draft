@@ -6,7 +6,6 @@ import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { Switch } from "@/components/ui/switch"
 import { useLocale } from "@/hooks/use-locale"
-import { useRouter } from "next/navigation"
 
 interface DataControlsExplainerProps {
   shareData: boolean
@@ -20,12 +19,7 @@ export default function DataControlsExplainer({
   onPrivacySettingsClick,
 }: DataControlsExplainerProps) {
   const [isExpanded, setIsExpanded] = useState(false)
-  const { t, locale } = useLocale()
-  const router = useRouter()
-
-  const handlePrivacyClick = () => {
-    router.push("/account/privacy")
-  }
+  const { t } = useLocale()
 
   return (
     <Card className="relative z-10 rounded-2xl border border-gray-200 bg-white/95 p-8 text-gray-900 shadow-xl transition-all duration-300 hover:shadow-2xl">
@@ -42,6 +36,9 @@ export default function DataControlsExplainer({
               <div>
                 <p className="font-medium text-gray-900 dark:text-white">{t("insights.dataControls.shareData")}</p>
                 <p className="text-sm text-gray-600 dark:text-gray-300">{t("insights.dataControls.helpTeachers")}</p>
+                <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
+                  {t("insights.dataControls.controlHint")}
+                </p>
               </div>
               <Switch
                 checked={shareData}
@@ -174,7 +171,7 @@ export default function DataControlsExplainer({
               <Button
                 variant="outline"
                 size="sm"
-                onClick={handlePrivacyClick}
+                onClick={onPrivacySettingsClick}
                 className="bg-white/80 backdrop-blur-md border-purple-200 hover:bg-purple-50 hover:border-purple-300 transition-all duration-300 hover:shadow-lg hover:shadow-purple-500/20 hover:scale-105 text-gray-900"
               >
                 {t("insights.dataControls.privacySettings")}

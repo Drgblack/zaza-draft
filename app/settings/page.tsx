@@ -1,15 +1,19 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { ArrowLeft, ChevronRight, Info, LockKeyhole, PenTool, Shield } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
+import { Switch } from "@/components/ui/switch"
 import FooterSlim from "@/components/FooterSlim"
 import { useTeacherPrefs } from "@/hooks/use-teacher-prefs"
 import { useLocale } from "@/hooks/use-locale"
 import type { Locale } from "@/hooks/use-locale"
 import { backToDraftButtonClasses } from "@/lib/ui/back-to-draft"
+import { useAuth } from "@/hooks/use-auth"
+import { resolveDraftSignatureEnabled } from "@/lib/draft/draft-attribution"
+import type { PlanType } from "@/lib/usage"
 
 const LANGUAGE_DISPLAY_NAMES: Record<Locale, Record<string, string>> = {
   "en-GB": { en: "English", de: "Deutsch" },
@@ -35,14 +39,58 @@ const LOCKED_BADGE =
   "flex items-center gap-2 rounded-full border border-purple-300 bg-purple-100/90 px-3 py-1.5 text-xs font-semibold text-purple-700"
 
 export default function SettingsPage() {
-  const { prefs } = useTeacherPrefs()
+  const { prefs, updatePrefs } = useTeacherPrefs()
   const router = useRouter()
   const { t, locale } = useLocale()
+  const { getIdToken, signOut } = useAuth()
   const signatureLines = [prefs.signatureLine1, prefs.signatureLine2, prefs.signatureLine3].filter(
     Boolean,
   )
   const [isSaving, setIsSaving] = useState(false)
+  const [accountPlan, setAccountPlan] = useState<PlanType>("free")
   const languageLabel = getLanguageLabel(locale, prefs.preferredLanguage)
+  const includeDraftSignature = useMemo(
+    () => resolveDraftSignatureEnabled(prefs.includeDraftSignature, accountPlan),
+    [accountPlan, prefs.includeDraftSignature],
+  )
+
+  useEffect(() => {
+    let isMounted = true
+
+    const loadAccountPlan = async () => {
+      try {
+        const token = await getIdToken()
+        if (!token) {
+          return
+        }
+
+        const response = await fetch("/api/account/status", {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+          cache: "no-store",
+        })
+
+        if (response.status === 401) {
+          await signOut()
+          return
+        }
+
+        const payload = await response.json().catch(() => null)
+        if (isMounted && (payload?.data?.plan === "free" || payload?.data?.plan === "pro")) {
+          setAccountPlan(payload.data.plan)
+        }
+      } catch (error) {
+        console.error("[settings] Failed to load account plan", error)
+      }
+    }
+
+    void loadAccountPlan()
+
+    return () => {
+      isMounted = false
+    }
+  }, [getIdToken, signOut])
 
   const handleReturn = () => {
     if (isSaving) return
@@ -103,13 +151,7 @@ export default function SettingsPage() {
             <p className="text-sm leading-relaxed text-gray-700">{t("settings.cards.language.description")}</p>
           </Card>
 
-          <Card className={LOCKED_CARD}>
-            <div className="absolute top-4 right-4">
-              <div className={LOCKED_BADGE}>
-                <LockKeyhole className="h-3 w-3" />
-                {t("settings.lockedBadge")}
-              </div>
-            </div>
+          <Card className={CARD_BASE}>
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-xs font-semibold tracking-wider text-gray-700">
@@ -135,6 +177,28 @@ export default function SettingsPage() {
             <p className="mt-3 text-sm leading-relaxed text-gray-700">
               {t("settings.cards.signature.description")}
             </p>
+            <div className="mt-5 rounded-2xl border border-gray-200 bg-gray-50/90 p-4">
+              <div className="flex items-start justify-between gap-4">
+                <div className="space-y-1">
+                  <p className="text-sm font-semibold text-gray-900">
+                    {t("settings.cards.signature.draftAttribution.title")}
+                  </p>
+                  <p className="text-sm leading-relaxed text-gray-600">
+                    {t("settings.cards.signature.draftAttribution.description")}
+                  </p>
+                  <p className="text-xs text-gray-500">
+                    {accountPlan === "free"
+                      ? t("settings.cards.signature.draftAttribution.default.free")
+                      : t("settings.cards.signature.draftAttribution.default.paid")}
+                  </p>
+                </div>
+                <Switch
+                  checked={includeDraftSignature}
+                  onCheckedChange={(checked) => updatePrefs({ includeDraftSignature: checked })}
+                  aria-label={t("settings.cards.signature.draftAttribution.title")}
+                />
+              </div>
+            </div>
           </Card>
 
           <Card className={SAFEGUARD_CARD}>

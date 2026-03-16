@@ -1,3 +1,20 @@
+import {
+  ensureTeacherCommunicationLoadWeekCoverage,
+  buildTeacherCommunicationLoadSummary,
+  buildTeacherCommunicationLoadWeeklyMetricsFromEvents,
+  type TeacherCommunicationLoadWeeklyMetrics,
+} from "@/lib/insights/teacher-communication-load"
+import type {
+  DraftInteractionEventRecord,
+  DraftInteractionMessageContext,
+  DraftInteractionTeacherIntent,
+} from "@/lib/draft-interaction-events"
+
+export type WeeklyReflection = {
+  key: string
+  values?: Record<string, string | number>
+}
+
 export type InsightsSummary = {
   timeSaved?: {
     hours?: number
@@ -18,12 +35,24 @@ export type InsightsSummary = {
     score?: number
     trend?: number
   }
+  communicationLoad?: {
+    score?: number
+    trend?: number
+    trendDirection?: "up" | "down"
+    improvementIndicator?: "improving" | "stable" | "rising"
+    fourWeekTrend?: number[]
+      currentWeek?: TeacherCommunicationLoadWeeklyMetrics
+      previousWeek?: TeacherCommunicationLoadWeeklyMetrics
+  }
+  weeklyReflection?: WeeklyReflection | null
   updatedAt?: string | null
 }
 
 export type InsightSnippetRecord = {
   createdAt?: string | null
 }
+
+export type InsightEventRecord = Partial<DraftInteractionEventRecord>
 
 const ALLOWED_RANGE_DAYS = new Set([7, 30, 90])
 const DEFAULT_RANGE_DAYS = 30
@@ -42,8 +71,113 @@ function parseIsoDate(value?: string | null) {
   return Number.isNaN(parsed.getTime()) ? null : parsed
 }
 
+function getEventTimestamp(event: InsightEventRecord) {
+  return parseIsoDate(event.timestamp)
+}
+
 function toUtcDayKey(date: Date) {
   return date.toISOString().slice(0, 10)
+}
+
+function countEventsByName(events: InsightEventRecord[], eventName: string) {
+  return events.filter((event) => event.event_name === eventName).length
+}
+
+function countDraftEventsByTimeContext(
+  events: InsightEventRecord[],
+  timeContext: DraftInteractionEventRecord["time_context"],
+) {
+  return events.filter(
+    (event) => event.event_name === "draft_created" && event.time_context === timeContext,
+  ).length
+}
+
+function countDraftEventsByMessageContexts(
+  events: InsightEventRecord[],
+  contexts: DraftInteractionMessageContext[],
+) {
+  return events.filter(
+    (event) =>
+      event.event_name === "draft_created" &&
+      typeof event.message_context === "string" &&
+      contexts.includes(event.message_context as DraftInteractionMessageContext),
+  ).length
+}
+
+function countEventsByTeacherIntents(
+  events: InsightEventRecord[],
+  intents: DraftInteractionTeacherIntent[],
+) {
+  return events.filter(
+    (event) =>
+      typeof event.teacher_intent === "string" &&
+      intents.includes(event.teacher_intent as DraftInteractionTeacherIntent),
+  ).length
+}
+
+export function buildWeeklyReflection(events: InsightEventRecord[]): WeeklyReflection | null {
+  const draftsCreated = countEventsByName(events, "draft_created")
+  if (draftsCreated === 0) {
+    return null
+  }
+
+  const rewriteAccepted = countEventsByName(events, "rewrite_accepted")
+  const riskFlagsTriggered = countEventsByName(events, "risk_flag_triggered")
+  const documentationModeUsage =
+    countEventsByName(events, "documentation_mode_enabled") +
+    events.filter(
+      (event) =>
+        event.event_name === "draft_created" &&
+        event.workflow_type === "documentation_mode",
+    ).length
+  const afterHoursDrafts = countDraftEventsByTimeContext(events, "after_hours")
+  const weekendDrafts = countDraftEventsByTimeContext(events, "weekend")
+  const schoolHoursDrafts = countDraftEventsByTimeContext(events, "school_hours")
+  const outOfHoursDrafts = afterHoursDrafts + weekendDrafts
+  const behaviourFocusedDrafts =
+    countEventsByTeacherIntents(events, ["address_behaviour", "document_incident"]) +
+    countDraftEventsByMessageContexts(events, [
+      "behaviour_note",
+      "incident_record",
+      "safeguarding_note",
+    ])
+  const progressFocusedDrafts =
+    countEventsByTeacherIntents(events, ["share_progress", "praise_student"]) +
+    countDraftEventsByMessageContexts(events, ["report_comment", "student_feedback"])
+  const complaintFocusedDrafts = countEventsByTeacherIntents(events, ["respond_to_complaint"])
+  const expectationsFocusedDrafts = countEventsByTeacherIntents(events, [
+    "clarify_expectations",
+  ])
+
+  if (documentationModeUsage > 0) {
+    return { key: "insights.weeklyReflection.documentation" }
+  }
+
+  if (behaviourFocusedDrafts >= 2 && (rewriteAccepted >= 2 || riskFlagsTriggered >= 1)) {
+    return { key: "insights.weeklyReflection.behaviourTone" }
+  }
+
+  if (rewriteAccepted >= 2 && riskFlagsTriggered >= 1) {
+    return { key: "insights.weeklyReflection.softening" }
+  }
+
+  if (progressFocusedDrafts >= 2) {
+    return { key: "insights.weeklyReflection.progress" }
+  }
+
+  if (complaintFocusedDrafts >= 1) {
+    return { key: "insights.weeklyReflection.complaints" }
+  }
+
+  if (expectationsFocusedDrafts >= 1) {
+    return { key: "insights.weeklyReflection.expectations" }
+  }
+
+  if (schoolHoursDrafts >= Math.max(2, outOfHoursDrafts + 1) && outOfHoursDrafts <= 1) {
+    return { key: "insights.weeklyReflection.schoolHours" }
+  }
+
+  return { key: "insights.weeklyReflection.general" }
 }
 
 export function normalizeInsightsRangeDays(rawValue: string | null | undefined) {
@@ -58,7 +192,8 @@ export function hasMeaningfulInsights(summary: InsightsSummary | null | undefine
     timeSavedValue ||
       summary?.draftsCreated?.total ||
       summary?.currentStreak?.days ||
-      summary?.qualityScore?.score,
+      summary?.qualityScore?.score ||
+      summary?.communicationLoad?.score,
   )
 }
 
@@ -67,11 +202,13 @@ export function buildFallbackInsightsSummary(
   updatedAt: string | null = null,
 ): InsightsSummary {
   const minutes = draftCount * MINUTES_SAVED_PER_DRAFT
+  const communicationLoad = buildTeacherCommunicationLoadSummary([])
+  const percentage = draftCount > 0 ? 1 : 0
   return {
     draftsCreated: {
       total: draftCount,
-      usedWithoutEdits: 0,
-      percentage: draftCount,
+      usedWithoutEdits: draftCount,
+      percentage,
     },
     timeSaved: {
       minutes,
@@ -81,14 +218,116 @@ export function buildFallbackInsightsSummary(
       contextCount: draftCount,
     },
     currentStreak: { days: draftCount > 0 ? 1 : 0 },
-    qualityScore: { score: 0, trend: 0 },
+    qualityScore: { score: percentage * 100, trend: 0 },
+    communicationLoad: {
+      score: communicationLoad.score,
+      trend: communicationLoad.trend,
+      trendDirection: communicationLoad.trendDirection,
+      improvementIndicator: communicationLoad.improvementIndicator,
+      fourWeekTrend: communicationLoad.fourWeekTrend,
+      currentWeek: communicationLoad.currentWeek,
+      previousWeek: communicationLoad.previousWeek,
+    },
+    weeklyReflection: null,
     updatedAt,
+  }
+}
+
+function countDraftCreatedEvents(events: InsightEventRecord[]) {
+  return events.filter((event) => event.event_name === "draft_created").length
+}
+
+function countDraftModificationEvents(events: InsightEventRecord[]) {
+  return events.filter((event) =>
+    event.event_name === "draft_modified" ||
+    event.event_name === "rewrite_modified" ||
+    event.event_name === "edit_action",
+  ).length
+}
+
+function calculateDraftQualityScore(events: InsightEventRecord[]) {
+  const totalDrafts = countDraftCreatedEvents(events)
+  if (totalDrafts === 0) {
+    return 0
+  }
+
+  const modifiedDrafts = Math.min(totalDrafts, countDraftModificationEvents(events))
+  const usedWithoutEdits = Math.max(totalDrafts - modifiedDrafts, 0)
+  return Math.round((usedWithoutEdits / totalDrafts) * 100)
+}
+
+export function buildInsightsSummaryFromEvents(
+  currentEvents: InsightEventRecord[],
+  previousEvents: InsightEventRecord[] = [],
+  recentEvents: InsightEventRecord[] = [],
+  weeklyEvents: InsightEventRecord[] = currentEvents,
+): InsightsSummary {
+  const currentDates = currentEvents
+    .map((event) => getEventTimestamp(event))
+    .filter((value): value is Date => value !== null)
+    .sort((a, b) => b.getTime() - a.getTime())
+  const currentDraftsCreated = countDraftCreatedEvents(currentEvents)
+  const previousDraftsCreated = countDraftCreatedEvents(previousEvents)
+  const currentModifiedDrafts = Math.min(
+    currentDraftsCreated,
+    countDraftModificationEvents(currentEvents),
+  )
+  const usedWithoutEdits = Math.max(currentDraftsCreated - currentModifiedDrafts, 0)
+  const usedWithoutEditsRatio =
+    currentDraftsCreated > 0 ? usedWithoutEdits / currentDraftsCreated : 0
+  const minutes = currentDraftsCreated * MINUTES_SAVED_PER_DRAFT
+  const streak = getCurrentStreakDays(currentDates)
+  const trend =
+    previousDraftsCreated > 0
+      ? Math.round(((currentDraftsCreated - previousDraftsCreated) / previousDraftsCreated) * 100)
+      : currentDraftsCreated > 0
+        ? 100
+        : 0
+  const qualityScore = calculateDraftQualityScore(currentEvents)
+  const previousQualityScore = calculateDraftQualityScore(previousEvents)
+  const communicationLoad = buildTeacherCommunicationLoadSummary(
+    ensureTeacherCommunicationLoadWeekCoverage(
+      buildTeacherCommunicationLoadWeeklyMetricsFromEvents(recentEvents),
+    ),
+  )
+  const weeklyReflection = buildWeeklyReflection(weeklyEvents)
+
+  return {
+    draftsCreated: {
+      total: currentDraftsCreated,
+      usedWithoutEdits,
+      percentage: usedWithoutEditsRatio,
+    },
+    timeSaved: {
+      minutes,
+      hours: roundToSingleDecimal(minutes / 60),
+      trend,
+      trendDirection: trend < 0 ? "down" : "up",
+      contextCount: currentDraftsCreated,
+    },
+    currentStreak: { days: streak },
+    qualityScore: {
+      score: qualityScore,
+      trend: qualityScore - previousQualityScore,
+    },
+    communicationLoad: {
+      score: communicationLoad.score,
+      trend: communicationLoad.trend,
+      trendDirection: communicationLoad.trendDirection,
+      improvementIndicator: communicationLoad.improvementIndicator,
+      fourWeekTrend: communicationLoad.fourWeekTrend,
+      currentWeek: communicationLoad.currentWeek,
+      previousWeek: communicationLoad.previousWeek,
+    },
+    weeklyReflection,
+    updatedAt: currentDates[0]?.toISOString() ?? null,
   }
 }
 
 export function buildInsightsSummaryFromSnippets(
   currentSnippets: InsightSnippetRecord[],
   previousSnippets: InsightSnippetRecord[] = [],
+  weeklyMetrics: Array<Partial<TeacherCommunicationLoadWeeklyMetrics>> = [],
 ): InsightsSummary {
   const currentDates = currentSnippets
     .map((snippet) => parseIsoDate(snippet.createdAt))
@@ -108,12 +347,13 @@ export function buildInsightsSummaryFromSnippets(
       : total > 0
         ? 100
         : 0
+  const communicationLoad = buildTeacherCommunicationLoadSummary(weeklyMetrics)
 
   return {
     draftsCreated: {
       total,
       usedWithoutEdits: 0,
-      percentage: total,
+      percentage: 0,
     },
     timeSaved: {
       minutes,
@@ -124,6 +364,16 @@ export function buildInsightsSummaryFromSnippets(
     },
     currentStreak: { days: streak },
     qualityScore: { score: 0, trend: 0 },
+    communicationLoad: {
+      score: communicationLoad.score,
+      trend: communicationLoad.trend,
+      trendDirection: communicationLoad.trendDirection,
+      improvementIndicator: communicationLoad.improvementIndicator,
+      fourWeekTrend: communicationLoad.fourWeekTrend,
+      currentWeek: communicationLoad.currentWeek,
+      previousWeek: communicationLoad.previousWeek,
+    },
+    weeklyReflection: null,
     updatedAt: currentDates[0]?.toISOString() ?? null,
   }
 }

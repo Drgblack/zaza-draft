@@ -5,6 +5,7 @@ import { Shield, Database, Eye, Download, Trash2, X, ChevronRight, Sparkles } fr
 import { Button } from "@/components/ui/button"
 import { Switch } from "@/components/ui/switch"
 import { Card } from "@/components/ui/card"
+import { useAnalyticsConsent } from "@/hooks/use-analytics-consent"
 
 interface PrivacySettingsModalProps {
   isOpen: boolean
@@ -12,9 +13,9 @@ interface PrivacySettingsModalProps {
 }
 
 export default function PrivacySettingsModal({ isOpen, onClose }: PrivacySettingsModalProps) {
-  const [shareData, setShareData] = useState(true)
   const [showInsights, setShowInsights] = useState(true)
   const [showWellbeingInsights, setShowWellbeingInsights] = useState(true)
+  const { analyticsConsent, setAnalyticsConsent } = useAnalyticsConsent()
 
   useEffect(() => {
     const savedShowWellbeing = localStorage.getItem("show_wellbeing_insights")
@@ -63,14 +64,19 @@ export default function PrivacySettingsModal({ isOpen, onClose }: PrivacySetting
                 <div className="flex-1">
                   <div className="flex items-center gap-2 mb-1">
                     <Database className="h-4 w-4 text-gray-600 dark:text-gray-400" />
-                    <h4 className="font-medium text-gray-900 dark:text-gray-100">Share anonymized usage data</h4>
+                    <h4 className="font-medium text-gray-900 dark:text-gray-100">
+                      Help improve Draft for teachers worldwide
+                    </h4>
                   </div>
                   <p className="text-sm text-gray-600 dark:text-gray-400">
-                    Help us improve Zaza by sharing how you use the app. We never collect message content, student
-                    names, or personal information.
+                    Share anonymized usage insights so Draft can learn what helps teachers communicate safely. No
+                    message content is stored.
+                  </p>
+                  <p className="mt-2 text-xs text-gray-500 dark:text-gray-500">
+                    When this is off, Draft stops sending analytics events.
                   </p>
                 </div>
-                <Switch checked={shareData} onCheckedChange={setShareData} />
+                <Switch checked={analyticsConsent} onCheckedChange={setAnalyticsConsent} />
               </div>
             </Card>
 

@@ -8,6 +8,7 @@ import { useLocale } from "@/hooks/use-locale"
 import FooterSlim from "@/components/FooterSlim"
 import { ZaraAssistant } from "@/components/zara-assistant"
 import { DraftOutput } from "@/components/draft-output"
+import { CommentBankSection } from "@/components/comment-bank-section"
 import { DeescalationBanner } from "@/components/deescalation-banner"
 import { MiniInsightsBar } from "@/components/MiniInsightsBar"
 import { ContextualWellbeingTip } from "@/components/ContextualWellbeingTip"
@@ -19,7 +20,7 @@ import { ExplanationPanel } from "@/src/components/ExplanationPanel"
 import { ProfessionalRiskBanner } from "@/src/components/ProfessionalRiskBanner"
 import { DocumentationModeButton } from "@/src/components/DocumentationModeButton"
 import { useAuth } from "@/hooks/use-auth"
-import { logClientEvent } from "@/lib/analytics"
+import { logClientEvent, logDraftInteractionEvent } from "@/lib/analytics"
 import type { PlanType } from "@/lib/usage"
 import type { DeescalationSummary } from "@/lib/deescalation/types"
 import type { DraftStructure } from "@/lib/draft/format"
@@ -36,7 +37,27 @@ import type { LucideIcon } from "lucide-react"
 import { formatGreetingDisplay } from "@/lib/text/greeting-display"
 import { saveLastRunTimestamp } from "@/lib/diagnostics/local-storage"
 import { resolveTeacherSignatureName } from "@/lib/draft/teacher-signature"
+import { assessSafeToSend } from "@/lib/safe-to-send"
+import {
+  appendDraftAttribution,
+  getDraftAttributionLine,
+  resolveDraftSignatureEnabled,
+  shouldShowDraftAttribution,
+} from "@/lib/draft/draft-attribution"
 import type { SafetyEngineOutput } from "@/src/lib/safetyEngine"
+import {
+  inferDraftMessageContext,
+  inferDraftWorkflowType,
+  inferReactionPrediction,
+  inferRegionFromLocale,
+  inferRewriteReason,
+  inferRiskFlagTypes,
+  inferTimeContext,
+  type DraftInteractionEventPayload,
+  type DraftInteractionRewriteReason,
+  type DraftInteractionTeacherIntent,
+  type DraftInteractionWorkflowType,
+} from "@/lib/draft-interaction-events"
 
 const TONE_OPTIONS = [
   { id: "warm", key: "tone.warm" },
@@ -69,6 +90,7 @@ const MODE_SEGMENT_OPTIONS = [
 ]
 
 type ToneKey = (typeof TONE_OPTIONS)[number]["id"]
+type RewriteMode = "standard" | "forward_safe"
 
 const TONE_STYLES: Record<
   ToneKey,
@@ -318,6 +340,7 @@ export function MainEditor({ canExport = true }: MainEditorProps = {}) {
   }
   const [pronounPreference, setPronounPreference] = useState<PronounPreference>("auto")
   const [mode, setMode] = useState<ModeKey>("parent_message")
+  const [rewriteMode, setRewriteMode] = useState<RewriteMode>("standard")
   const [inputReframeTier, setInputReframeTier] = useState<"tier1" | "tier2" | null>(null)
   const explanationTier = useMemo(
     () => resolveExplanationTier(inputReframeTier, deescalationSummary),
@@ -334,6 +357,57 @@ export function MainEditor({ canExport = true }: MainEditorProps = {}) {
   const [outOfScopeNotice, setOutOfScopeNotice] = useState(false)
   const [outOfScopeMessage, setOutOfScopeMessage] = useState("")
   const [loadingMessageIndex, setLoadingMessageIndex] = useState(0)
+  const safeToSendAssessment = useMemo(
+    () =>
+      assessSafeToSend({
+        safetyAnalysis,
+        deescalationSummary,
+      }),
+    [deescalationSummary, safetyAnalysis],
+  )
+  const includeDraftSignature = useMemo(
+    () => resolveDraftSignatureEnabled(prefs.includeDraftSignature, usage.plan),
+    [prefs.includeDraftSignature, usage.plan],
+  )
+  const draftAttributionLine = useMemo(() => {
+    if (
+      !shouldShowDraftAttribution({
+        enabled: includeDraftSignature,
+        mode,
+        documentationMode: documentationModeActive,
+      })
+    ) {
+      return null
+    }
+
+    return getDraftAttributionLine(languageChoice)
+  }, [documentationModeActive, includeDraftSignature, languageChoice, mode])
+  const textareaRef = useRef<HTMLTextAreaElement | null>(null)
+  const draftEditDepthRef = useRef(0)
+  const draftModificationLoggedRef = useRef(false)
+  const rewriteSuggestionPendingRef = useRef(false)
+  const rewriteReasonRef = useRef<DraftInteractionRewriteReason | null>(null)
+  const teacherIntentRef = useRef<DraftInteractionTeacherIntent | null>(null)
+  const workflowTypeRef = useRef<DraftInteractionWorkflowType>("new_message")
+  const sendDraftInteraction = useCallback(
+    (event: Partial<DraftInteractionEventPayload>) => {
+      const nextWorkflowType = event.workflow_type ?? workflowTypeRef.current
+      void logDraftInteractionEvent(getIdToken, {
+        message_context: inferDraftMessageContext(
+          mode,
+          Boolean(nextWorkflowType === "documentation_mode"),
+        ),
+        time_context: inferTimeContext(new Date()),
+        workflow_type: nextWorkflowType,
+        edit_depth: draftEditDepthRef.current,
+        region: inferRegionFromLocale(locale),
+        teacher_intent: teacherIntentRef.current,
+        timestamp: new Date().toISOString(),
+        ...event,
+      })
+    },
+    [getIdToken, locale, mode],
+  )
   const resetGeneratedOutput = useCallback(() => {
     setGeneratedDraft(null)
     setDraftMetadata(null)
@@ -343,6 +417,12 @@ export function MainEditor({ canExport = true }: MainEditorProps = {}) {
     setDocumentationModeActive(false)
     setInputReframeTier(null)
     setLastGenerationSignature(null)
+    draftEditDepthRef.current = 0
+    draftModificationLoggedRef.current = false
+    rewriteSuggestionPendingRef.current = false
+    rewriteReasonRef.current = null
+    teacherIntentRef.current = null
+    workflowTypeRef.current = "new_message"
   }, [])
 
   const clearPanicScanHandoff = useCallback(() => {
@@ -374,7 +454,6 @@ export function MainEditor({ canExport = true }: MainEditorProps = {}) {
   const [onboardingError, setOnboardingError] = useState<string | null>(null)
   const [dontShowWelcome, setDontShowWelcome] = useState(false)
   const [welcomeDismissed, setWelcomeDismissed] = useState(false)
-  const textareaRef = useRef<HTMLTextAreaElement | null>(null)
   const focusEditor = useCallback(() => {
     textareaRef.current?.focus()
   }, [])
@@ -454,6 +533,30 @@ export function MainEditor({ canExport = true }: MainEditorProps = {}) {
     }
 
     if (lastGenerationSignature && nextTrimmed !== lastGenerationSignature.content) {
+      draftEditDepthRef.current += 1
+      if (!draftModificationLoggedRef.current) {
+        sendDraftInteraction({
+          event_name: "edit_action",
+          edit_depth: draftEditDepthRef.current,
+        })
+        sendDraftInteraction({
+          event_name: "draft_modified",
+          workflow_type:
+            workflowTypeRef.current === "new_message" ? "new_message" : "rewrite_existing",
+          edit_depth: draftEditDepthRef.current,
+          rewrite_reason: rewriteReasonRef.current,
+        })
+        draftModificationLoggedRef.current = true
+      }
+      if (rewriteSuggestionPendingRef.current || workflowTypeRef.current !== "new_message") {
+        sendDraftInteraction({
+          event_name: "rewrite_modified",
+          workflow_type: "rewrite_existing",
+          rewrite_reason: rewriteReasonRef.current,
+          edit_depth: draftEditDepthRef.current,
+        })
+        rewriteSuggestionPendingRef.current = false
+      }
       resetGeneratedOutput()
       setGenerationError(null)
       setGenerationAction(null)
@@ -691,6 +794,28 @@ export function MainEditor({ canExport = true }: MainEditorProps = {}) {
       return
     }
 
+    const nextWorkflowType = inferDraftWorkflowType({
+      rewrite: Boolean(options.rewrite || options.previousDraft),
+      documentationMode: Boolean(options.documentationMode),
+      toneAdjustment: Boolean(options.rewrite),
+    })
+
+    if (
+      generatedDraft &&
+      rewriteSuggestionPendingRef.current &&
+      !options.rewrite &&
+      !options.documentationMode
+    ) {
+      sendDraftInteraction({
+        event_name: "rewrite_rejected",
+        workflow_type: "rewrite_existing",
+        rewrite_reason: rewriteReasonRef.current,
+      })
+      rewriteSuggestionPendingRef.current = false
+    }
+
+    workflowTypeRef.current = nextWorkflowType
+
     const fallbackOutOfScopeMessage = t("editor.outOfScope.body")
     if (!isValidDraftRequest(trimmedContent, mode)) {
       const precheckMessage =
@@ -777,6 +902,7 @@ export function MainEditor({ canExport = true }: MainEditorProps = {}) {
     }
 
     payload.documentationMode = Boolean(options.documentationMode)
+    payload.forwardSafeRewrite = Boolean(options.rewrite && rewriteMode === "forward_safe")
 
     logClientEvent("draft_generate_requested", {
       tone: selectedTone,
@@ -865,14 +991,29 @@ export function MainEditor({ canExport = true }: MainEditorProps = {}) {
       }
 
       const nextSafetyOutput = data.data.safetyAnalysis ?? null
+      const nextDeescalationSummary = data.data.deescalationSummary ?? null
+      const nextDocumentationModeActive = Boolean(data.data.documentationModeActive)
+      const rewriteReason = inferRewriteReason({
+        deescalationSummary: nextDeescalationSummary,
+        safetyAnalysis: nextSafetyOutput,
+        documentationMode: nextDocumentationModeActive,
+        inputReframed: Boolean(responseMeta?.inputReframed),
+      })
+      const reactionPrediction = inferReactionPrediction(nextSafetyOutput?.reactionForecast)
+      const riskFlagTypes = inferRiskFlagTypes(nextSafetyOutput)
+
+      draftEditDepthRef.current = 0
+      rewriteReasonRef.current = rewriteReason
+      teacherIntentRef.current = data.data.metadata.teacherIntent ?? null
+      rewriteSuggestionPendingRef.current = Boolean(rewriteReason)
 
       setGeneratedDraft(data.data.generatedDraft)
       setDraftMetadata(data.data.metadata)
       setDraftStructure(data.data.formattedDraft ?? null)
-      setDeescalationSummary(data.data.deescalationSummary ?? null)
+      setDeescalationSummary(nextDeescalationSummary)
       setSafetyAnalysis(nextSafetyOutput)
       console.log("safetyOutput", nextSafetyOutput)
-      setDocumentationModeActive(Boolean(data.data.documentationModeActive))
+      setDocumentationModeActive(nextDocumentationModeActive)
       setEnforcedGreeting(data.data.greeting ?? null)
       setLastGenerationSignature({
         content: trimmedContent,
@@ -889,6 +1030,40 @@ export function MainEditor({ canExport = true }: MainEditorProps = {}) {
         window.dispatchEvent(event)
       }
       setGenerationAction(null)
+
+      sendDraftInteraction({
+        event_name: "draft_created",
+        workflow_type: nextWorkflowType,
+        message_context: inferDraftMessageContext(mode, nextDocumentationModeActive),
+      })
+
+      if (rewriteReason) {
+        sendDraftInteraction({
+          event_name: "rewrite_suggested",
+          workflow_type: nextWorkflowType,
+          message_context: inferDraftMessageContext(mode, nextDocumentationModeActive),
+          rewrite_reason: rewriteReason,
+        })
+      }
+
+      for (const riskFlagType of riskFlagTypes) {
+        sendDraftInteraction({
+          event_name: "risk_flag_triggered",
+          workflow_type: nextWorkflowType,
+          message_context: inferDraftMessageContext(mode, nextDocumentationModeActive),
+          risk_flag: riskFlagType,
+          rewrite_reason: rewriteReason,
+        })
+      }
+
+      if (reactionPrediction) {
+        sendDraftInteraction({
+          event_name: "reaction_prediction_generated",
+          workflow_type: nextWorkflowType,
+          message_context: inferDraftMessageContext(mode, nextDocumentationModeActive),
+          reaction_prediction: reactionPrediction,
+        })
+      }
     } catch (error) {
       console.error("[v1] Draft generation failed", error)
       setGenerationError("Something went wrong; please try again in a moment.")
@@ -979,12 +1154,33 @@ export function MainEditor({ canExport = true }: MainEditorProps = {}) {
     alert(`Draft saved with tags: ${tags.join(", ")}`)
   }
 
+  const handleInsertCommentBankComment = (commentText: string) => {
+    clearPanicScanHandoff()
+    resetGeneratedOutput()
+    setLastGenerationSignature(null)
+    setContent((current) => {
+      const trimmedCurrent = current.trim()
+      return trimmedCurrent ? `${trimmedCurrent}\n\n${commentText}` : commentText
+    })
+    setMode("report_comment")
+    focusEditor()
+  }
+
   const handleEditDraft = () => {
     if (!generatedDraft) {
       return
     }
+    if (rewriteSuggestionPendingRef.current) {
+      sendDraftInteraction({
+        event_name: "rewrite_rejected",
+        workflow_type: "rewrite_existing",
+        rewrite_reason: rewriteReasonRef.current,
+      })
+      workflowTypeRef.current = "rewrite_existing"
+      rewriteSuggestionPendingRef.current = false
+    }
     clearPanicScanHandoff()
-    setContent(generatedDraft)
+    setContent(appendDraftAttribution(generatedDraft, draftAttributionLine))
     focusEditor()
   }
 
@@ -997,10 +1193,23 @@ export function MainEditor({ canExport = true }: MainEditorProps = {}) {
       return
     }
 
+    sendDraftInteraction({
+      event_name: "rewrite_accepted",
+      workflow_type: "tone_adjustment",
+      rewrite_reason: rewriteReasonRef.current ?? "clarity",
+    })
+    rewriteSuggestionPendingRef.current = false
     handleGenerate({ rewrite: true, previousDraft: generatedDraft })
   }
 
   const handleActivateDocumentationMode = () => {
+    sendDraftInteraction({
+      event_name: "documentation_mode_enabled",
+      workflow_type: "documentation_mode",
+      message_context: inferDraftMessageContext(mode, true),
+      rewrite_reason: "documentation_precision",
+    })
+    rewriteSuggestionPendingRef.current = false
     void handleGenerate({ documentationMode: true })
   }
 
@@ -1160,6 +1369,35 @@ Examples:
               onChange={(value) => setSelectedTone(value as ToneKey)}
               className="bg-white/10 border-white/20 dark:bg-white/5 dark:border-white/10 shadow-inner"
             />
+          </section>
+
+          <section className="space-y-2">
+            <span className="text-sm font-semibold text-gray-800 dark:text-gray-200 mb-2">
+              {t("editor.rewriteMode.label")}
+            </span>
+            <p className="text-xs text-gray-600 dark:text-gray-400 mb-3">
+              {t("editor.rewriteMode.helper")}
+            </p>
+            <div className="bg-white/10 border border-white/20 dark:bg-white/5 dark:border-white/10 rounded-xl p-1 shadow-inner">
+              <SegmentedControl
+                options={[
+                  {
+                    value: "standard",
+                    label: t("editor.rewriteMode.standard"),
+                    ariaLabel: t("editor.rewriteMode.standard"),
+                  },
+                  {
+                    value: "forward_safe",
+                    label: t("editor.rewriteMode.forwardSafe"),
+                    ariaLabel: t("editor.rewriteMode.forwardSafe"),
+                  },
+                ]}
+                value={rewriteMode}
+                onChange={(value) => setRewriteMode(value as RewriteMode)}
+                ariaLabel={t("editor.rewriteMode.label")}
+                className="border-none bg-transparent p-0 shadow-none"
+              />
+            </div>
           </section>
 
           <section className="space-y-2">
@@ -1405,6 +1643,15 @@ Examples:
           </details>
         )}
 
+        {!outOfScopeNotice && (
+          <CommentBankSection
+            generatedComment={mode === "report_comment" ? generatedDraft : null}
+            mode={mode}
+            getIdToken={getIdToken}
+            onInsertComment={handleInsertCommentBankComment}
+          />
+        )}
+
         {isGenerating && (
           <div className="mt-4 rounded-xl bg-white/10 border border-white/20 p-4 text-sm text-white/90 shadow-lg space-y-3">
             <p className="font-semibold text-white">
@@ -1464,7 +1711,16 @@ Examples:
               getIdToken={getIdToken}
               headerBadge={<SafetyBadge riskLevel={safetyAnalysis?.riskLevel} />}
               headerBanner={<ProfessionalRiskBanner flags={safetyAnalysis?.professionalRiskFlags} />}
-              resultModeBadge={documentationModeActive ? "Documentation Mode" : null}
+              resultModeBadge={
+                documentationModeActive
+                  ? t("draft.documentation.badge")
+                  : draftMetadata?.forwardSafeRewrite
+                    ? t("editor.rewriteMode.forwardSafeBadge")
+                    : null
+              }
+              documentationMode={documentationModeActive}
+              draftAttribution={draftAttributionLine}
+              safeToSend={safeToSendAssessment}
             />
             {safetyAnalysis && (
               <ReactionForecast

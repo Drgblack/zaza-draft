@@ -16,6 +16,7 @@ import Link from "next/link"
 import { useLocale } from "@/hooks/use-locale"
 import { useTeacherPrefs } from "@/hooks/use-teacher-prefs"
 import { useAuth } from "@/hooks/use-auth"
+import { useAnalyticsConsent } from "@/hooks/use-analytics-consent"
 import { useRouter } from "next/navigation"
 import { hasMeaningfulInsights, type InsightsSummary } from "@/lib/insights/summary"
 import {
@@ -112,7 +113,6 @@ const REMINDER_EVENT_TITLE = "Protected writing time - Zaza Draft"
 export default function InsightsPage() {
   const [dateRange, setDateRange] = useState<"7" | "30" | "90">("30")
   const [showWellbeing, setShowWellbeing] = useState(false)
-  const [shareData, setShareData] = useState(true)
   const [isReminderDialogOpen, setIsReminderDialogOpen] = useState(false)
   const [insightsSummary, setInsightsSummary] = useState<InsightsSummary | null>(null)
   const [summaryLoading, setSummaryLoading] = useState(true)
@@ -120,6 +120,7 @@ export default function InsightsPage() {
   const { locale, t } = useLocale()
   const { prefs } = useTeacherPrefs()
   const { user, status } = useAuth()
+  const { analyticsConsent, setAnalyticsConsent } = useAnalyticsConsent()
   const router = useRouter()
   const isAuthenticated = status === "authenticated" && Boolean(user?.uid)
 
@@ -187,6 +188,8 @@ export default function InsightsPage() {
   const summaryDrafts = insightsSummary?.draftsCreated
   const summaryStreak = insightsSummary?.currentStreak
   const summaryQuality = insightsSummary?.qualityScore
+  const summaryCommunicationLoad = insightsSummary?.communicationLoad
+  const summaryWeeklyReflection = insightsSummary?.weeklyReflection
   const timeSavedValue = summaryTimeSaved?.hours ?? summaryTimeSaved?.minutes ?? 0
   const hasMetrics = hasMeaningfulInsights(insightsSummary)
   const downloadDisabled = !hasMetrics
@@ -200,6 +203,44 @@ export default function InsightsPage() {
   const streakDays = summaryStreak?.days ?? 0
   const qualityScoreValue = summaryQuality?.score ?? 0
   const qualityTrendValue = summaryQuality?.trend ?? 0
+  const communicationLoadScore = summaryCommunicationLoad?.score ?? 0
+  const communicationLoadTrend = summaryCommunicationLoad?.trend ?? 0
+  const communicationLoadDirection = summaryCommunicationLoad?.trendDirection ?? "down"
+  const communicationLoadIndicator = summaryCommunicationLoad?.improvementIndicator ?? "stable"
+  const communicationLoadSeries = summaryCommunicationLoad?.fourWeekTrend ?? []
+  const weeklyReflectionText = summaryWeeklyReflection
+    ? t(summaryWeeklyReflection.key as any, summaryWeeklyReflection.values)
+    : null
+  const currentLoadWeek = summaryCommunicationLoad?.currentWeek
+  const previousLoadWeek = summaryCommunicationLoad?.previousWeek
+  const communicationLoadInsight = useMemo(() => {
+    const currentRisk = currentLoadWeek?.risk_flags_triggered ?? 0
+    const previousRisk = previousLoadWeek?.risk_flags_triggered ?? 0
+    const currentOutOfHours =
+      (currentLoadWeek?.after_hours_drafts ?? 0) + (currentLoadWeek?.weekend_drafts ?? 0)
+    const previousOutOfHours =
+      (previousLoadWeek?.after_hours_drafts ?? 0) + (previousLoadWeek?.weekend_drafts ?? 0)
+    const currentSchoolHours = Math.max((currentLoadWeek?.drafts_created ?? 0) - currentOutOfHours, 0)
+    const previousSchoolHours = Math.max((previousLoadWeek?.drafts_created ?? 0) - previousOutOfHours, 0)
+
+    if (currentRisk < previousRisk && currentSchoolHours > previousSchoolHours) {
+      return t("insights.communicationLoad.context.lowerRiskSchoolHours")
+    }
+
+    if (communicationLoadDirection === "down") {
+      return t("insights.communicationLoad.context.down")
+    }
+
+    if (currentOutOfHours > previousOutOfHours) {
+      return t("insights.communicationLoad.context.afterHours")
+    }
+
+    if (currentRisk > previousRisk) {
+      return t("insights.communicationLoad.context.higherRisk")
+    }
+
+    return t("insights.communicationLoad.context.stable")
+  }, [communicationLoadDirection, currentLoadWeek, previousLoadWeek, t])
   const reminderInsight = t("insights.suggestion.wednesday.desc")
   const reminderHint = t("insights.suggestion.reminder.modalHint")
   const reminderFootnote = t("insights.suggestion.reminder.modalFootnote")
@@ -289,6 +330,13 @@ export default function InsightsPage() {
       summaryQuality?.score != null
         ? `Quality score: ${summaryQuality.score} (${summaryQuality.trend ?? 0}% change)`
         : "Quality score: not enough data"
+    const communicationLoadLine =
+      summaryCommunicationLoad?.score != null
+        ? `Communication load: ${summaryCommunicationLoad.score} (${summaryCommunicationLoad.trend ?? 0}% vs last week)`
+        : "Communication load: not enough data"
+    const weeklyReflectionLine = weeklyReflectionText
+      ? `Weekly reflection: ${weeklyReflectionText}`
+      : "Weekly reflection: not enough data"
     const ownerLine = teacherName ? `Name: ${teacherName}` : "Name: N/A"
 
     const reportLines = [
@@ -299,8 +347,10 @@ export default function InsightsPage() {
       draftsLine,
       streakLine,
       qualityLine,
+      communicationLoadLine,
+      weeklyReflectionLine,
       "",
-      `Wellbeing insights sharing: ${shareData ? "On" : "Off"}`,
+      `Wellbeing insights sharing: ${analyticsConsent ? "On" : "Off"}`,
       `Date range: Last ${dateRange} days`,
     ]
 
@@ -408,7 +458,24 @@ export default function InsightsPage() {
           )}
           {hasMetrics && (
             <>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-10">
+              {weeklyReflectionText && (
+                <Card className="rounded-3xl border border-white/30 bg-white/92 p-6 shadow-2xl shadow-purple-500/10 backdrop-blur-2xl dark:border-white/20 dark:bg-white/10">
+                  <div className="flex items-start gap-4">
+                    <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-amber-200 via-pink-200 to-violet-200 text-2xl shadow-sm dark:from-amber-400/30 dark:via-pink-400/20 dark:to-violet-400/30">
+                      ✍️
+                    </div>
+                    <div className="space-y-1">
+                      <p className="text-sm font-semibold uppercase tracking-[0.14em] text-gray-500 dark:text-white/60">
+                        {t("insights.weeklyReflection.title")}
+                      </p>
+                      <p className="text-lg font-semibold leading-relaxed text-gray-900 dark:text-white">
+                        {weeklyReflectionText}
+                      </p>
+                    </div>
+                  </div>
+                </Card>
+              )}
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-10">
           <StatCard
             title={t("insights.timeSaved.title")}
             value={t("insights.timeSaved.hours", { hours: timeSavedHours.toFixed(1) })}
@@ -478,6 +545,34 @@ export default function InsightsPage() {
             icon={<span className="text-2xl">✨</span>}
             tooltip={t("insights.qualityScore.tooltip")}
             sparklineData={[85, 87, 89, 90, 91, 91, 92]}
+          />
+          <StatCard
+            title={t("insights.communicationLoad.title")}
+            value={String(communicationLoadScore)}
+            numericValue={communicationLoadScore}
+            subtitle={t("insights.communicationLoad.subtitle")}
+            trend={{
+              value: t("insights.communicationLoad.trend", {
+                percent: Math.abs(communicationLoadTrend),
+              }),
+              direction: communicationLoadDirection,
+              color:
+                communicationLoadDirection === "down"
+                  ? "text-green-600 dark:text-green-400"
+                  : "text-amber-600 dark:text-amber-400",
+            }}
+            icon={<span className="text-2xl">📬</span>}
+            celebration={
+              communicationLoadIndicator === "improving"
+                ? "↓"
+                : communicationLoadIndicator === "rising"
+                  ? "↑"
+                  : "→"
+            }
+            tooltip={t("insights.communicationLoad.tooltip")}
+            contextMessage={communicationLoadInsight}
+            sparklineData={communicationLoadSeries}
+            sparklineLabel={t("insights.communicationLoad.sparklineLabel")}
           />
         </div>
 
@@ -678,12 +773,9 @@ export default function InsightsPage() {
 
       <div className="mt-10">
         <DataControlsExplainer
-          shareData={shareData}
-          onShareDataChange={setShareData}
-          onPrivacySettingsClick={() => {
-            // TODO: wire to real settings modal later
-            window.location.href = "/privacy"
-          }}
+          shareData={analyticsConsent}
+          onShareDataChange={setAnalyticsConsent}
+          onPrivacySettingsClick={() => router.push("/account/privacy")}
         />
       </div>
 

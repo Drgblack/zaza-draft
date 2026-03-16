@@ -341,6 +341,7 @@ export const localeMessages: Record<Locale, LocaleMessages> = {
     "auth.msg.passwordMismatch": "Passwords do not match",
     "auth.title": "Welcome back",
     "auth.description": "Sign in to continue using Zaza Draft.",
+    "auth.marketingEyebrow": "Teacher-safe writing",
     "auth.emailLabel": "Email",
     "auth.passwordLabel": "Password",
     "auth.passwordHelper": "Must be at least 8 characters long.",
@@ -352,6 +353,22 @@ export const localeMessages: Record<Locale, LocaleMessages> = {
     "auth.loading": "Signing you in...",
     "auth.showPassword": "Show password",
     "auth.hidePassword": "Hide password",
+    "auth.instant.badge": "Instant Draft Test",
+    "auth.instant.title": "Try Draft instantly",
+    "auth.instant.description":
+      "Paste a parent email or report comment and see how Draft rewrites it safely.",
+    "auth.instant.placeholder":
+      "Paste a parent email or report comment here. We'll return a calmer, safer rewrite.",
+    "auth.instant.button": "Rewrite safely",
+    "auth.instant.limitHint": "One anonymous rewrite",
+    "auth.instant.privacyHint":
+      "Anonymous trial messages are processed for the rewrite only and are not stored in analytics.",
+    "auth.instant.resultTitle": "Safer rewrite",
+    "auth.instant.ctaTitle": "Create a free account to continue writing safely.",
+    "auth.instant.ctaDescription":
+      "Unlock unlimited rewrites, saved drafts, and full teacher workflow tools.",
+    "auth.instant.createAccount": "Create free account",
+    "auth.instant.error": "Unable to generate an instant rewrite right now.",
     "billing.title": "Billing & Subscription",
     "billing.signinRequired": "Please sign in to view billing.",
     "billing.usageThisMonth": "{used} / {limit} drafts used this month",
@@ -470,6 +487,39 @@ export const localeMessages: Record<Locale, LocaleMessages> = {
     "insights.qualityScore.trend": "+{points} points this month",
     "insights.qualityScore.tooltip":
       "Based on how much you edit drafts. Higher scores mean Zara is getting closer to your natural voice.",
+    "insights.communicationLoad.title": "Communication Load",
+    "insights.communicationLoad.subtitle": "Weekly load score",
+    "insights.communicationLoad.trend": "{percent}% from last week",
+    "insights.communicationLoad.tooltip":
+      "Teacher Communication Load uses anonymized counts of drafts, rewrites, risk flags, and out-of-hours drafting to estimate communication burden.",
+    "insights.communicationLoad.sparklineLabel": "4 week trend",
+    "insights.communicationLoad.context.lowerRiskSchoolHours":
+      "You handled fewer high-risk messages this week and wrote more messages during school hours.",
+    "insights.communicationLoad.context.down":
+      "Your communication load eased this week, with fewer pressure signals across your drafting workflow.",
+    "insights.communicationLoad.context.afterHours":
+      "More of your drafting happened outside school hours this week, which pushed the load score up.",
+    "insights.communicationLoad.context.higherRisk":
+      "You handled more high-risk communication this week, which increased the load score.",
+    "insights.communicationLoad.context.stable":
+      "Your communication load stayed broadly steady this week.",
+    "insights.weeklyReflection.title": "Weekly Reflection",
+    "insights.weeklyReflection.schoolHours":
+      "You wrote most messages during school hours this week. Nice work protecting your evenings.",
+    "insights.weeklyReflection.documentation":
+      "You used documentation mode to record incidents this week.",
+    "insights.weeklyReflection.behaviourTone":
+      "You drafted several behaviour messages this week. Draft helped soften tone in multiple messages.",
+    "insights.weeklyReflection.softening":
+      "Draft helped soften tone in multiple messages this week.",
+    "insights.weeklyReflection.progress":
+      "Your messages this week leaned toward sharing progress and encouragement.",
+    "insights.weeklyReflection.complaints":
+      "You handled several parent concerns this week with calm, clear drafts.",
+    "insights.weeklyReflection.expectations":
+      "You spent part of this week clarifying expectations and next steps for families.",
+    "insights.weeklyReflection.general":
+      "You kept communication moving this week with steady drafting habits.",
     "insights.heatmap.title": "When You Draft Best",
     "insights.heatmap.insight": "Tuesday afternoons are your peak productivity time - consider blocking that time!",
     "insights.heatmap.warning": "Weekend work: {count} drafts",
@@ -528,8 +578,10 @@ export const localeMessages: Record<Locale, LocaleMessages> = {
     "insights.suggestion.reminderToastDescription": "We'll add scheduling nudges so you can focus on teaching.",
     "insights.suggestion.badge.new": "NEW",
     "insights.dataControls.title": "Data Controls",
-    "insights.dataControls.shareData": "Share anonymized data to improve Zaza",
-    "insights.dataControls.helpTeachers": "Help improve Zaza for 1,000+ teachers worldwide",
+    "insights.dataControls.shareData": "Help improve Draft for teachers worldwide",
+    "insights.dataControls.helpTeachers":
+      "Share anonymized usage insights so Draft can learn what helps teachers communicate safely. No message content is stored.",
+    "insights.dataControls.controlHint": "When this is off, Draft stops sending analytics events.",
     "insights.dataControls.collect.title": "What we collect",
     "insights.dataControls.collect.timestamps": "Timestamps of when you draft",
     "insights.dataControls.collect.tones": "Tone selections you choose",
@@ -551,6 +603,14 @@ export const localeMessages: Record<Locale, LocaleMessages> = {
       "settings.cards.signature.empty": "No signature set yet.",
       "settings.cards.signature.description":
         "Signature editing arrives with the next phase of export workflows. Until then we keep the preview read-only.",
+      "settings.cards.signature.draftAttribution.title":
+        "Include Draft signature in generated messages",
+      "settings.cards.signature.draftAttribution.description":
+        "Append a subtle 'Drafted with the help of Zaza Draft.' line to parent messages you generate.",
+      "settings.cards.signature.draftAttribution.default.free":
+        "Default for free accounts: enabled.",
+      "settings.cards.signature.draftAttribution.default.paid":
+        "Default for paid accounts: disabled.",
       "settings.lockedBadge": "Locked",
       "settings.cards.safeguard.title": "Safeguarding defaults",
       "settings.cards.safeguard.subhead": "What we protect",
@@ -684,8 +744,11 @@ export const localeMessages: Record<Locale, LocaleMessages> = {
     "account.data.delete.comingSoon": "Coming soon",
     "account.privacy.title": "Privacy & Safety",
     "account.privacy.sharing.title": "Anonymised Data Sharing",
-    "account.privacy.sharing.description": "Help us improve Zaza Draft by sharing anonymised usage data",
-    "account.privacy.sharing.label": "Share anonymised data",
+    "account.privacy.sharing.description": "Analytics only run when you choose to share anonymised usage insights.",
+    "account.privacy.sharing.label": "Help improve Draft for teachers worldwide",
+    "account.privacy.sharing.explainer":
+      "Share anonymized usage insights so Draft can learn what helps teachers communicate safely. No message content is stored.",
+    "account.privacy.sharing.controlHint": "When this is off, Draft stops sending analytics events.",
     "account.privacy.collect.title": "What We Collect",
     "account.privacy.collect.item1": "Usage patterns and feature interactions",
     "account.privacy.collect.item2": "Technical performance metrics",
@@ -803,6 +866,32 @@ export const localeMessages: Record<Locale, LocaleMessages> = {
     "editor.history.pronouns": "Pronouns: {value}",
     "editor.history.subjectLabel": "Subject",
     "editor.history.gradeLabel": "Grade",
+    "commentBank.title": "Comment Bank",
+    "commentBank.description":
+      "Save strong report comments, tag them, and pull them back into the draft when you need them.",
+    "commentBank.personalOnly": "Personal library only for now.",
+    "commentBank.saveTitle": "Save current comment",
+    "commentBank.saveHint": "Tag the current generated report comment before saving it.",
+    "commentBank.reportOnlyHint": "Switch to report comment mode to save a generated comment here.",
+    "commentBank.saveButton": "Save comment",
+    "commentBank.saving": "Saving...",
+    "commentBank.saved": "Comment saved to your personal bank.",
+    "commentBank.searchTitle": "Search saved comments",
+    "commentBank.searchPlaceholder": "Search by text or category",
+    "commentBank.insertButton": "Insert into draft",
+    "commentBank.loading": "Loading saved comments...",
+    "commentBank.empty": "No saved comments yet.",
+    "commentBank.noResults": "No saved comments match that search.",
+    "commentBank.errors.auth": "Please sign in again to use the comment bank.",
+    "commentBank.errors.load": "Unable to load the comment bank right now.",
+    "commentBank.errors.save": "Unable to save the comment right now.",
+    "commentBank.category.effort": "Effort",
+    "commentBank.category.behaviour": "Behaviour",
+    "commentBank.category.participation": "Participation",
+    "commentBank.category.literacy": "Literacy",
+    "commentBank.category.numeracy": "Numeracy",
+    "commentBank.category.homework": "Homework",
+    "commentBank.category.progress": "Progress",
     "editor.placeholder.subject": "Subject (optional)",
     "editor.placeholder.gradeLevel": "Grade level (optional)",
     "editor.studentName.placeholder": "Student first name (optional)",
@@ -819,6 +908,11 @@ export const localeMessages: Record<Locale, LocaleMessages> = {
     "editor.reframeTier.tier1": "Tier 1 · Gentle rephrase",
     "editor.reframeTier.tier2": "Tier 2 · Sensitive language removed",
     "editor.reframeTier.tier3": "Tier 3 · Safety review applied",
+    "editor.rewriteMode.label": "Rewrite mode",
+    "editor.rewriteMode.helper": "Choose how Draft should optimize rewrites.",
+    "editor.rewriteMode.standard": "Standard Rewrite",
+    "editor.rewriteMode.forwardSafe": "Forward-Safe Rewrite",
+    "editor.rewriteMode.forwardSafeBadge": "Forward-Safe Rewrite",
     "draft.generatedTitle": "Draft Generated",
     "draft.modeLabel": "Mode: {mode}",
     "draft.generatedDetails": "Generated in {seconds}s",
@@ -830,6 +924,23 @@ export const localeMessages: Record<Locale, LocaleMessages> = {
     "draft.action.load": "Load",
     "draft.action.delete": "Delete",
     "draft.actions.loadMore": "Load more",
+    "draft.safeToSend.label": "Safe to Send:",
+    "draft.safeToSend.safeToSend.title": "Safe to Send",
+    "draft.safeToSend.safeToSend.description":
+      "Tone is professional and calm. No escalation-risk language detected.",
+    "draft.safeToSend.reviewOnceMore.title": "Review Once More",
+    "draft.safeToSend.reviewOnceMore.description":
+      "This message may feel firm. Consider softening one sentence.",
+    "draft.safeToSend.escalationRisk.title": "Escalation Risk",
+    "draft.safeToSend.escalationRisk.description":
+      "This message may trigger a defensive parent response. Review highlighted wording.",
+    "draft.documentation.label": "Mode:",
+    "draft.documentation.badge": "Documentation Mode",
+    "draft.documentation.description": "Rewritten as a neutral incident record.",
+    "draft.forwardSafe.label": "Rewrite mode:",
+    "draft.forwardSafe.badge": "🛡 Forward-Safe Rewrite",
+    "draft.forwardSafe.description":
+      "This message has been optimized to remain professional even if forwarded.",
     "insights.mini.loading": "Loading your progress...",
     "insights.mini.createFirstDraft": "Create your first draft to unlock progress tracking",
     "insights.mini.learnMore": "Learn more",
@@ -1110,6 +1221,22 @@ export const localeMessages: Record<Locale, LocaleMessages> = {
     "insights.qualityScore.trend": "+{points} points this month",
     "insights.qualityScore.tooltip":
       "Based on how much you edit drafts. Higher scores mean Zara is getting closer to your natural voice.",
+    "insights.communicationLoad.title": "Communication Load",
+    "insights.communicationLoad.subtitle": "Weekly load score",
+    "insights.communicationLoad.trend": "{percent}% from last week",
+    "insights.communicationLoad.tooltip":
+      "Teacher Communication Load uses anonymized counts of drafts, rewrites, risk flags, and out-of-hours drafting to estimate communication burden.",
+    "insights.communicationLoad.sparklineLabel": "4 week trend",
+    "insights.communicationLoad.context.lowerRiskSchoolHours":
+      "You handled fewer high-risk messages this week and wrote more messages during school hours.",
+    "insights.communicationLoad.context.down":
+      "Your communication load eased this week, with fewer pressure signals across your drafting workflow.",
+    "insights.communicationLoad.context.afterHours":
+      "More of your drafting happened outside school hours this week, which pushed the load score up.",
+    "insights.communicationLoad.context.higherRisk":
+      "You handled more high-risk communication this week, which increased the load score.",
+    "insights.communicationLoad.context.stable":
+      "Your communication load stayed broadly steady this week.",
     "insights.heatmap.title": "When You Draft Best",
     "insights.heatmap.insight": "Tuesday afternoons are your peak productivity time - consider blocking that time!",
     "insights.heatmap.warning": "Weekend work: {count} drafts",
@@ -1165,8 +1292,10 @@ export const localeMessages: Record<Locale, LocaleMessages> = {
     "insights.suggestion.classBrain.cta": "Get started",
     "insights.suggestion.badge.new": "NEW",
     "insights.dataControls.title": "Data Controls",
-    "insights.dataControls.shareData": "Share anonymized data to improve Zaza",
-    "insights.dataControls.helpTeachers": "Help improve Zaza for 1,000+ teachers worldwide",
+    "insights.dataControls.shareData": "Help improve Draft for teachers worldwide",
+    "insights.dataControls.helpTeachers":
+      "Share anonymized usage insights so Draft can learn what helps teachers communicate safely. No message content is stored.",
+    "insights.dataControls.controlHint": "When this is off, Draft stops sending analytics events.",
     "insights.dataControls.collect.title": "What we collect",
     "insights.dataControls.collect.timestamps": "Timestamps of when you draft",
     "insights.dataControls.collect.tones": "Tone selections you choose",
@@ -1259,8 +1388,11 @@ export const localeMessages: Record<Locale, LocaleMessages> = {
     "account.data.delete.comingSoon": "Coming soon",
     "account.privacy.title": "Privacy & Safety",
     "account.privacy.sharing.title": "Anonymised Data Sharing",
-    "account.privacy.sharing.description": "Help us improve Zaza Draft by sharing anonymised usage data",
-    "account.privacy.sharing.label": "Share anonymised data",
+    "account.privacy.sharing.description": "Analytics only run when you choose to share anonymised usage insights.",
+    "account.privacy.sharing.label": "Help improve Draft for teachers worldwide",
+    "account.privacy.sharing.explainer":
+      "Share anonymized usage insights so Draft can learn what helps teachers communicate safely. No message content is stored.",
+    "account.privacy.sharing.controlHint": "When this is off, Draft stops sending analytics events.",
     "account.privacy.collect.title": "What We Collect",
     "account.privacy.collect.item1": "Usage patterns and feature interactions",
     "account.privacy.collect.item2": "Technical performance metrics",
@@ -1320,7 +1452,38 @@ export const localeMessages: Record<Locale, LocaleMessages> = {
     "editor.mode.reportComment": "Report comment",
     "editor.studentName.display": "Displayed name: {name}",
     "editor.generating.message": "Generating your snippet.",
+    "commentBank.title": "Comment Bank",
+    "commentBank.description":
+      "Save strong report comments, tag them, and pull them back into the draft when you need them.",
+    "commentBank.personalOnly": "Personal library only for now.",
+    "commentBank.saveTitle": "Save current comment",
+    "commentBank.saveHint": "Tag the current generated report comment before saving it.",
+    "commentBank.reportOnlyHint": "Switch to report comment mode to save a generated comment here.",
+    "commentBank.saveButton": "Save comment",
+    "commentBank.saving": "Saving...",
+    "commentBank.saved": "Comment saved to your personal bank.",
+    "commentBank.searchTitle": "Search saved comments",
+    "commentBank.searchPlaceholder": "Search by text or category",
+    "commentBank.insertButton": "Insert into draft",
+    "commentBank.loading": "Loading saved comments...",
+    "commentBank.empty": "No saved comments yet.",
+    "commentBank.noResults": "No saved comments match that search.",
+    "commentBank.errors.auth": "Please sign in again to use the comment bank.",
+    "commentBank.errors.load": "Unable to load the comment bank right now.",
+    "commentBank.errors.save": "Unable to save the comment right now.",
+    "commentBank.category.effort": "Effort",
+    "commentBank.category.behaviour": "Behaviour",
+    "commentBank.category.participation": "Participation",
+    "commentBank.category.literacy": "Literacy",
+    "commentBank.category.numeracy": "Numeracy",
+    "commentBank.category.homework": "Homework",
+    "commentBank.category.progress": "Progress",
     "editor.reframeNotice": "I softened the wording to keep it professional and parent-appropriate.",
+    "editor.rewriteMode.label": "Rewrite mode",
+    "editor.rewriteMode.helper": "Choose how Draft should optimize rewrites.",
+    "editor.rewriteMode.standard": "Standard Rewrite",
+    "editor.rewriteMode.forwardSafe": "Forward-Safe Rewrite",
+    "editor.rewriteMode.forwardSafeBadge": "Forward-Safe Rewrite",
     "draft.generatedTitle": "Draft Generated",
     "draft.modeLabel": "Mode: {mode}",
     "draft.generatedDetails": "Generated in {seconds}s",
@@ -1332,6 +1495,23 @@ export const localeMessages: Record<Locale, LocaleMessages> = {
     "draft.action.load": "Load",
     "draft.action.delete": "Delete",
     "draft.actions.loadMore": "Load more",
+    "draft.safeToSend.label": "Safe to Send:",
+    "draft.safeToSend.safeToSend.title": "Safe to Send",
+    "draft.safeToSend.safeToSend.description":
+      "Tone is professional and calm. No escalation-risk language detected.",
+    "draft.safeToSend.reviewOnceMore.title": "Review Once More",
+    "draft.safeToSend.reviewOnceMore.description":
+      "This message may feel firm. Consider softening one sentence.",
+    "draft.safeToSend.escalationRisk.title": "Escalation Risk",
+    "draft.safeToSend.escalationRisk.description":
+      "This message may trigger a defensive parent response. Review highlighted wording.",
+    "draft.documentation.label": "Mode:",
+    "draft.documentation.badge": "Documentation Mode",
+    "draft.documentation.description": "Rewritten as a neutral incident record.",
+    "draft.forwardSafe.label": "Rewrite mode:",
+    "draft.forwardSafe.badge": "🛡 Forward-Safe Rewrite",
+    "draft.forwardSafe.description":
+      "This message has been optimized to remain professional even if forwarded.",
     "insights.mini.loading": "Loading your progress...",
     "insights.mini.createFirstDraft": "Create your first draft to unlock progress tracking",
     "insights.mini.learnMore": "Learn more",
@@ -1687,6 +1867,7 @@ export const localeMessages: Record<Locale, LocaleMessages> = {
     "auth.msg.passwordMismatch": "Passwörter stimmen nicht überein.",
     "auth.title": "Willkommen zurück",
     "auth.description": "Melde dich an, um Zaza Draft weiter zu nutzen.",
+    "auth.marketingEyebrow": "Sichere Kommunikation für Lehrkräfte",
     "auth.emailLabel": "E-Mail",
     "auth.passwordLabel": "Passwort",
     "auth.passwordHelper": "Mindestens 8 Zeichen, Buchstaben und Zahlen.",
@@ -1698,6 +1879,22 @@ export const localeMessages: Record<Locale, LocaleMessages> = {
     "auth.loading": "Wir melden dich an…",
     "auth.showPassword": "Passwort anzeigen",
     "auth.hidePassword": "Passwort verbergen",
+    "auth.instant.badge": "Sofort testen",
+    "auth.instant.title": "Try Draft instantly",
+    "auth.instant.description":
+      "Füge eine Elternnachricht oder einen Berichtskommentar ein und sieh, wie Draft sie sicherer umschreibt.",
+    "auth.instant.placeholder":
+      "Füge hier eine Elternnachricht oder einen Berichtskommentar ein. Wir liefern eine ruhigere, sicherere Version zurück.",
+    "auth.instant.button": "Rewrite safely",
+    "auth.instant.limitHint": "Eine anonyme Überarbeitung",
+    "auth.instant.privacyHint":
+      "Anonyme Testnachrichten werden nur für die Überarbeitung verarbeitet und nicht in der Analytics gespeichert.",
+    "auth.instant.resultTitle": "Sicherere Fassung",
+    "auth.instant.ctaTitle": "Create a free account to continue writing safely.",
+    "auth.instant.ctaDescription":
+      "Schalte unbegrenzte Überarbeitungen, gespeicherte Entwürfe und den vollständigen Draft-Workflow frei.",
+    "auth.instant.createAccount": "Create free account",
+    "auth.instant.error": "Die Sofort-Überarbeitung konnte gerade nicht erstellt werden.",
     "billing.title": "Abrechnung und Abo",
     "billing.signinRequired": "Bitte melde dich an, um die Abrechnung zu sehen.",
     "billing.usageThisMonth": "{used} / {limit} Entwürfe in diesem Monat benutzt",
@@ -1804,6 +2001,34 @@ export const localeMessages: Record<Locale, LocaleMessages> = {
     "editor.history.pronouns": "Pronomen: {value}",
     "editor.history.subjectLabel": "Betreff",
     "editor.history.gradeLabel": "Klasse",
+    "commentBank.title": "Kommentarbank",
+    "commentBank.description":
+      "Speichere starke Berichtskommentare, markiere sie mit Kategorien und füge sie später wieder in den Entwurf ein.",
+    "commentBank.personalOnly": "Vorerst nur persönliche Bibliothek.",
+    "commentBank.saveTitle": "Aktuellen Kommentar speichern",
+    "commentBank.saveHint":
+      "Markiere den aktuell generierten Berichtskommentar mit Kategorien, bevor du ihn speicherst.",
+    "commentBank.reportOnlyHint":
+      "Wechsle in den Berichtskommentar-Modus, um hier einen generierten Kommentar zu speichern.",
+    "commentBank.saveButton": "Kommentar speichern",
+    "commentBank.saving": "Speichert...",
+    "commentBank.saved": "Kommentar in deiner persönlichen Bank gespeichert.",
+    "commentBank.searchTitle": "Gespeicherte Kommentare suchen",
+    "commentBank.searchPlaceholder": "Nach Text oder Kategorie suchen",
+    "commentBank.insertButton": "In Entwurf einfügen",
+    "commentBank.loading": "Gespeicherte Kommentare werden geladen...",
+    "commentBank.empty": "Noch keine gespeicherten Kommentare.",
+    "commentBank.noResults": "Keine gespeicherten Kommentare passen zu dieser Suche.",
+    "commentBank.errors.auth": "Bitte melde dich erneut an, um die Kommentarbank zu nutzen.",
+    "commentBank.errors.load": "Die Kommentarbank konnte gerade nicht geladen werden.",
+    "commentBank.errors.save": "Der Kommentar konnte gerade nicht gespeichert werden.",
+    "commentBank.category.effort": "Einsatz",
+    "commentBank.category.behaviour": "Verhalten",
+    "commentBank.category.participation": "Mitarbeit",
+    "commentBank.category.literacy": "Literalität",
+    "commentBank.category.numeracy": "Numerik",
+    "commentBank.category.homework": "Hausaufgaben",
+    "commentBank.category.progress": "Fortschritt",
     "editor.placeholder.subject": "Betreff (optional)",
     "editor.placeholder.gradeLevel": "Klassenstufe (optional)",
     "editor.studentName.placeholder": "Vorname des Kindes (optional)",
@@ -1824,6 +2049,11 @@ export const localeMessages: Record<Locale, LocaleMessages> = {
     "editor.reframeTier.tier1": "Stufe 1 · Sanfte Umformulierung",
     "editor.reframeTier.tier2": "Stufe 2 · Sensible Sprache entfernt",
     "editor.reframeTier.tier3": "Stufe 3 · Sicherheitsprüfung durchgeführt",
+    "editor.rewriteMode.label": "Überarbeitungsmodus",
+    "editor.rewriteMode.helper": "Wähle, wie Draft Überarbeitungen optimieren soll.",
+    "editor.rewriteMode.standard": "Standard-Überarbeitung",
+    "editor.rewriteMode.forwardSafe": "Forward-Safe-Überarbeitung",
+    "editor.rewriteMode.forwardSafeBadge": "Forward-Safe-Überarbeitung",
     "draft.generatedTitle": "Entwurf erstellt",
     "draft.modeLabel": "Modus: {mode}",
     "draft.generatedDetails": "Erstellt in {seconds}s",
@@ -1835,6 +2065,23 @@ export const localeMessages: Record<Locale, LocaleMessages> = {
     "draft.action.load": "Laden",
     "draft.action.delete": "Löschen",
     "draft.actions.loadMore": "Mehr laden",
+    "draft.safeToSend.label": "Sicher zum Senden:",
+    "draft.safeToSend.safeToSend.title": "Sicher zum Senden",
+    "draft.safeToSend.safeToSend.description":
+      "Der Ton ist professionell und ruhig. Es wurde keine eskalierende Sprache erkannt.",
+    "draft.safeToSend.reviewOnceMore.title": "Noch einmal prüfen",
+    "draft.safeToSend.reviewOnceMore.description":
+      "Diese Nachricht könnte etwas streng wirken. Prüfen Sie, ob Sie einen Satz weicher formulieren möchten.",
+    "draft.safeToSend.escalationRisk.title": "Eskalationsrisiko",
+    "draft.safeToSend.escalationRisk.description":
+      "Diese Nachricht könnte eine defensive Reaktion auslösen. Prüfen Sie die markierte Formulierung noch einmal.",
+    "draft.documentation.label": "Modus:",
+    "draft.documentation.badge": "Dokumentationsmodus",
+    "draft.documentation.description": "Als neutraler Vorfallsbericht umgeschrieben.",
+    "draft.forwardSafe.label": "Überarbeitungsmodus:",
+    "draft.forwardSafe.badge": "🛡 Forward-Safe-Überarbeitung",
+    "draft.forwardSafe.description":
+      "Diese Nachricht wurde so optimiert, dass sie auch beim Weiterleiten professionell bleibt.",
     "insights.title": "Ihr Einfluss als Lehrkraft, {name}",
     "header.insightsButtonLabel": "Meine Einblicke",
     "header.insightsButtonAria": "Meine Einblicke ansehen",
@@ -1882,6 +2129,39 @@ export const localeMessages: Record<Locale, LocaleMessages> = {
     "insights.qualityScore.trend": "+{points} Punkte diesen Monat",
     "insights.qualityScore.tooltip":
       "Basierend darauf, wie viel Sie Entwürfe bearbeiten. Höhere Werte bedeuten, dass Zara Ihrer natürlichen Stimme näher kommt.",
+    "insights.communicationLoad.title": "Kommunikationslast",
+    "insights.communicationLoad.subtitle": "Wöchentlicher Belastungswert",
+    "insights.communicationLoad.trend": "{percent}% gegenüber letzter Woche",
+    "insights.communicationLoad.tooltip":
+      "Teacher Communication Load nutzt anonymisierte Zählwerte für Entwürfe, Überarbeitungen, Risikohinweise und Schreiben außerhalb der Schulzeit, um die Kommunikationsbelastung zu schätzen.",
+    "insights.communicationLoad.sparklineLabel": "4-Wochen-Trend",
+    "insights.communicationLoad.context.lowerRiskSchoolHours":
+      "Sie hatten diese Woche weniger risikoreiche Nachrichten und haben mehr innerhalb der Schulzeit geschrieben.",
+    "insights.communicationLoad.context.down":
+      "Ihre Kommunikationslast ist diese Woche gesunken, mit weniger Belastungssignalen im Schreibworkflow.",
+    "insights.communicationLoad.context.afterHours":
+      "Mehr Ihrer Entwürfe entstanden diese Woche außerhalb der Schulzeit, was den Belastungswert erhöht hat.",
+    "insights.communicationLoad.context.higherRisk":
+      "Sie haben diese Woche mehr risikoreiche Kommunikation bearbeitet, was den Belastungswert erhöht hat.",
+    "insights.communicationLoad.context.stable":
+      "Ihre Kommunikationslast blieb diese Woche weitgehend stabil.",
+    "insights.weeklyReflection.title": "Wochenrückblick",
+    "insights.weeklyReflection.schoolHours":
+      "Sie haben diese Woche die meisten Nachrichten innerhalb der Schulzeit geschrieben. Gut, dass Sie Ihre Abende schützen.",
+    "insights.weeklyReflection.documentation":
+      "Sie haben diese Woche den Dokumentationsmodus genutzt, um Vorfälle festzuhalten.",
+    "insights.weeklyReflection.behaviourTone":
+      "Sie haben diese Woche mehrere Verhaltensnachrichten erstellt. Draft hat den Ton in mehreren Nachrichten entschärft.",
+    "insights.weeklyReflection.softening":
+      "Draft hat diese Woche in mehreren Nachrichten geholfen, den Ton zu entschärfen.",
+    "insights.weeklyReflection.progress":
+      "Ihre Nachrichten drehten sich diese Woche stärker um Fortschritte und Ermutigung.",
+    "insights.weeklyReflection.complaints":
+      "Sie haben diese Woche mehrere Anliegen von Eltern mit ruhigen, klaren Entwürfen beantwortet.",
+    "insights.weeklyReflection.expectations":
+      "Sie haben diese Woche Erwartungen und nächste Schritte für Familien klarer gemacht.",
+    "insights.weeklyReflection.general":
+      "Sie haben Ihre Kommunikation diese Woche mit konstanten Schreibgewohnheiten gut im Fluss gehalten.",
     "insights.heatmap.title": "Wann Sie am besten entwerfen",
     "insights.heatmap.insight":
       "Dienstagnachmittage sind Ihre produktivste Zeit - erwägen Sie, diese Zeit zu blockieren!",
@@ -1971,8 +2251,10 @@ export const localeMessages: Record<Locale, LocaleMessages> = {
     "insights.suggestion.reminderToastDescription": "Wir bauen Termin-Erinnerungen, damit Sie sich auf das Unterrichten konzentrieren können.",
     "insights.suggestion.badge.new": "NEU",
     "insights.dataControls.title": "Datenkontrollen",
-    "insights.dataControls.shareData": "Anonymisierte Daten teilen, um Zaza zu verbessern",
-    "insights.dataControls.helpTeachers": "Helfen Sie, Zaza für 1.000+ Lehrkräfte weltweit zu verbessern",
+    "insights.dataControls.shareData": "Hilf, Draft für Lehrkräfte weltweit zu verbessern",
+    "insights.dataControls.helpTeachers":
+      "Teile anonymisierte Nutzungsdaten, damit Draft lernen kann, was Lehrkräften bei sicherer Kommunikation hilft. Es werden keine Nachrichteninhalte gespeichert.",
+    "insights.dataControls.controlHint": "Wenn dies deaktiviert ist, sendet Draft keine Analytics-Ereignisse.",
     "insights.dataControls.collect.title": "Was wir sammeln",
     "insights.dataControls.collect.timestamps": "Zeitstempel, wann Sie entwerfen",
     "insights.dataControls.collect.tones": "Ihre gewählten Tonauswahlen",
@@ -1994,6 +2276,14 @@ export const localeMessages: Record<Locale, LocaleMessages> = {
     "settings.cards.signature.empty": "Noch keine Signatur hinterlegt.",
     "settings.cards.signature.description":
       "Die Signaturbearbeitung erscheint mit der nächsten Exportphase. Bis dahin bleibt die Vorschau schreibgeschützt.",
+    "settings.cards.signature.draftAttribution.title":
+      "Draft-Signatur in generierten Nachrichten einfügen",
+    "settings.cards.signature.draftAttribution.description":
+      "Hängt an generierte Elternnachrichten dezent die Zeile 'Mit Unterstützung von Zaza Draft formuliert.' an.",
+    "settings.cards.signature.draftAttribution.default.free":
+      "Standard für kostenlose Accounts: aktiviert.",
+    "settings.cards.signature.draftAttribution.default.paid":
+      "Standard für bezahlte Accounts: deaktiviert.",
     "settings.lockedBadge": "Gesichert",
     "settings.cards.safeguard.title": "Schutzvorgaben",
     "settings.cards.safeguard.subhead": "Was wir schützen",
@@ -2134,8 +2424,12 @@ export const localeMessages: Record<Locale, LocaleMessages> = {
     "account.data.delete.comingSoon": "Demnächst verfügbar",
     "account.privacy.title": "Datenschutz & Sicherheit",
     "account.privacy.sharing.title": "Anonymisierte Datenfreigabe",
-    "account.privacy.sharing.description": "Hilf uns, Zaza Draft zu verbessern, indem du anonymisierte Nutzungsdaten teilst",
-    "account.privacy.sharing.label": "Anonymisierte Daten teilen",
+    "account.privacy.sharing.description":
+      "Analytics laufen nur, wenn du dem Teilen anonymisierter Nutzungsdaten zustimmst.",
+    "account.privacy.sharing.label": "Hilf, Draft für Lehrkräfte weltweit zu verbessern",
+    "account.privacy.sharing.explainer":
+      "Teile anonymisierte Nutzungsdaten, damit Draft lernen kann, was Lehrkräften bei sicherer Kommunikation hilft. Es werden keine Nachrichteninhalte gespeichert.",
+    "account.privacy.sharing.controlHint": "Wenn dies deaktiviert ist, sendet Draft keine Analytics-Ereignisse.",
     "account.privacy.collect.title": "Was wir sammeln",
     "account.privacy.collect.item1": "Nutzungsverhalten und Feature-Interaktionen",
     "account.privacy.collect.item2": "Technische Performance-Kennzahlen",

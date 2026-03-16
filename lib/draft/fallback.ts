@@ -884,6 +884,7 @@ export interface ProviderRequestInput {
     gradeLevel?: string
   }
   rewrite?: boolean
+  forwardSafeRewrite?: boolean
   previousDraft?: string
   pronounPreference: PronounPreference
   mode: DraftMode

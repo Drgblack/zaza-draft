@@ -110,6 +110,7 @@ vi.mock("@/hooks/use-locale", () => ({
 
 vi.mock("@/lib/analytics", () => ({
   logClientEvent: vi.fn(),
+  logDraftInteractionEvent: vi.fn(),
 }))
 
 const fetchMock = vi.fn(async (input: RequestInfo, init?: RequestInit) => {

@@ -32,11 +32,15 @@ exports[`DraftOutput formatting > matches the snapshot for structured output 1`]
           </svg>
         </div>
         <div>
-          <h3
-            class="font-semibold text-gray-900 dark:text-gray-100"
+          <div
+            class="flex flex-wrap items-center gap-2"
           >
-            Draft Generated
-          </h3>
+            <h3
+              class="font-semibold text-gray-900 dark:text-gray-100"
+            >
+              Draft Generated
+            </h3>
+          </div>
           <p
             class="text-sm text-gray-500 dark:text-gray-400"
           >

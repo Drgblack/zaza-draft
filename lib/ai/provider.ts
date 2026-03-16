@@ -55,6 +55,7 @@ interface ProviderInput {
     gradeLevel?: string
   }
   rewrite?: boolean
+  forwardSafeRewrite?: boolean
   previousDraft?: string
   pronounPreference: PronounPreference
   mode: DraftMode
@@ -206,6 +207,22 @@ function buildToneRecoveryInstruction(input: ProviderInput) {
     case "empathetic":
       return "Keep the rewrite visibly empathetic: acknowledge the difficulty more than warm would, then move to a concrete teacher action without sounding like support copy."
   }
+}
+
+function buildForwardSafeRewriteInstructions(input: ProviderInput) {
+  if (!input.rewrite || !input.forwardSafeRewrite) {
+    return []
+  }
+
+  return [
+    "Forward-Safe Rewrite mode is enabled.",
+    "Rewrite so the message remains professional and defensible even if it is forwarded beyond the original recipient.",
+    "Prioritize neutral tone, collaborative framing, non-accusatory wording, and clarity without emotional phrasing.",
+    "Remove wording that could sound reactive, sarcastic, personal, or difficult to defend out of context.",
+    "Keep the message calm and teacher-authentic; do not make it sound legalistic, robotic, or corporate.",
+    "Preserve the underlying facts, documentation accuracy, safeguarding clarity, and the teacher's intended next step.",
+    "Where the source is sensitive, use observation-based language that can stand alone if read by school leadership or another adult later.",
+  ]
 }
 
 function buildSafeDraftInstructions(input: ProviderInput) {
@@ -415,22 +432,28 @@ function buildDocumentationModePrompt(input: ProviderInput) {
   const detectedTopic = input.documentationTopic ?? "general"
   const rawMessage = input.documentationSourceText ?? input.originalSituation ?? input.situation
 
-  return `You are writing an objective school incident record, not a parent communication.
+  return `You are writing a neutral school incident record, not a parent communication.
 
 Rules:
-1. Begin with: Date: ${today} | Context: ${detectedTopic}
-2. Use only past-tense observable verbs: left, spoke, walked, took
-3. Never use: you, your child, he is, she is, problem, behaviour issues
-4. Structure exactly as: Observation → Action Taken → Outcome
-5. No emotional language. No adjectives describing character or intent.
-6. End with: "This record is for documentation purposes."
-7. Use third person: "The student" or [child name] if known
-8. If the source includes diagnostic speculation, motive attribution, or psychological interpretation, rewrite it into safe documentation language rather than repeating it.
-9. Replace "I think he might have ADHD" with "The student may benefit from assessment for learning and attention needs."
-10. Replace motive language such as "deliberately disrupts" with the observable action only.
-11. Replace psychological interpretation with safe pastoral wording such as "The student may need follow-up for social and emotional needs."
-12. Only document what is explicitly stated in the source text. Do not infer, elaborate, or add specific details not present in the input.
-13. If the source is vague, the record must also be vague. Write only what can be directly attributed to the source.
+1. Begin with the heading: Incident Record
+2. Then output exactly these sections in this order, one per line:
+   Date: ${today}
+   Location: <specific location from the source, or "Not specified" if none is given>
+   Observed behaviour: <observable, factual description only>
+   Teacher response: <what the teacher did, said, recorded, or checked>
+   Follow-up action: <next step already stated in the source, or "No follow-up action recorded.">
+3. Use only observable descriptions. Convert subjective or emotional wording into neutral, defensible documentation language.
+4. Remove emotional language, motive attribution, diagnosis speculation, and accusatory phrasing.
+5. Maintain factual accuracy. Only document what is explicitly stated in the source text. Do not infer, elaborate, or add specific details not present in the input.
+6. Use third person: "The student" or [child name] if known.
+7. Keep the tone professional, neutral, and suitable for safeguarding or behaviour documentation.
+8. Preserve safeguarding clarity and documentation accuracy even while softening wording.
+9. If the source is vague, the record must also be vague. Write only what can be directly attributed to the source.
+10. End with: "This record is for documentation purposes."
+11. Internal topic hint: ${detectedTopic}. Use it only to keep the wording context-appropriate; do not add a separate context field to the record unless it is stated in the source.
+12. Replace "I think he might have ADHD" with "The student may benefit from assessment for learning and attention needs."
+13. Replace motive language such as "deliberately disrupts" with the observable action only.
+14. Replace psychological interpretation with safe pastoral wording such as "The student may need follow-up for social and emotional needs."
 
 Input: ${rawMessage}`
 }
@@ -518,6 +541,7 @@ export function buildSystemPrompt(input: ProviderInput) {
     MODE_PROMPT_INSTRUCTIONS[input.mode],
     ...PROMPT_BUILDERS[input.generationMetadata.prompt_builder](input),
     ...buildSafetyAnalysisInstructions(input),
+    ...buildForwardSafeRewriteInstructions(input),
   ]
 
   if (input.generationMetadata.direction === "parent_to_teacher") {

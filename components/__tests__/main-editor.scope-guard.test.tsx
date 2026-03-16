@@ -98,6 +98,7 @@ vi.mock("next/navigation", () => ({
 
 vi.mock("@/lib/analytics", () => ({
   logClientEvent: vi.fn(),
+  logDraftInteractionEvent: vi.fn(),
 }))
 
 /**

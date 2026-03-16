@@ -33,6 +33,23 @@ const localeMessages: Record<LocaleKey, Record<string, string>> = {
     "draft.action.load": "Load",
     "draft.action.delete": "Delete",
     "draft.actions.loadMore": "Load more",
+    "draft.safeToSend.label": "Safe to Send:",
+    "draft.safeToSend.safeToSend.title": "Safe to Send",
+    "draft.safeToSend.safeToSend.description":
+      "Tone is professional and calm. No escalation-risk language detected.",
+    "draft.safeToSend.reviewOnceMore.title": "Review Once More",
+    "draft.safeToSend.reviewOnceMore.description":
+      "This message may feel firm. Consider softening one sentence.",
+    "draft.safeToSend.escalationRisk.title": "Escalation Risk",
+    "draft.safeToSend.escalationRisk.description":
+      "This message may trigger a defensive parent response. Review highlighted wording.",
+    "draft.documentation.label": "Mode:",
+    "draft.documentation.badge": "Documentation Mode",
+    "draft.documentation.description": "Rewritten as a neutral incident record.",
+    "draft.forwardSafe.label": "Rewrite mode:",
+    "draft.forwardSafe.badge": "🛡 Forward-Safe Rewrite",
+    "draft.forwardSafe.description":
+      "This message has been optimized to remain professional even if forwarded.",
     "tone.warm": "Warm & Encouraging",
     "tone.professional": "Professional & Neutral",
     "tone.direct": "Direct & Clear",
@@ -51,6 +68,23 @@ const localeMessages: Record<LocaleKey, Record<string, string>> = {
     "draft.action.load": "Laden",
     "draft.action.delete": "Löschen",
     "draft.actions.loadMore": "Mehr laden",
+    "draft.safeToSend.label": "Sicher zum Senden:",
+    "draft.safeToSend.safeToSend.title": "Sicher zum Senden",
+    "draft.safeToSend.safeToSend.description":
+      "Der Ton ist professionell und ruhig. Es wurde keine eskalierende Sprache erkannt.",
+    "draft.safeToSend.reviewOnceMore.title": "Noch einmal prüfen",
+    "draft.safeToSend.reviewOnceMore.description":
+      "Diese Nachricht könnte etwas streng wirken. Prüfen Sie, ob Sie einen Satz weicher formulieren möchten.",
+    "draft.safeToSend.escalationRisk.title": "Eskalationsrisiko",
+    "draft.safeToSend.escalationRisk.description":
+      "Diese Nachricht könnte eine defensive Reaktion auslösen. Prüfen Sie die markierte Formulierung noch einmal.",
+    "draft.documentation.label": "Modus:",
+    "draft.documentation.badge": "Dokumentationsmodus",
+    "draft.documentation.description": "Als neutraler Vorfallsbericht umgeschrieben.",
+    "draft.forwardSafe.label": "Überarbeitungsmodus:",
+    "draft.forwardSafe.badge": "🛡 Forward-Safe-Überarbeitung",
+    "draft.forwardSafe.description":
+      "Diese Nachricht wurde so optimiert, dass sie auch beim Weiterleiten professionell bleibt.",
     "tone.warm": "Warm & ermutigend",
     "tone.professional": "Professionell & neutral",
     "tone.direct": "Direkt & klar",
@@ -368,6 +402,91 @@ Frau Mueller`
     setMockSearchParams()
     render(<DraftOutput {...baseProps} />)
     expect(screen.queryByText("Formatter diagnostics")).not.toBeInTheDocument()
+  })
+
+  it("renders the safe to send indicator below the generated message", () => {
+    render(
+      <DraftOutput
+        {...baseProps}
+        safeToSend={{
+          status: "SAFE_TO_SEND",
+          titleKey: "draft.safeToSend.safeToSend.title",
+          descriptionKey: "draft.safeToSend.safeToSend.description",
+        }}
+      />,
+    )
+
+    const body = screen.getByTestId("draft-output-body")
+    const label = screen.getByText("Safe to Send:")
+    const description = screen.getByText(
+      "Tone is professional and calm. No escalation-risk language detected.",
+    )
+
+    expect(label).toBeInTheDocument()
+    expect(screen.getByText("Safe to Send")).toBeInTheDocument()
+    expect(description).toBeInTheDocument()
+    expect(body.compareDocumentPosition(label) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  })
+
+  it("renders the documentation mode notice above the generated message", () => {
+    render(
+      <DraftOutput
+        {...baseProps}
+        documentationMode
+        draftText={`Incident Record\n\nDate: 2026-03-16\nLocation: Not specified\nObserved behaviour: The student left the room.\nTeacher response: The teacher recorded the incident.\nFollow-up action: No follow-up action recorded.`}
+      />,
+    )
+
+    const body = screen.getByTestId("draft-output-body")
+    const label = screen.getByText("Mode:")
+    const badge = screen.getByText("Documentation Mode")
+    const description = screen.getByText("Rewritten as a neutral incident record.")
+
+    expect(label).toBeInTheDocument()
+    expect(badge).toBeInTheDocument()
+    expect(description).toBeInTheDocument()
+    expect(description.compareDocumentPosition(body) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  })
+
+  it("renders a light draft attribution line below the message body when provided", () => {
+    render(
+      <DraftOutput
+        {...baseProps}
+        draftAttribution="Drafted with the help of Zaza Draft."
+      />,
+    )
+
+    const body = screen.getByTestId("draft-output-body")
+    const attribution = screen.getByText("Drafted with the help of Zaza Draft.")
+
+    expect(attribution).toBeInTheDocument()
+    expect(attribution.className).toContain("text-xs")
+    expect(attribution.className).toContain("text-gray-400")
+    expect(body).toContainElement(attribution)
+  })
+
+  it("renders the forward-safe rewrite notice below the generated message", () => {
+    render(
+      <DraftOutput
+        {...baseProps}
+        metadata={{
+          ...baseProps.metadata,
+          forwardSafeRewrite: true,
+        }}
+      />,
+    )
+
+    const body = screen.getByTestId("draft-output-body")
+    const label = screen.getByText("Rewrite mode:")
+    const badge = screen.getByText("🛡 Forward-Safe Rewrite")
+    const description = screen.getByText(
+      "This message has been optimized to remain professional even if forwarded.",
+    )
+
+    expect(label).toBeInTheDocument()
+    expect(badge).toBeInTheDocument()
+    expect(description).toBeInTheDocument()
+    expect(body.compareDocumentPosition(label) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
   })
 
   it("honors the NEXT_PUBLIC_DEBUG_UI flag when set", () => {

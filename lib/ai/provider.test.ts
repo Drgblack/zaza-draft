@@ -151,10 +151,15 @@ describe("buildSystemPrompt", () => {
       documentationTopic: "learning support",
     })
 
-    expect(prompt).toContain("Begin with: Date:")
+    expect(prompt).toContain("Begin with the heading: Incident Record")
+    expect(prompt).toContain("Location: <specific location from the source, or \"Not specified\" if none is given>")
+    expect(prompt).toContain("Observed behaviour: <observable, factual description only>")
+    expect(prompt).toContain("Teacher response: <what the teacher did, said, recorded, or checked>")
+    expect(prompt).toContain("Follow-up action: <next step already stated in the source, or \"No follow-up action recorded.\">")
     expect(prompt).toContain('Replace "I think he might have ADHD" with "The student may benefit from assessment for learning and attention needs."')
     expect(prompt).toContain('Replace motive language such as "deliberately disrupts" with the observable action only.')
     expect(prompt).toContain("Replace psychological interpretation with safe pastoral wording")
+    expect(prompt).toContain("Convert subjective or emotional wording into neutral, defensible documentation language.")
     expect(prompt).toContain("Only document what is explicitly stated in the source text. Do not infer, elaborate, or add specific details not present in the input.")
     expect(prompt).toContain("If the source is vague, the record must also be vague. Write only what can be directly attributed to the source.")
   })
@@ -290,6 +295,34 @@ describe("buildSystemPrompt", () => {
     expect(prompt).toContain("Open with the actual issue, update, or boundary from the source text")
     expect(prompt).toContain("Turn the notes into concrete teacher actions")
     expect(prompt).toContain("Include a concise professional subject line on the first line")
+  })
+
+  it("adds forward-safe rewrite instructions when that rewrite mode is enabled", () => {
+    const prompt = buildSystemPrompt({
+      situation: "Please rewrite this so it sounds calmer and clearer.",
+      previousDraft:
+        "Your child keeps refusing instructions and this is becoming unacceptable.",
+      rewrite: true,
+      forwardSafeRewrite: true,
+      generationMetadata: {
+        mode: "safe_draft",
+        direction: "teacher_to_parent",
+        source_type: "typed_text",
+        locale: "en",
+        prompt_builder: "safe_draft",
+      },
+      tone: "professional",
+      language: "en",
+      mode: "parent_message",
+      pronounPreference: "auto",
+    })
+
+    expect(prompt).toContain("Forward-Safe Rewrite mode is enabled.")
+    expect(prompt).toContain(
+      "Rewrite so the message remains professional and defensible even if it is forwarded beyond the original recipient.",
+    )
+    expect(prompt).toContain("Prioritize neutral tone, collaborative framing, non-accusatory wording")
+    expect(prompt).toContain("Preserve the underlying facts, documentation accuracy, safeguarding clarity")
   })
 
   it("tells safe draft teacher notes to preserve names and multi-issue clusters", () => {

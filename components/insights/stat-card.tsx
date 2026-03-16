@@ -21,6 +21,7 @@ interface StatCardProps {
   contextMessage?: string
   numericValue?: number
   sparklineData?: number[]
+  sparklineLabel?: string
 }
 
 export function StatCard({
@@ -35,6 +36,7 @@ export function StatCard({
   contextMessage,
   numericValue,
   sparklineData,
+  sparklineLabel,
 }: StatCardProps) {
   const [displayValue, setDisplayValue] = useState(0)
   const [isAnimating, setIsAnimating] = useState(false)
@@ -113,7 +115,9 @@ export function StatCard({
                 className="text-purple-600 dark:text-purple-400"
               />
             </svg>
-            <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">Last 7 days trend</p>
+            <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
+              {sparklineLabel ?? "Last 7 days trend"}
+            </p>
           </div>
         )}
 

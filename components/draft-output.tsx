@@ -16,6 +16,7 @@ import { MODE_LABEL_KEYS, DEFAULT_DRAFT_MODE } from "@/lib/draft-mode"
 import { useLocale } from "@/hooks/use-locale"
 import { useSearchParams } from "next/navigation"
 import { isDebugEnabled } from "@/lib/debug"
+import type { SafeToSendAssessment } from "@/lib/safe-to-send"
 
 interface DraftOutputProps {
   draftText: string
@@ -25,6 +26,7 @@ interface DraftOutputProps {
     wordCount: number
     modeUsed?: DraftMode
     signatureBlock?: string
+    forwardSafeRewrite?: boolean
   }
   structure?: DraftStructure
   onSave: (tags: string[]) => void
@@ -40,6 +42,9 @@ interface DraftOutputProps {
   headerBadge?: ReactNode
   headerBanner?: ReactNode
   resultModeBadge?: string | null
+  documentationMode?: boolean
+  draftAttribution?: string | null
+  safeToSend?: SafeToSendAssessment | null
 }
 
 export function DraftOutput({
@@ -60,6 +65,9 @@ export function DraftOutput({
   headerBadge,
   headerBanner,
   resultModeBadge,
+  documentationMode = false,
+  draftAttribution = null,
+  safeToSend,
 }: DraftOutputProps) {
   const [copied, setCopied] = useState(false)
   const [showSaveModal, setShowSaveModal] = useState(false)
@@ -147,11 +155,14 @@ export function DraftOutput({
     if (signatureParagraph) {
       segments.push(signatureParagraph)
     }
+    if (draftAttribution) {
+      segments.push(draftAttribution)
+    }
     if (!segments.length) {
       return ""
     }
     return segments.join("\n").trim()
-  }, [displaySubject, displayParagraphs, signatureParagraph])
+  }, [displaySubject, displayParagraphs, draftAttribution, signatureParagraph])
   // Copy to clipboard with rich text support
   const handleCopy = async () => {
     try {
@@ -210,7 +221,7 @@ export function DraftOutput({
           Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
-          draftText,
+          draftText: clipboardText,
           mode,
           tone,
           language,
@@ -259,7 +270,7 @@ export function DraftOutput({
           Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
-          draftText,
+          draftText: clipboardText,
           mode,
           tone,
           language,
@@ -307,6 +318,28 @@ export function DraftOutput({
   const desktopMenuRef = useRef<HTMLDivElement | null>(null)
   const mobileMenuRef = useRef<HTMLDivElement | null>(null)
   const hasDraft = Boolean(draftText && draftText.trim())
+  const safeToSendStyles = useMemo(() => {
+    switch (safeToSend?.status) {
+      case "SAFE_TO_SEND":
+        return {
+          border: "border-emerald-200 dark:border-emerald-500/30",
+          background: "bg-emerald-50 dark:bg-emerald-950/20",
+          badge: "bg-emerald-100 text-emerald-800 dark:bg-emerald-500/20 dark:text-emerald-100",
+        }
+      case "ESCALATION_RISK":
+        return {
+          border: "border-rose-200 dark:border-rose-500/30",
+          background: "bg-rose-50 dark:bg-rose-950/20",
+          badge: "bg-rose-100 text-rose-800 dark:bg-rose-500/20 dark:text-rose-100",
+        }
+      default:
+        return {
+          border: "border-amber-200 dark:border-amber-500/30",
+          background: "bg-amber-50 dark:bg-amber-950/20",
+          badge: "bg-amber-100 text-amber-800 dark:bg-amber-500/20 dark:text-amber-100",
+        }
+    }
+  }, [safeToSend?.status])
   useEffect(() => {
     if (!showMoreMenu) {
       return undefined
@@ -371,6 +404,22 @@ export function DraftOutput({
           <p className="mt-2 text-xs text-white/70 dark:text-white/60">{actionMessage}</p>
         )}
 
+        {documentationMode ? (
+          <div className="mb-4 rounded-xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-500/30 dark:bg-slate-900/40">
+            <div className="flex flex-wrap items-center gap-2">
+              <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">
+                {t("draft.documentation.label")}
+              </p>
+              <Badge className="rounded-full bg-slate-200 px-3 py-1 text-[11px] font-semibold tracking-wide text-slate-800 dark:bg-slate-500/20 dark:text-slate-100">
+                {t("draft.documentation.badge")}
+              </Badge>
+            </div>
+            <p className="mt-2 text-sm leading-relaxed text-gray-700 dark:text-gray-200">
+              {t("draft.documentation.description")}
+            </p>
+          </div>
+        ) : null}
+
         {/* Generated Text */}
         <div
           className="bg-gray-50 dark:bg-gray-700 rounded-lg p-4 mb-4 space-y-4 sm:space-y-5 font-normal"
@@ -394,7 +443,46 @@ export function DraftOutput({
               {signatureParagraph}
             </p>
           )}
+          {draftAttribution && (
+            <p className="text-xs text-gray-400 dark:text-gray-400 whitespace-pre-wrap">
+              {draftAttribution}
+            </p>
+          )}
         </div>
+
+        {metadata.forwardSafeRewrite ? (
+          <div className="mb-4 rounded-xl border border-sky-200 bg-sky-50 p-4 dark:border-sky-500/30 dark:bg-sky-950/20">
+            <div className="flex flex-wrap items-center gap-2">
+              <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">
+                {t("draft.forwardSafe.label")}
+              </p>
+              <Badge className="rounded-full bg-sky-100 px-3 py-1 text-[11px] font-semibold tracking-wide text-sky-800 dark:bg-sky-500/20 dark:text-sky-100">
+                {t("draft.forwardSafe.badge")}
+              </Badge>
+            </div>
+            <p className="mt-2 text-sm leading-relaxed text-gray-700 dark:text-gray-200">
+              {t("draft.forwardSafe.description")}
+            </p>
+          </div>
+        ) : null}
+
+        {safeToSend ? (
+          <div
+            className={`mb-4 rounded-xl border p-4 ${safeToSendStyles.border} ${safeToSendStyles.background}`}
+          >
+            <div className="flex flex-wrap items-center gap-2">
+              <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">
+                {t("draft.safeToSend.label")}
+              </p>
+              <Badge className={`rounded-full px-3 py-1 text-[11px] font-semibold tracking-wide ${safeToSendStyles.badge}`}>
+                {t(safeToSend.titleKey)}
+              </Badge>
+            </div>
+            <p className="mt-2 text-sm leading-relaxed text-gray-700 dark:text-gray-200">
+              {t(safeToSend.descriptionKey)}
+            </p>
+          </div>
+        ) : null}
 
         {/* Metadata */}
         <div className="flex flex-wrap items-center gap-2 text-xs text-gray-500 dark:text-gray-400 mb-4">

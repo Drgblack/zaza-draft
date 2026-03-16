@@ -382,11 +382,13 @@ beforeEach(() => {
   mockedGenerateDraft.mockReset()
   mockedGenerateDraft.mockResolvedValue({
     text: [
-      "Date: 2026-03-15 | Context: general",
+      "Incident Record",
       "",
-      "Observation: The student spoke over others during the lesson.",
-      "Action Taken: The teacher recorded the incident for follow-up.",
-      "Outcome: Further review is required.",
+      "Date: 2026-03-15",
+      "Location: Not specified",
+      "Observed behaviour: The student spoke over others during the lesson.",
+      "Teacher response: The teacher recorded the incident for follow-up.",
+      "Follow-up action: Further review is required.",
       "",
       "This record is for documentation purposes.",
     ].join("\n"),
@@ -716,6 +718,60 @@ describe("/api/draft/generate greeting handoff", () => {
     expect(response.headers.get("x-request-id")).toBeTruthy()
     expect(json.requestId).toBe(response.headers.get("x-request-id"))
     expect(authorizeFirebaseRequest).not.toHaveBeenCalled()
+  })
+
+  it("returns a teacher intent label in metadata without storing source text in analytics fields", async () => {
+    const payload = {
+      situation:
+        "A parent has complained that homework expectations are unclear, the workload feels overwhelming at home, and they want a calm reply that explains the next steps clearly.",
+      tone: "professional",
+      language: "en",
+      mode: "parent_message",
+      messageType: "parent_complaint",
+    }
+    const request = new Request("https://example.com/api/draft/generate", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: "Bearer token",
+      },
+      body: JSON.stringify(payload),
+    })
+
+    const response = await POST(request)
+    expect(response.status).toBe(200)
+    const json = await response.json()
+    expect(json.success).toBe(true)
+    expect(json.data?.metadata?.teacherIntent).toBe("respond_to_complaint")
+    expect(JSON.stringify(json.data?.metadata)).not.toContain(payload.situation)
+  })
+
+  it("returns the forward-safe rewrite flag in metadata for rewrite requests", async () => {
+    const payload = {
+      situation:
+        "Please rewrite this parent message so it stays calm, clear, easy to defend if forwarded, and still explains the next steps in a professional way.",
+      tone: "professional",
+      language: "en",
+      mode: "parent_message",
+      rewrite: true,
+      forwardSafeRewrite: true,
+      previousDraft:
+        "Your child keeps refusing instructions and this is becoming unacceptable.",
+    }
+    const request = new Request("https://example.com/api/draft/generate", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: "Bearer token",
+      },
+      body: JSON.stringify(payload),
+    })
+
+    const response = await POST(request)
+    expect(response.status).toBe(200)
+    const json = await response.json()
+    expect(json.success).toBe(true)
+    expect(json.data?.metadata?.forwardSafeRewrite).toBe(true)
   })
 
   it("returns a structured validation error when payload fields are invalid", async () => {
@@ -2947,13 +3003,15 @@ describe("/api/draft/generate documentation mode", () => {
     expect(response.status).toBe(200)
     const json = await response.json()
     expect(json.data?.documentationModeActive).toBe(true)
+    expect(json.data?.generatedDraft).toContain("Incident Record")
     expect(json.data?.generatedDraft).toContain("Date:")
-    expect(json.data?.generatedDraft).toContain("Observation:")
-    expect(json.data?.generatedDraft).toContain("Action Taken:")
-    expect(json.data?.generatedDraft).toContain("Outcome:")
-    expect(json.data?.generatedDraft).toContain("The student refuses to listen and constantly disrupts the class.")
-    expect(json.data?.generatedDraft).toContain("The teacher recorded that this had been raised previously.")
-    expect(json.data?.generatedDraft).toContain("Further school follow-up may be required if the pattern continues.")
+    expect(json.data?.generatedDraft).toContain("Location: Not specified")
+    expect(json.data?.generatedDraft).toContain("Observed behaviour:")
+    expect(json.data?.generatedDraft).toContain("Teacher response:")
+    expect(json.data?.generatedDraft).toContain("Follow-up action:")
+    expect(json.data?.generatedDraft).toContain("Observed behaviour: The student refuses to listen and constantly disrupts the class.")
+    expect(json.data?.generatedDraft).toContain("Teacher response: The teacher recorded that this had been raised previously.")
+    expect(json.data?.generatedDraft).toContain("Follow-up action: Further school follow-up may be required if the pattern continues.")
     expect(json.data?.generatedDraft).toContain("This record is for documentation purposes.")
   })
 
@@ -2983,7 +3041,9 @@ describe("/api/draft/generate documentation mode", () => {
     const generatedDraft = json.data?.generatedDraft ?? ""
 
     expect(json.data?.documentationModeActive).toBe(true)
-    expect(generatedDraft).toContain("Date: 2026-03-15")
+    expect(generatedDraft).toContain("Incident Record")
+    expect(generatedDraft).toContain("Location: Not specified")
+    expect(generatedDraft).toMatch(/Date: \d{4}-\d{2}-\d{2}/)
     expect(generatedDraft).not.toContain("[REDACTED PHONE]")
     expect(generatedDraft).toContain("assessment for learning and attention needs")
     expect(generatedDraft).not.toContain("I think he might have may benefit")

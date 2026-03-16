@@ -17,6 +17,7 @@ export interface TeacherPrefs {
   signatureLine3?: string
   autoAppendSignatureParentMessage?: boolean
   autoAppendSignatureReportComment?: boolean
+  includeDraftSignature?: boolean
 }
 
 const STORAGE_KEY_PREFIX = "teacher_prefs"
@@ -51,9 +52,17 @@ const createDefaultPrefs = (): TeacherPrefs => ({
   signatureLine3: undefined,
   autoAppendSignatureParentMessage: false,
   autoAppendSignatureReportComment: false,
+  includeDraftSignature: undefined,
 })
 
 const DEFAULT_PREFS: TeacherPrefs = createDefaultPrefs()
+
+function normalizePrefs(rawPrefs: Partial<TeacherPrefs> | null | undefined): TeacherPrefs {
+  return {
+    ...createDefaultPrefs(),
+    ...(rawPrefs ?? {}),
+  }
+}
 
 
 
@@ -83,7 +92,7 @@ export function useTeacherPrefs() {
       }
 
       try {
-        setPrefs(JSON.parse(stored))
+        setPrefs(normalizePrefs(JSON.parse(stored)))
       } catch (error) {
         console.error("Failed to parse teacher prefs", error)
         setPrefs(createDefaultPrefs())
@@ -100,7 +109,7 @@ export function useTeacherPrefs() {
       const latest = localStorage.getItem(key)
       if (latest) {
         try {
-          setPrefs(JSON.parse(latest))
+          setPrefs(normalizePrefs(JSON.parse(latest)))
         } catch (error) {
           console.error("Failed to parse updated teacher prefs", error)
         }
@@ -115,7 +124,7 @@ export function useTeacherPrefs() {
   }, [user?.uid])
 
   const updatePrefs = (updates: Partial<TeacherPrefs>) => {
-    const newPrefs = { ...prefs, ...updates }
+    const newPrefs = normalizePrefs({ ...prefs, ...updates })
     setPrefs(newPrefs)
     const key = getPrefsStorageKey(user?.uid)
    if (!key) { return }

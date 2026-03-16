@@ -1,7 +1,7 @@
 "use client"
 
-import { useState } from "react"
 import { useLocale } from "@/hooks/use-locale"
+import { useAnalyticsConsent } from "@/hooks/use-analytics-consent"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Switch } from "@/components/ui/switch"
@@ -11,7 +11,7 @@ import Link from "next/link"
 
 export default function PrivacyPage() {
   const { t } = useLocale()
-  const [dataSharing, setDataSharing] = useState(true)
+  const { analyticsConsent, setAnalyticsConsent } = useAnalyticsConsent()
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-pink-400 via-purple-500 to-orange-400 dark:from-purple-900 dark:via-purple-800 dark:to-pink-900">
@@ -35,11 +35,23 @@ export default function PrivacyPage() {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="flex items-center justify-between">
-                <Label htmlFor="data-sharing" className="text-gray-900 dark:text-white cursor-pointer">
-                  {t("account.privacy.sharing.label")}
-                </Label>
-                <Switch id="data-sharing" checked={dataSharing} onCheckedChange={setDataSharing} />
+              <div className="flex items-start justify-between gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="data-sharing" className="text-gray-900 dark:text-white cursor-pointer">
+                    {t("account.privacy.sharing.label")}
+                  </Label>
+                  <p className="text-sm text-gray-600 dark:text-gray-300">
+                    {t("account.privacy.sharing.explainer")}
+                  </p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">
+                    {t("account.privacy.sharing.controlHint")}
+                  </p>
+                </div>
+                <Switch
+                  id="data-sharing"
+                  checked={analyticsConsent}
+                  onCheckedChange={setAnalyticsConsent}
+                />
               </div>
             </CardContent>
           </Card>
