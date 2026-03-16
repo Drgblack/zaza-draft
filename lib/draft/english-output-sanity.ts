@@ -166,6 +166,31 @@ function normalizeParentMessageTeacherVoice(text: string, studentFirstName?: str
     })
   }
 
+  const phraseReplacements: Array<[RegExp, (...groups: string[]) => string]> = [
+    [/\bidentify(?: any)? specific supports that would be useful\b/gi, () => "see what might help"],
+    [/\badditional support strategies\b/gi, () => "practical next steps"],
+    [/\bopportunities for support\b/gi, () => "ways we can help"],
+    [
+      /\bexplore whether additional support strategies might be helpful\b/gi,
+      () => "see what practical next steps may help",
+    ],
+    [
+      /\bdevelop strategies that will support (his|her|their) success in the classroom\b/gi,
+      (pronoun) => `work together on ways to help ${pronoun === "their" ? "them" : pronoun === "his" ? "him" : "her"} in class`,
+    ],
+    [
+      /\bsupport (his|her|their) overall learning experience\b/gi,
+      (pronoun) => `help ${pronoun === "their" ? "them" : pronoun === "his" ? "him" : "her"} feel more successful at school`,
+    ],
+  ]
+
+  for (const [pattern, replacement] of phraseReplacements) {
+    normalized = normalized.replace(pattern, (match, ...groups: string[]) => {
+      changed = true
+      return matchCase(replacement(...groups), match)
+    })
+  }
+
   return { text: normalized, changed }
 }
 

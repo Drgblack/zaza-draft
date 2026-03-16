@@ -37,6 +37,7 @@ import type { LucideIcon } from "lucide-react"
 import { formatGreetingDisplay } from "@/lib/text/greeting-display"
 import { saveLastRunTimestamp } from "@/lib/diagnostics/local-storage"
 import { resolveTeacherSignatureName } from "@/lib/draft/teacher-signature"
+import { buildDraftAdjustmentReasons } from "@/lib/draft/adjustment-reasons"
 import { assessSafeToSend } from "@/lib/safe-to-send"
 import {
   appendDraftAttribution,
@@ -352,13 +353,25 @@ export function MainEditor({ canExport = true }: MainEditorProps = {}) {
   const [sensitivePreview, setSensitivePreview] = useState<string | null>(null)
   const [generationAction, setGenerationAction] = useState<string | null>(null)
   const [blockedLanguageContext, setBlockedLanguageContext] = useState<{
+    title?: string
     teacherNote: string
     safeAlternatives: string[]
+    actionLabel?: string
+    variant?: "default" | "diagnostic_speculation"
   } | null>(null)
   const [outOfScopeNotice, setOutOfScopeNotice] = useState(false)
   const [outOfScopeMessage, setOutOfScopeMessage] = useState("")
   const [loadingMessageIndex, setLoadingMessageIndex] = useState(0)
   const displaySafetyAnalysis = outputSafetyAnalysis ?? safetyAnalysis
+  const adjustmentReasons = useMemo(
+    () =>
+      buildDraftAdjustmentReasons({
+        inputSafetyAnalysis: safetyAnalysis,
+        outputSafetyAnalysis,
+        deescalationSummary,
+      }),
+    [deescalationSummary, outputSafetyAnalysis, safetyAnalysis],
+  )
   const safeToSendAssessment = useMemo(
     () =>
       assessSafeToSend({
@@ -953,11 +966,18 @@ export function MainEditor({ canExport = true }: MainEditorProps = {}) {
 
       if (!response.ok || !data?.success) {
         const mapped = responseCode ? GENERATION_ERROR_MAP[responseCode] : null
-        setGenerationError(
-          mapped?.message || data?.error?.message || "We couldn't generate a draft right now.",
-        )
-        setGenerationAction(mapped?.action ?? null)
         const blockedLanguagePayload = data?.data?.blockedLanguage ?? null
+        setGenerationError(
+          blockedLanguagePayload?.title ||
+            mapped?.message ||
+            data?.error?.message ||
+            "We couldn't generate a draft right now.",
+        )
+        setGenerationAction(
+          blockedLanguagePayload?.variant === "diagnostic_speculation"
+            ? null
+            : mapped?.action ?? null,
+        )
         if (blockedLanguagePayload) {
           setBlockedLanguageContext(blockedLanguagePayload)
         } else {
@@ -1348,6 +1368,7 @@ Examples:
             {safetyAnalysis && (
               <TriggerList
                 triggeredSignals={safetyAnalysis.triggeredSignals as any}
+                professionalRiskFlags={safetyAnalysis.professionalRiskFlags}
                 riskLevel={safetyAnalysis.riskLevel}
               />
             )}
@@ -1691,7 +1712,13 @@ Examples:
         )}
 
         {generationError && (
-          <div className="mt-4 rounded-2xl bg-red-500/10 border border-red-500/40 p-4 text-sm text-red-900">
+          <div
+            className={
+              blockedLanguageContext?.variant === "diagnostic_speculation"
+                ? "mt-4 rounded-2xl border border-amber-300/60 bg-amber-50/90 p-4 text-sm text-amber-950"
+                : "mt-4 rounded-2xl bg-red-500/10 border border-red-500/40 p-4 text-sm text-red-900"
+            }
+          >
             <p className="font-semibold">{generationError}</p>
             {sensitivePreview && (
               <p className="mt-2 text-xs text-red-800">
@@ -1704,13 +1731,36 @@ Examples:
               </p>
             )}
             {blockedLanguageContext && (
-              <div className="mt-3 rounded-lg border border-blue-200 bg-blue-50/80 p-3 text-sm text-blue-900 dark:border-blue-500/40 dark:bg-blue-950/40 dark:text-blue-100">
+              <div
+                className={
+                  blockedLanguageContext.variant === "diagnostic_speculation"
+                    ? "mt-3 rounded-lg border border-amber-200 bg-white/80 p-3 text-sm text-amber-950 dark:border-amber-500/40 dark:bg-amber-950/30 dark:text-amber-100"
+                    : "mt-3 rounded-lg border border-blue-200 bg-blue-50/80 p-3 text-sm text-blue-900 dark:border-blue-500/40 dark:bg-blue-950/40 dark:text-blue-100"
+                }
+              >
                 <p className="font-semibold">{blockedLanguageContext.teacherNote}</p>
-                <ul className="mt-2 space-y-1 list-disc list-inside text-xs text-blue-800 dark:text-blue-200">
+                <ul
+                  className={
+                    blockedLanguageContext.variant === "diagnostic_speculation"
+                      ? "mt-2 space-y-1 list-disc list-inside text-xs text-amber-900 dark:text-amber-200"
+                      : "mt-2 space-y-1 list-disc list-inside text-xs text-blue-800 dark:text-blue-200"
+                  }
+                >
                   {blockedLanguageContext.safeAlternatives.map((alternative, idx) => (
                     <li key={idx}>{alternative}</li>
                   ))}
                 </ul>
+                {blockedLanguageContext.actionLabel ? (
+                  <p
+                    className={
+                      blockedLanguageContext.variant === "diagnostic_speculation"
+                        ? "mt-3 text-xs font-semibold text-amber-900 dark:text-amber-100"
+                        : "mt-3 text-xs font-semibold text-blue-900 dark:text-blue-100"
+                    }
+                  >
+                    {blockedLanguageContext.actionLabel}
+                  </p>
+                ) : null}
               </div>
             )}
           </div>
@@ -1753,10 +1803,7 @@ Examples:
               />
             )}
             {displaySafetyAnalysis && (
-              <ExplanationPanel
-                explanationLines={displaySafetyAnalysis.explanationLines}
-                riskLevel={displaySafetyAnalysis.riskLevel}
-              />
+              <ExplanationPanel lines={adjustmentReasons} />
             )}
             {deescalationSummary?.wasDeescalated && (
               <DeescalationBanner summary={deescalationSummary} />

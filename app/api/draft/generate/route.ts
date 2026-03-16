@@ -1238,14 +1238,14 @@ export async function POST(request: Request) {
   let inputReframed = false
   let inputReframedTier: BlockedLanguageTier | null = null
 
-  const sendBlockedLanguageError = (tier: BlockedLanguageTier) => {
+  const sendBlockedLanguageError = (tier: BlockedLanguageTier, matches: string[] = []) => {
     maybeLogServerEvent("draft_generation_blocked_language", { uid, plan, tier })
     logDraftOutcome("INVALID_REQUEST", { errorCode: "BLOCKED_LANGUAGE" })
     void recordDiagnostic({
       lastErrorCode: "BLOCKED_LANGUAGE",
       lastBlockedLanguageTier: tier,
     })
-    const blockedResponse = buildBlockedLanguageResponse(tier)
+    const blockedResponse = buildBlockedLanguageResponse(tier, matches)
     return fail(422, "BLOCKED_LANGUAGE", blockedResponse.message, {
       data: {
         blockedLanguage: blockedResponse,
@@ -1256,11 +1256,14 @@ export async function POST(request: Request) {
   const blockedInput = detectBlockedLanguage(currentSituation)
   if (blockedInput.detected) {
     safetyFlags.add("input-blocked-language")
+    if (blockedInput.tier === "tier2") {
+      return sendBlockedLanguageError("tier2", blockedInput.matches)
+    }
     if (blockedInput.tier === "tier3") {
-      return sendBlockedLanguageError("tier3")
+      return sendBlockedLanguageError("tier3", blockedInput.matches)
     }
     if (!blockedInput.tier) {
-      return sendBlockedLanguageError("tier3")
+      return sendBlockedLanguageError("tier3", blockedInput.matches)
     }
 
     const reframeResult = reframeBlockedLanguage(currentSituation, blockedInput.tier)
@@ -1981,7 +1984,10 @@ export async function POST(request: Request) {
   let blockedDetection = detectBlockedLanguage(generatedDraft)
   const handleBlockedOutput = () => {
     safetyFlags.add("output-blocked-language")
-    return sendBlockedLanguageError("tier3")
+    return sendBlockedLanguageError(
+      blockedDetection.tier ?? "tier3",
+      blockedDetection.matches,
+    )
   }
 
   if (blockedDetection.detected) {

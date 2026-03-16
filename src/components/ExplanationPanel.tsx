@@ -1,23 +1,20 @@
 "use client"
 
-type RiskLevel = "low" | "medium" | "high"
-
 interface ExplanationPanelProps {
-  explanationLines: string[]
-  riskLevel: RiskLevel
+  lines: string[]
 }
 
-export function ExplanationPanel({ explanationLines, riskLevel }: ExplanationPanelProps) {
-  if (riskLevel !== "high" || explanationLines.length === 0) {
+export function ExplanationPanel({ lines }: ExplanationPanelProps) {
+  if (lines.length === 0) {
     return null
   }
 
-  const visibleLines = explanationLines.slice(0, 4)
+  const visibleLines = lines.slice(0, 5)
 
   return (
     <div className="rounded-xl border border-slate-200 bg-slate-50/90 p-4 shadow-sm dark:border-slate-700 dark:bg-slate-900/60">
       <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">
-        Why Zaza adjusted this message:
+        Why Draft adjusted this message
       </p>
       <ul className="mt-3 space-y-2">
         {visibleLines.map((line, index) => (

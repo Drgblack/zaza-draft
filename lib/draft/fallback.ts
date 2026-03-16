@@ -354,7 +354,7 @@ function buildTeacherDraftOpening(
       grading: "I wanted to update you on the recent marking.",
       behaviour: "I wanted to update you on a classroom behaviour concern.",
       disruption: "I wanted to let you know about some disruption during lesson time.",
-      support: "I wanted to keep you in the loop about the next steps for support in school.",
+      support: "I wanted to keep you in the loop about the next practical steps in school.",
       general: "I wanted to make you aware of a classroom concern.",
     },
     professional: {
@@ -368,7 +368,7 @@ function buildTeacherDraftOpening(
       grading: "I wanted to update you on the recent marking.",
       behaviour: "I wanted to make you aware of a classroom behaviour concern.",
       disruption: "I wanted to let you know about some disruption during lesson time.",
-      support: "I wanted to update you on the next steps for support in school.",
+      support: "I wanted to update you on the next practical steps in school.",
       general: "I wanted to make you aware of a classroom concern.",
     },
     direct: {
@@ -382,7 +382,7 @@ function buildTeacherDraftOpening(
       grading: "I am writing with a clear update about the recent marking.",
       behaviour: "I am writing with a clear update about a classroom behaviour concern.",
       disruption: "I am writing with a clear update about lesson time today.",
-      support: "I am writing with a clear update about the next steps for support in school.",
+      support: "I am writing with a clear update about the next practical steps in school.",
       general: "I am writing with a clear update about a classroom concern.",
     },
     empathetic: {
@@ -396,7 +396,7 @@ function buildTeacherDraftOpening(
       grading: "I wanted to reach out about the recent marking and explain the next step in school.",
       behaviour: "I wanted to reach out about a classroom behaviour concern and explain the next step in school.",
       disruption: "I wanted to follow up on lesson time today and explain the next step in school.",
-      support: "I wanted to reach out about the next steps for support in school.",
+      support: "I wanted to reach out about the next practical steps in school.",
       general: "I wanted to reach out about this concern and explain the next step in school.",
     },
   }
@@ -481,7 +481,7 @@ function buildTeacherNoteActionClauses(
     })
   }
 
-  const studentLabel = studentFirstName?.trim() || "the student"
+  const studentLabel = studentFirstName?.trim() || "your child"
   return clusters.map((cluster) => {
     switch (cluster) {
       case "attendance_lateness":
@@ -590,7 +590,7 @@ function buildTeacherNotesMultiIssueFollowUp(
       : "Ich wollte Ihnen das gesamte Muster frühzeitig rückmelden und melde mich noch einmal, wenn ich diese Punkte im Unterricht weiter geprüft habe."
   }
 
-  const studentName = context.studentFirstName?.trim() || "the student"
+  const studentName = context.studentFirstName?.trim() || "your child"
   const followUps: Record<ToneKey, string> = {
     warm: `I wanted to share the full picture early so that we can support ${studentName} consistently, and I will follow up again once I have checked these points in school.`,
     professional:
@@ -630,8 +630,8 @@ function buildRecoveryAction(
     return byIssue[issueKind]
   }
 
-  const studentLabel = studentFirstName?.trim() || "the student"
-  const namedChild = studentFirstName?.trim() || "the student"
+  const studentLabel = studentFirstName?.trim() || "your child"
+  const namedChild = studentFirstName?.trim() || "your child"
   const byTone: Record<ToneKey, Record<RecoveryIssueKind, string>> = {
     warm: {
       bullying_safety:
@@ -641,11 +641,11 @@ function buildRecoveryAction(
       grading:
         "I will review the work and the marking carefully, then come back to you with a clear explanation of what I have checked.",
       behaviour:
-        "I will speak with the student in school, restate the classroom expectation calmly, and help reset the pattern before it grows further.",
+        `I will speak with ${studentLabel} in school, restate the classroom expectation calmly, and help reset the pattern before it grows further.`,
       disruption:
         "I will address this in class, revisit the lesson routines that support calm learning, and reinforce the expectation clearly.",
       support:
-        "I will keep the next steps clear in school, check what support will help most, and make sure that support feels manageable.",
+        "I will keep the next steps clear in school, check what may help most, and make sure the plan feels manageable.",
       general:
         "I will follow this up in school, keep the next steps clear, and approach it in a steady way.",
     },
@@ -663,7 +663,7 @@ function buildRecoveryAction(
       disruption:
         "I will address this directly in class and reinforce the expectations for lesson time.",
       support:
-        "I will keep the next steps clear in school and check what support will help most now.",
+        "I will keep the next steps clear in school and check what may help most now.",
       general:
         "I will follow this up in school and keep the next steps clear and practical.",
     },
@@ -681,7 +681,7 @@ function buildRecoveryAction(
       disruption:
         "I will address this directly in class and make the expectation for lesson time clear.",
       support:
-        "I will set out the next steps clearly in school and confirm what support will be in place.",
+        "I will set out the next steps clearly in school and confirm what help will be in place.",
       general:
         "I will follow this up in school and set out the next steps clearly.",
     },
@@ -693,11 +693,11 @@ function buildRecoveryAction(
       grading:
         "I will review the work and the marking carefully, then come back to you with a clear explanation once I have checked it properly.",
       behaviour:
-        "I will address this in school, make the expectation clear, and help the student reset the pattern without escalating it further.",
+        `I will address this in school, make the expectation clear, and help ${studentLabel} reset the pattern without escalating it further.`,
       disruption:
         "I will address this in class, revisit the routines that help lesson time stay settled, and make the next step clear.",
       support:
-        "I will keep the next steps clear in school, check what support will help most, and make sure the support is manageable.",
+        "I will keep the next steps clear in school, check what may help most, and make sure the plan is manageable.",
       general:
         "I will follow this up in school, keep the next steps clear, and make sure the approach feels manageable.",
     },

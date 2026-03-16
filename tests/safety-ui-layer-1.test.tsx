@@ -1,9 +1,10 @@
 import "@testing-library/jest-dom"
-import { fireEvent, render, screen } from "@testing-library/react"
+import { fireEvent, render, screen, waitFor } from "@testing-library/react"
 import { describe, expect, it } from "vitest"
 
 import { SafetyBadge } from "@/src/components/SafetyBadge"
 import { TriggerList } from "@/src/components/TriggerList"
+import type { ProfessionalRiskFlag } from "@/src/lib/safetyEngine/professionalRiskDetector"
 import type { Signal } from "@/src/lib/safetyEngine/signalDetector"
 
 type TriggerSignal = Signal & {
@@ -46,7 +47,7 @@ describe("TriggerList", () => {
     expect(container).toBeEmptyDOMElement()
   })
 
-  it("renders a collapsed expandable list for medium risk", () => {
+  it("renders a collapsed expandable list for medium risk", async () => {
     render(
       <TriggerList
         riskLevel="medium"
@@ -66,16 +67,27 @@ describe("TriggerList", () => {
       />,
     )
 
-    expect(screen.getByRole("button", { name: "2 potential triggers detected ▾" })).toBeInTheDocument()
-    expect(screen.queryByText('Direct accusation ("your child refuses")')).toBeNull()
+    expect(screen.getByRole("button", { name: "2 language risks detected" })).toBeInTheDocument()
+    expect(screen.queryByText("Judgement wording")).toBeNull()
 
-    fireEvent.click(screen.getByRole("button", { name: "2 potential triggers detected ▾" }))
+    fireEvent.click(screen.getByRole("button", { name: "2 language risks detected" }))
 
-    expect(screen.getByText('Direct accusation ("your child refuses")')).toBeVisible()
-    expect(screen.getByText("No collaboration invitation")).toBeVisible()
+    await waitFor(() => {
+      expect(screen.getByText("Judgement wording")).toBeVisible()
+    })
+    expect(screen.getByText("Missing collaboration invitation")).toBeVisible()
+    expect(screen.getByText('Detected: "your child refuses" • Signal: Direct accusation')).toBeVisible()
   })
 
-  it("renders expanded immediately for high risk", () => {
+  it("keeps high-risk panels collapsed by default and includes professional-risk labels", async () => {
+    const professionalRiskFlags: ProfessionalRiskFlag[] = [
+      {
+        signalId: "pro_medical_speculation",
+        label: "Medical or diagnostic speculation",
+        matchedPhrase: "ADHD",
+      },
+    ]
+
     render(
       <TriggerList
         riskLevel="high"
@@ -87,11 +99,19 @@ describe("TriggerList", () => {
             matchedPhrase: "your child refuses",
           }),
         ]}
+        professionalRiskFlags={professionalRiskFlags}
       />,
     )
 
-    expect(screen.getByText("Triggers detected:")).toBeInTheDocument()
-    expect(screen.getByText('Direct accusation ("your child refuses")')).toBeVisible()
-    expect(screen.queryByRole("button", { name: /potential triggers detected/i })).toBeNull()
+    expect(screen.getByRole("button", { name: "2 language risks detected" })).toBeInTheDocument()
+    expect(screen.queryByText("Medical or diagnostic speculation")).toBeNull()
+
+    fireEvent.click(screen.getByRole("button", { name: "2 language risks detected" }))
+
+    await waitFor(() => {
+      expect(screen.getByText("Judgement wording")).toBeVisible()
+    })
+    expect(screen.getByText("Medical or diagnostic speculation")).toBeVisible()
+    expect(screen.getByText('Detected: "ADHD"')).toBeVisible()
   })
 })

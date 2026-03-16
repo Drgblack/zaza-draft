@@ -89,6 +89,18 @@ describe("out-of-scope redirect guard", () => {
     })
   })
 
+  it("treats diagnostic speculation as in-scope so safety coaching can handle it", () => {
+    const prompts = [
+      "I think he may have ADHD",
+      "I wonder if he might be on the autism spectrum because he struggles to settle",
+    ]
+
+    prompts.forEach((prompt) => {
+      expect(isOutOfScopeQuery(prompt)).toBe(false)
+      expect(isValidDraftRequest(prompt, "parent_message")).toBe(true)
+    })
+  })
+
   it("accepts German prompts when mode indicates parent message or report comment", () => {
     GERMAN_ACCEPTED_PROMPTS.forEach((prompt) => {
       expect(isValidDraftRequest(prompt, "parent_message")).toBe(true)

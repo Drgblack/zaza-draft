@@ -149,8 +149,28 @@ const IMPLICIT_SCHOOL_PHRASES = [
   "ausflug",
 ]
 
+const DIAGNOSTIC_SPECULATION_PATTERNS = [
+  /\badhd\b/i,
+  /\badd\b/i,
+  /\bautism\b/i,
+  /\bautism spectrum\b/i,
+  /\bautistic\b/i,
+  /\bdyslexia\b/i,
+  /\banxiety\b/i,
+  /\bdepression\b/i,
+  /\bodd\b/i,
+  /\bsensory processing\b/i,
+  /\bi (think|wonder|suspect)\b.{0,40}\b(adhd|add|autism|autistic|autism spectrum|dyslexia|anxiety|depression|odd)\b/i,
+  /\b(he|she|they|the child|this child|the student)\b.{0,30}\b(might have|may have|could have|seems to have|might be|could be)\b/i,
+]
+
+export function hasDiagnosticSpeculationSignal(text: string) {
+  return DIAGNOSTIC_SPECULATION_PATTERNS.some((pattern) => pattern.test(text))
+}
+
 function hasSchoolIntentSignal(normalized: string) {
   return (
+    hasDiagnosticSpeculationSignal(normalized) ||
     containsAnyWord(normalized, SCHOOL_INTENT_TERMS) ||
     SCHOOL_INTENT_PHRASES.some((phrase) => normalized.includes(phrase)) ||
     IMPLICIT_SCHOOL_PHRASES.some((phrase) => normalized.includes(phrase))
@@ -184,6 +204,9 @@ If you'd like help with report comments, parent emails, behaviour or wellbeing n
 
 export function isOutOfScopeQuery(text: string) {
   const normalized = normalizeQuery(text)
+  if (hasDiagnosticSpeculationSignal(normalized)) {
+    return false
+  }
   if (hasSchoolIntentSignal(normalized) || hasReportIntentSignal(normalized)) {
     return false
   }

@@ -8,6 +8,7 @@ import { buildUsageResponse, getCurrentMonthKey, incrementUsage } from "@/lib/us
 import { getUserEntitlements } from "@/lib/entitlements"
 import { isInternalQaUid, shouldRespectUsageLimit } from "@/lib/auth/internal-qa"
 import { resolveDraftEntitlement } from "@/lib/draft-entitlements"
+import { detectBlockedLanguage } from "@/lib/safety"
 import { runSafetyEngine } from "@/src/lib/safetyEngine"
 
 interface TrustGradeViolation {
@@ -375,6 +376,7 @@ const mockedIsInternalQaUid = vi.mocked(isInternalQaUid)
 const mockedAuthorizeFirebaseRequest = vi.mocked(authorizeFirebaseRequest)
 const mockedResolveDraftEntitlement = vi.mocked(resolveDraftEntitlement)
 const mockedRunSafetyEngine = vi.mocked(runSafetyEngine)
+const mockedDetectBlockedLanguage = vi.mocked(detectBlockedLanguage)
 beforeEach(() => {
   vi.clearAllMocks()
   fallbackGenerator.mockReset()
@@ -398,6 +400,13 @@ beforeEach(() => {
     },
   })
   mockedRunSafetyEngine.mockReset()
+  mockedDetectBlockedLanguage.mockReset()
+  mockedDetectBlockedLanguage.mockReturnValue({
+    detected: false,
+    tier: null,
+    matches: [],
+    redactedPreview: "",
+  })
   mockedRunSafetyEngine.mockImplementation(async ({ rawMessage, messageDirection }) => {
     if (messageDirection !== "teacher_to_parent") {
       return null
@@ -573,9 +582,12 @@ vi.mock("@/lib/auth/internal-qa", () => ({
   shouldRespectUsageLimit: vi.fn().mockReturnValue(true),
 }))
 
-vi.mock("@/lib/draft/blocked-response", () => ({
-  buildBlockedLanguageResponse: () => ({ message: "blocked" }),
-}))
+vi.mock("@/lib/draft/blocked-response", async () => {
+  const actual = await vi.importActual<typeof import("@/lib/draft/blocked-response")>(
+    "@/lib/draft/blocked-response",
+  )
+  return actual
+})
 
 vi.mock("@/lib/draft/teacher-language", () => ({
   enforceTeacherNameStyle: (text: string) => text,
@@ -3266,6 +3278,80 @@ describe("/api/draft/generate documentation mode", () => {
 })
 
 describe("/api/draft/generate professional risk handling", () => {
+  it("pauses ADHD speculation with a teacher-protective coaching response", async () => {
+    mockedDetectBlockedLanguage.mockReturnValueOnce({
+      detected: true,
+      tier: "tier2",
+      matches: ["ADHD"],
+      redactedPreview: "I think he may have [REDACTED TERM]",
+    })
+
+    const request = new Request("https://example.com/api/draft/generate", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: "Bearer token",
+      },
+      body: JSON.stringify({
+        situation:
+          "I think he may have ADHD because he loses focus during longer tasks, misses steps, and struggles to stay with the class for the full lesson.",
+        tone: "professional",
+        language: "en",
+        mode: "parent_message",
+      }),
+    })
+
+    const response = await POST(request)
+    expect(response.status).toBe(422)
+
+    const json = await response.json()
+    expect(json.success).toBe(false)
+    expect(json.data?.generatedDraft).toBeUndefined()
+    expect(json.data?.blockedLanguage?.title).toBe("Draft paused this message for safety")
+    expect(json.data?.blockedLanguage?.teacherNote).toContain(
+      "medical or diagnostic speculation",
+    )
+    expect(json.data?.blockedLanguage?.safeAlternatives).toContain(
+      "Unsafe: 'I think he may have ADHD.'",
+    )
+    expect(json.data?.blockedLanguage?.safeAlternatives).toContain(
+      "Use observation-based wording instead.",
+    )
+  })
+
+  it("pauses autism-spectrum speculation with observation-based guidance", async () => {
+    mockedDetectBlockedLanguage.mockReturnValueOnce({
+      detected: true,
+      tier: "tier2",
+      matches: ["autism"],
+      redactedPreview: "I wonder if he might be on the [REDACTED TERM] spectrum",
+    })
+
+    const request = new Request("https://example.com/api/draft/generate", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: "Bearer token",
+      },
+      body: JSON.stringify({
+        situation:
+          "I wonder if he might be on the autism spectrum because he struggles to join in during group work, avoids noisy parts of the room, and becomes unsettled when routines change.",
+        tone: "professional",
+        language: "en",
+        mode: "parent_message",
+      }),
+    })
+
+    const response = await POST(request)
+    expect(response.status).toBe(422)
+
+    const json = await response.json()
+    expect(json.data?.blockedLanguage?.teacherNote).toContain(
+      "describe observed behaviour and classroom impact only",
+    )
+    expect(json.data?.blockedLanguage?.safeAlternatives.join(" ")).not.toContain("autism")
+  })
+
   it("still returns a draft when professional risk flags are present", async () => {
     mockedRunSafetyEngine.mockResolvedValueOnce({
       riskScore: 48,

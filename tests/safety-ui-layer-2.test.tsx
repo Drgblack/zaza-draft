@@ -1,5 +1,5 @@
 import "@testing-library/jest-dom"
-import { fireEvent, render, screen } from "@testing-library/react"
+import { fireEvent, render, screen, waitFor } from "@testing-library/react"
 import { describe, expect, it } from "vitest"
 
 import { ExplanationPanel } from "@/src/components/ExplanationPanel"
@@ -23,7 +23,7 @@ describe("ReactionForecast", () => {
     expect(container).toBeEmptyDOMElement()
   })
 
-  it("renders a collapsed expandable panel for medium risk", () => {
+  it("renders a collapsed expandable panel for medium risk", async () => {
     render(
       <ReactionForecast
         riskLevel="medium"
@@ -37,12 +37,14 @@ describe("ReactionForecast", () => {
       />,
     )
 
-    expect(screen.getByRole("button", { name: "Parent Reaction Forecast" })).toBeInTheDocument()
+    expect(screen.getByRole("button", { name: /Parent Reaction Forecast/i })).toBeInTheDocument()
     expect(screen.queryByText("Collaborative")).toBeNull()
 
-    fireEvent.click(screen.getByRole("button", { name: "Parent Reaction Forecast" }))
+    fireEvent.click(screen.getByRole("button", { name: /Parent Reaction Forecast/i }))
 
-    expect(screen.getByText("Collaborative")).toBeVisible()
+    await waitFor(() => {
+      expect(screen.getByText("Collaborative")).toBeVisible()
+    })
     expect(screen.getByText("45%")).toBeVisible()
     expect(screen.getByText("Concerned")).toBeVisible()
     expect(screen.getByText("Defensive")).toBeVisible()
@@ -74,34 +76,29 @@ describe("ReactionForecast", () => {
 })
 
 describe("ExplanationPanel", () => {
-  it("renders nothing unless risk level is high", () => {
-    const { container } = render(
-      <ExplanationPanel
-        riskLevel="medium"
-        explanationLines={["Direct accusation detected — replaced with observation-based phrasing"]}
-      />,
-    )
+  it("renders nothing when there are no explanation lines", () => {
+    const { container } = render(<ExplanationPanel lines={[]} />)
 
     expect(container).toBeEmptyDOMElement()
   })
 
-  it("renders the heading and caps visible lines at four", () => {
+  it("renders the heading and caps visible lines at five", () => {
     render(
       <ExplanationPanel
-        riskLevel="high"
-        explanationLines={[
+        lines={[
           "Line 1",
           "Line 2",
           "Line 3",
           "Line 4",
           "Line 5",
+          "Line 6",
         ]}
       />,
     )
 
-    expect(screen.getByText("Why Zaza adjusted this message:")).toBeInTheDocument()
+    expect(screen.getByText("Why Draft adjusted this message")).toBeInTheDocument()
     expect(screen.getByText("Line 1")).toBeVisible()
-    expect(screen.getByText("Line 4")).toBeVisible()
-    expect(screen.queryByText("Line 5")).toBeNull()
+    expect(screen.getByText("Line 5")).toBeVisible()
+    expect(screen.queryByText("Line 6")).toBeNull()
   })
 })

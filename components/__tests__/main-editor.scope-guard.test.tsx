@@ -150,6 +150,32 @@ const fetchMock = vi.fn(async (input: RequestInfo, init?: RequestInit) => {
     const body = init?.body ? JSON.parse(String(init.body)) : {}
     const situation =
       typeof body?.situation === "string" ? body.situation.toLowerCase() : ""
+    if (situation.includes("adhd") || situation.includes("autism spectrum")) {
+      return {
+        ok: false,
+        status: 422,
+        json: async () => ({
+          success: false,
+          code: "BLOCKED_LANGUAGE",
+          message: "Draft paused this message for safety.",
+          error: { code: "BLOCKED_LANGUAGE", message: "Draft paused this message for safety." },
+          data: {
+            blockedLanguage: {
+              title: "Draft paused this message for safety",
+              teacherNote:
+                "This draft includes medical or diagnostic speculation, which teachers should avoid in parent communication. Instead, describe observed behaviour and classroom impact only.",
+              safeAlternatives: [
+                "Unsafe: 'I think he may have ADHD.'",
+                "Safer: 'He sometimes finds it difficult to stay focused during longer tasks and benefits from clear step-by-step instructions.'",
+                "Use observation-based wording instead.",
+              ],
+              actionLabel: "Rewrite with safer wording",
+              variant: "diagnostic_speculation",
+            },
+          },
+        }),
+      } as any
+    }
     if (situation.includes("reading progress")) {
       const success = {
         success: true,
@@ -369,5 +395,25 @@ describe("MainEditor scope guard notice", () => {
     })
 
     expect(getPromptTextarea().value).toContain("reading progress update for Jamie")
+  })
+
+  it("shows the diagnostic safety pause instead of an out-of-scope notice", async () => {
+    mockLocale = "en-GB"
+
+    render(<MainEditor />)
+
+    fireEvent.change(getPromptTextarea(), { target: { value: "I think he may have ADHD" } })
+    clickGenerateButton()
+
+    await waitFor(() => {
+      expect(screen.getByText("Draft paused this message for safety")).toBeInTheDocument()
+    })
+
+    expect(
+      screen.getByText(/medical or diagnostic speculation/i),
+    ).toBeInTheDocument()
+    expect(screen.getByText("Rewrite with safer wording")).toBeInTheDocument()
+    expect(screen.queryByText("This doesn't look like a school report or parent message.")).toBeNull()
+    expect(screen.queryByTestId("draft-output-body")).toBeNull()
   })
 })

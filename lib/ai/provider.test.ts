@@ -338,6 +338,27 @@ describe("buildSystemPrompt", () => {
     expect(prompt).toContain("Include a concise professional subject line on the first line")
   })
 
+  it("adds a teacher-authentic wording guard against consultant-style support boilerplate", () => {
+    const prompt = buildSystemPrompt({
+      situation: "Need a calm parent update about classroom behaviour and next steps.",
+      generationMetadata: {
+        mode: "safe_draft",
+        direction: "teacher_internal_notes",
+        source_type: "typed_text",
+        locale: "en",
+        prompt_builder: "safe_draft",
+      },
+      tone: "professional",
+      language: "en",
+      mode: "parent_message",
+      pronounPreference: "auto",
+    })
+
+    expect(prompt).toContain("Avoid abstract support-plan phrasing such as 'support his success in the classroom'")
+    expect(prompt).toContain("Prefer plain teacher wording such as 'see what might help'")
+    expect(prompt).toContain("working together and helping the child feel settled and make steady progress in class")
+  })
+
   it("adds forward-safe rewrite instructions when that rewrite mode is enabled", () => {
     const prompt = buildSystemPrompt({
       situation: "Please rewrite this so it sounds calmer and clearer.",

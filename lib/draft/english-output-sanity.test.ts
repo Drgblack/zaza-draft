@@ -77,6 +77,22 @@ describe("applyEnglishOutputSanity", () => {
     expect(result.issues).toContain("parent_voice")
   })
 
+  it("tightens consultant-style parent-message boilerplate into teacher wording", () => {
+    const result = applyEnglishOutputSanity(
+      "I would like to identify specific supports that would be useful and explore whether additional support strategies might be helpful to support his overall learning experience.",
+      {
+        language: "en",
+        mode: "parent_message",
+        studentFirstName: "Oliver",
+      },
+    )
+
+    expect(result.text).toBe(
+      "I would like to see what might help and explore whether practical next steps might be helpful to help him feel more successful at school.",
+    )
+    expect(result.issues).toContain("parent_voice")
+  })
+
   it("leaves valid English drafts unchanged", () => {
     const draft = [
       "Subject: Reading update",
