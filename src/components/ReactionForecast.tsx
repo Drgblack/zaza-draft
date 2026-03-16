@@ -6,6 +6,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import { cn } from "@/lib/utils"
 import {
   interpretReactionForecast,
+  normalizeReactionForecast,
   type ReactionForecast as ReactionForecastData,
 } from "@/src/lib/safetyEngine/reactionForecaster"
 
@@ -73,12 +74,7 @@ function ForecastSummary({
   showTitle?: boolean
 }) {
   const interpretation = useMemo(
-    () =>
-      interpretReactionForecast({
-        collaborative: forecast.collaborative,
-        confused: forecast.confused,
-        defensive: forecast.defensive,
-      }),
+    () => interpretReactionForecast(forecast),
     [forecast],
   )
 
@@ -121,11 +117,12 @@ function ForecastSummary({
 
 export function ReactionForecast({ forecast, riskLevel }: ReactionForecastProps) {
   const [open, setOpen] = useState(riskLevel === "high")
-  const topEntries = useMemo(() => getTopForecastEntries(forecast), [forecast])
+  const normalizedForecast = useMemo(() => normalizeReactionForecast(forecast), [forecast])
+  const topEntries = useMemo(() => getTopForecastEntries(normalizedForecast), [normalizedForecast])
 
   useEffect(() => {
     setOpen(riskLevel === "high")
-  }, [riskLevel, forecast])
+  }, [riskLevel, normalizedForecast])
 
   if (topEntries.length === 0) {
     return null
@@ -142,8 +139,8 @@ export function ReactionForecast({ forecast, riskLevel }: ReactionForecastProps)
             Actionable interpretation of the current tone and wording.
           </p>
         </div>
-        <ForecastSummary forecast={forecast} showTitle={false} />
-        <ForecastRows forecast={forecast} />
+        <ForecastSummary forecast={normalizedForecast} showTitle={false} />
+        <ForecastRows forecast={normalizedForecast} />
       </div>
     )
   }
@@ -160,7 +157,7 @@ export function ReactionForecast({ forecast, riskLevel }: ReactionForecastProps)
       )}
     >
       <div className={cn(open && "mb-3")}>
-        <ForecastSummary forecast={forecast} />
+        <ForecastSummary forecast={normalizedForecast} />
         <p className="mt-3 text-xs leading-relaxed text-slate-600 dark:text-slate-300">
           Actionable interpretation of the current tone and wording.
         </p>
@@ -172,7 +169,7 @@ export function ReactionForecast({ forecast, riskLevel }: ReactionForecastProps)
         <span aria-hidden="true" className="shrink-0 text-slate-500 dark:text-slate-300">▾</span>
       </CollapsibleTrigger>
       <CollapsibleContent>
-        <ForecastRows forecast={forecast} />
+        <ForecastRows forecast={normalizedForecast} />
       </CollapsibleContent>
     </Collapsible>
   )

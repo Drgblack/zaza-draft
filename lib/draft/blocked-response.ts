@@ -35,7 +35,7 @@ export function buildBlockedLanguageResponse(
   if (tier === "tier2" && isDiagnosticSpeculationMatch(matches)) {
     return {
       title: "Draft paused this message for safety",
-      message: "Draft paused this message for safety.",
+      message: "Draft paused this message to keep the communication parent-safe.",
       teacherNote:
         "This draft includes medical or diagnostic speculation, which teachers should avoid in parent communication. Instead, describe observed behaviour and classroom impact only.",
       safeAlternatives: [

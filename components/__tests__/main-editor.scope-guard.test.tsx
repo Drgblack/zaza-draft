@@ -247,8 +247,8 @@ const fetchMock = vi.fn(async (input: RequestInfo, init?: RequestInit) => {
         json: async () => ({
           success: false,
           code: "BLOCKED_LANGUAGE",
-          message: "Draft paused this message for safety.",
-          error: { code: "BLOCKED_LANGUAGE", message: "Draft paused this message for safety." },
+          message: "Draft paused this message to keep the communication parent-safe.",
+          error: { code: "BLOCKED_LANGUAGE", message: "Draft paused this message to keep the communication parent-safe." },
           data: {
             blockedLanguage: {
               title: "Draft paused this message for safety",
@@ -507,6 +507,7 @@ describe("MainEditor scope guard notice", () => {
     expect(screen.getByTestId("diagnostic-recovery-preview")).toHaveTextContent(
       "He sometimes finds it difficult to stay focused during longer tasks and benefits from clear step-by-step instructions.",
     )
+    expect(screen.queryByText("Parent Reaction Predictor")).toBeNull()
     expect(screen.queryByText("This doesn't look like a school report or parent message.")).toBeNull()
     expect(screen.queryByTestId("draft-output-body")).toBeNull()
     expect(screen.queryByText("Why Draft adjusted this message")).toBeNull()

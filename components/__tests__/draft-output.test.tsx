@@ -461,12 +461,12 @@ Frau Mueller`
     const { rerender } = render(
       <DraftOutput
         {...baseProps}
-        rewriteSummary="Draft removed judgemental wording and added a collaborative next step."
+        rewriteSummary="Draft replaced judgemental wording with observation-based phrasing and added a collaborative next step."
       />,
     )
 
     const summary = screen.getByText(
-      "Draft removed judgemental wording and added a collaborative next step.",
+      "Draft replaced judgemental wording with observation-based phrasing and added a collaborative next step.",
     )
     const body = screen.getByTestId("draft-output-body")
 
@@ -477,7 +477,7 @@ Frau Mueller`
 
     expect(
       screen.queryByText(
-        "Draft removed judgemental wording and added a collaborative next step.",
+        "Draft replaced judgemental wording with observation-based phrasing and added a collaborative next step.",
       ),
     ).toBeNull()
   })

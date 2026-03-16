@@ -8,7 +8,12 @@ export interface ReactionForecast {
 
 export type EscalationRiskLevel = "LOW" | "MEDIUM" | "HIGH"
 
-export type MostLikelyParentReaction = "Collaborative" | "Confused" | "Defensive"
+export type MostLikelyParentReaction =
+  | "Hostile"
+  | "Defensive"
+  | "Confused"
+  | "Concerned"
+  | "Collaborative"
 
 export interface ReactionInterpretation {
   escalationRisk: EscalationRiskLevel
@@ -20,12 +25,12 @@ type ReactionKey = keyof ReactionForecast
 
 type ReactionWeights = Record<ReactionKey, number>
 
-const REACTION_KEYS: ReactionKey[] = [
-  "collaborative",
-  "concerned",
-  "defensive",
+export const REACTION_LADDER: ReactionKey[] = [
   "hostile",
+  "defensive",
   "confused",
+  "concerned",
+  "collaborative",
 ]
 
 const BASE_WEIGHTS: ReactionWeights = {
@@ -59,11 +64,29 @@ const REACTION_ADJUSTMENTS: Record<string, Partial<ReactionWeights>> = {
 }
 
 function normalizeWeights(weights: ReactionWeights): ReactionWeights {
-  const total = REACTION_KEYS.reduce((sum, key) => sum + weights[key], 0)
-
-  return REACTION_KEYS.reduce(
+  const sanitizedWeights = REACTION_LADDER.reduce(
     (normalized, key) => {
-      normalized[key] = (weights[key] / total) * 100
+      normalized[key] = Math.max(weights[key] ?? 0, 0)
+      return normalized
+    },
+    {} as ReactionWeights,
+  )
+  const total = REACTION_LADDER.reduce((sum, key) => sum + sanitizedWeights[key], 0)
+
+  if (total <= 0) {
+    const equalShare = 100 / REACTION_LADDER.length
+    return REACTION_LADDER.reduce(
+      (normalized, key) => {
+        normalized[key] = equalShare
+        return normalized
+      },
+      {} as ReactionWeights,
+    )
+  }
+
+  return REACTION_LADDER.reduce(
+    (normalized, key) => {
+      normalized[key] = (sanitizedWeights[key] / total) * 100
       return normalized
     },
     {} as ReactionWeights,
@@ -79,7 +102,7 @@ function suppressLowHostile(normalizedWeights: ReactionWeights): ReactionWeights
   const hostileWeight = redistributedWeights.hostile
   redistributedWeights.hostile = 0
 
-  const otherKeys = REACTION_KEYS.filter((key) => key !== "hostile")
+  const otherKeys = REACTION_LADDER.filter((key) => key !== "hostile")
   const otherTotal = otherKeys.reduce((sum, key) => sum + redistributedWeights[key], 0)
 
   for (const key of otherKeys) {
@@ -90,7 +113,7 @@ function suppressLowHostile(normalizedWeights: ReactionWeights): ReactionWeights
 }
 
 function roundForecast(weights: ReactionWeights): ReactionForecast {
-  const roundedEntries = REACTION_KEYS.map((key) => ({
+  const roundedEntries = REACTION_LADDER.map((key) => ({
     key,
     rounded: Math.round(weights[key]),
     delta: weights[key] - Math.round(weights[key]),
@@ -141,7 +164,7 @@ export function forecastReactions(firedSignalIds: string[], wordCount: number): 
       continue
     }
 
-    for (const key of REACTION_KEYS) {
+    for (const key of REACTION_LADDER) {
       weights[key] += adjustments[key] ?? 0
     }
   }
@@ -156,25 +179,34 @@ export function forecastReactions(firedSignalIds: string[], wordCount: number): 
   return roundForecast(redistributedWeights)
 }
 
-export function interpretReactionForecast(
-  forecast: Pick<ReactionForecast, "collaborative" | "confused" | "defensive">,
-): ReactionInterpretation {
-  const mostLikelyReaction = (
-    Object.entries(forecast).sort((left, right) => right[1] - left[1])[0]?.[0] ?? "collaborative"
-  ) as keyof typeof forecast
+export function normalizeReactionForecast(forecast: ReactionForecast): ReactionForecast {
+  return roundForecast(normalizeWeights(forecast))
+}
 
-  const defensiveShare = forecast.defensive / 100
+export function interpretReactionForecast(
+  forecast: ReactionForecast,
+): ReactionInterpretation {
+  const normalizedForecast = normalizeReactionForecast(forecast)
+  const mostLikelyReaction = (
+    Object.entries(normalizedForecast).sort((left, right) => right[1] - left[1])[0]?.[0] ?? "collaborative"
+  ) as keyof typeof normalizedForecast
+
+  const defensiveShare = normalizedForecast.defensive / 100
   const escalationRisk: EscalationRiskLevel =
     defensiveShare > 0.5 ? "HIGH" : defensiveShare > 0.3 ? "MEDIUM" : "LOW"
 
   return {
     escalationRisk,
     mostLikelyReaction:
-      mostLikelyReaction === "defensive"
-        ? "Defensive"
-        : mostLikelyReaction === "confused"
-          ? "Confused"
-          : "Collaborative",
+      mostLikelyReaction === "hostile"
+        ? "Hostile"
+        : mostLikelyReaction === "defensive"
+          ? "Defensive"
+          : mostLikelyReaction === "confused"
+            ? "Confused"
+            : mostLikelyReaction === "concerned"
+              ? "Concerned"
+              : "Collaborative",
     toneRecommendation:
       escalationRisk === "HIGH"
         ? "Empathetic + collaborative"

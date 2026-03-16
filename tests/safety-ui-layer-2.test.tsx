@@ -6,6 +6,29 @@ import { ExplanationPanel } from "@/src/components/ExplanationPanel"
 import { ReactionForecast } from "@/src/components/ReactionForecast"
 
 describe("ReactionForecast", () => {
+  it("normalizes the rendered top reactions from a forecast that does not already total 100", async () => {
+    render(
+      <ReactionForecast
+        riskLevel="medium"
+        forecast={{
+          collaborative: 20,
+          concerned: 20,
+          defensive: 20,
+          hostile: 10,
+          confused: 15,
+        }}
+      />,
+    )
+
+    fireEvent.click(screen.getByRole("button", { name: /Show probability bars/i }))
+
+    await waitFor(() => {
+      expect(screen.getByText("24%")).toBeVisible()
+    })
+    expect(screen.getAllByText("23%").length).toBeGreaterThan(0)
+    expect(screen.queryByText("20%")).toBeNull()
+  })
+
   it("renders the predictor summary even for low risk drafts", () => {
     const { container } = render(
       <ReactionForecast
@@ -84,6 +107,31 @@ describe("ReactionForecast", () => {
     expect(screen.queryByText("Confused")).toBeNull()
     expect(screen.queryByText("Collaborative")).toBeNull()
     expect(screen.queryByRole("button", { name: /Show probability bars/i })).toBeNull()
+  })
+
+  it("only renders the supported reaction categories", async () => {
+    render(
+      <ReactionForecast
+        riskLevel="medium"
+        forecast={{
+          collaborative: 12,
+          concerned: 18,
+          defensive: 30,
+          hostile: 25,
+          confused: 15,
+        }}
+      />,
+    )
+
+    fireEvent.click(screen.getByRole("button", { name: /Show probability bars/i }))
+
+    await waitFor(() => {
+      expect(screen.getByText("Hostile")).toBeVisible()
+    })
+    expect(screen.getAllByText("Defensive").length).toBeGreaterThan(0)
+    expect(screen.getByText("Concerned")).toBeVisible()
+    expect(screen.queryByText("Angry")).toBeNull()
+    expect(screen.queryByText("Upset")).toBeNull()
   })
 })
 

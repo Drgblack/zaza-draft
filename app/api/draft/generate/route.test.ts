@@ -3308,6 +3308,9 @@ describe("/api/draft/generate professional risk handling", () => {
     expect(json.success).toBe(false)
     expect(json.data?.generatedDraft).toBeUndefined()
     expect(json.data?.blockedLanguage?.title).toBe("Draft paused this message for safety")
+    expect(json.data?.blockedLanguage?.message).toBe(
+      "Draft paused this message to keep the communication parent-safe.",
+    )
     expect(json.data?.blockedLanguage?.teacherNote).toContain(
       "medical or diagnostic speculation",
     )

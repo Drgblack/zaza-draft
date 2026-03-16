@@ -391,6 +391,7 @@ export function MainEditor({ canExport = true }: MainEditorProps = {}) {
   )
   const blockedDiagnosticVisible =
     blockedLanguageContext?.variant === "diagnostic_speculation"
+  const blockedForSafety = Boolean(blockedLanguageContext)
   const diagnosticRecovery = useMemo(
     () =>
       blockedDiagnosticVisible
@@ -1904,7 +1905,7 @@ Examples:
               rewriteSummary={draftAdjustmentSummary}
               safeToSend={safeToSendAssessment}
             />
-            {displaySafetyAnalysis && (
+            {!blockedForSafety && displaySafetyAnalysis && (
               <ReactionForecast
                 forecast={displaySafetyAnalysis.reactionForecast}
                 riskLevel={displaySafetyAnalysis.riskLevel}

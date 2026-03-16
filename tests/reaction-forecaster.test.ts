@@ -3,6 +3,8 @@ import { describe, expect, it } from "vitest"
 import {
   forecastReactions,
   interpretReactionForecast,
+  normalizeReactionForecast,
+  REACTION_LADDER,
 } from "@/src/lib/safetyEngine/reactionForecaster"
 
 describe("forecastReactions", () => {
@@ -55,13 +57,43 @@ describe("forecastReactions", () => {
     ).toBe(100)
     expect(forecast.collaborative).toBeGreaterThan(40)
   })
+
+  it("normalizes arbitrary forecast values so they round to exactly 100", () => {
+    const normalized = normalizeReactionForecast({
+      hostile: 10,
+      defensive: 20,
+      confused: 15,
+      concerned: 20,
+      collaborative: 20,
+    })
+
+    expect(
+      normalized.hostile +
+        normalized.defensive +
+        normalized.confused +
+        normalized.concerned +
+        normalized.collaborative,
+    ).toBe(100)
+  })
+
+  it("only uses the supported reaction ladder", () => {
+    expect(REACTION_LADDER).toEqual([
+      "hostile",
+      "defensive",
+      "confused",
+      "concerned",
+      "collaborative",
+    ])
+  })
 })
 
 describe("interpretReactionForecast", () => {
   it("returns a high escalation risk and empathetic recommendation when defensive is above 50%", () => {
     expect(
       interpretReactionForecast({
+        hostile: 0,
         collaborative: 20,
+        concerned: 0,
         confused: 25,
         defensive: 55,
       }),
@@ -75,7 +107,9 @@ describe("interpretReactionForecast", () => {
   it("returns a medium escalation risk when defensive is above 30%", () => {
     expect(
       interpretReactionForecast({
+        hostile: 0,
         collaborative: 28,
+        concerned: 0,
         confused: 32,
         defensive: 40,
       }),
@@ -89,13 +123,31 @@ describe("interpretReactionForecast", () => {
   it("returns a low escalation risk and professional tone when defensive stays at 30% or below", () => {
     expect(
       interpretReactionForecast({
+        hostile: 0,
         collaborative: 48,
+        concerned: 0,
         confused: 24,
         defensive: 28,
       }),
     ).toEqual({
       escalationRisk: "LOW",
       mostLikelyReaction: "Collaborative",
+      toneRecommendation: "Professional",
+    })
+  })
+
+  it("can report concerned as the most likely parent reaction", () => {
+    expect(
+      interpretReactionForecast({
+        hostile: 5,
+        collaborative: 20,
+        concerned: 45,
+        confused: 15,
+        defensive: 15,
+      }),
+    ).toEqual({
+      escalationRisk: "LOW",
+      mostLikelyReaction: "Concerned",
       toneRecommendation: "Professional",
     })
   })
