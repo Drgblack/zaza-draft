@@ -110,6 +110,20 @@ const mockBadges = [
 
 const REMINDER_EVENT_TITLE = "Protected writing time - Zaza Draft"
 
+function isInsightsIndexPreconditionError(
+  payload: { error?: { code?: string; message?: string }; emptyReason?: string } | null,
+) {
+  const code = payload?.error?.code?.toLowerCase() ?? ""
+  const message = payload?.error?.message?.toLowerCase() ?? ""
+
+  return (
+    payload?.emptyReason === "index_building" ||
+    code === "failed-precondition" ||
+    message.includes("failed_precondition") ||
+    message.includes("requires an index")
+  )
+}
+
 export default function InsightsPage() {
   const [dateRange, setDateRange] = useState<"7" | "30" | "90">("30")
   const [showWellbeing, setShowWellbeing] = useState(false)
@@ -146,10 +160,14 @@ export default function InsightsPage() {
           },
           cache: "no-store",
         })
-        const payload = await response.json()
+        const payload = await response.json().catch(() => null)
         if (!active) return
         if (response.ok && payload?.success) {
           setInsightsSummary(payload.summary ?? null)
+          setSummaryError(null)
+        } else if (isInsightsIndexPreconditionError(payload)) {
+          console.info("[insights] summary unavailable while indexes build", payload?.error)
+          setInsightsSummary(null)
           setSummaryError(null)
         } else if (response.status === 404 || payload?.error?.code === "INSIGHTS_NOT_FOUND") {
           console.info("[insights] empty summary", response.status, payload?.error)

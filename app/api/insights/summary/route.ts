@@ -9,6 +9,21 @@ import {
   normalizeInsightsRangeDays,
 } from "@/lib/insights/summary"
 
+function isFirestoreIndexPreconditionError(error: unknown) {
+  const code =
+    typeof error === "object" && error !== null && "code" in error
+      ? String((error as { code?: unknown }).code ?? "")
+      : ""
+  const message =
+    error instanceof Error ? error.message : typeof error === "string" ? error : ""
+
+  return (
+    code.toLowerCase() === "failed-precondition" ||
+    message.includes("FAILED_PRECONDITION") ||
+    message.toLowerCase().includes("requires an index")
+  )
+}
+
 function splitEventsByRange(
   events: InsightEventRecord[],
   currentRangeStartIso: string,
@@ -86,6 +101,15 @@ export async function GET(req: Request) {
 
     return NextResponse.json({ success: true, summary })
   } catch (error) {
+    if (isFirestoreIndexPreconditionError(error)) {
+      return NextResponse.json({
+        success: true,
+        summary: buildFallbackInsightsSummary(0, null),
+        degraded: true,
+        emptyReason: "index_building",
+      })
+    }
+
     const status =
       error instanceof FirebaseAuthorizationError ? error.statusCode : 401
 

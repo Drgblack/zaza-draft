@@ -20,6 +20,7 @@ const testState = vi.hoisted(() => ({
   uid: "teacher-1",
   lastTeacherHash: null as string | null,
   analyticsEvents: [] as AnalyticsEventRecord[],
+  queryError: null as Error | null,
 }))
 
 vi.mock("@/lib/firebase/server", () => ({
@@ -48,6 +49,10 @@ function buildQuery(
       return buildQuery(records, filters, nextTake)
     },
     async get() {
+      if (testState.queryError) {
+        throw testState.queryError
+      }
+
       let filtered = [...records]
 
       for (const filter of filters) {
@@ -112,6 +117,7 @@ describe("GET /api/insights/summary", () => {
     testState.uid = "teacher-1"
     testState.lastTeacherHash = null
     testState.analyticsEvents = []
+    testState.queryError = null
     vi.clearAllMocks()
     vi.mocked(authorizeFirebaseRequest).mockImplementation(
       async () =>
@@ -190,6 +196,20 @@ describe("GET /api/insights/summary", () => {
     expect(response.status).toBe(200)
     expect(json.summary.draftsCreated.total).toBe(0)
     expect(json.summary.timeSaved.minutes).toBe(0)
+  })
+
+  it("falls back to the empty insights state while Firestore indexes are building", async () => {
+    testState.queryError = Object.assign(new Error("FAILED_PRECONDITION: The query requires an index."), {
+      code: "failed-precondition",
+    })
+
+    const response = await GET(new Request("http://localhost/api/insights/summary"))
+    const json = await response.json()
+
+    expect(response.status).toBe(200)
+    expect(json.success).toBe(true)
+    expect(json.emptyReason).toBe("index_building")
+    expect(json.summary.draftsCreated.total).toBe(0)
   })
 
   it("returns teacher communication load trends from weekly event data", async () => {
