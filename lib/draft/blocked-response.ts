@@ -43,7 +43,7 @@ export function buildBlockedLanguageResponse(
         "Safer: 'He sometimes finds it difficult to stay focused during longer tasks and benefits from clear step-by-step instructions.'",
         "Use observation-based wording instead.",
       ],
-      actionLabel: "Rewrite with safer wording",
+      actionLabel: "Create a parent-safe version",
       variant: "diagnostic_speculation",
     }
   }

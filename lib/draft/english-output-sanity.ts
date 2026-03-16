@@ -171,6 +171,21 @@ function normalizeParentMessageTeacherVoice(text: string, studentFirstName?: str
     [/\badditional support strategies\b/gi, () => "practical next steps"],
     [/\bopportunities for support\b/gi, () => "ways we can help"],
     [
+      /\bspecific strategies to help (him|her|them) stay more engaged during (?:our )?activities\b/gi,
+      (pronoun) =>
+        `some approaches that may help ${pronoun === "them" ? "them" : pronoun === "him" ? "him" : "her"} stay focused during lessons`,
+    ],
+    [
+      /\b(?:may\s+)?benefit from additional encouragement\b/gi,
+      () => "may need clearer routines and regular encouragement",
+    ],
+    [
+      /\bsupport (his|her|their) progress together\b/gi,
+      (pronoun) =>
+        `work together to help ${pronoun === "their" ? "them" : pronoun === "his" ? "him" : "her"} make steady progress`,
+    ],
+    [/\bpractical ways we can work together\b/gi, () => "next steps we can take together"],
+    [
       /\bexplore whether additional support strategies might be helpful\b/gi,
       () => "see what practical next steps may help",
     ],
@@ -182,6 +197,8 @@ function normalizeParentMessageTeacherVoice(text: string, studentFirstName?: str
       /\bsupport (his|her|their) overall learning experience\b/gi,
       (pronoun) => `help ${pronoun === "their" ? "them" : pronoun === "his" ? "him" : "her"} feel more successful at school`,
     ],
+    [/\bengaged during instruction time\b/gi, () => "focused during lessons"],
+    [/\bengaged during class\b/gi, () => "focused during lessons"],
   ]
 
   for (const [pattern, replacement] of phraseReplacements) {

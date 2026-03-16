@@ -20,10 +20,10 @@ describe("assessSafeToSend", () => {
       },
     })
 
-    expect(assessment?.status).toBe("SAFE_TO_SEND")
+    expect(assessment?.status).toBe("READY_TO_SEND")
   })
 
-  it("marks mildly firm drafts for one more review", () => {
+  it("marks softened but still delicate drafts as sensitive topics", () => {
     const assessment = assessSafeToSend({
       safetyAnalysis: {
         riskLevel: "medium",
@@ -45,10 +45,10 @@ describe("assessSafeToSend", () => {
       },
     })
 
-    expect(assessment?.status).toBe("REVIEW_ONCE_MORE")
+    expect(assessment?.status).toBe("SENSITIVE_TOPIC")
   })
 
-  it("marks escalatory drafts as escalation risk", () => {
+  it("marks escalatory drafts for one more revision", () => {
     const assessment = assessSafeToSend({
       safetyAnalysis: {
         riskLevel: "high",
@@ -65,6 +65,6 @@ describe("assessSafeToSend", () => {
       },
     })
 
-    expect(assessment?.status).toBe("ESCALATION_RISK")
+    expect(assessment?.status).toBe("REVIEW_ONCE_MORE")
   })
 })

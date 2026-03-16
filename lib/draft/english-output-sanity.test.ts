@@ -93,6 +93,22 @@ describe("applyEnglishOutputSanity", () => {
     expect(result.issues).toContain("parent_voice")
   })
 
+  it("normalizes remaining institutional teacher-voice phrasing into classroom language", () => {
+    const result = applyEnglishOutputSanity(
+      "I would like to suggest specific strategies to help him stay more engaged during our activities. He may benefit from additional encouragement and support his progress together, especially when he needs to stay engaged during instruction time.",
+      {
+        language: "en",
+        mode: "parent_message",
+        studentFirstName: "Oliver",
+      },
+    )
+
+    expect(result.text).toBe(
+      "I would like to suggest some approaches that may help him stay focused during lessons. He may need clearer routines and regular encouragement and work together to help him make steady progress, especially when he needs to stay focused during lessons.",
+    )
+    expect(result.issues).toContain("parent_voice")
+  })
+
   it("leaves valid English drafts unchanged", () => {
     const draft = [
       "Subject: Reading update",

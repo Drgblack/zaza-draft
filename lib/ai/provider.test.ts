@@ -355,6 +355,7 @@ describe("buildSystemPrompt", () => {
     })
 
     expect(prompt).toContain("Avoid abstract support-plan phrasing such as 'support his success in the classroom'")
+    expect(prompt).toContain("'specific strategies to help him stay more engaged during our activities'")
     expect(prompt).toContain("Prefer plain teacher wording such as 'see what might help'")
     expect(prompt).toContain("working together and helping the child feel settled and make steady progress in class")
   })

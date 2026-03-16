@@ -1,4 +1,9 @@
+import { describe, expect, it } from "vitest"
+
 import { resolveExplanationTier } from "@/components/main-editor"
+import {
+  shouldShowToneSofteningExplanation,
+} from "@/lib/draft/adjustment-reasons"
 import type { DeescalationSummary } from "@/lib/deescalation/types"
 
 const summary: DeescalationSummary = {
@@ -33,5 +38,15 @@ describe("resolveExplanationTier", () => {
 
   it("returns null when nothing triggered", () => {
     expect(resolveExplanationTier(null, null)).toBeNull()
+  })
+})
+
+describe("shouldShowToneSofteningExplanation", () => {
+  it("suppresses the secondary panel when specific adjustment reasons are already present", () => {
+    expect(shouldShowToneSofteningExplanation("tier1", ["Softened escalation risk"])).toBe(false)
+  })
+
+  it("still allows the tone-softening panel when no specific reasons are available", () => {
+    expect(shouldShowToneSofteningExplanation("tier1", [])).toBe(true)
   })
 })

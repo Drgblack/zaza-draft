@@ -3,9 +3,9 @@ import type { SafetyEngineOutput } from "@/src/lib/safetyEngine"
 import type { ReactionForecast } from "@/src/lib/safetyEngine/reactionForecaster"
 
 export type SafeToSendStatus =
-  | "SAFE_TO_SEND"
+  | "READY_TO_SEND"
+  | "SENSITIVE_TOPIC"
   | "REVIEW_ONCE_MORE"
-  | "ESCALATION_RISK"
 
 export interface SafeToSendAssessment {
   status: SafeToSendStatus
@@ -69,9 +69,9 @@ export function assessSafeToSend(
     defensiveReaction
   ) {
     return {
-      status: "ESCALATION_RISK",
-      titleKey: "draft.safeToSend.sensitiveTopic.title",
-      descriptionKey: "draft.safeToSend.sensitiveTopic.description",
+      status: "REVIEW_ONCE_MORE",
+      titleKey: "draft.safeToSend.reviewOnceMore.title",
+      descriptionKey: "draft.safeToSend.reviewOnceMore.description",
     }
   }
 
@@ -82,14 +82,14 @@ export function assessSafeToSend(
     rewriteModifications > 0
   ) {
     return {
-      status: "REVIEW_ONCE_MORE",
-      titleKey: "draft.safeToSend.reviewOnceMore.title",
-      descriptionKey: "draft.safeToSend.reviewOnceMore.description",
+      status: "SENSITIVE_TOPIC",
+      titleKey: "draft.safeToSend.sensitiveTopic.title",
+      descriptionKey: "draft.safeToSend.sensitiveTopic.description",
     }
   }
 
   return {
-    status: "SAFE_TO_SEND",
+    status: "READY_TO_SEND",
     titleKey: "draft.safeToSend.safeToSend.title",
     descriptionKey: "draft.safeToSend.safeToSend.description",
   }

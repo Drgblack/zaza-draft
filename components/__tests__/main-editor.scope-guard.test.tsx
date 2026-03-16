@@ -150,6 +150,96 @@ const fetchMock = vi.fn(async (input: RequestInfo, init?: RequestInit) => {
     const body = init?.body ? JSON.parse(String(init.body)) : {}
     const situation =
       typeof body?.situation === "string" ? body.situation.toLowerCase() : ""
+    if (situation.includes("observation-based wording only")) {
+      return {
+        ok: true,
+        status: 200,
+        json: async () => ({
+          success: true,
+          data: {
+            generatedDraft:
+              "Subject: Classroom update\n\nHello,\n\nI wanted to share that he sometimes finds it difficult to stay focused during longer tasks and benefits from clear step-by-step instructions.\n\nKind regards,\nGreg Blackburn",
+            formattedDraft: {
+              subject: "Classroom update",
+              paragraphs: [
+                "Hello,",
+                "I wanted to share that he sometimes finds it difficult to stay focused during longer tasks and benefits from clear step-by-step instructions.",
+                "Kind regards,\nGreg Blackburn",
+              ],
+            },
+            metadata: {
+              wordCount: 42,
+              toneUsed: "professional",
+              modelUsed: "model-v1",
+              pronounPreference: "auto",
+              pronounResolution: {
+                resolvedPreference: "auto",
+                reason: null,
+                source: null,
+              },
+              generationTime: 420,
+              tokensUsed: 210,
+              safetyFlags: [],
+              generatedAt: new Date().toISOString(),
+              requestedAt: new Date().toISOString(),
+              contextUsed: {},
+              signatureBlock: "Greg Blackburn",
+            },
+            meta: {
+              inputReframed: false,
+              inputReframedTier: null,
+              latencyMs: 420,
+              usedFallback: false,
+              errorCode: null,
+            },
+            usage: {
+              plan: "free",
+              currentMonthUsage: 3,
+              limit: 10,
+              remaining: 7,
+            },
+            safetyAnalysis: {
+              riskScore: 10,
+              riskLevel: "low",
+              triggeredSignals: [],
+              toneClass: "collaborative",
+              topicSensitivity: "medium",
+              reactionForecast: {
+                collaborative: 55,
+                concerned: 25,
+                defensive: 10,
+                hostile: 0,
+                confused: 10,
+              },
+              explanationLines: [],
+              documentationModeAvailable: false,
+              professionalRiskFlags: [],
+              structuralImbalance: false,
+            },
+            outputSafetyAnalysis: {
+              riskScore: 10,
+              riskLevel: "low",
+              triggeredSignals: [],
+              toneClass: "collaborative",
+              topicSensitivity: "medium",
+              reactionForecast: {
+                collaborative: 55,
+                concerned: 25,
+                defensive: 10,
+                hostile: 0,
+                confused: 10,
+              },
+              explanationLines: [],
+              documentationModeAvailable: false,
+              professionalRiskFlags: [],
+              structuralImbalance: false,
+            },
+            deescalationSummary: null,
+            documentationModeActive: false,
+          },
+        }),
+      } as any
+    }
     if (situation.includes("adhd") || situation.includes("autism spectrum")) {
       return {
         ok: false,
@@ -169,7 +259,7 @@ const fetchMock = vi.fn(async (input: RequestInfo, init?: RequestInit) => {
                 "Safer: 'He sometimes finds it difficult to stay focused during longer tasks and benefits from clear step-by-step instructions.'",
                 "Use observation-based wording instead.",
               ],
-              actionLabel: "Rewrite with safer wording",
+              actionLabel: "Create a parent-safe version",
               variant: "diagnostic_speculation",
             },
           },
@@ -412,8 +502,55 @@ describe("MainEditor scope guard notice", () => {
     expect(
       screen.getByText(/medical or diagnostic speculation/i),
     ).toBeInTheDocument()
-    expect(screen.getByText("Rewrite with safer wording")).toBeInTheDocument()
+    expect(screen.getByText("Safer example")).toBeInTheDocument()
+    expect(screen.getByRole("button", { name: "Create a parent-safe version" })).toBeInTheDocument()
+    expect(screen.getByTestId("diagnostic-recovery-preview")).toHaveTextContent(
+      "He sometimes finds it difficult to stay focused during longer tasks and benefits from clear step-by-step instructions.",
+    )
     expect(screen.queryByText("This doesn't look like a school report or parent message.")).toBeNull()
     expect(screen.queryByTestId("draft-output-body")).toBeNull()
+    expect(screen.queryByText("Why Draft adjusted this message")).toBeNull()
+  })
+
+  it("places the diagnostic safety card above advanced options in the UI flow", async () => {
+    mockLocale = "en-GB"
+
+    render(<MainEditor />)
+
+    fireEvent.change(getPromptTextarea(), { target: { value: "I think he may have ADHD" } })
+    clickGenerateButton()
+
+    const card = await screen.findByTestId("diagnostic-safety-card")
+    const advancedSummary = screen.getByText("editor.advanced.summaryTitle")
+
+    expect(
+      card.compareDocumentPosition(advancedSummary) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy()
+  })
+
+  it("can recover from a blocked diagnostic draft without overwriting the teacher's original input", async () => {
+    mockLocale = "en-GB"
+
+    render(<MainEditor />)
+
+    fireEvent.change(
+      getPromptTextarea(),
+      { target: { value: "I think he may have ADHD because he loses focus during longer tasks." } },
+    )
+    clickGenerateButton()
+
+    const recoverButton = await screen.findByRole("button", { name: "Create a parent-safe version" })
+    fireEvent.click(recoverButton)
+
+    await waitFor(() => {
+      expect(screen.getByTestId("draft-output-body")).toBeInTheDocument()
+    })
+
+    expect(getPromptTextarea().value).toBe(
+      "I think he may have ADHD because he loses focus during longer tasks.",
+    )
+    expect(screen.getByTestId("draft-output-body")).toHaveTextContent(
+      "he sometimes finds it difficult to stay focused during longer tasks",
+    )
   })
 })

@@ -37,8 +37,12 @@ import type { LucideIcon } from "lucide-react"
 import { formatGreetingDisplay } from "@/lib/text/greeting-display"
 import { saveLastRunTimestamp } from "@/lib/diagnostics/local-storage"
 import { resolveTeacherSignatureName } from "@/lib/draft/teacher-signature"
-import { buildDraftAdjustmentReasons } from "@/lib/draft/adjustment-reasons"
+import {
+  buildDraftAdjustmentReasons,
+  shouldShowToneSofteningExplanation,
+} from "@/lib/draft/adjustment-reasons"
 import { assessSafeToSend } from "@/lib/safe-to-send"
+import { buildObservationOnlyRecoveryInput } from "@/lib/draft/diagnostic-recovery"
 import {
   appendDraftAttribution,
   getDraftAttributionLine,
@@ -379,6 +383,19 @@ export function MainEditor({ canExport = true }: MainEditorProps = {}) {
         deescalationSummary,
       }),
     [deescalationSummary, displaySafetyAnalysis],
+  )
+  const blockedDiagnosticVisible =
+    blockedLanguageContext?.variant === "diagnostic_speculation"
+  const diagnosticRecovery = useMemo(
+    () =>
+      blockedDiagnosticVisible
+        ? buildObservationOnlyRecoveryInput(content)
+        : null,
+    [blockedDiagnosticVisible, content],
+  )
+  const showToneSofteningExplanation = useMemo(
+    () => shouldShowToneSofteningExplanation(explanationTier, adjustmentReasons),
+    [adjustmentReasons, explanationTier],
   )
   const includeDraftSignature = useMemo(
     () => resolveDraftSignatureEnabled(prefs.includeDraftSignature, usage.plan),
@@ -803,9 +820,15 @@ export function MainEditor({ canExport = true }: MainEditorProps = {}) {
   }, [isGenerating])
 
   const handleGenerate = async (
-    options: { rewrite?: boolean; previousDraft?: string; documentationMode?: boolean } = {},
+    options: {
+      rewrite?: boolean
+      previousDraft?: string
+      documentationMode?: boolean
+      overrideSituation?: string
+    } = {},
   ) => {
     const trimmedContent = content.trim()
+    const requestSituation = options.overrideSituation?.trim() || trimmedContent
     if (!trimmedContent || isGenerating) {
       return
     }
@@ -833,7 +856,7 @@ export function MainEditor({ canExport = true }: MainEditorProps = {}) {
     workflowTypeRef.current = nextWorkflowType
 
     const fallbackOutOfScopeMessage = t("editor.outOfScope.body")
-    if (!isValidDraftRequest(trimmedContent, mode)) {
+    if (!options.overrideSituation && !isValidDraftRequest(trimmedContent, mode)) {
       const precheckMessage =
         locale === "de-DE" ? fallbackOutOfScopeMessage : OUT_OF_SCOPE_REDIRECT_MESSAGE
       showOutOfScopeNotice(precheckMessage, "CLIENT_PRECHECK")
@@ -863,7 +886,7 @@ export function MainEditor({ canExport = true }: MainEditorProps = {}) {
     }
 
     const payload: Record<string, unknown> = {
-      situation: trimmedContent,
+      situation: requestSituation,
       tone: selectedTone,
       language: languageChoice,
       outputLanguage: languageChoice,
@@ -1097,6 +1120,22 @@ export function MainEditor({ canExport = true }: MainEditorProps = {}) {
     } finally {
       setIsGenerating(false)
     }
+  }
+
+  const handleDiagnosticRecoveryGenerate = async () => {
+    if (!diagnosticRecovery || isGenerating) {
+      return
+    }
+
+    logClientEvent("draft_generate_blocked_recovery_requested", {
+      tone: selectedTone,
+      language: languageChoice,
+      sourceFlow,
+      mode,
+      recoveryType: "diagnostic_speculation",
+    })
+
+    await handleGenerate({ overrideSituation: diagnosticRecovery.generationPrompt })
   }
 
   const refreshHistory = async (cursor?: string, append = false) => {
@@ -1372,6 +1411,69 @@ Examples:
                 riskLevel={safetyAnalysis.riskLevel}
               />
             )}
+            {blockedDiagnosticVisible && blockedLanguageContext ? (
+              <div
+                data-testid="diagnostic-safety-card"
+                className="rounded-2xl border border-amber-300/60 bg-amber-50/95 p-5 text-sm text-amber-950 shadow-lg"
+              >
+                <div className="space-y-2">
+                  <SafetyBadge status="BLOCKED_FOR_SAFETY" />
+                  <p className="text-lg font-semibold">
+                    {blockedLanguageContext.title ?? generationError}
+                  </p>
+                  <p className="max-w-3xl leading-relaxed">
+                    {blockedLanguageContext.teacherNote}
+                  </p>
+                </div>
+
+                <div className="mt-4 grid gap-3 lg:grid-cols-2">
+                  <div className="rounded-xl border border-amber-200 bg-white/85 p-4">
+                    <p className="text-xs font-semibold uppercase tracking-[0.12em] text-amber-700">
+                      {locale === "de-DE" ? "Sicheres Beispiel" : "Safer example"}
+                    </p>
+                    <div className="mt-2 space-y-2 text-sm leading-relaxed text-slate-800">
+                      {blockedLanguageContext.safeAlternatives.map((alternative, idx) => (
+                        <p key={idx}>{alternative}</p>
+                      ))}
+                    </div>
+                  </div>
+
+                  {diagnosticRecovery ? (
+                    <div className="rounded-xl border border-amber-200 bg-white/85 p-4">
+                      <p className="text-xs font-semibold uppercase tracking-[0.12em] text-amber-700">
+                        {locale === "de-DE"
+                          ? "Beobachtungsbasierte Version"
+                          : "Observation-based recovery"}
+                      </p>
+                      <p
+                        data-testid="diagnostic-recovery-preview"
+                        className="mt-2 text-sm leading-relaxed text-slate-800"
+                      >
+                        {diagnosticRecovery.observationText}
+                      </p>
+                    </div>
+                  ) : null}
+                </div>
+
+                <div className="mt-4 flex flex-wrap items-center gap-3">
+                  <Button
+                    type="button"
+                    onClick={() => void handleDiagnosticRecoveryGenerate()}
+                    disabled={isGenerating}
+                    className="bg-amber-900 text-white hover:bg-amber-950"
+                  >
+                    {isGenerating
+                      ? t("editor.generating.message")
+                      : blockedLanguageContext.actionLabel ?? "Create a parent-safe version"}
+                  </Button>
+                  <p className="text-xs text-amber-800">
+                    {locale === "de-DE"
+                      ? "Ihre ursprünglichen Notizen bleiben im Editor. Draft erstellt stattdessen eine sichere, beobachtungsbasierte Version."
+                      : "Your original notes stay in the editor. Draft will generate from the safe observation version instead."}
+                  </p>
+                </div>
+              </div>
+            ) : null}
           </section>
 
           {outOfScopeNotice && (
@@ -1389,7 +1491,7 @@ Examples:
             </div>
           )}
 
-          {!outOfScopeNotice && showWellbeingInsights && <ContextualWellbeingTip />}
+          {!outOfScopeNotice && showWellbeingInsights && !blockedDiagnosticVisible && <ContextualWellbeingTip />}
 
           <section className="space-y-2">
             <span className="text-sm font-semibold text-gray-800 dark:text-gray-200 mb-2">{t("editor.mode.label")}</span>
@@ -1711,7 +1813,7 @@ Examples:
           </div>
         )}
 
-        {generationError && (
+        {generationError && !blockedDiagnosticVisible && (
           <div
             className={
               blockedLanguageContext?.variant === "diagnostic_speculation"
@@ -1783,7 +1885,7 @@ Examples:
               structure={draftStructure ?? undefined}
               canExport={canExport}
               getIdToken={getIdToken}
-              headerBadge={<SafetyBadge riskLevel={displaySafetyAnalysis?.riskLevel} />}
+              headerBadge={<SafetyBadge status={safeToSendAssessment?.status} />}
               headerBanner={<ProfessionalRiskBanner flags={displaySafetyAnalysis?.professionalRiskFlags} />}
               resultModeBadge={
                 documentationModeActive
@@ -1814,7 +1916,7 @@ Examples:
             />
           </div>
         )}
-        {generatedDraft && draftMetadata && explanationTier && (
+        {generatedDraft && draftMetadata && showToneSofteningExplanation && (
           <ReframeExplanation tier={explanationTier} />
         )}
       </main>

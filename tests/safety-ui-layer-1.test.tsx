@@ -27,10 +27,10 @@ function createSignal(overrides: Partial<TriggerSignal> & Pick<Signal, "id" | "c
 }
 
 describe("SafetyBadge", () => {
-  it("renders the low-risk badge copy", () => {
-    render(<SafetyBadge riskLevel="low" />)
+  it("renders the unified ready-to-send badge copy", () => {
+    render(<SafetyBadge status="READY_TO_SEND" />)
 
-    expect(screen.getByText("Communication risk: Low")).toBeInTheDocument()
+    expect(screen.getByText("Ready to send")).toBeInTheDocument()
   })
 
   it("renders nothing when no risk level is provided", () => {

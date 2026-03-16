@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest"
 
-import { buildDraftAdjustmentReasons } from "@/lib/draft/adjustment-reasons"
+import {
+  buildDraftAdjustmentReasons,
+  shouldShowToneSofteningExplanation,
+} from "@/lib/draft/adjustment-reasons"
 import type { DeescalationSummary } from "@/lib/deescalation/types"
 import type { SafetyEngineOutput } from "@/src/lib/safetyEngine"
 
@@ -100,5 +103,11 @@ describe("buildDraftAdjustmentReasons", () => {
         deescalationSummary,
       }),
     ).toEqual(["Softened escalation risk"])
+  })
+
+  it("only shows the separate tone-softening panel when no specific adjustment reasons are present", () => {
+    expect(shouldShowToneSofteningExplanation("tier1", ["Softened escalation risk"])).toBe(false)
+    expect(shouldShowToneSofteningExplanation("tier1", [])).toBe(true)
+    expect(shouldShowToneSofteningExplanation(null, [])).toBe(false)
   })
 })

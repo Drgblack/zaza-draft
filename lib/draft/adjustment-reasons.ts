@@ -82,3 +82,10 @@ export function buildDraftAdjustmentReasons(options: {
 
   return reasons.slice(0, 5)
 }
+
+export function shouldShowToneSofteningExplanation(
+  explanationTier: "tier1" | "tier2" | "tier3" | null,
+  adjustmentReasons: string[],
+) {
+  return Boolean(explanationTier) && adjustmentReasons.length === 0
+}

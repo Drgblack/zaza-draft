@@ -320,17 +320,17 @@ export function DraftOutput({
   const hasDraft = Boolean(draftText && draftText.trim())
   const safeToSendStyles = useMemo(() => {
     switch (safeToSend?.status) {
-      case "SAFE_TO_SEND":
+      case "READY_TO_SEND":
         return {
           border: "border-emerald-200 dark:border-emerald-500/30",
           background: "bg-emerald-50 dark:bg-emerald-950/20",
           badge: "bg-emerald-100 text-emerald-800 dark:bg-emerald-500/20 dark:text-emerald-100",
           icon: "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-100",
         }
-      case "ESCALATION_RISK":
+      case "REVIEW_ONCE_MORE":
         return {
-          border: "border-slate-200 dark:border-slate-500/30",
-          background: "bg-slate-50 dark:bg-slate-900/40",
+          border: "border-slate-300 dark:border-slate-500/30",
+          background: "bg-slate-100 dark:bg-slate-900/40",
           badge: "bg-slate-200 text-slate-800 dark:bg-slate-500/20 dark:text-slate-100",
           icon: "bg-slate-200 text-slate-700 dark:bg-slate-500/20 dark:text-slate-100",
         }
@@ -477,7 +477,7 @@ export function DraftOutput({
               <div
                 className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl ${safeToSendStyles.icon}`}
               >
-                {safeToSend.status === "SAFE_TO_SEND" ? (
+                {safeToSend.status === "READY_TO_SEND" ? (
                   <Check size={18} />
                 ) : (
                   <AlertCircle size={18} />
