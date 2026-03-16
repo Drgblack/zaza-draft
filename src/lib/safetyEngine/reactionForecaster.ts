@@ -6,6 +6,16 @@ export interface ReactionForecast {
   confused: number
 }
 
+export type EscalationRiskLevel = "LOW" | "MEDIUM" | "HIGH"
+
+export type MostLikelyParentReaction = "Collaborative" | "Confused" | "Defensive"
+
+export interface ReactionInterpretation {
+  escalationRisk: EscalationRiskLevel
+  mostLikelyReaction: MostLikelyParentReaction
+  toneRecommendation: string
+}
+
 type ReactionKey = keyof ReactionForecast
 
 type ReactionWeights = Record<ReactionKey, number>
@@ -144,4 +154,32 @@ export function forecastReactions(firedSignalIds: string[], wordCount: number): 
   const redistributedWeights = suppressLowHostile(normalizedWeights)
 
   return roundForecast(redistributedWeights)
+}
+
+export function interpretReactionForecast(
+  forecast: Pick<ReactionForecast, "collaborative" | "confused" | "defensive">,
+): ReactionInterpretation {
+  const mostLikelyReaction = (
+    Object.entries(forecast).sort((left, right) => right[1] - left[1])[0]?.[0] ?? "collaborative"
+  ) as keyof typeof forecast
+
+  const defensiveShare = forecast.defensive / 100
+  const escalationRisk: EscalationRiskLevel =
+    defensiveShare > 0.5 ? "HIGH" : defensiveShare > 0.3 ? "MEDIUM" : "LOW"
+
+  return {
+    escalationRisk,
+    mostLikelyReaction:
+      mostLikelyReaction === "defensive"
+        ? "Defensive"
+        : mostLikelyReaction === "confused"
+          ? "Confused"
+          : "Collaborative",
+    toneRecommendation:
+      escalationRisk === "HIGH"
+        ? "Empathetic + collaborative"
+        : escalationRisk === "MEDIUM"
+          ? "Professional + neutral"
+          : "Professional",
+  }
 }

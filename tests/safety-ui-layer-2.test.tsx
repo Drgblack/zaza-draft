@@ -6,7 +6,7 @@ import { ExplanationPanel } from "@/src/components/ExplanationPanel"
 import { ReactionForecast } from "@/src/components/ReactionForecast"
 
 describe("ReactionForecast", () => {
-  it("renders nothing for low risk", () => {
+  it("renders the predictor summary even for low risk drafts", () => {
     const { container } = render(
       <ReactionForecast
         riskLevel="low"
@@ -20,38 +20,48 @@ describe("ReactionForecast", () => {
       />,
     )
 
-    expect(container).toBeEmptyDOMElement()
+    expect(container).not.toBeEmptyDOMElement()
+    expect(screen.getByText("Parent Reaction Predictor")).toBeInTheDocument()
+    expect(screen.getByText("Escalation Risk")).toBeVisible()
+    expect(screen.getByText("LOW")).toBeVisible()
+    expect(screen.getByText("Most Likely Reaction")).toBeVisible()
+    expect(screen.getByText("Collaborative")).toBeVisible()
+    expect(screen.getByText("Tone Recommendation")).toBeVisible()
+    expect(screen.getByText("Professional")).toBeVisible()
+    expect(screen.queryByText("45%")).toBeNull()
   })
 
-  it("renders a collapsed expandable panel for medium risk", async () => {
+  it("renders a collapsed expandable predictor for medium risk with summary visible", async () => {
     render(
       <ReactionForecast
         riskLevel="medium"
         forecast={{
-          collaborative: 45,
+          collaborative: 25,
           concerned: 30,
-          defensive: 15,
+          defensive: 40,
           hostile: 5,
-          confused: 5,
+          confused: 0,
         }}
       />,
     )
 
-    expect(screen.getByRole("button", { name: /Parent Reaction Forecast/i })).toBeInTheDocument()
-    expect(screen.queryByText("Collaborative")).toBeNull()
+    expect(screen.getByText("Parent Reaction Predictor")).toBeInTheDocument()
+    expect(screen.getByText("MEDIUM")).toBeVisible()
+    expect(screen.getByText("Defensive")).toBeVisible()
+    expect(screen.getByText("Professional + neutral")).toBeVisible()
+    expect(screen.queryByText("45%")).toBeNull()
 
-    fireEvent.click(screen.getByRole("button", { name: /Parent Reaction Forecast/i }))
+    fireEvent.click(screen.getByRole("button", { name: /Show probability bars/i }))
 
     await waitFor(() => {
-      expect(screen.getByText("Collaborative")).toBeVisible()
+      expect(screen.getByText("40%")).toBeVisible()
     })
-    expect(screen.getByText("45%")).toBeVisible()
     expect(screen.getByText("Concerned")).toBeVisible()
-    expect(screen.getByText("Defensive")).toBeVisible()
+    expect(screen.getAllByText("Defensive").length).toBeGreaterThan(0)
     expect(screen.queryByText("Hostile")).toBeNull()
   })
 
-  it("renders expanded immediately for high risk and shows only the top 3 reactions", () => {
+  it("renders the high-risk interpretation immediately and shows only the top 3 reactions", () => {
     render(
       <ReactionForecast
         riskLevel="high"
@@ -65,13 +75,15 @@ describe("ReactionForecast", () => {
       />,
     )
 
-    expect(screen.getByText("Parent Reaction Forecast")).toBeInTheDocument()
-    expect(screen.getByText("Defensive")).toBeVisible()
+    expect(screen.getByText("Parent Reaction Predictor")).toBeInTheDocument()
+    expect(screen.getByText("MEDIUM")).toBeVisible()
+    expect(screen.getByText("Professional + neutral")).toBeVisible()
+    expect(screen.getAllByText("Defensive").length).toBeGreaterThan(0)
     expect(screen.getByText("Concerned")).toBeVisible()
     expect(screen.getByText("Hostile")).toBeVisible()
     expect(screen.queryByText("Confused")).toBeNull()
     expect(screen.queryByText("Collaborative")).toBeNull()
-    expect(screen.queryByRole("button", { name: /Parent Reaction Forecast/i })).toBeNull()
+    expect(screen.queryByRole("button", { name: /Show probability bars/i })).toBeNull()
   })
 })
 

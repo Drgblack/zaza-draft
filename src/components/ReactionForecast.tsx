@@ -4,7 +4,10 @@ import { useEffect, useMemo, useState } from "react"
 
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
 import { cn } from "@/lib/utils"
-import type { ReactionForecast as ReactionForecastData } from "@/src/lib/safetyEngine/reactionForecaster"
+import {
+  interpretReactionForecast,
+  type ReactionForecast as ReactionForecastData,
+} from "@/src/lib/safetyEngine/reactionForecaster"
 
 type RiskLevel = "low" | "medium" | "high"
 
@@ -62,6 +65,60 @@ function ForecastRows({ forecast }: { forecast: ReactionForecastData }) {
   )
 }
 
+function ForecastSummary({
+  forecast,
+  showTitle = true,
+}: {
+  forecast: ReactionForecastData
+  showTitle?: boolean
+}) {
+  const interpretation = useMemo(
+    () =>
+      interpretReactionForecast({
+        collaborative: forecast.collaborative,
+        confused: forecast.confused,
+        defensive: forecast.defensive,
+      }),
+    [forecast],
+  )
+
+  return (
+    <div className="mt-3 rounded-xl border border-slate-200 bg-white/85 p-4 shadow-sm dark:border-slate-700 dark:bg-slate-950/30">
+      {showTitle ? (
+        <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">
+          Parent Reaction Predictor
+        </p>
+      ) : null}
+      <div className="mt-3 grid gap-3 sm:grid-cols-3">
+        <div>
+          <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500 dark:text-slate-400">
+            Escalation Risk
+          </p>
+          <p className="mt-1 text-sm font-medium text-slate-900 dark:text-slate-100">
+            {interpretation.escalationRisk}
+          </p>
+        </div>
+        <div>
+          <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500 dark:text-slate-400">
+            Most Likely Reaction
+          </p>
+          <p className="mt-1 text-sm font-medium text-slate-900 dark:text-slate-100">
+            {interpretation.mostLikelyReaction}
+          </p>
+        </div>
+        <div>
+          <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500 dark:text-slate-400">
+            Tone Recommendation
+          </p>
+          <p className="mt-1 text-sm font-medium text-slate-900 dark:text-slate-100">
+            {interpretation.toneRecommendation}
+          </p>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 export function ReactionForecast({ forecast, riskLevel }: ReactionForecastProps) {
   const [open, setOpen] = useState(riskLevel === "high")
   const topEntries = useMemo(() => getTopForecastEntries(forecast), [forecast])
@@ -70,7 +127,7 @@ export function ReactionForecast({ forecast, riskLevel }: ReactionForecastProps)
     setOpen(riskLevel === "high")
   }, [riskLevel, forecast])
 
-  if (riskLevel === "low" || topEntries.length === 0) {
+  if (topEntries.length === 0) {
     return null
   }
 
@@ -79,12 +136,13 @@ export function ReactionForecast({ forecast, riskLevel }: ReactionForecastProps)
       <div className="rounded-xl border border-rose-200 bg-white p-4 shadow-sm dark:border-rose-500/20 dark:bg-slate-900/60">
         <div className="space-y-1">
           <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">
-            Parent Reaction Forecast
+            Parent Reaction Predictor
           </p>
           <p className="text-xs leading-relaxed text-slate-600 dark:text-slate-300">
-            Most likely parent reactions based on the current tone and wording.
+            Actionable interpretation of the current tone and wording.
           </p>
         </div>
+        <ForecastSummary forecast={forecast} showTitle={false} />
         <ForecastRows forecast={forecast} />
       </div>
     )
@@ -94,20 +152,23 @@ export function ReactionForecast({ forecast, riskLevel }: ReactionForecastProps)
     <Collapsible
       open={open}
       onOpenChange={setOpen}
-      className="rounded-xl border border-amber-200 bg-white p-4 shadow-sm dark:border-amber-500/20 dark:bg-slate-900/60"
+      className={cn(
+        "rounded-xl border bg-white p-4 shadow-sm dark:bg-slate-900/60",
+        riskLevel === "medium"
+          ? "border-amber-200 dark:border-amber-500/20"
+          : "border-emerald-200 dark:border-emerald-500/20",
+      )}
     >
+      <div className={cn(open && "mb-3")}>
+        <ForecastSummary forecast={forecast} />
+        <p className="mt-3 text-xs leading-relaxed text-slate-600 dark:text-slate-300">
+          Actionable interpretation of the current tone and wording.
+        </p>
+      </div>
       <CollapsibleTrigger
-        className={cn(
-          "flex w-full items-center justify-between gap-3 text-left text-sm font-semibold text-slate-900 transition hover:text-slate-700 dark:text-slate-100 dark:hover:text-slate-200",
-          open && "mb-3",
-        )}
+        className="flex w-full items-center justify-between gap-3 text-left text-sm font-semibold text-slate-900 transition hover:text-slate-700 dark:text-slate-100 dark:hover:text-slate-200"
       >
-        <div className="space-y-1">
-          <span className="block">Parent Reaction Forecast</span>
-          <span className="block text-xs font-normal leading-relaxed text-slate-600 dark:text-slate-300">
-            Most likely parent reactions based on the current tone and wording.
-          </span>
-        </div>
+        <span>{open ? "Hide probability bars" : "Show probability bars"}</span>
         <span aria-hidden="true" className="shrink-0 text-slate-500 dark:text-slate-300">▾</span>
       </CollapsibleTrigger>
       <CollapsibleContent>
