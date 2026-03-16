@@ -164,6 +164,47 @@ describe("buildSystemPrompt", () => {
     expect(prompt).toContain("If the source is vague, the record must also be vague. Write only what can be directly attributed to the source.")
   })
 
+  it("hard-bans institutional child references in parent messages while keeping documentation mode exempt", () => {
+    const parentPrompt = buildSystemPrompt({
+      situation: "Please rewrite this parent email about work completed during class.",
+      generationMetadata: {
+        mode: "safe_draft",
+        direction: "teacher_to_parent",
+        source_type: "typed_text",
+        locale: "en",
+        prompt_builder: "safe_draft",
+      },
+      tone: "professional",
+      language: "en",
+      mode: "parent_message",
+      pronounPreference: "auto",
+      studentFirstName: "Luca",
+    })
+
+    expect(parentPrompt).toContain("never refer to the child as 'the student'")
+    expect(parentPrompt).toContain("Reference order for parent-facing teacher messages: use the student's first name if it is available; otherwise use 'your child'")
+    expect(parentPrompt).toContain("Avoid institutional phrases such as 'learning tasks' or 'instruction time'.")
+
+    const documentationPrompt = buildSystemPrompt({
+      situation: "Document the incident clearly.",
+      documentationSourceText: "Document the incident clearly.",
+      generationMetadata: {
+        mode: "safe_draft",
+        direction: "teacher_to_parent",
+        source_type: "typed_text",
+        locale: "en",
+        prompt_builder: "safe_draft",
+      },
+      tone: "professional",
+      language: "en",
+      mode: "parent_message",
+      pronounPreference: "auto",
+      documentationMode: true,
+    })
+
+    expect(documentationPrompt).toContain('Use third person: "The student" or [child name] if known.')
+  })
+
   it("logs the full assembled prompt for professional-risk requests", async () => {
     process.env.ANTHROPIC_API_KEY = "test-key"
     process.env.ANTHROPIC_MODEL_PRIMARY = "test-model"

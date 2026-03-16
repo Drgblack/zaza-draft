@@ -937,9 +937,9 @@ export const localeMessages: Record<Locale, LocaleMessages> = {
     "draft.safeToSend.reviewOnceMore.title": "Review Once More",
     "draft.safeToSend.reviewOnceMore.description":
       "This message may feel firm. Consider softening one sentence.",
-    "draft.safeToSend.escalationRisk.title": "Escalation Risk",
-    "draft.safeToSend.escalationRisk.description":
-      "This message may trigger a defensive parent response. Review highlighted wording.",
+    "draft.safeToSend.sensitiveTopic.title": "Sensitive Topic",
+    "draft.safeToSend.sensitiveTopic.description":
+      "This message addresses a difficult issue. The wording has been softened where possible.",
     "draft.documentation.label": "Mode:",
     "draft.documentation.badge": "Documentation Mode",
     "draft.documentation.description": "Rewritten as a neutral incident record.",
@@ -1514,9 +1514,9 @@ export const localeMessages: Record<Locale, LocaleMessages> = {
     "draft.safeToSend.reviewOnceMore.title": "Review Once More",
     "draft.safeToSend.reviewOnceMore.description":
       "This message may feel firm. Consider softening one sentence.",
-    "draft.safeToSend.escalationRisk.title": "Escalation Risk",
-    "draft.safeToSend.escalationRisk.description":
-      "This message may trigger a defensive parent response. Review highlighted wording.",
+    "draft.safeToSend.sensitiveTopic.title": "Sensitive Topic",
+    "draft.safeToSend.sensitiveTopic.description":
+      "This message addresses a difficult issue. The wording has been softened where possible.",
     "draft.documentation.label": "Mode:",
     "draft.documentation.badge": "Documentation Mode",
     "draft.documentation.description": "Rewritten as a neutral incident record.",
@@ -2088,9 +2088,9 @@ export const localeMessages: Record<Locale, LocaleMessages> = {
     "draft.safeToSend.reviewOnceMore.title": "Noch einmal prüfen",
     "draft.safeToSend.reviewOnceMore.description":
       "Diese Nachricht könnte etwas streng wirken. Prüfen Sie, ob Sie einen Satz weicher formulieren möchten.",
-    "draft.safeToSend.escalationRisk.title": "Eskalationsrisiko",
-    "draft.safeToSend.escalationRisk.description":
-      "Diese Nachricht könnte eine defensive Reaktion auslösen. Prüfen Sie die markierte Formulierung noch einmal.",
+    "draft.safeToSend.sensitiveTopic.title": "Sensibles Thema",
+    "draft.safeToSend.sensitiveTopic.description":
+      "Diese Nachricht behandelt ein schwieriges Thema. Die Formulierung wurde so weit wie möglich entschärft.",
     "draft.documentation.label": "Modus:",
     "draft.documentation.badge": "Dokumentationsmodus",
     "draft.documentation.description": "Als neutraler Vorfallsbericht umgeschrieben.",

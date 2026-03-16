@@ -329,10 +329,10 @@ export function DraftOutput({
         }
       case "ESCALATION_RISK":
         return {
-          border: "border-rose-200 dark:border-rose-500/30",
-          background: "bg-rose-50 dark:bg-rose-950/20",
-          badge: "bg-rose-100 text-rose-800 dark:bg-rose-500/20 dark:text-rose-100",
-          icon: "bg-rose-100 text-rose-700 dark:bg-rose-500/20 dark:text-rose-100",
+          border: "border-slate-200 dark:border-slate-500/30",
+          background: "bg-slate-50 dark:bg-slate-900/40",
+          badge: "bg-slate-200 text-slate-800 dark:bg-slate-500/20 dark:text-slate-100",
+          icon: "bg-slate-200 text-slate-700 dark:bg-slate-500/20 dark:text-slate-100",
         }
       default:
         return {

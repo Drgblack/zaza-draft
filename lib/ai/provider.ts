@@ -112,11 +112,13 @@ class ProviderError extends Error {
 const transientStatusCodes = new Set([429, 500, 502, 503, 504])
 
 const PRONOUN_INSTRUCTIONS: Record<PronounPreference, string> = {
-  auto: "Use pronouns only when the teacher explicitly states them; otherwise default to neutral wording (the student, the learner, this person).",
+  auto:
+    "Use pronouns only when the teacher explicitly states them; otherwise prefer the student's name or another mode-appropriate neutral reference.",
   she: "Use she/her pronouns consistently throughout the draft.",
   he: "Use he/him pronouns consistently throughout the draft.",
   they: "Use they/them pronouns consistently throughout the draft.",
-  avoid: "Avoid gendered pronouns entirely and rely on neutral constructions such as 'the student' or 'this learner'.",
+  avoid:
+    "Avoid gendered pronouns entirely and rely on the student's name or another mode-appropriate neutral reference.",
 }
 
 const SAFETY_REWRITE_INSTRUCTIONS = {
@@ -531,10 +533,10 @@ export function buildSystemPrompt(input: ProviderInput) {
     "Do not switch author roles. The final output must always reflect the classified sender-recipient relationship.",
     "Unless the message is explicitly classified as parent_to_teacher, do not write as if the parent authored the source text first.",
     "If the source mentions escalation, complaints about policy, or threats such as 'Schulträger einschalten', keep the tone calm and bounded and suggest a practical next step.",
-    "Use the student's first name sparingly (once or twice) and then switch to inclusive pronouns or neutral wording; avoid repeating 'your child' in adjacent sentences.",
+    "Use the student's first name sparingly (once or twice) and then switch to 'your child' or explicit pronouns when they are known; avoid repeating 'your child' in adjacent sentences.",
     "Describe engagement challenges as calm observations (has found it difficult to stay focused, has had a few moments where...) rather than writing 'instances of disruption' or accusatory language.",
     "For parent-facing teacher messages, close with a short reassurance about aiming to support the student positively and helping them feel confident and successful at school.",
-    "Prefer the student's first name once or twice, then use the provided pronouns naturally; avoid repeating 'the student'.",
+    "Prefer the student's first name once or twice, then use 'your child' or the provided pronouns naturally; never use 'the student' in a parent-facing message.",
     PRONOUN_INSTRUCTIONS[input.pronounPreference],
     ...buildParentFacingToneInstructions(input),
     buildDirectionInstruction(input.generationMetadata.direction),
@@ -563,6 +565,9 @@ export function buildSystemPrompt(input: ProviderInput) {
     systemLines.push(
       `Include a concise professional subject line on the first line in the form '${subjectLabel}: <short subject>'.`,
       "Make the subject neutral, teacher-authentic, and specific to the issue or update. Avoid generic labels such as 'Support Update' or 'General Update'.",
+      "For parent-facing teacher messages, never refer to the child as 'the student', 'the learner', or another institutional label.",
+      "Reference order for parent-facing teacher messages: use the student's first name if it is available; otherwise use 'your child'; only then use explicit pronouns when they are known and sound natural.",
+      "Avoid institutional phrases such as 'learning tasks' or 'instruction time'. Prefer natural teacher phrasing such as 'during class', 'in today's lesson', or 'during our work together'.",
     )
   }
 

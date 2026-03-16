@@ -336,6 +336,36 @@ const MIN_BODY_PARAGRAPHS = 2
 const MIN_PARENT_MESSAGE_MEANINGFUL_WORDS = 12
 const MIN_PARENT_MESSAGE_PARAGRAPHS = 1
 const DUPLICATE_GREETING_WINDOW = 5
+const MAX_OUTPUT_SAFETY_REWRITE_ATTEMPTS = 2
+
+function shouldRetryParentMessageForSafety(safetyAnalysis: SafetyEngineOutput | null) {
+  if (!safetyAnalysis) {
+    return false
+  }
+
+  const escalationSignalDetected = safetyAnalysis.triggeredSignals.some(
+    (signal) => signal.category === "escalation",
+  )
+  const accusationSignalDetected = safetyAnalysis.triggeredSignals.some(
+    (signal) =>
+      signal.category === "accusation" ||
+      signal.category === "negative_generalisation" ||
+      signal.category === "prescriptive_demand",
+  )
+  const escalationProbability =
+    (safetyAnalysis.reactionForecast?.hostile ?? 0) +
+    Math.round((safetyAnalysis.reactionForecast?.defensive ?? 0) * 0.6)
+
+  return (
+    escalationSignalDetected ||
+    accusationSignalDetected ||
+    safetyAnalysis.riskLevel === "high" ||
+    safetyAnalysis.toneClass === "accusatory" ||
+    escalationProbability >= 45 ||
+    (safetyAnalysis.reactionForecast?.hostile ?? 0) >= 25 ||
+    (safetyAnalysis.reactionForecast?.defensive ?? 0) >= 35
+  )
+}
 
 function removeDuplicateGreeting(body: string, greetingLine?: string | null) {
   if (!greetingLine) {
@@ -731,6 +761,7 @@ async function reRunWithRewrite(
   mode: DraftMode,
   generationMetadata: GenerationMetadata,
   forceLanguage?: boolean,
+  safetyAnalysis?: SafetyEngineOutput | null,
 ): Promise<ProviderResult | null> {
   try {
     return await generateDraft({
@@ -744,6 +775,7 @@ async function reRunWithRewrite(
       pronounPreference: resolvedPronounPreference,
       mode,
       forceLanguage,
+      safetyAnalysis,
     })
   } catch (error) {
     return null
@@ -1985,6 +2017,52 @@ export async function POST(request: Request) {
   applyGenericRecoveryGuardIfNeeded()
   enforceFinalVisibleSignoff()
 
+  let outputSafetyAnalysis: SafetyEngineOutput | null = null
+  if (!documentationModeActive && mode === "parent_message") {
+    outputSafetyAnalysis = await runSafetyEngine({
+      rawMessage: generatedDraft,
+      messageDirection: safetyEngineMessageDirection,
+      inputMode: generationMetadata.mode,
+    })
+  }
+
+  let outputSafetyRewriteAttempts = 0
+  while (
+    !documentationModeActive &&
+    mode === "parent_message" &&
+    shouldRetryParentMessageForSafety(outputSafetyAnalysis) &&
+    outputSafetyRewriteAttempts < MAX_OUTPUT_SAFETY_REWRITE_ATTEMPTS
+  ) {
+    const previousDraft = generatedDraft
+    const rewriteResult = await reRunWithRewrite(
+      payload,
+      generatedDraft,
+      resolvedPronounPreference,
+      mode,
+      generationMetadata,
+      forcedLanguageAttempted,
+      outputSafetyAnalysis,
+    )
+    if (!rewriteResult) {
+      break
+    }
+
+    outputSafetyRewriteAttempts += 1
+    generatedDraft = finalizeDraftWithSignature(rewriteResult.text)
+    providerMeta = rewriteResult.providerMeta
+    finalizeAndFormatDraft(generatedDraft)
+    outputSafetyAnalysis = await runSafetyEngine({
+      rawMessage: generatedDraft,
+      messageDirection: safetyEngineMessageDirection,
+      inputMode: generationMetadata.mode,
+    })
+    pushRecoveryEvent("retry_generation", "OUTPUT_SAFETY_REWRITE")
+
+    if (generatedDraft.trim() === previousDraft.trim()) {
+      break
+    }
+  }
+
   let updatedUsage: MonthlyUsageRecord = usageRecord
   if (!isQaUser && !isDevBypassRequest) {
     try {
@@ -2202,6 +2280,7 @@ export async function POST(request: Request) {
     snippetId,
     deescalationSummary,
     safetyAnalysis,
+    outputSafetyAnalysis,
     documentationModeActive,
   })
   } catch (error) {

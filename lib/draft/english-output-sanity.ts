@@ -7,6 +7,7 @@ export type EnglishOutputSanityIssue =
   | "greeting_punctuation"
   | "signoff_punctuation"
   | "subject_punctuation"
+  | "parent_voice"
 
 interface EnglishOutputSanityOptions {
   language?: string
@@ -136,6 +137,38 @@ function normalizeSingularReferenceAgreement(text: string, studentFirstName?: st
   return { text: normalized, changed }
 }
 
+function buildPossessiveReference(reference: string) {
+  return `${reference}'s`
+}
+
+function normalizeParentMessageTeacherVoice(text: string, studentFirstName?: string) {
+  const baseReference = studentFirstName?.trim() || "your child"
+  const possessiveReference = buildPossessiveReference(baseReference)
+  const replacements: Array<[RegExp, string]> = [
+    [/\bthe student's\b/gi, possessiveReference],
+    [/\bthe learner's\b/gi, possessiveReference],
+    [/\bthis learner's\b/gi, possessiveReference],
+    [/\bthe student\b/gi, baseReference],
+    [/\bthe learner\b/gi, baseReference],
+    [/\bthis learner\b/gi, baseReference],
+    [/\bduring instruction time\b/gi, "during class"],
+    [/\binstruction time\b/gi, "class time"],
+    [/\blearning tasks\b/gi, "classwork"],
+  ]
+
+  let normalized = text
+  let changed = false
+
+  for (const [pattern, replacement] of replacements) {
+    normalized = normalized.replace(pattern, (match) => {
+      changed = true
+      return matchCase(replacement, match)
+    })
+  }
+
+  return { text: normalized, changed }
+}
+
 export function applyEnglishOutputSanity(
   text: string,
   options: EnglishOutputSanityOptions,
@@ -155,6 +188,17 @@ export function applyEnglishOutputSanity(
   if (pronounRepaired !== sanitized) {
     issues.push("pronoun_case")
     sanitized = pronounRepaired
+  }
+
+  if (options.mode === "parent_message") {
+    const parentVoiceNormalized = normalizeParentMessageTeacherVoice(
+      sanitized,
+      options.studentFirstName,
+    )
+    if (parentVoiceNormalized.changed) {
+      issues.push("parent_voice")
+      sanitized = parentVoiceNormalized.text
+    }
   }
 
   const agreementNormalized = normalizeSingularReferenceAgreement(

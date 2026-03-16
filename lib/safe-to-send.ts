@@ -70,8 +70,8 @@ export function assessSafeToSend(
   ) {
     return {
       status: "ESCALATION_RISK",
-      titleKey: "draft.safeToSend.escalationRisk.title",
-      descriptionKey: "draft.safeToSend.escalationRisk.description",
+      titleKey: "draft.safeToSend.sensitiveTopic.title",
+      descriptionKey: "draft.safeToSend.sensitiveTopic.description",
     }
   }
 

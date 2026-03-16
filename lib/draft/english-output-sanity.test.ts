@@ -61,6 +61,22 @@ describe("applyEnglishOutputSanity", () => {
     expect(result.issues).toContain("reference_agreement")
   })
 
+  it("replaces institutional parent-message phrasing with natural teacher wording", () => {
+    const result = applyEnglishOutputSanity(
+      "The student found the learning tasks difficult during instruction time, but the student's effort stayed steady.",
+      {
+        language: "en",
+        mode: "parent_message",
+        studentFirstName: "Jake",
+      },
+    )
+
+    expect(result.text).toBe(
+      "Jake found the classwork difficult during class, but Jake's effort stayed steady.",
+    )
+    expect(result.issues).toContain("parent_voice")
+  })
+
   it("leaves valid English drafts unchanged", () => {
     const draft = [
       "Subject: Reading update",

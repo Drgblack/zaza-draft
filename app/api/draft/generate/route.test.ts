@@ -398,11 +398,21 @@ beforeEach(() => {
     },
   })
   mockedRunSafetyEngine.mockReset()
-  mockedRunSafetyEngine.mockResolvedValue({
-    riskScore: 82,
-    riskLevel: "high",
-    triggeredSignals: [
-      {
+  mockedRunSafetyEngine.mockImplementation(async ({ rawMessage, messageDirection }) => {
+    if (messageDirection !== "teacher_to_parent") {
+      return null
+    }
+
+    const normalized = rawMessage.toLowerCase()
+    if (normalized.trim().split(/\s+/).length < 10) {
+      return null
+    }
+
+    const triggeredSignals: Array<Record<string, unknown>> = []
+    const professionalRiskFlags: Array<Record<string, string>> = []
+
+    if (/head teacher|if this continues/.test(normalized)) {
+      triggeredSignals.push({
         id: "esc_administrative_threat",
         category: "escalation",
         label: "Administrative escalation",
@@ -411,21 +421,84 @@ beforeEach(() => {
         matchMode: "any",
         proximityBoost: false,
         detectionNote: "Strong escalation signal",
-      },
-    ],
-    toneClass: "accusatory",
-    topicSensitivity: "medium",
-    reactionForecast: {
-      collaborative: 10,
-      concerned: 15,
-      defensive: 45,
-      hostile: 20,
-      confused: 10,
-    },
-    explanationLines: [],
-    documentationModeAvailable: true,
-    professionalRiskFlags: [],
-    structuralImbalance: false,
+      })
+    }
+
+    if (/refuses to|deliberately disrupts|always\b|never\b/.test(normalized)) {
+      triggeredSignals.push({
+        id: "acc_refusal_language",
+        category: "accusation",
+        label: "Refusal language",
+        weight: 8,
+        patterns: ["refuses to"],
+        matchMode: "any",
+        proximityBoost: false,
+        detectionNote: "Accusatory wording",
+      })
+    }
+
+    if (/\badhd\b|\bautism\b|\bdyslexia\b|\banxiety\b|\bdepression\b/.test(normalized)) {
+      professionalRiskFlags.push({
+        signalId: "pro_medical_speculation",
+        label: "Medical or diagnostic speculation",
+        matchedPhrase: "ADHD",
+      })
+    }
+
+    if (/\bdeliberately\b|\bintentionally\b|\bon purpose\b/.test(normalized)) {
+      professionalRiskFlags.push({
+        signalId: "pro_motive_attribution",
+        label: "Motive attribution",
+        matchedPhrase: "deliberately disrupts the class",
+      })
+    }
+
+    if (/emotional problems|emotional issues|psychological issues|mental health concerns/.test(normalized)) {
+      professionalRiskFlags.push({
+        signalId: "pro_psychological_interpretation",
+        label: "Psychological interpretation",
+        matchedPhrase: "seems to have emotional problems",
+      })
+    }
+
+    const highRisk = triggeredSignals.length > 0
+    const mediumRisk = !highRisk && professionalRiskFlags.length > 0
+
+    return {
+      riskScore: highRisk ? 82 : mediumRisk ? 48 : 14,
+      riskLevel: highRisk ? "high" : mediumRisk ? "medium" : "low",
+      triggeredSignals: triggeredSignals as any,
+      toneClass: highRisk ? "accusatory" : mediumRisk ? "clinical" : "collaborative",
+      topicSensitivity: professionalRiskFlags.length > 0 ? "high" : highRisk ? "medium" : "low",
+      reactionForecast: highRisk
+        ? {
+            collaborative: 10,
+            concerned: 15,
+            defensive: 45,
+            hostile: 20,
+            confused: 10,
+          }
+        : mediumRisk
+          ? {
+              collaborative: 20,
+              concerned: 20,
+              defensive: 35,
+              hostile: 0,
+              confused: 25,
+            }
+          : {
+              collaborative: 52,
+              concerned: 22,
+              defensive: 8,
+              hostile: 0,
+              confused: 18,
+            },
+      explanationLines: [],
+      documentationModeAvailable:
+        highRisk || professionalRiskFlags.length > 0 || normalized.includes("incident"),
+      professionalRiskFlags: professionalRiskFlags as any,
+      structuralImbalance: false,
+    }
   })
   mockedBuildUsageResponse.mockReturnValue({
     currentMonthUsage: 1,
@@ -1887,6 +1960,144 @@ describe("/api/draft/generate minimum output safeguard", () => {
     expect(generatedDraft).toContain("missing homework")
     expect(generatedDraft).not.toContain("Thank you for bringing this to my attention")
     expect(generatedDraft).not.toContain("your child came home")
+  })
+
+  it("never returns 'the student' in parent message mode", async () => {
+    fallbackGenerator.mockResolvedValueOnce(
+      buildFallbackResult(
+        [
+          "Subject: Update from today's lesson",
+          "Hello Jordan,",
+          "The student found the learning tasks difficult during instruction time, but the student stayed engaged and completed the work with support.",
+          "Kind regards,",
+          "Dr Greg Blackburn",
+        ].join("\n\n"),
+      ),
+    )
+
+    const request = new Request("https://example.com/api/draft/generate", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: "Bearer token",
+      },
+      body: JSON.stringify({
+        situation:
+          "Write a calm parent update about Luca needing more support with independent maths work today, including that he stayed engaged, responded to support, and will revisit the same work in tomorrow's lesson.",
+        tone: "professional",
+        language: "en",
+        mode: "parent_message",
+        studentFirstName: "Luca",
+      }),
+    })
+
+    const response = await POST(request)
+    expect(response.status).toBe(200)
+    const json = await response.json()
+    const generatedDraft = json.data?.generatedDraft ?? ""
+
+    expect(generatedDraft).not.toContain("the student")
+    expect(generatedDraft).toContain("Luca")
+    expect(generatedDraft).not.toContain("instruction time")
+    expect(generatedDraft).not.toContain("learning tasks")
+    expect(generatedDraft).toContain("during class")
+    expect(json.data?.outputSafetyAnalysis?.riskLevel).toBe("low")
+  })
+
+  it("retries risky parent output and returns the post-rewrite safety assessment", async () => {
+    fallbackGenerator.mockResolvedValueOnce(
+      buildFallbackResult(
+        [
+          "Subject: Behaviour concern",
+          "Hello Jordan,",
+          "The student refuses to listen and if this continues we will have to involve the head teacher.",
+          "Kind regards,",
+          "Dr Greg Blackburn",
+        ].join("\n\n"),
+      ),
+    )
+    mockedGenerateDraft.mockResolvedValueOnce({
+      text: [
+        "Subject: Update from today",
+        "Hello Jordan,",
+        "I wanted to let you know that Luca found it difficult to follow instructions during class today, so I will revisit the expectations with him tomorrow and follow up with you if needed.",
+        "Kind regards,",
+        "Dr Greg Blackburn",
+      ].join("\n\n"),
+      providerMeta: {
+        modelUsed: "test-model",
+        latencyMs: 10,
+      },
+    })
+
+    const request = new Request("https://example.com/api/draft/generate", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: "Bearer token",
+      },
+      body: JSON.stringify({
+        situation:
+          "Write a parent email about Luca finding it difficult to follow instructions in class today, explain the support given, and include a clear follow-up step for tomorrow so the message stays calm and factual.",
+        tone: "professional",
+        language: "en",
+        mode: "parent_message",
+        studentFirstName: "Luca",
+      }),
+    })
+
+    const response = await POST(request)
+    expect(response.status).toBe(200)
+    const json = await response.json()
+
+    expect(mockedGenerateDraft).toHaveBeenCalledTimes(1)
+    expect(json.data?.generatedDraft).toContain("Luca found it difficult to follow instructions during class today")
+    expect(json.data?.outputSafetyAnalysis?.riskLevel).toBe("low")
+    expect(json.data?.outputSafetyAnalysis?.triggeredSignals ?? []).toHaveLength(0)
+  })
+
+  it("keeps 'The student' available in documentation mode", async () => {
+    mockedGenerateDraft.mockResolvedValueOnce({
+      text: [
+        "Incident Record",
+        "",
+        "Date: 2026-03-15",
+        "Location: Classroom",
+        "Observed behaviour: The student shouted across the room during the lesson.",
+        "Teacher response: The teacher recorded the incident and asked the student to pause.",
+        "Follow-up action: Further review is required.",
+        "",
+        "This record is for documentation purposes.",
+      ].join("\n"),
+      providerMeta: {
+        modelUsed: "test-model",
+        latencyMs: 10,
+      },
+    })
+
+    const request = new Request("https://example.com/api/draft/generate", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: "Bearer token",
+      },
+      body: JSON.stringify({
+        situation:
+          "Document that Luca shouted across the room during the lesson, needed a calm follow-up from staff, and required the incident to be recorded clearly for later review.",
+        tone: "professional",
+        language: "en",
+        mode: "parent_message",
+        documentationMode: true,
+        studentFirstName: "Luca",
+      }),
+    })
+
+    const response = await POST(request)
+    expect(response.status).toBe(200)
+    const json = await response.json()
+
+    expect(json.data?.documentationModeActive).toBe(true)
+    expect(json.data?.generatedDraft).toContain("The student")
   })
 })
 

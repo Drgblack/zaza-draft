@@ -309,6 +309,7 @@ export function MainEditor({ canExport = true }: MainEditorProps = {}) {
   const [draftStructure, setDraftStructure] = useState<DraftStructure | null>(null)
   const [deescalationSummary, setDeescalationSummary] = useState<DeescalationSummary | null>(null)
   const [safetyAnalysis, setSafetyAnalysis] = useState<SafetyEngineOutput | null>(null)
+  const [outputSafetyAnalysis, setOutputSafetyAnalysis] = useState<SafetyEngineOutput | null>(null)
   const [documentationModeActive, setDocumentationModeActive] = useState(false)
   const [enforcedGreeting, setEnforcedGreeting] = useState<EnforcedGreeting | null>(null)
   const [sourceFlow, setSourceFlow] = useState<SourceFlow>("safe_draft")
@@ -357,13 +358,14 @@ export function MainEditor({ canExport = true }: MainEditorProps = {}) {
   const [outOfScopeNotice, setOutOfScopeNotice] = useState(false)
   const [outOfScopeMessage, setOutOfScopeMessage] = useState("")
   const [loadingMessageIndex, setLoadingMessageIndex] = useState(0)
+  const displaySafetyAnalysis = outputSafetyAnalysis ?? safetyAnalysis
   const safeToSendAssessment = useMemo(
     () =>
       assessSafeToSend({
-        safetyAnalysis,
+        safetyAnalysis: displaySafetyAnalysis,
         deescalationSummary,
       }),
-    [deescalationSummary, safetyAnalysis],
+    [deescalationSummary, displaySafetyAnalysis],
   )
   const includeDraftSignature = useMemo(
     () => resolveDraftSignatureEnabled(prefs.includeDraftSignature, usage.plan),
@@ -414,6 +416,7 @@ export function MainEditor({ canExport = true }: MainEditorProps = {}) {
     setDraftStructure(null)
     setDeescalationSummary(null)
     setSafetyAnalysis(null)
+    setOutputSafetyAnalysis(null)
     setDocumentationModeActive(false)
     setInputReframeTier(null)
     setLastGenerationSignature(null)
@@ -991,16 +994,19 @@ export function MainEditor({ canExport = true }: MainEditorProps = {}) {
       }
 
       const nextSafetyOutput = data.data.safetyAnalysis ?? null
+      const nextOutputSafetyAnalysis = data.data.outputSafetyAnalysis ?? null
       const nextDeescalationSummary = data.data.deescalationSummary ?? null
       const nextDocumentationModeActive = Boolean(data.data.documentationModeActive)
       const rewriteReason = inferRewriteReason({
         deescalationSummary: nextDeescalationSummary,
-        safetyAnalysis: nextSafetyOutput,
+        safetyAnalysis: nextOutputSafetyAnalysis ?? nextSafetyOutput,
         documentationMode: nextDocumentationModeActive,
         inputReframed: Boolean(responseMeta?.inputReframed),
       })
-      const reactionPrediction = inferReactionPrediction(nextSafetyOutput?.reactionForecast)
-      const riskFlagTypes = inferRiskFlagTypes(nextSafetyOutput)
+      const reactionPrediction = inferReactionPrediction(
+        (nextOutputSafetyAnalysis ?? nextSafetyOutput)?.reactionForecast,
+      )
+      const riskFlagTypes = inferRiskFlagTypes(nextOutputSafetyAnalysis ?? nextSafetyOutput)
 
       draftEditDepthRef.current = 0
       rewriteReasonRef.current = rewriteReason
@@ -1012,7 +1018,7 @@ export function MainEditor({ canExport = true }: MainEditorProps = {}) {
       setDraftStructure(data.data.formattedDraft ?? null)
       setDeescalationSummary(nextDeescalationSummary)
       setSafetyAnalysis(nextSafetyOutput)
-      console.log("safetyOutput", nextSafetyOutput)
+      setOutputSafetyAnalysis(nextOutputSafetyAnalysis)
       setDocumentationModeActive(nextDocumentationModeActive)
       setEnforcedGreeting(data.data.greeting ?? null)
       setLastGenerationSignature({
@@ -1727,8 +1733,8 @@ Examples:
               structure={draftStructure ?? undefined}
               canExport={canExport}
               getIdToken={getIdToken}
-              headerBadge={<SafetyBadge riskLevel={safetyAnalysis?.riskLevel} />}
-              headerBanner={<ProfessionalRiskBanner flags={safetyAnalysis?.professionalRiskFlags} />}
+              headerBadge={<SafetyBadge riskLevel={displaySafetyAnalysis?.riskLevel} />}
+              headerBanner={<ProfessionalRiskBanner flags={displaySafetyAnalysis?.professionalRiskFlags} />}
               resultModeBadge={
                 documentationModeActive
                   ? t("draft.documentation.badge")
@@ -1740,16 +1746,16 @@ Examples:
               draftAttribution={draftAttributionLine}
               safeToSend={safeToSendAssessment}
             />
-            {safetyAnalysis && (
+            {displaySafetyAnalysis && (
               <ReactionForecast
-                forecast={safetyAnalysis.reactionForecast}
-                riskLevel={safetyAnalysis.riskLevel}
+                forecast={displaySafetyAnalysis.reactionForecast}
+                riskLevel={displaySafetyAnalysis.riskLevel}
               />
             )}
-            {safetyAnalysis && (
+            {displaySafetyAnalysis && (
               <ExplanationPanel
-                explanationLines={safetyAnalysis.explanationLines}
-                riskLevel={safetyAnalysis.riskLevel}
+                explanationLines={displaySafetyAnalysis.explanationLines}
+                riskLevel={displaySafetyAnalysis.riskLevel}
               />
             )}
             {deescalationSummary?.wasDeescalated && (
