@@ -39,6 +39,7 @@ import { saveLastRunTimestamp } from "@/lib/diagnostics/local-storage"
 import { resolveTeacherSignatureName } from "@/lib/draft/teacher-signature"
 import {
   buildDraftAdjustmentReasons,
+  buildDraftAdjustmentSummary,
   shouldShowToneSofteningExplanation,
 } from "@/lib/draft/adjustment-reasons"
 import { assessSafeToSend } from "@/lib/safe-to-send"
@@ -383,6 +384,10 @@ export function MainEditor({ canExport = true }: MainEditorProps = {}) {
         deescalationSummary,
       }),
     [deescalationSummary, displaySafetyAnalysis],
+  )
+  const draftAdjustmentSummary = useMemo(
+    () => buildDraftAdjustmentSummary(adjustmentReasons),
+    [adjustmentReasons],
   )
   const blockedDiagnosticVisible =
     blockedLanguageContext?.variant === "diagnostic_speculation"
@@ -1896,6 +1901,7 @@ Examples:
               }
               documentationMode={documentationModeActive}
               draftAttribution={draftAttributionLine}
+              rewriteSummary={draftAdjustmentSummary}
               safeToSend={safeToSendAssessment}
             />
             {displaySafetyAnalysis && (

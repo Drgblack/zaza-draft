@@ -1,6 +1,6 @@
 "use client"
 
-import { Copy, Check, Save, FileText, Edit3, RefreshCw, AlertCircle, ChevronDown, Repeat } from "lucide-react"
+import { Copy, Check, Save, FileText, Edit3, RefreshCw, AlertCircle, ChevronDown, Repeat, ShieldCheck } from "lucide-react"
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react"
 import { SaveDraftModal } from "./save-draft-modal"
 import { Badge } from "@/components/ui/badge"
@@ -44,6 +44,7 @@ interface DraftOutputProps {
   resultModeBadge?: string | null
   documentationMode?: boolean
   draftAttribution?: string | null
+  rewriteSummary?: string | null
   safeToSend?: SafeToSendAssessment | null
 }
 
@@ -67,6 +68,7 @@ export function DraftOutput({
   resultModeBadge,
   documentationMode = false,
   draftAttribution = null,
+  rewriteSummary = null,
   safeToSend,
 }: DraftOutputProps) {
   const [copied, setCopied] = useState(false)
@@ -420,6 +422,31 @@ export function DraftOutput({
             <p className="mt-2 text-sm leading-relaxed text-gray-700 dark:text-gray-200">
               {t("draft.documentation.description")}
             </p>
+          </div>
+        ) : null}
+
+        {modeKey === "parent_message" || rewriteSummary ? (
+          <div className="mb-4 space-y-3">
+            {modeKey === "parent_message" ? (
+              <div className="rounded-xl border border-slate-200 bg-slate-50/90 p-3 shadow-sm dark:border-slate-700 dark:bg-slate-900/50">
+                <div className="flex items-start gap-3">
+                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-slate-200/80 text-slate-700 dark:bg-slate-800 dark:text-slate-200">
+                    <ShieldCheck size={16} />
+                  </div>
+                  <p className="text-sm leading-relaxed text-slate-700 dark:text-slate-200">
+                    {t("draft.teacherControl.reassurance")}
+                  </p>
+                </div>
+              </div>
+            ) : null}
+
+            {rewriteSummary ? (
+              <div className="rounded-xl border border-sky-200 bg-sky-50/85 p-3 shadow-sm dark:border-sky-500/30 dark:bg-sky-950/20">
+                <p className="text-sm leading-relaxed text-sky-900 dark:text-sky-100">
+                  {rewriteSummary}
+                </p>
+              </div>
+            ) : null}
           </div>
         ) : null}
 

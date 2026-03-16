@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest"
 
 import {
   buildDraftAdjustmentReasons,
+  buildDraftAdjustmentSummary,
   shouldShowToneSofteningExplanation,
 } from "@/lib/draft/adjustment-reasons"
 import type { DeescalationSummary } from "@/lib/deescalation/types"
@@ -109,5 +110,20 @@ describe("buildDraftAdjustmentReasons", () => {
     expect(shouldShowToneSofteningExplanation("tier1", ["Softened escalation risk"])).toBe(false)
     expect(shouldShowToneSofteningExplanation("tier1", [])).toBe(true)
     expect(shouldShowToneSofteningExplanation(null, [])).toBe(false)
+  })
+})
+
+describe("buildDraftAdjustmentSummary", () => {
+  it("builds a one-sentence summary from actual adjustment reasons", () => {
+    expect(
+      buildDraftAdjustmentSummary([
+        "Replaced judgement wording with observation-based phrasing",
+        "Added a more collaborative next step",
+      ]),
+    ).toBe("Draft removed judgemental wording and added a collaborative next step.")
+  })
+
+  it("returns null when there are no adjustment reasons", () => {
+    expect(buildDraftAdjustmentSummary([])).toBeNull()
   })
 })

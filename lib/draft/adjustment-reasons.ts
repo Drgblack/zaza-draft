@@ -89,3 +89,29 @@ export function shouldShowToneSofteningExplanation(
 ) {
   return Boolean(explanationTier) && adjustmentReasons.length === 0
 }
+
+const ADJUSTMENT_SUMMARY_FRAGMENTS: Record<string, string> = {
+  "Replaced judgement wording with observation-based phrasing": "removed judgemental wording",
+  "Removed diagnostic speculation": "removed diagnostic speculation",
+  "Added a more collaborative next step": "added a collaborative next step",
+  "Softened escalation risk": "softened escalation language",
+  "Reframed behaviour as classroom observation": "reframed behaviour as classroom observation",
+  "Replaced directive language with parent-safe wording": "made the wording more parent-appropriate",
+}
+
+export function buildDraftAdjustmentSummary(adjustmentReasons: string[]) {
+  const fragments = adjustmentReasons
+    .map((reason) => ADJUSTMENT_SUMMARY_FRAGMENTS[reason])
+    .filter((fragment): fragment is string => Boolean(fragment))
+    .slice(0, 2)
+
+  if (fragments.length === 0) {
+    return null
+  }
+
+  if (fragments.length === 1) {
+    return `Draft ${fragments[0]}.`
+  }
+
+  return `Draft ${fragments[0]} and ${fragments[1]}.`
+}

@@ -10,8 +10,8 @@ interface SafetyBadgeProps {
 
 const BADGE_COPY: Record<NonNullable<SafetyBadgeProps["status"]>, string> = {
   READY_TO_SEND: "Ready to send",
-  SENSITIVE_TOPIC: "Sensitive topic",
-  REVIEW_ONCE_MORE: "Revise once more",
+  SENSITIVE_TOPIC: "Softened for parent-safe wording",
+  REVIEW_ONCE_MORE: "Review once before sending",
   BLOCKED_FOR_SAFETY: "Blocked for safety",
 }
 

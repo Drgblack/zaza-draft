@@ -33,6 +33,12 @@ describe("SafetyBadge", () => {
     expect(screen.getByText("Ready to send")).toBeInTheDocument()
   })
 
+  it("renders clearer review guidance for medium-risk drafts", () => {
+    render(<SafetyBadge status="REVIEW_ONCE_MORE" />)
+
+    expect(screen.getByText("Review once before sending")).toBeInTheDocument()
+  })
+
   it("renders nothing when no risk level is provided", () => {
     const { container } = render(<SafetyBadge />)
 

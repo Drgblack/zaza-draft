@@ -930,16 +930,18 @@ export const localeMessages: Record<Locale, LocaleMessages> = {
     "draft.action.load": "Load",
     "draft.action.delete": "Delete",
     "draft.actions.loadMore": "Load more",
-    "draft.safeToSend.label": "Draft status:",
+    "draft.safeToSend.label": "Sending guidance:",
     "draft.safeToSend.safeToSend.title": "Ready to send",
     "draft.safeToSend.safeToSend.description":
-      "The wording is calm, clear, and ready to send as written.",
-    "draft.safeToSend.reviewOnceMore.title": "Revise once more",
+      "The wording is calm, clear, and ready for you to send when you're happy with it.",
+    "draft.safeToSend.reviewOnceMore.title": "Review once before sending",
     "draft.safeToSend.reviewOnceMore.description":
-      "One or two phrases may still feel sharper than needed. Give it one more pass.",
-    "draft.safeToSend.sensitiveTopic.title": "Sensitive Topic",
+      "The draft is close, but one or two phrases may still need a quick teacher check.",
+    "draft.safeToSend.sensitiveTopic.title": "Sensitive topic: softened for parent-safe wording",
     "draft.safeToSend.sensitiveTopic.description":
-      "This is a delicate issue, but the wording has been softened appropriately.",
+      "This is a delicate topic, and Draft has already softened the wording to help it stay parent-safe.",
+    "draft.teacherControl.reassurance":
+      "You review every message before anything is sent. Draft never sends messages for you.",
     "draft.documentation.label": "Mode:",
     "draft.documentation.badge": "Documentation Mode",
     "draft.documentation.description": "Rewritten as a neutral incident record.",
@@ -1507,16 +1509,18 @@ export const localeMessages: Record<Locale, LocaleMessages> = {
     "draft.action.load": "Load",
     "draft.action.delete": "Delete",
     "draft.actions.loadMore": "Load more",
-    "draft.safeToSend.label": "Draft status:",
+    "draft.safeToSend.label": "Sending guidance:",
     "draft.safeToSend.safeToSend.title": "Ready to send",
     "draft.safeToSend.safeToSend.description":
-      "The wording is calm, clear, and ready to send as written.",
-    "draft.safeToSend.reviewOnceMore.title": "Revise once more",
+      "The wording is calm, clear, and ready for you to send when you're happy with it.",
+    "draft.safeToSend.reviewOnceMore.title": "Review once before sending",
     "draft.safeToSend.reviewOnceMore.description":
-      "One or two phrases may still feel sharper than needed. Give it one more pass.",
-    "draft.safeToSend.sensitiveTopic.title": "Sensitive Topic",
+      "The draft is close, but one or two phrases may still need a quick teacher check.",
+    "draft.safeToSend.sensitiveTopic.title": "Sensitive topic: softened for parent-safe wording",
     "draft.safeToSend.sensitiveTopic.description":
-      "This is a delicate issue, but the wording has been softened appropriately.",
+      "This is a delicate topic, and Draft has already softened the wording to help it stay parent-safe.",
+    "draft.teacherControl.reassurance":
+      "You review every message before anything is sent. Draft never sends messages for you.",
     "draft.documentation.label": "Mode:",
     "draft.documentation.badge": "Documentation Mode",
     "draft.documentation.description": "Rewritten as a neutral incident record.",
@@ -2081,16 +2085,18 @@ export const localeMessages: Record<Locale, LocaleMessages> = {
     "draft.action.load": "Laden",
     "draft.action.delete": "Löschen",
     "draft.actions.loadMore": "Mehr laden",
-    "draft.safeToSend.label": "Entwurfsstatus:",
+    "draft.safeToSend.label": "Sendehinweis:",
     "draft.safeToSend.safeToSend.title": "Bereit zum Senden",
     "draft.safeToSend.safeToSend.description":
-      "Die Formulierung ist ruhig, klar und kann so gesendet werden.",
-    "draft.safeToSend.reviewOnceMore.title": "Noch einmal überarbeiten",
+      "Die Formulierung ist ruhig und klar und kann gesendet werden, sobald Sie zufrieden sind.",
+    "draft.safeToSend.reviewOnceMore.title": "Vor dem Senden einmal prüfen",
     "draft.safeToSend.reviewOnceMore.description":
-      "Ein oder zwei Formulierungen wirken möglicherweise noch etwas zu scharf. Prüfen Sie den Entwurf kurz erneut.",
-    "draft.safeToSend.sensitiveTopic.title": "Sensibles Thema",
+      "Der Entwurf ist fast fertig, aber ein oder zwei Formulierungen sollten Sie noch kurz prüfen.",
+    "draft.safeToSend.sensitiveTopic.title": "Sensibles Thema: elternsicher abgeschwächt",
     "draft.safeToSend.sensitiveTopic.description":
-      "Das Thema ist sensibel, aber die Formulierung wurde passend entschärft.",
+      "Das Thema ist sensibel, und Draft hat die Formulierung bereits abgeschwächt, damit sie elternsicher bleibt.",
+    "draft.teacherControl.reassurance":
+      "Sie prüfen jede Nachricht selbst, bevor etwas gesendet wird. Draft versendet nichts für Sie.",
     "draft.documentation.label": "Modus:",
     "draft.documentation.badge": "Dokumentationsmodus",
     "draft.documentation.description": "Als neutraler Vorfallsbericht umgeschrieben.",
