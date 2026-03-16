@@ -17,6 +17,7 @@ import { useLocale } from "@/hooks/use-locale"
 import { useTeacherPrefs } from "@/hooks/use-teacher-prefs"
 import { useAuth } from "@/hooks/use-auth"
 import { useRouter } from "next/navigation"
+import { hasMeaningfulInsights, type InsightsSummary } from "@/lib/insights/summary"
 import {
   REMINDER_BUTTON_CLASS,
   buildGoogleCalendarUrl,
@@ -36,27 +37,6 @@ import {
   DialogPortal,
   DialogTitle,
 } from "@/components/ui/dialog"
-
-type InsightsSummary = {
-  timeSaved?: {
-    hours?: number
-    trend?: number
-    trendDirection?: "up" | "down"
-    minutes?: number
-  }
-  draftsCreated?: {
-    total?: number
-    usedWithoutEdits?: number
-    percentage?: number
-  }
-  currentStreak?: {
-    days?: number
-  }
-  qualityScore?: {
-    score?: number
-    trend?: number
-  }
-}
 
 const mockHeatmapData = Array.from({ length: 7 * 24 }, (_, i) => ({
   day: ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"][Math.floor(i / 24)],
@@ -130,7 +110,7 @@ const mockBadges = [
 const REMINDER_EVENT_TITLE = "Protected writing time - Zaza Draft"
 
 export default function InsightsPage() {
-  const [dateRange, setDateRange] = useState<"7" | "30" | "90">("7")
+  const [dateRange, setDateRange] = useState<"7" | "30" | "90">("30")
   const [showWellbeing, setShowWellbeing] = useState(false)
   const [shareData, setShareData] = useState(true)
   const [isReminderDialogOpen, setIsReminderDialogOpen] = useState(false)
@@ -159,7 +139,7 @@ export default function InsightsPage() {
         if (!token) {
           throw new Error("Missing auth token")
         }
-        const response = await fetch("/api/insights/summary", {
+        const response = await fetch(`/api/insights/summary?rangeDays=${dateRange}`, {
           headers: {
             Authorization: `Bearer ${token}`,
           },
@@ -196,7 +176,7 @@ export default function InsightsPage() {
     return () => {
       active = false
     }
-    }, [isAuthenticated, user])
+    }, [dateRange, isAuthenticated, user])
 
   const teacherName = user?.displayName ?? prefs.firstName
   const hasTeacherName = Boolean(teacherName?.trim())
@@ -208,20 +188,13 @@ export default function InsightsPage() {
   const summaryStreak = insightsSummary?.currentStreak
   const summaryQuality = insightsSummary?.qualityScore
   const timeSavedValue = summaryTimeSaved?.hours ?? summaryTimeSaved?.minutes ?? 0
-  const hasMetrics =
-    Boolean(insightsSummary) &&
-    Boolean(
-      timeSavedValue ||
-        summaryDrafts?.total ||
-        summaryStreak?.days ||
-        summaryQuality?.score,
-    )
+  const hasMetrics = hasMeaningfulInsights(insightsSummary)
   const downloadDisabled = !hasMetrics
   const timeSavedHours =
     summaryTimeSaved?.hours ??
     (summaryTimeSaved?.minutes != null ? summaryTimeSaved.minutes / 60 : 0)
   const timeSavedTrend = summaryTimeSaved?.trend ?? 0
-  const timeSavedContextCount = Math.round(summaryDrafts?.percentage ?? 0)
+  const timeSavedContextCount = summaryTimeSaved?.contextCount ?? Math.round(summaryDrafts?.percentage ?? 0)
   const draftsTotal = summaryDrafts?.total ?? 0
   const draftsUsed = summaryDrafts?.usedWithoutEdits ?? 0
   const streakDays = summaryStreak?.days ?? 0

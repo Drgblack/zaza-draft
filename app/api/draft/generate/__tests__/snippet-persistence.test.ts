@@ -117,6 +117,7 @@ vi.mock("@/lib/entitlements", () => ({
 
 vi.mock("@/lib/text/pronouns", () => ({
   enforcePronouns: (text: string) => text,
+  repairPronounCaseGrammar: (text: string) => text,
   inferPronounResolution: () => ({
     resolvedPreference: "auto",
     reason: "none",
@@ -298,11 +299,12 @@ describe("snippet persistence", () => {
       mode: "parent_message",
       signatureBlock: "Kind regards,\nMiss Teacher",
     })
-    expect(snippetPayload.generatedText).toContain("Hello")
+    expect(snippetPayload.generatedText).toContain("Subject: Classroom update")
     expect(snippetPayload.generatedText).toContain("Kind regards")
     expect(snippetPayload.requestId).toBe("snippet-id")
     expect(typeof snippetPayload.createdAt).toBe("string")
     expect(new Date(snippetPayload.createdAt).toString()).not.toBe("Invalid Date")
+    expect(insightsSet).toHaveBeenCalledOnce()
   })
 })
 

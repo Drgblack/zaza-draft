@@ -1,5 +1,10 @@
 import { NextResponse } from "next/server"
 import { authorizeFirebaseRequest, FirebaseAuthorizationError } from "@/lib/firebase/server"
+import {
+  buildFallbackInsightsSummary,
+  buildInsightsSummaryFromSnippets,
+  normalizeInsightsRangeDays,
+} from "@/lib/insights/summary"
 
 export async function GET(req: Request) {
   try {
@@ -11,24 +16,42 @@ export async function GET(req: Request) {
 
     const userSnap = await firestore.collection("users").doc(uid).get()
     const userData = userSnap.exists ? userSnap.data() : null
+    const requestedRange = new URL(req.url).searchParams.get("rangeDays")
+    const rangeDays = normalizeInsightsRangeDays(requestedRange)
+    const now = Date.now()
+    const currentRangeStart = new Date(now - rangeDays * 86_400_000).toISOString()
+    const previousRangeStart = new Date(now - rangeDays * 2 * 86_400_000).toISOString()
+    const userRef = firestore.collection("users").doc(uid)
+    const snippetCollection = userRef.collection("snippets")
+
+    const [currentSnippetsSnap, previousSnippetsSnap] = await Promise.all([
+      snippetCollection
+        .where("createdAt", ">=", currentRangeStart)
+        .orderBy("createdAt", "desc")
+        .limit(500)
+        .get(),
+      snippetCollection
+        .where("createdAt", ">=", previousRangeStart)
+        .where("createdAt", "<", currentRangeStart)
+        .orderBy("createdAt", "desc")
+        .limit(500)
+        .get(),
+    ])
 
     const generationCount =
       (userData?.monthlyUsage && typeof userData.monthlyUsage.generationCount === "number")
         ? userData.monthlyUsage.generationCount
         : 0
 
-    // Minimal summary that can render from first use
-    const summary = {
-      draftsCreated: {
-        total: generationCount,
-        usedWithoutEdits: 0,
-      },
-      // Keep these present so the UI can safely read them even if you later enrich them
-      timeSaved: { minutes: 0 },
-      currentStreak: { days: 0 },
-      qualityScore: { value: 0 },
-      updatedAt: userData?.updatedAt ?? null,
-    }
+    const summary =
+      currentSnippetsSnap.size > 0
+        ? buildInsightsSummaryFromSnippets(
+            currentSnippetsSnap.docs.map((doc) => doc.data()),
+            previousSnippetsSnap.docs.map((doc) => doc.data()),
+          )
+        : requestedRange
+          ? buildFallbackInsightsSummary(0, userData?.updatedAt ?? null)
+          : buildFallbackInsightsSummary(generationCount, userData?.updatedAt ?? null)
 
     return NextResponse.json({ success: true, summary })
   } catch (error) {
