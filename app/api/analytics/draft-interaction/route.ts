@@ -4,13 +4,14 @@ import { authorizeFirebaseRequest, FirebaseAuthorizationError } from "@/lib/fire
 import {
   buildSchoolAnalyticsWeeklyDelta,
   buildTeacherAnalyticsWeeklyDelta,
+  type ReactionPredictionCounts,
 } from "@/lib/analytics-school-aggregates"
 import { resolveAnalyticsHashes } from "@/lib/analytics-identifiers"
 import { buildDraftInteractionEventRecord } from "@/lib/draft-interaction-events"
 
 function buildReactionPredictionIncrementPatch(
   FieldValue: { increment: (amount: number) => unknown },
-  counts: Record<string, number>,
+  counts: ReactionPredictionCounts,
 ) {
   return Object.entries(counts).reduce<Record<string, unknown>>((patch, [prediction, amount]) => {
     if (amount > 0) {
