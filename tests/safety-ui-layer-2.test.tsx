@@ -6,7 +6,7 @@ import { ExplanationPanel } from "@/src/components/ExplanationPanel"
 import { ReactionForecast } from "@/src/components/ReactionForecast"
 
 describe("ReactionForecast", () => {
-  it("normalizes the rendered top reactions from a forecast that does not already total 100", async () => {
+  it("normalizes the rendered full forecast so visible percentages total exactly 100", async () => {
     render(
       <ReactionForecast
         riskLevel="medium"
@@ -25,8 +25,13 @@ describe("ReactionForecast", () => {
     await waitFor(() => {
       expect(screen.getByText("24%")).toBeVisible()
     })
-    expect(screen.getAllByText("23%").length).toBeGreaterThan(0)
-    expect(screen.queryByText("20%")).toBeNull()
+    const percentages = screen
+      .getAllByText(/%$/)
+      .map((node) => Number.parseInt(node.textContent ?? "0", 10))
+      .filter((value) => Number.isFinite(value))
+
+    expect(percentages).toEqual(expect.arrayContaining([24, 23, 23, 18, 12]))
+    expect(percentages.reduce((sum, value) => sum + value, 0)).toBe(100)
   })
 
   it("renders the predictor summary even for low risk drafts", () => {
@@ -54,7 +59,7 @@ describe("ReactionForecast", () => {
     expect(screen.queryByText("45%")).toBeNull()
   })
 
-  it("renders a collapsed expandable predictor for medium risk with summary visible", async () => {
+  it("renders a collapsed expandable predictor for medium risk with the full five-state model once expanded", async () => {
     render(
       <ReactionForecast
         riskLevel="medium"
@@ -79,13 +84,15 @@ describe("ReactionForecast", () => {
     await waitFor(() => {
       expect(screen.getByText("40%")).toBeVisible()
     })
+    expect(screen.getByText("Hostile")).toBeVisible()
+    expect(screen.getByText("Confused")).toBeVisible()
     expect(screen.getByText("Concerned")).toBeVisible()
     expect(screen.getAllByText("Defensive").length).toBeGreaterThan(0)
-    expect(screen.queryByText("Hostile")).toBeNull()
-    expect(screen.getByText("Showing the three most likely parent reactions.")).toBeVisible()
+    expect(screen.getByText("Collaborative")).toBeVisible()
+    expect(screen.queryByText("Showing the three most likely parent reactions.")).toBeNull()
   })
 
-  it("renders the high-risk interpretation immediately and shows only the top 3 reactions", () => {
+  it("renders the high-risk interpretation immediately and shows the full five-state forecast", () => {
     render(
       <ReactionForecast
         riskLevel="high"
@@ -105,13 +112,13 @@ describe("ReactionForecast", () => {
     expect(screen.getAllByText("Defensive").length).toBeGreaterThan(0)
     expect(screen.getByText("Concerned")).toBeVisible()
     expect(screen.getByText("Hostile")).toBeVisible()
-    expect(screen.getByText("Showing the three most likely parent reactions.")).toBeVisible()
-    expect(screen.queryByText("Confused")).toBeNull()
-    expect(screen.queryByText("Collaborative")).toBeNull()
+    expect(screen.getByText("Confused")).toBeVisible()
+    expect(screen.getByText("Collaborative")).toBeVisible()
+    expect(screen.queryByText("Showing the three most likely parent reactions.")).toBeNull()
     expect(screen.queryByRole("button", { name: /Show probability bars/i })).toBeNull()
   })
 
-  it("only renders the supported reaction categories", async () => {
+  it("only renders the supported reaction categories in expanded mode", async () => {
     render(
       <ReactionForecast
         riskLevel="medium"
@@ -131,9 +138,38 @@ describe("ReactionForecast", () => {
       expect(screen.getByText("Hostile")).toBeVisible()
     })
     expect(screen.getAllByText("Defensive").length).toBeGreaterThan(0)
+    expect(screen.getByText("Confused")).toBeVisible()
     expect(screen.getByText("Concerned")).toBeVisible()
+    expect(screen.getByText("Collaborative")).toBeVisible()
     expect(screen.queryByText("Angry")).toBeNull()
     expect(screen.queryByText("Upset")).toBeNull()
+  })
+
+  it("keeps the summary aligned with the highest-probability category", async () => {
+    render(
+      <ReactionForecast
+        riskLevel="medium"
+        forecast={{
+          collaborative: 12,
+          concerned: 18,
+          defensive: 30,
+          hostile: 25,
+          confused: 15,
+        }}
+      />,
+    )
+
+    expect(screen.getByText("Most Likely Reaction")).toBeVisible()
+    expect(screen.getByText("Defensive")).toBeVisible()
+
+    fireEvent.click(screen.getByRole("button", { name: /Show probability bars/i }))
+
+    await waitFor(() => {
+      expect(screen.getByText("30%")).toBeVisible()
+    })
+
+    const bars = screen.getAllByText(/%$/).map((node) => node.textContent)
+    expect(bars[0]).toBe("30%")
   })
 })
 

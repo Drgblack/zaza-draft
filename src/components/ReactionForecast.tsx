@@ -7,6 +7,7 @@ import { cn } from "@/lib/utils"
 import {
   interpretReactionForecast,
   normalizeReactionForecast,
+  REACTION_LADDER,
   type ReactionForecast as ReactionForecastData,
 } from "@/src/lib/safetyEngine/reactionForecaster"
 
@@ -25,23 +26,22 @@ const REACTION_LABELS: Record<keyof ReactionForecastData, string> = {
   confused: "Confused",
 }
 
-function getTopForecastEntries(forecast: ReactionForecastData) {
-  return Object.entries(forecast)
-    .filter((entry): entry is [keyof ReactionForecastData, number] => entry[1] >= 8)
+function getForecastEntries(forecast: ReactionForecastData) {
+  return REACTION_LADDER
+    .map((reaction) => [reaction, forecast[reaction]] as [keyof ReactionForecastData, number])
     .sort((left, right) => right[1] - left[1])
-    .slice(0, 3)
 }
 
 function ForecastRows({ forecast }: { forecast: ReactionForecastData }) {
-  const topEntries = getTopForecastEntries(forecast)
+  const entries = getForecastEntries(forecast)
 
-  if (topEntries.length === 0) {
+  if (entries.length === 0) {
     return null
   }
 
   return (
     <div className="mt-3 space-y-3">
-      {topEntries.map(([reaction, value]) => (
+      {entries.map(([reaction, value]) => (
         <div
           key={reaction}
           className="rounded-xl border border-slate-200 bg-white/80 p-3 shadow-sm dark:border-slate-700 dark:bg-slate-950/30"
@@ -62,11 +62,6 @@ function ForecastRows({ forecast }: { forecast: ReactionForecastData }) {
           </div>
         </div>
       ))}
-      {topEntries.length === 3 ? (
-        <p className="text-xs leading-relaxed text-slate-500 dark:text-slate-300">
-          Showing the three most likely parent reactions.
-        </p>
-      ) : null}
     </div>
   )
 }
@@ -123,13 +118,13 @@ function ForecastSummary({
 export function ReactionForecast({ forecast, riskLevel }: ReactionForecastProps) {
   const [open, setOpen] = useState(riskLevel === "high")
   const normalizedForecast = useMemo(() => normalizeReactionForecast(forecast), [forecast])
-  const topEntries = useMemo(() => getTopForecastEntries(normalizedForecast), [normalizedForecast])
+  const entries = useMemo(() => getForecastEntries(normalizedForecast), [normalizedForecast])
 
   useEffect(() => {
     setOpen(riskLevel === "high")
   }, [riskLevel, normalizedForecast])
 
-  if (topEntries.length === 0) {
+  if (entries.length === 0) {
     return null
   }
 
