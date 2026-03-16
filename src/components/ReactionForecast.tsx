@@ -38,14 +38,19 @@ function ForecastRows({ forecast }: { forecast: ReactionForecastData }) {
   return (
     <div className="mt-3 space-y-3">
       {topEntries.map(([reaction, value]) => (
-        <div key={reaction} className="space-y-1.5">
+        <div
+          key={reaction}
+          className="rounded-xl border border-slate-200 bg-white/80 p-3 shadow-sm dark:border-slate-700 dark:bg-slate-950/30"
+        >
           <div className="flex items-center justify-between gap-3 text-sm">
             <span className="font-medium text-slate-900 dark:text-slate-100">
               {REACTION_LABELS[reaction]}
             </span>
-            <span className="text-slate-600 dark:text-slate-300">{value}%</span>
+            <span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-700 dark:bg-slate-800 dark:text-slate-200">
+              {value}%
+            </span>
           </div>
-          <div className="h-2 overflow-hidden rounded-full bg-slate-200 dark:bg-slate-700">
+          <div className="mt-2.5 h-2 overflow-hidden rounded-full bg-slate-200 dark:bg-slate-700">
             <div
               className="h-full rounded-full bg-slate-700 transition-[width] dark:bg-slate-200"
               style={{ width: `${value}%` }}
@@ -72,9 +77,14 @@ export function ReactionForecast({ forecast, riskLevel }: ReactionForecastProps)
   if (riskLevel === "high") {
     return (
       <div className="rounded-xl border border-rose-200 bg-white p-4 shadow-sm dark:border-rose-500/20 dark:bg-slate-900/60">
-        <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">
-          Parent Reaction Forecast
-        </p>
+        <div className="space-y-1">
+          <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">
+            Parent Reaction Forecast
+          </p>
+          <p className="text-xs leading-relaxed text-slate-600 dark:text-slate-300">
+            Most likely parent reactions based on the current tone and wording.
+          </p>
+        </div>
         <ForecastRows forecast={forecast} />
       </div>
     )
@@ -92,8 +102,13 @@ export function ReactionForecast({ forecast, riskLevel }: ReactionForecastProps)
           open && "mb-3",
         )}
       >
-        <span>Parent Reaction Forecast</span>
-        <span aria-hidden="true">▾</span>
+        <div className="space-y-1">
+          <span className="block">Parent Reaction Forecast</span>
+          <span className="block text-xs font-normal leading-relaxed text-slate-600 dark:text-slate-300">
+            Most likely parent reactions based on the current tone and wording.
+          </span>
+        </div>
+        <span aria-hidden="true" className="shrink-0 text-slate-500 dark:text-slate-300">▾</span>
       </CollapsibleTrigger>
       <CollapsibleContent>
         <ForecastRows forecast={forecast} />

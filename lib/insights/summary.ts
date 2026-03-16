@@ -49,7 +49,7 @@ export type InsightsSummary = {
 }
 
 export type InsightSnippetRecord = {
-  createdAt?: string | null
+  createdAt?: unknown
 }
 
 export type InsightEventRecord = Partial<DraftInteractionEventRecord>
@@ -62,8 +62,36 @@ function roundToSingleDecimal(value: number) {
   return Math.round(value * 10) / 10
 }
 
-function parseIsoDate(value?: string | null) {
+function parseIsoDate(value?: unknown) {
   if (!value) {
+    return null
+  }
+
+  if (value instanceof Date) {
+    return Number.isNaN(value.getTime()) ? null : value
+  }
+
+  if (
+    typeof value === "object" &&
+    value !== null &&
+    "toDate" in value &&
+    typeof (value as { toDate?: unknown }).toDate === "function"
+  ) {
+    const parsed = (value as { toDate: () => Date }).toDate()
+    return Number.isNaN(parsed.getTime()) ? null : parsed
+  }
+
+  if (
+    typeof value === "object" &&
+    value !== null &&
+    "seconds" in value &&
+    typeof (value as { seconds?: unknown }).seconds === "number"
+  ) {
+    const parsed = new Date((value as { seconds: number }).seconds * 1000)
+    return Number.isNaN(parsed.getTime()) ? null : parsed
+  }
+
+  if (typeof value !== "string" && typeof value !== "number") {
     return null
   }
 
@@ -246,6 +274,44 @@ export function buildFallbackInsightsSummary(
     },
     weeklyReflection: null,
     updatedAt,
+  }
+}
+
+function getSummaryDraftCount(summary?: InsightsSummary | null) {
+  return summary?.draftsCreated?.total ?? 0
+}
+
+function getSummaryTimeSaved(summary?: InsightsSummary | null) {
+  return summary?.timeSaved?.minutes ?? summary?.timeSaved?.hours ?? 0
+}
+
+export function mergeInsightsSummaries(
+  eventSummary: InsightsSummary,
+  snippetSummary?: InsightsSummary | null,
+): InsightsSummary {
+  if (!snippetSummary) {
+    return eventSummary
+  }
+
+  const eventDraftCount = getSummaryDraftCount(eventSummary)
+  const snippetDraftCount = getSummaryDraftCount(snippetSummary)
+  const usageSummary =
+    snippetDraftCount > eventDraftCount ||
+    (snippetDraftCount === eventDraftCount &&
+      getSummaryTimeSaved(snippetSummary) > getSummaryTimeSaved(eventSummary))
+      ? snippetSummary
+      : eventSummary
+
+  return {
+    ...eventSummary,
+    draftsCreated: usageSummary.draftsCreated ?? eventSummary.draftsCreated,
+    timeSaved: usageSummary.timeSaved ?? eventSummary.timeSaved,
+    currentStreak: usageSummary.currentStreak ?? eventSummary.currentStreak,
+    qualityScore:
+      eventDraftCount > 0
+        ? eventSummary.qualityScore
+        : usageSummary.qualityScore ?? eventSummary.qualityScore,
+    updatedAt: eventSummary.updatedAt ?? usageSummary.updatedAt ?? null,
   }
 }
 

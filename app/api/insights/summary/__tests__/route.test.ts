@@ -16,10 +16,17 @@ type AnalyticsEventRecord = {
   teacher_intent?: string | null
 }
 
+type SnippetRecord = {
+  createdAt: unknown
+}
+
 const testState = vi.hoisted(() => ({
   uid: "teacher-1",
   lastTeacherHash: null as string | null,
   analyticsEvents: [] as AnalyticsEventRecord[],
+  snippets: [] as SnippetRecord[],
+  userUpdatedAt: null as string | null,
+  generationCount: 0,
   queryError: null as Error | null,
 }))
 
@@ -31,25 +38,27 @@ vi.mock("@/lib/firebase/server", () => ({
 }))
 
 function buildQuery(
-  records: AnalyticsEventRecord[],
+  records: Array<Record<string, unknown>>,
+  source: "events" | "snippets",
   filters: Array<{ field: string; op: string; value: string }> = [],
   take = 2000,
+  orderField: string | null = null,
 ) {
   return {
     where(field: string, op: string, value: string) {
       if (field === "teacher_hash" && op === "==") {
         testState.lastTeacherHash = value
       }
-      return buildQuery(records, [...filters, { field, op, value }], take)
+      return buildQuery(records, source, [...filters, { field, op, value }], take, orderField)
     },
-    orderBy() {
-      return this
+    orderBy(field: string) {
+      return buildQuery(records, source, filters, take, field)
     },
     limit(nextTake: number) {
-      return buildQuery(records, filters, nextTake)
+      return buildQuery(records, source, filters, nextTake, orderField)
     },
     async get() {
-      if (testState.queryError) {
+      if (source === "events" && testState.queryError) {
         throw testState.queryError
       }
 
@@ -71,7 +80,10 @@ function buildQuery(
         })
       }
 
-      filtered.sort((left, right) => right.timestamp.localeCompare(left.timestamp))
+      const sortField = orderField ?? (source === "events" ? "timestamp" : "createdAt")
+      filtered.sort((left, right) =>
+        String(right[sortField] ?? "").localeCompare(String(left[sortField] ?? "")),
+      )
       const docs = filtered.slice(0, take).map((record) => ({
         data: () => record,
       }))
@@ -87,8 +99,34 @@ function buildQuery(
 function createFirestoreStub() {
   return {
     collection(name: string) {
-      expect(name).toBe("analyticsEvents")
-      return buildQuery(testState.analyticsEvents)
+      if (name === "analyticsEvents") {
+        return buildQuery(testState.analyticsEvents as Array<Record<string, unknown>>, "events")
+      }
+
+      if (name === "users") {
+        return {
+          doc(id: string) {
+            expect(id).toBe(testState.uid)
+            return {
+              async get() {
+                return {
+                  exists: Boolean(testState.userUpdatedAt || testState.generationCount),
+                  data: () => ({
+                    updatedAt: testState.userUpdatedAt,
+                    monthlyUsage: { generationCount: testState.generationCount },
+                  }),
+                }
+              },
+              collection(childName: string) {
+                expect(childName).toBe("snippets")
+                return buildQuery(testState.snippets as Array<Record<string, unknown>>, "snippets")
+              },
+            }
+          },
+        }
+      }
+
+      throw new Error(`Unexpected collection ${name}`)
     },
   }
 }
@@ -109,6 +147,10 @@ function createDraftEvent(
   }
 }
 
+function createSnippet(createdAt: unknown): SnippetRecord {
+  return { createdAt }
+}
+
 describe("GET /api/insights/summary", () => {
   beforeEach(() => {
     vi.useFakeTimers()
@@ -117,6 +159,9 @@ describe("GET /api/insights/summary", () => {
     testState.uid = "teacher-1"
     testState.lastTeacherHash = null
     testState.analyticsEvents = []
+    testState.snippets = []
+    testState.userUpdatedAt = null
+    testState.generationCount = 0
     testState.queryError = null
     vi.clearAllMocks()
     vi.mocked(authorizeFirebaseRequest).mockImplementation(
@@ -198,18 +243,41 @@ describe("GET /api/insights/summary", () => {
     expect(json.summary.timeSaved.minutes).toBe(0)
   })
 
-  it("falls back to the empty insights state while Firestore indexes are building", async () => {
-    testState.queryError = Object.assign(new Error("FAILED_PRECONDITION: The query requires an index."), {
-      code: "failed-precondition",
-    })
+  it("falls back to snippet history when analytics events are sparse", async () => {
+    testState.analyticsEvents = [
+      createDraftEvent("teacher-1", {
+        timestamp: "2026-03-20T10:00:00.000Z",
+        event_name: "risk_flag_triggered",
+      }),
+    ]
+    testState.snippets = [
+      createSnippet("2026-03-20T10:00:00.000Z"),
+      createSnippet("2026-03-19T10:00:00.000Z"),
+      createSnippet("2026-03-18T10:00:00.000Z"),
+    ]
 
     const response = await GET(new Request("http://localhost/api/insights/summary"))
     const json = await response.json()
 
     expect(response.status).toBe(200)
     expect(json.success).toBe(true)
-    expect(json.emptyReason).toBe("index_building")
-    expect(json.summary.draftsCreated.total).toBe(0)
+    expect(json.summary.draftsCreated.total).toBe(3)
+    expect(json.summary.communicationLoad.score).toBeGreaterThan(0)
+  })
+
+  it("falls back to snippet history while Firestore indexes are building", async () => {
+    testState.queryError = Object.assign(new Error("FAILED_PRECONDITION: The query requires an index."), {
+      code: "failed-precondition",
+    })
+    testState.snippets = [createSnippet("2026-03-20T10:00:00.000Z")]
+
+    const response = await GET(new Request("http://localhost/api/insights/summary"))
+    const json = await response.json()
+
+    expect(response.status).toBe(200)
+    expect(json.success).toBe(true)
+    expect(json.degraded).toBe(true)
+    expect(json.summary.draftsCreated.total).toBe(1)
   })
 
   it("returns teacher communication load trends from weekly event data", async () => {
@@ -316,6 +384,17 @@ describe("GET /api/insights/summary", () => {
 
     expect(response.status).toBe(200)
     expect(json.summary.draftsCreated.total).toBe(0)
+  })
+
+  it("uses generation count as the last historical fallback when analytics and snippets are unavailable", async () => {
+    testState.generationCount = 12
+    testState.userUpdatedAt = "2026-03-20T10:00:00.000Z"
+
+    const response = await GET(new Request("http://localhost/api/insights/summary"))
+    const json = await response.json()
+
+    expect(response.status).toBe(200)
+    expect(json.summary.draftsCreated.total).toBe(12)
   })
 
   it("builds the weekly reflection from the last 7 days only", async () => {

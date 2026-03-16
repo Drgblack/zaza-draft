@@ -325,18 +325,21 @@ export function DraftOutput({
           border: "border-emerald-200 dark:border-emerald-500/30",
           background: "bg-emerald-50 dark:bg-emerald-950/20",
           badge: "bg-emerald-100 text-emerald-800 dark:bg-emerald-500/20 dark:text-emerald-100",
+          icon: "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-100",
         }
       case "ESCALATION_RISK":
         return {
           border: "border-rose-200 dark:border-rose-500/30",
           background: "bg-rose-50 dark:bg-rose-950/20",
           badge: "bg-rose-100 text-rose-800 dark:bg-rose-500/20 dark:text-rose-100",
+          icon: "bg-rose-100 text-rose-700 dark:bg-rose-500/20 dark:text-rose-100",
         }
       default:
         return {
           border: "border-amber-200 dark:border-amber-500/30",
           background: "bg-amber-50 dark:bg-amber-950/20",
           badge: "bg-amber-100 text-amber-800 dark:bg-amber-500/20 dark:text-amber-100",
+          icon: "bg-amber-100 text-amber-700 dark:bg-amber-500/20 dark:text-amber-100",
         }
     }
   }, [safeToSend?.status])
@@ -468,19 +471,32 @@ export function DraftOutput({
 
         {safeToSend ? (
           <div
-            className={`mb-4 rounded-xl border p-4 ${safeToSendStyles.border} ${safeToSendStyles.background}`}
+            className={`mb-4 rounded-2xl border p-4 sm:p-5 ${safeToSendStyles.border} ${safeToSendStyles.background}`}
           >
-            <div className="flex flex-wrap items-center gap-2">
-              <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">
-                {t("draft.safeToSend.label")}
-              </p>
-              <Badge className={`rounded-full px-3 py-1 text-[11px] font-semibold tracking-wide ${safeToSendStyles.badge}`}>
-                {t(safeToSend.titleKey)}
-              </Badge>
+            <div className="flex items-start gap-3">
+              <div
+                className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl ${safeToSendStyles.icon}`}
+              >
+                {safeToSend.status === "SAFE_TO_SEND" ? (
+                  <Check size={18} />
+                ) : (
+                  <AlertCircle size={18} />
+                )}
+              </div>
+              <div className="min-w-0 space-y-2">
+                <div className="flex flex-wrap items-center gap-2">
+                  <p className="text-xs font-semibold uppercase tracking-[0.14em] text-gray-500 dark:text-gray-300">
+                    {t("draft.safeToSend.label")}
+                  </p>
+                  <Badge className={`rounded-full px-3 py-1 text-[11px] font-semibold tracking-wide ${safeToSendStyles.badge}`}>
+                    {t(safeToSend.titleKey)}
+                  </Badge>
+                </div>
+                <p className="text-sm leading-relaxed text-gray-700 dark:text-gray-200">
+                  {t(safeToSend.descriptionKey)}
+                </p>
+              </div>
             </div>
-            <p className="mt-2 text-sm leading-relaxed text-gray-700 dark:text-gray-200">
-              {t(safeToSend.descriptionKey)}
-            </p>
           </div>
         ) : null}
 

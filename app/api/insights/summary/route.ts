@@ -5,7 +5,10 @@ import { authorizeFirebaseRequest, FirebaseAuthorizationError } from "@/lib/fire
 import {
   buildFallbackInsightsSummary,
   buildInsightsSummaryFromEvents,
+  buildInsightsSummaryFromSnippets,
+  mergeInsightsSummaries,
   type InsightEventRecord,
+  type InsightSnippetRecord,
   normalizeInsightsRangeDays,
 } from "@/lib/insights/summary"
 
@@ -67,16 +70,65 @@ export async function GET(req: Request) {
     const fourWeekTrendStart = new Date(now - 28 * 86_400_000).toISOString()
     const fetchStart = previousRangeStart < fourWeekTrendStart ? previousRangeStart : fourWeekTrendStart
     const teacherHash = buildTeacherHash(uid)
+    const userRef = firestore.collection("users").doc(uid)
+    const snippetCollection = userRef.collection("snippets")
 
-    const eventsSnapshot = await firestore
-      .collection("analyticsEvents")
-      .where("teacher_hash", "==", teacherHash)
-      .where("timestamp", ">=", fetchStart)
-      .orderBy("timestamp", "desc")
-      .limit(2000)
-      .get()
+    const [userSnapshot, eventsResult, currentSnippetsResult, previousSnippetsResult] =
+      await Promise.allSettled([
+        userRef.get(),
+        firestore
+          .collection("analyticsEvents")
+          .where("teacher_hash", "==", teacherHash)
+          .where("timestamp", ">=", fetchStart)
+          .orderBy("timestamp", "desc")
+          .limit(2000)
+          .get(),
+        snippetCollection
+          .where("createdAt", ">=", currentRangeStart)
+          .orderBy("createdAt", "desc")
+          .limit(500)
+          .get(),
+        snippetCollection
+          .where("createdAt", ">=", previousRangeStart)
+          .where("createdAt", "<", currentRangeStart)
+          .orderBy("createdAt", "desc")
+          .limit(500)
+          .get(),
+      ])
 
-    const events = eventsSnapshot.docs.map((doc) => doc.data() as InsightEventRecord)
+    const userData =
+      userSnapshot.status === "fulfilled" && userSnapshot.value.exists
+        ? (userSnapshot.value.data() as { updatedAt?: string | null; monthlyUsage?: { generationCount?: unknown } })
+        : null
+    const generationCount =
+      typeof userData?.monthlyUsage?.generationCount === "number"
+        ? userData.monthlyUsage.generationCount
+        : 0
+
+    const eventsError = eventsResult.status === "rejected" ? eventsResult.reason : null
+    if (eventsError && !isFirestoreIndexPreconditionError(eventsError)) {
+      console.error("[insights] analytics event query failed; falling back to snippets", eventsError)
+    }
+    if (currentSnippetsResult.status === "rejected") {
+      console.error("[insights] current snippet query failed", currentSnippetsResult.reason)
+    }
+    if (previousSnippetsResult.status === "rejected") {
+      console.error("[insights] previous snippet query failed", previousSnippetsResult.reason)
+    }
+
+    const events =
+      eventsResult.status === "fulfilled"
+        ? eventsResult.value.docs.map((doc) => doc.data() as InsightEventRecord)
+        : []
+    const currentSnippets =
+      currentSnippetsResult.status === "fulfilled"
+        ? currentSnippetsResult.value.docs.map((doc) => doc.data() as InsightSnippetRecord)
+        : []
+    const previousSnippets =
+      previousSnippetsResult.status === "fulfilled"
+        ? previousSnippetsResult.value.docs.map((doc) => doc.data() as InsightSnippetRecord)
+        : []
+
     const { currentEvents, previousEvents } = splitEventsByRange(
       events,
       currentRangeStart,
@@ -89,7 +141,11 @@ export async function GET(req: Request) {
     const weeklyEvents = events.filter(
       (event) => typeof event.timestamp === "string" && event.timestamp >= weeklyReflectionStart,
     )
-    const summary =
+    const snippetSummary =
+      currentSnippets.length > 0
+        ? buildInsightsSummaryFromSnippets(currentSnippets, previousSnippets)
+        : null
+    const eventSummary =
       events.length > 0
         ? buildInsightsSummaryFromEvents(
             currentEvents,
@@ -97,19 +153,25 @@ export async function GET(req: Request) {
             recentEvents,
             weeklyEvents,
           )
-        : buildFallbackInsightsSummary(0, null)
+        : null
+    const summary = eventSummary
+      ? mergeInsightsSummaries(eventSummary, snippetSummary)
+      : snippetSummary ??
+        buildFallbackInsightsSummary(
+          generationCount,
+          typeof userData?.updatedAt === "string" ? userData.updatedAt : null,
+        )
 
-    return NextResponse.json({ success: true, summary })
+    return NextResponse.json({
+      success: true,
+      summary,
+      degraded: Boolean(eventsError),
+      emptyReason:
+        isFirestoreIndexPreconditionError(eventsError) && !snippetSummary && generationCount === 0
+          ? "index_building"
+          : undefined,
+    })
   } catch (error) {
-    if (isFirestoreIndexPreconditionError(error)) {
-      return NextResponse.json({
-        success: true,
-        summary: buildFallbackInsightsSummary(0, null),
-        degraded: true,
-        emptyReason: "index_building",
-      })
-    }
-
     const status =
       error instanceof FirebaseAuthorizationError ? error.statusCode : 401
 

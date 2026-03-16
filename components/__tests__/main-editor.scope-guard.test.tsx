@@ -347,4 +347,27 @@ describe("MainEditor scope guard notice", () => {
 
     expect(screen.queryByTestId("draft-output-body")).toBeNull()
   })
+
+  it("clears the generated output after moving the draft into the editor for editing", async () => {
+    mockLocale = "en-GB"
+
+    render(<MainEditor />)
+
+    const prompt = getPromptTextarea()
+    fireEvent.change(prompt, { target: { value: "Write a parent message about reading progress." } })
+
+    clickGenerateButton()
+
+    await waitFor(() => {
+      expect(screen.queryByTestId("draft-output-body")).not.toBeNull()
+    })
+
+    fireEvent.click(screen.getAllByRole("button", { name: "draft.button.edit" })[0])
+
+    await waitFor(() => {
+      expect(screen.queryByTestId("draft-output-body")).toBeNull()
+    })
+
+    expect(getPromptTextarea().value).toContain("reading progress update for Jamie")
+  })
 })

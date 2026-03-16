@@ -1180,7 +1180,9 @@ export function MainEditor({ canExport = true }: MainEditorProps = {}) {
       rewriteSuggestionPendingRef.current = false
     }
     clearPanicScanHandoff()
-    setContent(appendDraftAttribution(generatedDraft, draftAttributionLine))
+    const nextEditorContent = appendDraftAttribution(generatedDraft, draftAttributionLine)
+    resetGeneratedOutput()
+    setContent(nextEditorContent)
     focusEditor()
   }
 

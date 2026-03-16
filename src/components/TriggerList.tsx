@@ -17,12 +17,8 @@ interface TriggerListProps {
   riskLevel: RiskLevel
 }
 
-function formatTriggerLabel(signal: TriggerSignal): string {
-  if (!signal.matchedPhrase) {
-    return signal.label
-  }
-
-  return `${signal.label} ("${signal.matchedPhrase}")`
+function getMatchedPhrase(signal: TriggerSignal): string | null {
+  return signal.matchedPhrase ? `"${signal.matchedPhrase}"` : null
 }
 
 export function TriggerList({ triggeredSignals, riskLevel }: TriggerListProps) {
@@ -40,16 +36,26 @@ export function TriggerList({ triggeredSignals, riskLevel }: TriggerListProps) {
     return (
       <div className="rounded-xl border border-rose-200 bg-rose-50/70 p-4 shadow-sm dark:border-rose-500/20 dark:bg-rose-500/10">
         <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">Triggers detected:</p>
-        <ul className="mt-3 space-y-2">
+        <ul className="mt-3 space-y-2.5">
           {triggeredSignals.map((signal) => (
             <li
               key={signal.id}
-              className="flex items-start gap-2 text-sm leading-relaxed text-slate-700 dark:text-slate-200"
+              className="rounded-xl border border-rose-100 bg-white/80 p-3 shadow-sm dark:border-rose-400/10 dark:bg-slate-950/30"
             >
-              <span aria-hidden="true" className="mt-0.5 text-slate-500 dark:text-slate-400">
-                •
-              </span>
-              <span>{formatTriggerLabel(signal)}</span>
+              <div className="flex flex-wrap items-start gap-2">
+                <span
+                  aria-hidden="true"
+                  className="mt-1 inline-flex h-2.5 w-2.5 shrink-0 rounded-full bg-rose-400 dark:bg-rose-300"
+                />
+                <span className="text-sm font-medium leading-relaxed text-slate-800 dark:text-slate-100">
+                  {signal.label}
+                </span>
+                {getMatchedPhrase(signal) ? (
+                  <span className="rounded-full bg-rose-100 px-2.5 py-1 text-xs font-medium text-rose-800 dark:bg-rose-500/20 dark:text-rose-100">
+                    {getMatchedPhrase(signal)}
+                  </span>
+                ) : null}
+              </div>
             </li>
           ))}
         </ul>
@@ -74,16 +80,26 @@ export function TriggerList({ triggeredSignals, riskLevel }: TriggerListProps) {
         <span>{triggerCountLabel}</span>
       </CollapsibleTrigger>
       <CollapsibleContent>
-        <ul className="space-y-2">
+        <ul className="space-y-2.5">
           {triggeredSignals.map((signal) => (
             <li
               key={signal.id}
-              className="flex items-start gap-2 text-sm leading-relaxed text-slate-700 dark:text-slate-200"
+              className="rounded-xl border border-amber-100 bg-white/80 p-3 shadow-sm dark:border-amber-400/10 dark:bg-slate-950/30"
             >
-              <span aria-hidden="true" className="mt-0.5 text-slate-500 dark:text-slate-400">
-                •
-              </span>
-              <span>{formatTriggerLabel(signal)}</span>
+              <div className="flex flex-wrap items-start gap-2">
+                <span
+                  aria-hidden="true"
+                  className="mt-1 inline-flex h-2.5 w-2.5 shrink-0 rounded-full bg-amber-400 dark:bg-amber-300"
+                />
+                <span className="text-sm font-medium leading-relaxed text-slate-800 dark:text-slate-100">
+                  {signal.label}
+                </span>
+                {getMatchedPhrase(signal) ? (
+                  <span className="rounded-full bg-amber-100 px-2.5 py-1 text-xs font-medium text-amber-800 dark:bg-amber-500/20 dark:text-amber-100">
+                    {getMatchedPhrase(signal)}
+                  </span>
+                ) : null}
+              </div>
             </li>
           ))}
         </ul>

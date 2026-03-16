@@ -1,3 +1,6 @@
+/*
+Manual integration checklist placeholder.
+
 Given: Sally harsh-notes input, Professional tone, Parent message mode
 When: the draft route is called
 Then:
@@ -7,3 +10,6 @@ Then:
   - output ends with a sign-off block
   - output does NOT contain "calm update"
   - output mentions at least two of: lateness, behaviour, homework
+*/
+
+export {}
