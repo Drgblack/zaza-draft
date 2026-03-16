@@ -82,7 +82,11 @@ describe("TriggerList", () => {
       expect(screen.getByText("Judgement wording")).toBeVisible()
     })
     expect(screen.getByText("Missing collaboration invitation")).toBeVisible()
-    expect(screen.getByText('Detected: "your child refuses" • Signal: Direct accusation')).toBeVisible()
+    expect(
+      screen.getByText('Example from draft: "your child refuses" • Why Draft flagged this: Direct accusation'),
+    ).toBeVisible()
+    expect(screen.queryByText(/Detected:/)).toBeNull()
+    expect(screen.queryByText(/Signal:/)).toBeNull()
   })
 
   it("keeps high-risk panels collapsed by default and includes professional-risk labels", async () => {
@@ -118,6 +122,6 @@ describe("TriggerList", () => {
       expect(screen.getByText("Judgement wording")).toBeVisible()
     })
     expect(screen.getByText("Medical or diagnostic speculation")).toBeVisible()
-    expect(screen.getByText('Detected: "ADHD"')).toBeVisible()
+    expect(screen.getByText('Example from draft: "ADHD"')).toBeVisible()
   })
 })

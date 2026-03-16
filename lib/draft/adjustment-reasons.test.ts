@@ -120,7 +120,7 @@ describe("buildDraftAdjustmentSummary", () => {
         "Replaced judgement wording with observation-based phrasing",
         "Added a more collaborative next step",
       ]),
-    ).toBe("Draft replaced judgemental wording with observation-based phrasing and added a collaborative next step.")
+    ).toBe("Draft replaced judgmental wording with observation-based phrasing and added a collaborative next step.")
   })
 
   it("returns null when there are no adjustment reasons", () => {

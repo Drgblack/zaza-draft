@@ -492,7 +492,10 @@ describe("MainEditor scope guard notice", () => {
 
     render(<MainEditor />)
 
-    fireEvent.change(getPromptTextarea(), { target: { value: "I think he may have ADHD" } })
+    fireEvent.change(
+      getPromptTextarea(),
+      { target: { value: "I wonder if he might be on the autism spectrum because he seems anxious and deliberately ignores instructions." } },
+    )
     clickGenerateButton()
 
     await waitFor(() => {
@@ -503,10 +506,13 @@ describe("MainEditor scope guard notice", () => {
       screen.getByText(/medical or diagnostic speculation/i),
     ).toBeInTheDocument()
     expect(screen.getByText("Safer example")).toBeInTheDocument()
+    expect(screen.getByText("Parent-safe version")).toBeInTheDocument()
     expect(screen.getByRole("button", { name: "Create a parent-safe version" })).toBeInTheDocument()
+    expect(screen.queryByText(/Unsafe:/i)).toBeNull()
     expect(screen.getByTestId("diagnostic-recovery-preview")).toHaveTextContent(
       "He sometimes finds it difficult to stay focused during longer tasks and benefits from clear step-by-step instructions.",
     )
+    expect(screen.getByTestId("diagnostic-recovery-preview")).not.toHaveTextContent(/autism|autistic|ADHD|anxious|deliberately/i)
     expect(screen.queryByText("Parent Reaction Predictor")).toBeNull()
     expect(screen.queryByText("This doesn't look like a school report or parent message.")).toBeNull()
     expect(screen.queryByTestId("draft-output-body")).toBeNull()

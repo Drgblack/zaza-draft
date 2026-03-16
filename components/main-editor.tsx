@@ -399,6 +399,20 @@ export function MainEditor({ canExport = true }: MainEditorProps = {}) {
         : null,
     [blockedDiagnosticVisible, content],
   )
+  const diagnosticSafeExample = useMemo(() => {
+    if (!blockedDiagnosticVisible || !blockedLanguageContext) {
+      return null
+    }
+
+    return (
+      blockedLanguageContext.safeAlternatives.find((alternative) =>
+        alternative.toLowerCase().startsWith("safer:"),
+      ) ??
+      blockedLanguageContext.safeAlternatives[0] ??
+      null
+    )
+  }, [blockedDiagnosticVisible, blockedLanguageContext])
+  const diagnosticSafeExampleText = diagnosticSafeExample?.replace(/^Safer:\s*/i, "").trim() ?? null
   const showToneSofteningExplanation = useMemo(
     () => shouldShowToneSofteningExplanation(explanationTier, adjustmentReasons),
     [adjustmentReasons, explanationTier],
@@ -1437,19 +1451,19 @@ Examples:
                     <p className="text-xs font-semibold uppercase tracking-[0.12em] text-amber-700">
                       {locale === "de-DE" ? "Sicheres Beispiel" : "Safer example"}
                     </p>
-                    <div className="mt-2 space-y-2 text-sm leading-relaxed text-slate-800">
-                      {blockedLanguageContext.safeAlternatives.map((alternative, idx) => (
-                        <p key={idx}>{alternative}</p>
-                      ))}
-                    </div>
+                    {diagnosticSafeExampleText ? (
+                      <div className="mt-2 space-y-2 text-sm leading-relaxed text-slate-800">
+                        <p>{diagnosticSafeExampleText}</p>
+                      </div>
+                    ) : null}
                   </div>
 
                   {diagnosticRecovery ? (
                     <div className="rounded-xl border border-amber-200 bg-white/85 p-4">
                       <p className="text-xs font-semibold uppercase tracking-[0.12em] text-amber-700">
                         {locale === "de-DE"
-                          ? "Beobachtungsbasierte Version"
-                          : "Observation-based recovery"}
+                          ? "Elternsichere Version"
+                          : "Parent-safe version"}
                       </p>
                       <p
                         data-testid="diagnostic-recovery-preview"

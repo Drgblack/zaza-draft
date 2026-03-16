@@ -82,6 +82,7 @@ describe("ReactionForecast", () => {
     expect(screen.getByText("Concerned")).toBeVisible()
     expect(screen.getAllByText("Defensive").length).toBeGreaterThan(0)
     expect(screen.queryByText("Hostile")).toBeNull()
+    expect(screen.getByText("Showing the three most likely parent reactions.")).toBeVisible()
   })
 
   it("renders the high-risk interpretation immediately and shows only the top 3 reactions", () => {
@@ -104,6 +105,7 @@ describe("ReactionForecast", () => {
     expect(screen.getAllByText("Defensive").length).toBeGreaterThan(0)
     expect(screen.getByText("Concerned")).toBeVisible()
     expect(screen.getByText("Hostile")).toBeVisible()
+    expect(screen.getByText("Showing the three most likely parent reactions.")).toBeVisible()
     expect(screen.queryByText("Confused")).toBeNull()
     expect(screen.queryByText("Collaborative")).toBeNull()
     expect(screen.queryByRole("button", { name: /Show probability bars/i })).toBeNull()

@@ -92,7 +92,7 @@ export function shouldShowToneSofteningExplanation(
 
 const ADJUSTMENT_SUMMARY_FRAGMENTS: Record<string, string> = {
   "Replaced judgement wording with observation-based phrasing":
-    "replaced judgemental wording with observation-based phrasing",
+    "replaced judgmental wording with observation-based phrasing",
   "Removed diagnostic speculation": "removed diagnostic speculation",
   "Added a more collaborative next step": "added a collaborative next step",
   "Softened escalation risk": "softened escalation language",

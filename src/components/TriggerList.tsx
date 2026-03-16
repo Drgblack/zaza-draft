@@ -54,6 +54,9 @@ function getFriendlyLabel(signal: { id: string; category?: string; label: string
   if (signal.category === "accusation" || signal.category === "negative_generalisation") {
     return "Judgement wording"
   }
+  if (normalizedLabel === "absolute negative statement") {
+    return "Strong negative wording"
+  }
   return signal.label
 }
 
@@ -163,9 +166,11 @@ export function TriggerList({
               </div>
               {(item.matchedPhrase || item.technicalLabel !== item.label) && (
                 <p className="mt-2 text-xs leading-relaxed text-slate-500 dark:text-slate-300">
-                  {item.matchedPhrase ? `Detected: "${item.matchedPhrase}"` : null}
+                  {item.matchedPhrase ? `Example from draft: "${item.matchedPhrase}"` : null}
                   {item.matchedPhrase && item.technicalLabel !== item.label ? " • " : null}
-                  {item.technicalLabel !== item.label ? `Signal: ${item.technicalLabel}` : null}
+                  {item.technicalLabel !== item.label
+                    ? `Why Draft flagged this: ${item.technicalLabel}`
+                    : null}
                 </p>
               )}
             </li>

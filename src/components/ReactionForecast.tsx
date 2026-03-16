@@ -62,6 +62,11 @@ function ForecastRows({ forecast }: { forecast: ReactionForecastData }) {
           </div>
         </div>
       ))}
+      {topEntries.length === 3 ? (
+        <p className="text-xs leading-relaxed text-slate-500 dark:text-slate-300">
+          Showing the three most likely parent reactions.
+        </p>
+      ) : null}
     </div>
   )
 }
