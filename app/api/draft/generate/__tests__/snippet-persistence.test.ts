@@ -254,6 +254,7 @@ describe("snippet persistence", () => {
 
   it("persists snippets even when subject is missing", async () => {
     const { POST } = await import("@/app/api/draft/generate/route")
+    const { generateDraftWithFallback } = await import("@/lib/draft/fallback")
     const request = new Request("http://localhost/api/draft/generate", {
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: "Bearer token" },
@@ -269,6 +270,7 @@ describe("snippet persistence", () => {
     expect(response.status).toBe(200)
     expect(json.success).toBe(true)
     expect(snippetSet).toHaveBeenCalledOnce()
+    expect(generateDraftWithFallback).toHaveBeenCalledOnce()
     const contextUsed = snippetSet.mock.calls[0][0].contextUsed
     expect(contextUsed).toHaveProperty("requestId")
     expect(contextUsed).not.toHaveProperty("subject")
@@ -276,6 +278,7 @@ describe("snippet persistence", () => {
 
   it("records a stable snippet payload with usage metadata", async () => {
     const { POST } = await import("@/app/api/draft/generate/route")
+    const { generateDraftWithFallback } = await import("@/lib/draft/fallback")
     const request = new Request("http://localhost/api/draft/generate", {
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: "Bearer token" },
@@ -291,6 +294,7 @@ describe("snippet persistence", () => {
     const json = await response.json()
     expect(json.success).toBe(true)
     expect(snippetSet).toHaveBeenCalledOnce()
+    expect(generateDraftWithFallback).toHaveBeenCalledOnce()
     const snippetPayload = snippetSet.mock.calls[0][0]
     expect(snippetPayload).toMatchObject({
       tone: "professional",
@@ -299,6 +303,7 @@ describe("snippet persistence", () => {
       mode: "parent_message",
       signatureBlock: "Kind regards,\nMiss Teacher",
     })
+    expect(snippetPayload.generatedText).toBe(json.data.generatedDraft)
     expect(snippetPayload.generatedText).toContain("Subject: Classroom update")
     expect(snippetPayload.generatedText).toContain("Kind regards")
     expect(snippetPayload.requestId).toBe("snippet-id")

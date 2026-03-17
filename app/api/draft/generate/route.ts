@@ -1723,26 +1723,51 @@ export async function POST(request: Request) {
     (bodyParagraphCount >= MIN_PARENT_MESSAGE_PARAGRAPHS &&
       bodyWordCount >= MIN_PARENT_MESSAGE_MEANINGFUL_WORDS)
 
+  const shouldSkipCollapsedOutputContinuationRetry = () => {
+    if (documentationModeActive || mode !== "parent_message") {
+      return false
+    }
+
+    const meaningfulParagraphs = getMeaningfulParentBodyParagraphs(
+      formattedDraftStructure,
+      finalGreetingLine,
+    )
+    const nonScaffoldParagraphs = meaningfulParagraphs
+      .map((paragraph) => paragraph.trim())
+      .filter(
+        (paragraph) => paragraph && !/^(?:Subject|Betreff)\s*[:\-–—|]/i.test(paragraph),
+      )
+
+    if (nonScaffoldParagraphs.length === 0) {
+      return true
+    }
+
+    const firstMeaningfulParagraph = nonScaffoldParagraphs[0] ?? ""
+    return nonScaffoldParagraphs.length === 1 && countWords(firstMeaningfulParagraph) <= 3
+  }
+
   const recoverCollapsedParentMessageOutput = async () => {
     if (documentationModeActive || mode !== "parent_message" || hasMinimumParentMessageOutput()) {
       return
     }
 
-    const continuationAttempt = await runDraft(forcedLanguageAttempted, true)
-    providerResult = continuationAttempt.result
-    usedFallback = continuationAttempt.usedFallback
-    fallbackErrorCode = continuationAttempt.errorCode ?? fallbackErrorCode ?? "MIN_OUTPUT_RECOVERY_RETRY"
-    providerMeta = providerResult.providerMeta
-    generatedDraft = finalizeWithGreeting(providerResult.text)
-    finalizeAndFormatDraft(generatedDraft)
-    pushRecoveryEvent(
-      usedFallback ? "deterministic_fallback" : "continuation_recovery",
-      "MIN_OUTPUT_RECOVERY_RETRY",
-      continuationAttempt.recoveryMeta?.templateFamily ?? null,
-    )
+    if (!shouldSkipCollapsedOutputContinuationRetry()) {
+      const continuationAttempt = await runDraft(forcedLanguageAttempted, true)
+      providerResult = continuationAttempt.result
+      usedFallback = continuationAttempt.usedFallback
+      fallbackErrorCode = continuationAttempt.errorCode ?? fallbackErrorCode ?? "MIN_OUTPUT_RECOVERY_RETRY"
+      providerMeta = providerResult.providerMeta
+      generatedDraft = finalizeWithGreeting(providerResult.text)
+      finalizeAndFormatDraft(generatedDraft)
+      pushRecoveryEvent(
+        usedFallback ? "deterministic_fallback" : "continuation_recovery",
+        "MIN_OUTPUT_RECOVERY_RETRY",
+        continuationAttempt.recoveryMeta?.templateFamily ?? null,
+      )
 
-    if (hasMinimumParentMessageOutput()) {
-      return
+      if (hasMinimumParentMessageOutput()) {
+        return
+      }
     }
 
     generatedDraft = finalizeWithGreeting(buildFallbackDraft(fallbackContext))
