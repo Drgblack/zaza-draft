@@ -149,7 +149,7 @@ function buildContextLine(context?: GenerateDraftRequest["context"]) {
     return ""
   }
 
-  return pieces.join(" ?f?'Ã¯Â¿Â½?,?s?f??s?,Ã¯Â¿Â½ ") + "."
+  return pieces.join(" | ") + "."
 }
 
 const GENERIC_GREETING_TEXTS = new Set([
@@ -207,6 +207,81 @@ function containsStrongEnglishSignals(text: string) {
 
 function countWords(text: string) {
   return text.split(/\s+/).filter(Boolean).length
+}
+
+const SHORT_ACCUSATORY_TEACHER_NOTE_PATTERNS = [
+  /\byour child is lying\b/i,
+  /\bhe is making excuses\b/i,
+  /\bshe is being manipulative\b/i,
+  /\byour son is twisting the story\b/i,
+  /\byour daughter is twisting the story\b/i,
+  /\bliar\b/i,
+  /\blying\b/i,
+  /\bmaking excuses\b/i,
+  /\bmanipulative\b/i,
+  /\btwisting the story\b/i,
+]
+
+function isSafeDraftTeacherNoteRequest(generationMetadata: GenerationMetadata, mode: DraftMode) {
+  return (
+    mode === "parent_message" &&
+    generationMetadata.mode === "safe_draft" &&
+    generationMetadata.direction === "teacher_internal_notes"
+  )
+}
+
+function isReplyParsingRequest(generationMetadata: GenerationMetadata, mode: DraftMode) {
+  return mode === "parent_message" && generationMetadata.direction === "parent_to_teacher"
+}
+
+function isVoiceToCalmRequest(generationMetadata: GenerationMetadata, mode: DraftMode) {
+  return mode === "parent_message" && generationMetadata.mode === "voice_to_calm"
+}
+
+function hasShortAccusatoryTeacherNoteSignals(
+  text: string,
+  safetyAnalysis: SafetyEngineOutput | null,
+) {
+  const normalized = text.trim()
+  if (
+    safetyAnalysis?.triggeredSignals.some(
+      (signal) =>
+        signal.category === "accusation" ||
+        signal.category === "negative_generalisation" ||
+        signal.category === "prescriptive_demand",
+    )
+  ) {
+    return true
+  }
+
+  return SHORT_ACCUSATORY_TEACHER_NOTE_PATTERNS.some((pattern) => pattern.test(normalized))
+}
+
+function buildInsufficientInputMessage(options: {
+  generationMetadata: GenerationMetadata
+  mode: DraftMode
+  text: string
+  safetyAnalysis: SafetyEngineOutput | null
+}) {
+  const { generationMetadata, mode, text, safetyAnalysis } = options
+
+  if (isSafeDraftTeacherNoteRequest(generationMetadata, mode)) {
+    if (hasShortAccusatoryTeacherNoteSignals(text, safetyAnalysis)) {
+      return "This note is too accusatory to turn into a parent message safely. Describe what you observed or what was said, avoid labels and motive attribution, and include at least one concrete incident or observable fact."
+    }
+
+    return "This note does not include enough observable detail for Draft to rewrite safely. Describe what you observed or what was said, and include at least one concrete incident or next step."
+  }
+
+  if (isReplyParsingRequest(generationMetadata, mode)) {
+    return "After removing Gmail UI noise, the note doesn't include enough detail to craft a responsible reply. Please describe the parent concern in at least 20 words."
+  }
+
+  if (isVoiceToCalmRequest(generationMetadata, mode)) {
+    return "This note is too short for Draft to calm into a clear teacher message. Add what happened, what you observed, and the next step you want to communicate."
+  }
+
+  return "This note does not include enough detail for Draft to continue safely. Add at least one concrete fact, observation, or next step."
 }
 
 function resolveDocumentationTopicLabel(
@@ -1028,14 +1103,23 @@ export async function POST(request: Request) {
     mode === "parent_message" &&
     sanitizedInput.wordCount >= 10 &&
     splitDocumentationSentences(cleanedSituationText).length >= 2
+  const preflightBlockedInput = detectBlockedLanguage(cleanedSituationText)
+  const deferToBlockedLanguageGuard =
+    preflightBlockedInput.detected &&
+    preflightBlockedInput.tier !== "tier1"
   const insufficientInput =
     (!compactParentMessageAllowed && sanitizedInput.wordCount < 20) ||
     (requiresSubjectDetail && sanitizedInput.substantiveLines === 0)
-  if (insufficientInput) {
+  if (insufficientInput && !deferToBlockedLanguageGuard) {
     return fail(
       422,
       "INSUFFICIENT_INPUT",
-      "After removing Gmail UI noise, the note doesn?fÃ¯Â¿Â½Ã¯Â¿Â½??sÃ¯Â¿Â½Ã¯Â¿Â½??zÃ¯Â¿Â½t include enough detail to craft a responsible reply. Please describe the parent concern in at least 20 words.",
+      buildInsufficientInputMessage({
+        generationMetadata,
+        mode,
+        text: cleanedSituationText,
+        safetyAnalysis,
+      }),
       {
         data: {
           wordCount: sanitizedInput.wordCount,
@@ -1253,7 +1337,10 @@ export async function POST(request: Request) {
     })
   }
 
-  const blockedInput = detectBlockedLanguage(currentSituation)
+  const blockedInput =
+    currentSituation === cleanedSituationText
+      ? preflightBlockedInput
+      : detectBlockedLanguage(currentSituation)
   if (blockedInput.detected) {
     safetyFlags.add("input-blocked-language")
     if (blockedInput.tier === "tier2") {

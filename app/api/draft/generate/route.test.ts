@@ -913,6 +913,93 @@ describe("/api/draft/generate greeting handoff", () => {
     expect(response.headers.get("x-request-id")).toBe(json.requestId)
   })
 
+  it("uses Safe Draft coaching copy for a very short hostile teacher note", async () => {
+    const request = new Request("https://example.com/api/draft/generate", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: "Bearer token",
+      },
+      body: JSON.stringify({
+        situation: "Your child is lying about what happened in class.",
+        tone: "professional",
+        language: "en",
+        mode: "parent_message",
+      }),
+    })
+
+    const response = await POST(request)
+    expect(response.status).toBe(422)
+
+    const json = await response.json()
+    expect(json.error.code).toBe("INSUFFICIENT_INPUT")
+    expect(json.error.message).toContain("too accusatory")
+    expect(json.error.message).toContain("Describe what you observed or what was said")
+    expect(json.error.message).not.toContain("Gmail UI noise")
+    expect(json.error.message).not.toContain("parent concern")
+    expect(json.error.message).not.toContain("doesn?f")
+    expect(json.error.message).not.toContain("Ã")
+    expect(json.error.message).not.toContain("Â¿")
+  })
+
+  it("uses Safe Draft coaching copy for a short motive-attribution note", async () => {
+    const request = new Request("https://example.com/api/draft/generate", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: "Bearer token",
+      },
+      body: JSON.stringify({
+        situation: "She is being manipulative.",
+        tone: "professional",
+        language: "en",
+        mode: "parent_message",
+      }),
+    })
+
+    const response = await POST(request)
+    expect(response.status).toBe(422)
+
+    const json = await response.json()
+    expect(json.error.code).toBe("INSUFFICIENT_INPUT")
+    expect(json.error.message).toContain("too accusatory")
+    expect(json.error.message).toContain("avoid labels and motive attribution")
+    expect(json.error.message).not.toContain("Gmail UI noise")
+    expect(json.error.message).not.toContain("parent concern")
+    expect(json.error.message).not.toContain("Ã")
+  })
+
+  it("keeps the Gmail-noise insufficiency copy for short Panic Scan inbound notes", async () => {
+    const request = new Request("https://example.com/api/draft/generate", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: "Bearer token",
+      },
+      body: JSON.stringify({
+        situation: "From: Parent\nSent from my iPhone",
+        tone: "professional",
+        language: "en",
+        mode: "parent_message",
+        inputMode: "panic_scan",
+        sourceType: "ocr_text",
+        scanId: "scan-123",
+      }),
+    })
+
+    const response = await POST(request)
+    expect(response.status).toBe(422)
+
+    const json = await response.json()
+    expect(json.error.code).toBe("INSUFFICIENT_INPUT")
+    expect(json.error.message).toContain("After removing Gmail UI noise")
+    expect(json.error.message).toContain("describe the parent concern")
+    expect(json.error.message).not.toContain("too accusatory")
+    expect(json.error.message).not.toContain("Ã")
+    expect(json.error.message).not.toContain("Â¿")
+    expect(json.error.message).not.toContain("doesn?f")
+  })
+
   it("anchors a homework complaint in the first paragraph without behaviour documentation language", async () => {
     const payload = {
       situation: homeworkSituation,
