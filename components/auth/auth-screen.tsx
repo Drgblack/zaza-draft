@@ -76,17 +76,19 @@ export function AuthScreen() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-purple-600 via-blue-500 to-indigo-600 text-white flex items-center justify-center py-12 px-4">
-      <div className="w-full max-w-6xl grid gap-8 lg:grid-cols-[1.2fr_0.8fr] lg:items-start">
-        <div className="space-y-6">
+    <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-gradient-to-br from-[#5b36a6] via-[#3b63b8] to-[#264f96] px-4 py-12 text-white">
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(255,255,255,0.16),transparent_32%),radial-gradient(circle_at_bottom_right,rgba(255,255,255,0.08),transparent_28%)]" />
+      <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(180deg,rgba(15,23,42,0.12),rgba(15,23,42,0.34))]" />
+      <div className="relative z-10 grid w-full max-w-6xl gap-10 lg:grid-cols-[1.15fr_0.85fr] lg:items-center">
+        <div className="space-y-7 lg:pr-6">
           <div className="max-w-2xl">
-            <p className="text-xs font-semibold uppercase tracking-[0.32em] text-white/65">
+            <p className="text-xs font-semibold uppercase tracking-[0.32em] text-white/78">
               {t("auth.marketingEyebrow")}
             </p>
-            <h1 className="mt-3 text-4xl font-bold tracking-tight sm:text-5xl">
+            <h1 className="mt-3 text-4xl font-bold tracking-tight text-white drop-shadow-[0_16px_40px_rgba(15,23,42,0.24)] sm:text-5xl">
               {t("auth.title")}
             </h1>
-            <p className="mt-3 max-w-xl text-base leading-relaxed text-white/80">
+            <p className="mt-4 max-w-xl text-base leading-7 text-white/88 sm:text-[1.05rem]">
               {t("auth.description")}
             </p>
           </div>
@@ -94,10 +96,26 @@ export function AuthScreen() {
           <InstantDraftTest onCreateAccount={() => setMode("signup")} />
         </div>
 
-        <div className="space-y-6">
-          <form className="space-y-4 rounded-2xl bg-white/10 p-6 shadow-lg backdrop-blur" onSubmit={handleSubmit}>
+        <div className="space-y-5 lg:justify-self-end lg:w-full lg:max-w-md">
+          <form
+            className="space-y-5 rounded-[28px] border border-white/28 bg-[linear-gradient(180deg,rgba(255,255,255,0.24),rgba(255,255,255,0.16))] p-6 shadow-[0_28px_72px_rgba(15,23,42,0.28)] backdrop-blur-[28px] sm:p-7"
+            onSubmit={handleSubmit}
+          >
+            <div className="space-y-1.5">
+              <p className="text-xs font-semibold uppercase tracking-[0.28em] text-white/72">
+                {mode === "signin" ? t("auth.title.signin") : t("auth.title.signup")}
+              </p>
+              <p className="text-sm leading-6 text-white/82">
+                {mode === "signin"
+                  ? t("auth.description")
+                  : t("auth.passwordHelper")}
+              </p>
+            </div>
+
             <div className="space-y-2">
-              <Label htmlFor="email">{t("auth.emailLabel")}</Label>
+              <Label htmlFor="email" className="text-sm font-semibold text-white/92">
+                {t("auth.emailLabel")}
+              </Label>
               <Input
                 id="email"
                 type="email"
@@ -105,12 +123,14 @@ export function AuthScreen() {
                 value={email}
                 onChange={(event) => setEmail(event.target.value)}
                 placeholder="teacher@example.com"
-                className="bg-white/80 text-gray-900"
+                className="h-11 rounded-xl border-white/30 bg-white/95 px-4 text-slate-900 shadow-[inset_0_1px_0_rgba(255,255,255,0.55)] placeholder:text-slate-400 focus-visible:border-white/50 focus-visible:ring-white/25"
               />
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="password">{t("auth.passwordLabel")}</Label>
+              <Label htmlFor="password" className="text-sm font-semibold text-white/92">
+                {t("auth.passwordLabel")}
+              </Label>
               <div className="relative">
                 <Input
                   id="password"
@@ -120,22 +140,30 @@ export function AuthScreen() {
                   value={password}
                   onChange={(event) => setPassword(event.target.value)}
                   placeholder="Password"
-                  className="bg-white/80 text-gray-900 pr-12"
+                  className="h-11 rounded-xl border-white/30 bg-white/95 px-4 pr-14 text-slate-900 shadow-[inset_0_1px_0_rgba(255,255,255,0.55)] placeholder:text-slate-400 focus-visible:border-white/50 focus-visible:ring-white/25"
                 />
                 <button
                   type="button"
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-semibold text-gray-600 hover:text-gray-900 transition-colors"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-semibold text-slate-500 transition-colors hover:text-slate-800"
                   onClick={() => setShowPassword((prev) => !prev)}
                 >
                   {showPassword ? t("auth.hidePassword") : t("auth.showPassword")}
                 </button>
               </div>
-              <p className="text-xs text-white/70">{t("auth.passwordHelper")}</p>
+              <p className="text-[13px] leading-5 text-white/78">{t("auth.passwordHelper")}</p>
             </div>
 
-            {error && <p className="text-sm text-rose-200">{error}</p>}
+            {error && (
+              <p className="rounded-xl border border-rose-200/35 bg-rose-500/12 px-3 py-2 text-sm text-rose-50">
+                {error}
+              </p>
+            )}
 
-            <Button type="submit" className="w-full" disabled={isSubmitting}>
+            <Button
+              type="submit"
+              className="h-11 w-full rounded-xl bg-white text-slate-950 shadow-[0_16px_34px_rgba(15,23,42,0.24)] hover:bg-white/96"
+              disabled={isSubmitting}
+            >
               {isSubmitting
                 ? t("auth.processing")
                 : mode === "signin"
@@ -143,21 +171,25 @@ export function AuthScreen() {
                   : t("auth.cta.signup")}
             </Button>
 
-            <p className="text-center text-xs text-white/70">
+            <p className="text-center text-sm text-white/78">
               {mode === "signin"
                 ? t("auth.noAccount")
                 : t("auth.alreadyHaveAccount")}
-              <button type="button" onClick={toggleMode} className="ml-1 underline">
+              <button
+                type="button"
+                onClick={toggleMode}
+                className="ml-1 font-semibold text-white underline decoration-white/45 underline-offset-4 transition-colors hover:text-white hover:decoration-white/75"
+              >
                 {mode === "signin" ? t("auth.cta.signup") : t("auth.cta.signin")}
               </button>
             </p>
           </form>
 
-          <div className="space-y-2">
-            <p className="text-center text-sm text-white/80">{t("auth.orContinue")}</p>
+          <div className="space-y-3 rounded-2xl border border-white/18 bg-white/10 p-4 shadow-[0_18px_40px_rgba(15,23,42,0.16)] backdrop-blur-[22px]">
+            <p className="text-center text-sm font-medium text-white/84">{t("auth.orContinue")}</p>
             <Button
               variant="outline"
-              className="w-full bg-white/90 text-gray-900 border-white/60 hover:bg-white hover:text-gray-900 flex items-center justify-center gap-2"
+              className="flex h-11 w-full items-center justify-center gap-2 rounded-xl border-white/45 bg-white/96 text-slate-900 shadow-[0_10px_22px_rgba(15,23,42,0.12)] hover:bg-white hover:text-slate-950"
               onClick={handleGoogleSignIn}
               disabled={isSubmitting}
             >
@@ -174,7 +206,7 @@ export function AuthScreen() {
           </div>
 
           {status === "loading" && (
-            <p className="text-center text-xs text-white/60">{t("auth.loading")}</p>
+            <p className="text-center text-xs font-medium text-white/72">{t("auth.loading")}</p>
           )}
         </div>
       </div>

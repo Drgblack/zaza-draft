@@ -73,13 +73,13 @@ export function InstantDraftTest({ onCreateAccount }: InstantDraftTestProps) {
   }
 
   return (
-    <Card className="glass border-white/20 bg-white/12 text-white shadow-soft-lg">
+    <Card className="glass border-white/24 bg-white/[0.16] text-white shadow-[0_24px_56px_rgba(15,23,42,0.22)] backdrop-blur-[24px]">
       <CardHeader className="gap-3">
         <div className="flex flex-wrap items-center gap-3">
-          <Badge className="rounded-full bg-white/15 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.24em] text-white">
+          <Badge className="rounded-full border border-white/18 bg-white/20 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.24em] text-white/95">
             {t("auth.instant.badge")}
           </Badge>
-          <div className="flex items-center gap-2 text-xs font-medium text-white/70">
+          <div className="flex items-center gap-2 text-xs font-medium text-white/78">
             <ShieldCheck className="h-4 w-4" />
             <span>{t("auth.instant.limitHint")}</span>
           </div>
@@ -87,22 +87,22 @@ export function InstantDraftTest({ onCreateAccount }: InstantDraftTestProps) {
         <CardTitle className="text-2xl font-semibold tracking-tight text-white">
           {t("auth.instant.title")}
         </CardTitle>
-        <CardDescription className="max-w-2xl text-sm leading-relaxed text-white/75">
+        <CardDescription className="max-w-2xl text-sm leading-7 text-white/86">
           {t("auth.instant.description")}
         </CardDescription>
       </CardHeader>
 
       <CardContent className="space-y-4">
-        <div className="rounded-2xl border border-white/15 bg-black/10 p-4 shadow-soft-inset">
+        <div className="rounded-2xl border border-white/18 bg-slate-950/16 p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]">
           <Textarea
             value={message}
             onChange={(event) => setMessage(event.target.value)}
             placeholder={t("auth.instant.placeholder")}
-            className="min-h-40 resize-y border-white/15 bg-white/90 text-gray-900 placeholder:text-gray-500"
+            className="min-h-40 resize-y rounded-xl border-white/25 bg-white/96 text-slate-900 placeholder:text-slate-400"
             disabled={isSubmitting || limitReached}
           />
           <div className="mt-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <p className="text-xs leading-relaxed text-white/65">
+            <p className="text-xs leading-5 text-white/76">
               {t("auth.instant.privacyHint")}
             </p>
             <Button
@@ -113,7 +113,7 @@ export function InstantDraftTest({ onCreateAccount }: InstantDraftTestProps) {
               loading={isSubmitting}
               disabled={!message.trim() || limitReached}
               rightIcon={<Sparkles className="h-4 w-4" />}
-              className="min-w-[12rem]"
+              className="min-w-[12rem] rounded-xl bg-white text-slate-950 shadow-[0_14px_30px_rgba(15,23,42,0.18)] hover:bg-white/96"
             >
               {t("auth.instant.button")}
             </Button>
@@ -121,13 +121,13 @@ export function InstantDraftTest({ onCreateAccount }: InstantDraftTestProps) {
         </div>
 
         {error ? (
-          <div className="rounded-2xl border border-rose-300/35 bg-rose-500/10 p-4 text-sm text-rose-50">
+          <div className="rounded-2xl border border-rose-200/35 bg-rose-500/12 p-4 text-sm text-rose-50">
             {error}
           </div>
         ) : null}
 
         {rewrittenText ? (
-          <div className="space-y-3 rounded-2xl border border-white/15 bg-white/90 p-4 text-gray-900 shadow-soft">
+          <div className="space-y-3 rounded-2xl border border-white/28 bg-white/95 p-4 text-slate-900 shadow-[0_18px_40px_rgba(15,23,42,0.12)]">
             <div className="flex flex-wrap items-center gap-2">
               <p className="text-sm font-semibold">{t("auth.instant.resultTitle")}</p>
               {modeUsed ? (
@@ -138,11 +138,11 @@ export function InstantDraftTest({ onCreateAccount }: InstantDraftTestProps) {
                 </Badge>
               ) : null}
             </div>
-            <div className="space-y-3 rounded-xl border border-purple-100 bg-white p-4">
+            <div className="space-y-3 rounded-xl border border-slate-200 bg-white p-4">
               {rewrittenText.split(/\n{2,}/).map((paragraph, index) => (
                 <p
                   key={`instant-draft-paragraph-${index}`}
-                  className="whitespace-pre-wrap text-sm leading-relaxed text-gray-700"
+                  className="whitespace-pre-wrap text-sm leading-7 text-slate-700"
                 >
                   {paragraph}
                 </p>
@@ -152,10 +152,10 @@ export function InstantDraftTest({ onCreateAccount }: InstantDraftTestProps) {
         ) : null}
 
         {limitReached ? (
-          <div className="flex flex-col gap-3 rounded-2xl border border-emerald-300/30 bg-emerald-500/10 p-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex flex-col gap-3 rounded-2xl border border-emerald-200/30 bg-emerald-500/14 p-4 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <p className="text-sm font-semibold text-white">{t("auth.instant.ctaTitle")}</p>
-              <p className="mt-1 text-sm leading-relaxed text-white/75">
+              <p className="mt-1 text-sm leading-relaxed text-white/82">
                 {t("auth.instant.ctaDescription")}
               </p>
             </div>
