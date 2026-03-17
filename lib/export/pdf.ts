@@ -66,7 +66,30 @@ async function loadLogo(pdfDoc: PDFDocument) {
   const logoPath = path.join(process.cwd(), "public", "z-logo.png")
   try {
     const bytes = await fs.readFile(logoPath)
-    return pdfDoc.embedPng(bytes)
+
+    if (bytes.length < 8) {
+      return null
+    }
+
+    const hasPngSignature =
+      bytes[0] === 0x89 &&
+      bytes[1] === 0x50 &&
+      bytes[2] === 0x4e &&
+      bytes[3] === 0x47 &&
+      bytes[4] === 0x0d &&
+      bytes[5] === 0x0a &&
+      bytes[6] === 0x1a &&
+      bytes[7] === 0x0a
+
+    if (!hasPngSignature) {
+      return null
+    }
+
+    try {
+      return await pdfDoc.embedPng(bytes)
+    } catch {
+      return null
+    }
   } catch {
     return null
   }

@@ -130,4 +130,57 @@ describe("applyEnglishOutputSanity", () => {
     expect(result.text).toBe(draft)
     expect(result.issues).toEqual([])
   })
+
+  it("adds a brief partnership line to warm parent messages when the tone needs clearer contrast", () => {
+    const result = applyEnglishOutputSanity(
+      [
+        "Subject: Behaviour update",
+        "",
+        "Hello Karen,",
+        "",
+        "I wanted to update you on Sally's behaviour in class today.",
+        "",
+        "Kind regards,",
+        "Greg Blackburn",
+      ].join("\n"),
+      {
+        language: "en",
+        mode: "parent_message",
+        tone: "warm",
+        studentFirstName: "Sally",
+      },
+    )
+
+    expect(result.text).toContain(
+      "Thank you for your support with this, and working together will help Sally feel more settled in class.",
+    )
+    expect(result.issues).toContain("tone_distinction")
+  })
+
+  it("keeps direct parent messages lean by removing extra partnership filler", () => {
+    const result = applyEnglishOutputSanity(
+      [
+        "Subject: Behaviour update",
+        "",
+        "Hello Karen,",
+        "",
+        "I wanted to let you know about Sally's behaviour in class today.",
+        "",
+        "Thank you for your support with this, and working together will help Sally feel more settled in class.",
+        "",
+        "Kind regards,",
+        "Greg Blackburn",
+      ].join("\n"),
+      {
+        language: "en",
+        mode: "parent_message",
+        tone: "direct",
+        studentFirstName: "Sally",
+      },
+    )
+
+    expect(result.text).toContain("I am writing about Sally's behaviour in class today.")
+    expect(result.text).not.toContain("working together will help Sally feel more settled in class")
+    expect(result.issues).toContain("tone_distinction")
+  })
 })

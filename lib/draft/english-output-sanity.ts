@@ -1,5 +1,5 @@
 import { repairPronounCaseGrammar } from "@/lib/text/pronouns"
-import type { DraftMode } from "@/lib/types"
+import type { DraftMode, DraftTone } from "@/lib/types"
 
 export type EnglishOutputSanityIssue =
   | "pronoun_case"
@@ -8,10 +8,12 @@ export type EnglishOutputSanityIssue =
   | "signoff_punctuation"
   | "subject_punctuation"
   | "parent_voice"
+  | "tone_distinction"
 
 interface EnglishOutputSanityOptions {
   language?: string
   mode: DraftMode
+  tone?: DraftTone
   studentFirstName?: string
 }
 
@@ -211,6 +213,78 @@ function normalizeParentMessageTeacherVoice(text: string, studentFirstName?: str
   return { text: normalized, changed }
 }
 
+function insertSentenceBeforeSignoff(text: string, sentence: string) {
+  const lines = text.split("\n")
+  const signoffIndex = lines.findIndex((line) => ENGLISH_SIGNOFF_LINE_REGEX.test(line.trim()))
+
+  if (signoffIndex === -1) {
+    return {
+      text: `${text.trim()}\n\n${sentence}`,
+      changed: true,
+    }
+  }
+
+  const beforeSignoff = lines.slice(0, signoffIndex).join("\n").trimEnd()
+  const signoffBlock = lines.slice(signoffIndex).join("\n").trimStart()
+
+  return {
+    text: `${beforeSignoff}\n\n${sentence}\n\n${signoffBlock}`,
+    changed: true,
+  }
+}
+
+function applyParentMessageTonePolish(
+  text: string,
+  tone: DraftTone | undefined,
+  studentFirstName?: string,
+) {
+  if (!tone || (tone !== "warm" && tone !== "direct")) {
+    return { text, changed: false }
+  }
+
+  let normalized = text
+  let changed = false
+
+  if (tone === "warm") {
+    const partnershipSignal =
+      /\b(?:working together|your support with this|thank you for your support|help (?:him|her|them|your child|[A-Z][a-z]+) feel more settled in class)\b/i
+
+    if (!partnershipSignal.test(normalized)) {
+      const studentReference = studentFirstName?.trim() || "your child"
+      const partnershipSentence =
+        `Thank you for your support with this, and working together will help ${studentReference} feel more settled in class.`
+      const insertion = insertSentenceBeforeSignoff(normalized, partnershipSentence)
+      normalized = insertion.text
+      changed = insertion.changed
+    }
+  }
+
+  if (tone === "direct") {
+    const replacements: Array<[RegExp, string]> = [
+      [/\bI wanted to let you know about\b/gi, "I am writing about"],
+      [/\bI wanted to let you know that\b/gi, "I am writing to let you know that"],
+      [/\bI wanted to make you aware of\b/gi, "I need to make you aware of"],
+      [/\bI would appreciate your support in speaking with\b/gi, "Please speak with"],
+      [/\bThank you for your support with this, and working together will help [^.]+ feel more settled in class\.\s*/gi, ""],
+    ]
+
+    for (const [pattern, replacement] of replacements) {
+      const next = normalized.replace(pattern, replacement)
+      if (next !== normalized) {
+        normalized = next
+        changed = true
+      }
+    }
+
+    normalized = normalized
+      .replace(/\n{3,}/g, "\n\n")
+      .replace(/[ \t]+\n/g, "\n")
+      .trim()
+  }
+
+  return { text: normalized, changed }
+}
+
 export function applyEnglishOutputSanity(
   text: string,
   options: EnglishOutputSanityOptions,
@@ -240,6 +314,16 @@ export function applyEnglishOutputSanity(
     if (parentVoiceNormalized.changed) {
       issues.push("parent_voice")
       sanitized = parentVoiceNormalized.text
+    }
+
+    const tonePolished = applyParentMessageTonePolish(
+      sanitized,
+      options.tone,
+      options.studentFirstName,
+    )
+    if (tonePolished.changed) {
+      issues.push("tone_distinction")
+      sanitized = tonePolished.text
     }
   }
 

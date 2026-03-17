@@ -360,6 +360,42 @@ describe("buildSystemPrompt", () => {
     expect(prompt).toContain("working together and helping the child feel settled and make steady progress in class")
   })
 
+  it("makes warm and direct tone contracts visibly distinct in the prompt", () => {
+    const warmPrompt = buildSystemPrompt({
+      situation: "Need a parent message about repeated lateness and lesson disruption.",
+      generationMetadata: {
+        mode: "safe_draft",
+        direction: "teacher_internal_notes",
+        source_type: "typed_text",
+        locale: "en",
+        prompt_builder: "safe_draft",
+      },
+      tone: "warm",
+      language: "en",
+      mode: "parent_message",
+      pronounPreference: "auto",
+      studentFirstName: "Sally",
+    })
+    const directPrompt = buildSystemPrompt({
+      situation: "Need a parent message about repeated lateness and lesson disruption.",
+      generationMetadata: {
+        mode: "safe_draft",
+        direction: "teacher_internal_notes",
+        source_type: "typed_text",
+        locale: "en",
+        prompt_builder: "safe_draft",
+      },
+      tone: "direct",
+      language: "en",
+      mode: "parent_message",
+      pronounPreference: "auto",
+      studentFirstName: "Sally",
+    })
+
+    expect(warmPrompt).toContain("Warm drafts should usually include one brief partnership sentence near the end")
+    expect(directPrompt).toContain("Direct drafts should usually be one short sentence or one brief paragraph leaner than warm drafts on the same topic")
+  })
+
   it("adds forward-safe rewrite instructions when that rewrite mode is enabled", () => {
     const prompt = buildSystemPrompt({
       situation: "Please rewrite this so it sounds calmer and clearer.",

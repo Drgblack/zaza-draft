@@ -1660,6 +1660,7 @@ export async function POST(request: Request) {
     const finalSanity = applyEnglishOutputSanity(generatedDraft, {
       language,
       mode,
+      tone,
       studentFirstName: studentNameForPayload || undefined,
     })
     generatedDraft = finalSanity.text

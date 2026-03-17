@@ -171,6 +171,7 @@ function buildParentFacingToneInstructions(input: ProviderInput) {
       return [
         "Warm tone contract: sound gently relational and collaborative, as a teacher who wants to work with the parent rather than simply notify them.",
         `Warm wording should use natural teacher openings such as ${formatEnglishPhraseExamples("warm", "teacherUpdateOpenings")}, while still naming the issue early.`,
+        "Warm drafts should usually include one brief partnership sentence near the end, such as thanking the parent for their support or noting that working together will help the child feel more settled in class.",
         "Do not turn warm into vague reassurance, therapy language, or support-bot empathy.",
       ]
     case "professional":
@@ -183,6 +184,7 @@ function buildParentFacingToneInstructions(input: ProviderInput) {
       return [
         "Direct tone contract: be concise, explicit, and clear about the issue, expectation, and next step.",
         `Direct wording should use shorter sentences and clean openings such as ${formatEnglishPhraseExamples("direct", "teacherUpdateOpenings")}.`,
+        "Direct drafts should usually be one short sentence or one brief paragraph leaner than warm drafts on the same topic, and should avoid extra reassurance or partnership filler unless it changes the action.",
         "Do not turn direct into rude, abrupt, or accusatory language.",
       ]
     case "empathetic":
