@@ -937,9 +937,9 @@ export const localeMessages: Record<Locale, LocaleMessages> = {
     "draft.safeToSend.reviewOnceMore.title": "Review once before sending",
     "draft.safeToSend.reviewOnceMore.description":
       "The draft is close, but one or two phrases may still need a quick teacher check.",
-    "draft.safeToSend.sensitiveTopic.title": "Sensitive topic: softened for parent-safe wording",
+    "draft.safeToSend.sensitiveTopic.title": "Sensitive topic: refined for parent communication",
     "draft.safeToSend.sensitiveTopic.description":
-      "This is a delicate topic, and Draft has already softened the wording to help it stay parent-safe.",
+      "This topic is sensitive. Draft has adjusted the wording to ensure it remains clear, respectful, and appropriate for communication with parents.",
     "draft.teacherControl.reassurance":
       "You review every message before anything is sent. Draft never sends messages for you.",
     "draft.documentation.label": "Mode:",
@@ -1516,9 +1516,9 @@ export const localeMessages: Record<Locale, LocaleMessages> = {
     "draft.safeToSend.reviewOnceMore.title": "Review once before sending",
     "draft.safeToSend.reviewOnceMore.description":
       "The draft is close, but one or two phrases may still need a quick teacher check.",
-    "draft.safeToSend.sensitiveTopic.title": "Sensitive topic: softened for parent-safe wording",
+    "draft.safeToSend.sensitiveTopic.title": "Sensitive topic: refined for parent communication",
     "draft.safeToSend.sensitiveTopic.description":
-      "This is a delicate topic, and Draft has already softened the wording to help it stay parent-safe.",
+      "This topic is sensitive. Draft has adjusted the wording to ensure it remains clear, respectful, and appropriate for communication with parents.",
     "draft.teacherControl.reassurance":
       "You review every message before anything is sent. Draft never sends messages for you.",
     "draft.documentation.label": "Mode:",
@@ -2092,9 +2092,9 @@ export const localeMessages: Record<Locale, LocaleMessages> = {
     "draft.safeToSend.reviewOnceMore.title": "Vor dem Senden einmal prüfen",
     "draft.safeToSend.reviewOnceMore.description":
       "Der Entwurf ist fast fertig, aber ein oder zwei Formulierungen sollten Sie noch kurz prüfen.",
-    "draft.safeToSend.sensitiveTopic.title": "Sensibles Thema: elternsicher abgeschwächt",
+    "draft.safeToSend.sensitiveTopic.title": "Sensibles Thema: elterngerecht formuliert",
     "draft.safeToSend.sensitiveTopic.description":
-      "Das Thema ist sensibel, und Draft hat die Formulierung bereits abgeschwächt, damit sie elternsicher bleibt.",
+      "Dieses Thema ist sensibel. Draft hat die Formulierung so angepasst, dass sie klar, respektvoll und für die Kommunikation mit Eltern geeignet ist.",
     "draft.teacherControl.reassurance":
       "Sie prüfen jede Nachricht selbst, bevor etwas gesendet wird. Draft versendet nichts für Sie.",
     "draft.documentation.label": "Modus:",
