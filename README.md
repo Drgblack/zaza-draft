@@ -40,7 +40,7 @@ A quick mention here ensures Vercel sees a content change before the next previe
 - `GOOGLE_VISION_API_KEY` - Key for the Vision API used to OCR panic scans.
 - `GOOGLE_SPEECH_TO_TEXT_API_KEY` - Key for converting voice uploads into text.
 
-The client now uses Firebase Auth (email/password + Google) and surface the support email `greg@zazatechnologies.com` on the login screen. Every request to `/api/draft/generate` must include `Authorization: Bearer <id-token>`; the server verifies the token and enforces the 10-draft/month free tier in Firestore (`users/{uid}.monthlyUsage`).
+The client now uses Firebase Auth (email-link passwordless sign-in + Google) and surface the support email `greg@zazatechnologies.com` on the login screen. Every request to `/api/draft/generate` must include `Authorization: Bearer <id-token>`; the server verifies the token and enforces the 10-draft/month free tier in Firestore (`users/{uid}.monthlyUsage`).
 
 For more details, see `docs/spec/Zaza Draft - Technical Specification.md`.
 
@@ -63,7 +63,7 @@ For more details, see `docs/spec/Zaza Draft - Technical Specification.md`.
 - `STRIPE_SECRET_KEY`
 - `STRIPE_PRICE_DRAFT_PRO` (the price ID for the Draft Pro monthly plan)
 - `STRIPE_WEBHOOK_SECRET`
-- `NEXT_PUBLIC_APP_URL` (used in success/cancel URLs for Stripe and should match `http://localhost:3000` in dev)
+- `NEXT_PUBLIC_APP_URL` (used in success/cancel URLs for Stripe and for Firebase email-link redirects; should match `http://localhost:3000` in dev and your canonical app origin in production)
 - `INTERNAL_QA_UIDS` (optional comma-separated UID list that bypasses the monthly free-tier limit for internal QA/testing accounts; add values only in trusted environments such as your local `.env.local` or the Vercel project settings for your Preview and Production deployments). When you add a UID, mirror the same value into both Preview and Production environment variables and redeploy each environment so the bypass is applied everywhere.
 
 Firebase envs are already listed above in the Phase 2a section and remain required.

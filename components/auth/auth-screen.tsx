@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useRef, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -17,14 +17,39 @@ const GOOGLE_ERROR_MAP: Record<string, string> = {
 }
 
 export function AuthScreen() {
-  const { status, signInWithEmail, registerWithEmail, signInWithGoogle } = useAuth()
+  const { status, emailLinkStatus, sendEmailLink, completeEmailLinkSignIn, signInWithGoogle } = useAuth()
   const { t } = useLocale()
-  const [mode, setMode] = useState<"signin" | "signup">("signin")
+  const emailInputRef = useRef<HTMLInputElement | null>(null)
   const [email, setEmail] = useState("")
-  const [password, setPassword] = useState("")
-  const [showPassword, setShowPassword] = useState(false)
+  const [successEmail, setSuccessEmail] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const isAwaitingEmail = emailLinkStatus === "awaiting_email"
+  const isProcessingEmailLink = emailLinkStatus === "processing"
+
+  const getFriendlyEmailLinkError = (err: unknown) => {
+    const code = (err as { code?: string })?.code
+
+    switch (code) {
+      case "auth/invalid-email":
+        return t("auth.error.invalidEmail")
+      case "auth/invalid-action-code":
+      case "auth/expired-action-code":
+        return t("auth.error.linkExpired")
+      case "auth/unauthorized-continue-uri":
+      case "auth/missing-continue-uri":
+      case "auth/argument-error":
+        return t("auth.error.linkConfig")
+      default:
+        if (err instanceof Error && err.message.includes("Email is required")) {
+          return t("auth.error.invalidEmail")
+        }
+        if (err instanceof Error && err.message.includes("not configured")) {
+          return t("auth.error.linkConfig")
+        }
+        return isAwaitingEmail ? t("auth.error.linkFailed") : t("auth.error.sendLinkFailed")
+    }
+  }
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
@@ -32,19 +57,17 @@ export function AuthScreen() {
     setError(null)
 
     try {
-      if (mode === "signin") {
-        await signInWithEmail(email, password)
-        logClientEvent("auth_login_success", { provider: "email" })
+      const normalizedEmail = email.trim()
+      if (isAwaitingEmail) {
+        await completeEmailLinkSignIn(normalizedEmail)
+        logClientEvent("auth_login_success", { provider: "email_link" })
       } else {
-        await registerWithEmail(email, password)
-        logClientEvent("auth_login_success", { provider: "email" })
+        await sendEmailLink(normalizedEmail)
+        setSuccessEmail(normalizedEmail)
       }
     } catch (err) {
-      if (err instanceof Error) {
-        setError(err.message)
-      } else {
-        setError("Something went wrong.")
-      }
+      setSuccessEmail(null)
+      setError(getFriendlyEmailLinkError(err))
     } finally {
       setIsSubmitting(false)
     }
@@ -71,10 +94,6 @@ export function AuthScreen() {
     }
   }
 
-  const toggleMode = () => {
-    setMode((prev) => (prev === "signin" ? "signup" : "signin"))
-  }
-
   return (
     <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-gradient-to-br from-[#5b36a6] via-[#3b63b8] to-[#264f96] px-4 py-12 text-white">
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(255,255,255,0.16),transparent_32%),radial-gradient(circle_at_bottom_right,rgba(255,255,255,0.08),transparent_28%)]" />
@@ -93,7 +112,7 @@ export function AuthScreen() {
             </p>
           </div>
 
-          <InstantDraftTest onCreateAccount={() => setMode("signup")} />
+          <InstantDraftTest onCreateAccount={() => emailInputRef.current?.focus()} />
         </div>
 
         <div className="space-y-5 lg:justify-self-end lg:w-full lg:max-w-md">
@@ -103,12 +122,10 @@ export function AuthScreen() {
           >
             <div className="space-y-1.5">
               <p className="text-xs font-semibold uppercase tracking-[0.28em] text-white/72">
-                {mode === "signin" ? t("auth.title.signin") : t("auth.title.signup")}
+                {isAwaitingEmail ? t("auth.emailLink.confirmTitle") : t("auth.title.signin")}
               </p>
               <p className="text-sm leading-6 text-white/82">
-                {mode === "signin"
-                  ? t("auth.description")
-                  : t("auth.passwordHelper")}
+                {isAwaitingEmail ? t("auth.emailLink.confirmDescription") : t("auth.emailLink.helper")}
               </p>
             </div>
 
@@ -117,41 +134,33 @@ export function AuthScreen() {
                 {t("auth.emailLabel")}
               </Label>
               <Input
+                ref={emailInputRef}
                 id="email"
                 type="email"
                 required
                 value={email}
-                onChange={(event) => setEmail(event.target.value)}
+                onChange={(event) => {
+                  setEmail(event.target.value)
+                  if (error) {
+                    setError(null)
+                  }
+                }}
                 placeholder="teacher@example.com"
+                autoComplete="email"
+                disabled={isSubmitting || isProcessingEmailLink}
                 className="h-11 rounded-xl border-white/30 bg-white/95 px-4 text-slate-900 shadow-[inset_0_1px_0_rgba(255,255,255,0.55)] placeholder:text-slate-400 focus-visible:border-white/50 focus-visible:ring-white/25"
               />
+              <p className="text-[13px] leading-5 text-white/78">
+                {isAwaitingEmail ? t("auth.emailLink.confirmHelper") : t("auth.emailLink.inputHelper")}
+              </p>
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="password" className="text-sm font-semibold text-white/92">
-                {t("auth.passwordLabel")}
-              </Label>
-              <div className="relative">
-                <Input
-                  id="password"
-                  type={showPassword ? "text" : "password"}
-                  required
-                  minLength={8}
-                  value={password}
-                  onChange={(event) => setPassword(event.target.value)}
-                  placeholder="Password"
-                  className="h-11 rounded-xl border-white/30 bg-white/95 px-4 pr-14 text-slate-900 shadow-[inset_0_1px_0_rgba(255,255,255,0.55)] placeholder:text-slate-400 focus-visible:border-white/50 focus-visible:ring-white/25"
-                />
-                <button
-                  type="button"
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-semibold text-slate-500 transition-colors hover:text-slate-800"
-                  onClick={() => setShowPassword((prev) => !prev)}
-                >
-                  {showPassword ? t("auth.hidePassword") : t("auth.showPassword")}
-                </button>
+            {successEmail && !isAwaitingEmail && !error && (
+              <div className="rounded-xl border border-emerald-200/35 bg-emerald-500/12 px-3 py-3 text-sm text-emerald-50">
+                <p>{t("auth.emailLink.sent", { email: successEmail })}</p>
+                <p className="mt-1 text-emerald-100/90">{t("auth.emailLink.sentHint")}</p>
               </div>
-              <p className="text-[13px] leading-5 text-white/78">{t("auth.passwordHelper")}</p>
-            </div>
+            )}
 
             {error && (
               <p className="rounded-xl border border-rose-200/35 bg-rose-500/12 px-3 py-2 text-sm text-rose-50">
@@ -162,27 +171,20 @@ export function AuthScreen() {
             <Button
               type="submit"
               className="h-11 w-full rounded-xl bg-white text-slate-950 shadow-[0_16px_34px_rgba(15,23,42,0.24)] hover:bg-white/96"
-              disabled={isSubmitting}
+              disabled={isSubmitting || isProcessingEmailLink}
             >
-              {isSubmitting
-                ? t("auth.processing")
-                : mode === "signin"
-                  ? t("auth.cta.signin")
-                  : t("auth.cta.signup")}
+              {isProcessingEmailLink
+                ? t("auth.emailLink.processing")
+                : isSubmitting
+                ? isAwaitingEmail
+                  ? t("auth.processing.completeLink")
+                  : t("auth.processing.sendLink")
+                : isAwaitingEmail
+                ? t("auth.cta.completeEmailLink")
+                : successEmail
+                ? t("auth.cta.resendLink")
+                : t("auth.cta.sendLink")}
             </Button>
-
-            <p className="text-center text-sm text-white/78">
-              {mode === "signin"
-                ? t("auth.noAccount")
-                : t("auth.alreadyHaveAccount")}
-              <button
-                type="button"
-                onClick={toggleMode}
-                className="ml-1 font-semibold text-white underline decoration-white/45 underline-offset-4 transition-colors hover:text-white hover:decoration-white/75"
-              >
-                {mode === "signin" ? t("auth.cta.signup") : t("auth.cta.signin")}
-              </button>
-            </p>
           </form>
 
           <div className="space-y-3 rounded-2xl border border-white/18 bg-white/10 p-4 shadow-[0_18px_40px_rgba(15,23,42,0.16)] backdrop-blur-[22px]">

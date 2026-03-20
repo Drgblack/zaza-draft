@@ -326,7 +326,7 @@ export const localeMessages: Record<Locale, LocaleMessages> = {
     searchDocsLabel: "Search documents",
     mainNavigation: "Main navigation",
     metricsReadingLevel: "Reading level: {level}",
-    "auth.title.signin": "Sign in",
+    "auth.title.signin": "Email sign-in",
     "auth.title.signup": "Create an account",
     "auth.title.reset": "Reset password",
     "auth.field.email": "Email",
@@ -340,12 +340,15 @@ export const localeMessages: Record<Locale, LocaleMessages> = {
       "Password must contain at least one uppercase letter, one lowercase letter, and one number",
     "auth.msg.passwordMismatch": "Passwords do not match",
     "auth.title": "Welcome back",
-    "auth.description": "Sign in to continue using Zaza Draft.",
+    "auth.description":
+      "Enter your email and we’ll send a secure sign-in link. Open it on this device to continue.",
     "auth.marketingEyebrow": "Teacher-safe writing",
     "auth.emailLabel": "Email",
     "auth.passwordLabel": "Password",
     "auth.passwordHelper": "Must be at least 8 characters long.",
     "auth.processing": "Processing...",
+    "auth.processing.sendLink": "Sending secure link...",
+    "auth.processing.completeLink": "Signing you in...",
     "auth.noAccount": "Don't have an account yet?",
     "auth.alreadyHaveAccount": "Already have an account?",
     "auth.orContinue": "Or continue with",
@@ -353,6 +356,27 @@ export const localeMessages: Record<Locale, LocaleMessages> = {
     "auth.loading": "Signing you in...",
     "auth.showPassword": "Show password",
     "auth.hidePassword": "Hide password",
+    "auth.cta.sendLink": "Send login link",
+    "auth.cta.resendLink": "Resend login link",
+    "auth.cta.completeEmailLink": "Complete sign in",
+    "auth.emailLink.helper":
+      "Use your school or preferred email. We’ll send a secure link instead of asking for a password.",
+    "auth.emailLink.inputHelper": "We’ll email a one-time sign-in link to this address.",
+    "auth.emailLink.sent": "We sent a secure sign-in link to {email}.",
+    "auth.emailLink.sentHint": "Open the email on this device to finish signing in.",
+    "auth.emailLink.confirmTitle": "Confirm your email",
+    "auth.emailLink.confirmDescription":
+      "We couldn’t find the saved email for this sign-in link. Enter it again to continue securely.",
+    "auth.emailLink.confirmHelper": "Use the same email address that requested the link.",
+    "auth.emailLink.processing": "Checking your secure sign-in link...",
+    "auth.error.invalidEmail": "Enter a valid email address.",
+    "auth.error.linkExpired": "This sign-in link is no longer valid. Request a new one.",
+    "auth.error.linkFailed":
+      "We couldn’t complete that sign-in link. Request a new one and try again.",
+    "auth.error.sendLinkFailed":
+      "We couldn’t send the sign-in link right now. Please try again.",
+    "auth.error.linkConfig":
+      "Email-link sign-in isn’t configured correctly for this deployment.",
     "auth.instant.badge": "Instant Draft Test",
     "auth.instant.title": "Try Draft instantly",
     "auth.instant.description":
@@ -1108,7 +1132,7 @@ export const localeMessages: Record<Locale, LocaleMessages> = {
     searchDocsLabel: "Search documents",
     mainNavigation: "Main navigation",
     metricsReadingLevel: "Reading level: {level}",
-    "auth.title.signin": "Sign in",
+    "auth.title.signin": "Email sign-in",
     "auth.title.signup": "Create an account",
     "auth.title.reset": "Reset password",
     "auth.field.email": "Email",
@@ -1121,6 +1145,43 @@ export const localeMessages: Record<Locale, LocaleMessages> = {
     "auth.msg.passwordPolicy":
       "Password must contain at least one uppercase letter, one lowercase letter, and one number",
     "auth.msg.passwordMismatch": "Passwords do not match",
+    "auth.description":
+      "Enter your email and we’ll send a secure sign-in link. Open it on this device to continue.",
+    "auth.marketingEyebrow": "Teacher-safe writing",
+    "auth.emailLabel": "Email",
+    "auth.passwordLabel": "Password",
+    "auth.passwordHelper": "Must be at least 8 characters long.",
+    "auth.processing": "Processing...",
+    "auth.processing.sendLink": "Sending secure link...",
+    "auth.processing.completeLink": "Signing you in...",
+    "auth.noAccount": "Don't have an account yet?",
+    "auth.alreadyHaveAccount": "Already have an account?",
+    "auth.orContinue": "Or continue with",
+    "auth.continueWithGoogle": "Continue with Google",
+    "auth.loading": "Signing you in...",
+    "auth.showPassword": "Show password",
+    "auth.hidePassword": "Hide password",
+    "auth.cta.sendLink": "Send login link",
+    "auth.cta.resendLink": "Resend login link",
+    "auth.cta.completeEmailLink": "Complete sign in",
+    "auth.emailLink.helper":
+      "Use your school or preferred email. We’ll send a secure link instead of asking for a password.",
+    "auth.emailLink.inputHelper": "We’ll email a one-time sign-in link to this address.",
+    "auth.emailLink.sent": "We sent a secure sign-in link to {email}.",
+    "auth.emailLink.sentHint": "Open the email on this device to finish signing in.",
+    "auth.emailLink.confirmTitle": "Confirm your email",
+    "auth.emailLink.confirmDescription":
+      "We couldn’t find the saved email for this sign-in link. Enter it again to continue securely.",
+    "auth.emailLink.confirmHelper": "Use the same email address that requested the link.",
+    "auth.emailLink.processing": "Checking your secure sign-in link...",
+    "auth.error.invalidEmail": "Enter a valid email address.",
+    "auth.error.linkExpired": "This sign-in link is no longer valid. Request a new one.",
+    "auth.error.linkFailed":
+      "We couldn’t complete that sign-in link. Request a new one and try again.",
+    "auth.error.sendLinkFailed":
+      "We couldn’t send the sign-in link right now. Please try again.",
+    "auth.error.linkConfig":
+      "Email-link sign-in isn’t configured correctly for this deployment.",
     "billing.title": "Billing & Subscription",
     "billing.signinRequired": "Please sign in to view billing.",
     "billing.usageThisMonth": "{used} / {limit} drafts used this month",
@@ -1868,7 +1929,7 @@ export const localeMessages: Record<Locale, LocaleMessages> = {
     searchDocsLabel: "Dokumente durchsuchen",
     mainNavigation: "Hauptnavigation",
     metricsReadingLevel: "Lesestufe: {level}",
-    "auth.title.signin": "Anmelden",
+    "auth.title.signin": "Anmelden per E-Mail",
     "auth.title.signup": "Konto erstellen",
     "auth.title.reset": "Passwort zurücksetzen",
     "auth.field.email": "E-Mail",
@@ -1882,12 +1943,15 @@ export const localeMessages: Record<Locale, LocaleMessages> = {
       "Das Passwort muss mindestens einen Grossbuchstaben, einen Kleinbuchstaben und eine Zahl enthalten.",
     "auth.msg.passwordMismatch": "Passwörter stimmen nicht überein.",
     "auth.title": "Willkommen zurück",
-    "auth.description": "Melde dich an, um Zaza Draft weiter zu nutzen.",
+    "auth.description":
+      "Geben Sie Ihre E-Mail-Adresse ein. Wir senden Ihnen einen sicheren Anmeldelink, damit Sie ohne Passwort fortfahren können.",
     "auth.marketingEyebrow": "Sichere Kommunikation für Lehrkräfte",
     "auth.emailLabel": "E-Mail",
     "auth.passwordLabel": "Passwort",
     "auth.passwordHelper": "Mindestens 8 Zeichen, Buchstaben und Zahlen.",
     "auth.processing": "Verarbeite…",
+    "auth.processing.sendLink": "Sicherer Link wird gesendet...",
+    "auth.processing.completeLink": "Anmeldung wird abgeschlossen...",
     "auth.noAccount": "Noch keinen Account?",
     "auth.alreadyHaveAccount": "Schon einen Account?",
     "auth.orContinue": "Oder mit",
@@ -1895,6 +1959,30 @@ export const localeMessages: Record<Locale, LocaleMessages> = {
     "auth.loading": "Wir melden dich an…",
     "auth.showPassword": "Passwort anzeigen",
     "auth.hidePassword": "Passwort verbergen",
+    "auth.cta.sendLink": "Anmeldelink senden",
+    "auth.cta.resendLink": "Anmeldelink erneut senden",
+    "auth.cta.completeEmailLink": "Anmeldung abschließen",
+    "auth.emailLink.helper":
+      "Verwenden Sie Ihre Schul- oder bevorzugte E-Mail-Adresse. Wir senden einen sicheren Link statt eines Passworts.",
+    "auth.emailLink.inputHelper": "Wir senden einen einmaligen Anmeldelink an diese Adresse.",
+    "auth.emailLink.sent": "Wir haben einen sicheren Anmeldelink an {email} gesendet.",
+    "auth.emailLink.sentHint":
+      "Öffnen Sie die E-Mail auf diesem Gerät, um die Anmeldung abzuschließen.",
+    "auth.emailLink.confirmTitle": "E-Mail-Adresse bestätigen",
+    "auth.emailLink.confirmDescription":
+      "Für diesen Anmeldelink wurde keine gespeicherte E-Mail-Adresse gefunden. Geben Sie sie bitte erneut ein, um fortzufahren.",
+    "auth.emailLink.confirmHelper":
+      "Verwenden Sie dieselbe E-Mail-Adresse, mit der Sie den Link angefordert haben.",
+    "auth.emailLink.processing": "Ihr Anmeldelink wird geprüft...",
+    "auth.error.invalidEmail": "Bitte geben Sie eine gültige E-Mail-Adresse ein.",
+    "auth.error.linkExpired":
+      "Dieser Anmeldelink ist nicht mehr gültig. Fordern Sie bitte einen neuen an.",
+    "auth.error.linkFailed":
+      "Dieser Anmeldelink konnte nicht abgeschlossen werden. Fordern Sie bitte einen neuen Link an.",
+    "auth.error.sendLinkFailed":
+      "Der Anmeldelink konnte gerade nicht gesendet werden. Bitte versuchen Sie es noch einmal.",
+    "auth.error.linkConfig":
+      "Die Anmeldung per E-Mail-Link ist für diese Bereitstellung nicht korrekt konfiguriert.",
     "auth.instant.badge": "Sofort testen",
     "auth.instant.title": "Try Draft instantly",
     "auth.instant.description":

@@ -2,9 +2,10 @@
 
 import { createContext, useContext, useEffect, useMemo, useState } from "react"
 import {
-  createUserWithEmailAndPassword,
+  isSignInWithEmailLink,
   onIdTokenChanged,
-  signInWithEmailAndPassword,
+  sendSignInLinkToEmail,
+  signInWithEmailLink,
   signInWithPopup,
   signOut as firebaseSignOut,
   type User,
@@ -15,14 +16,22 @@ import {
   AUTH_COOKIE_NAME,
   AUTH_COOKIE_VALUE,
 } from "@/lib/auth/cookie"
+import {
+  clearStoredEmailLinkEmail,
+  getEmailLinkRedirectUrl,
+  getStoredEmailLinkEmail,
+  storeEmailLinkEmail,
+} from "@/lib/auth/email-link"
 
 type AuthStatus = "loading" | "authenticated" | "unauthenticated"
+type EmailLinkStatus = "idle" | "processing" | "awaiting_email"
 
 interface AuthContextValue {
   user: User | null
   status: AuthStatus
-  signInWithEmail: (email: string, password: string) => Promise<void>
-  registerWithEmail: (email: string, password: string) => Promise<void>
+  emailLinkStatus: EmailLinkStatus
+  sendEmailLink: (email: string) => Promise<void>
+  completeEmailLinkSignIn: (email: string) => Promise<void>
   signInWithGoogle: () => Promise<void>
   signOut: () => Promise<void>
   getIdToken: () => Promise<string | null>
@@ -42,6 +51,7 @@ function writeAuthCookie(value: string, maxAge: number) {
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
   const [status, setStatus] = useState<AuthStatus>("loading")
+  const [emailLinkStatus, setEmailLinkStatus] = useState<EmailLinkStatus>("idle")
 
   useEffect(() => {
     if (!auth) {
@@ -77,6 +87,38 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [])
 
   useEffect(() => {
+    if (!auth || typeof window === "undefined") {
+      return
+    }
+
+    const currentUrl = window.location.href
+    if (!isSignInWithEmailLink(auth, currentUrl)) {
+      return
+    }
+
+    const storedEmail = getStoredEmailLinkEmail()
+    if (!storedEmail) {
+      setEmailLinkStatus("awaiting_email")
+      setStatus("unauthenticated")
+      return
+    }
+
+    setEmailLinkStatus("processing")
+    void (async () => {
+      try {
+        await signInWithEmailLink(auth, storedEmail, currentUrl)
+        clearStoredEmailLinkEmail()
+        window.location.replace(getEmailLinkRedirectUrl())
+      } catch (error) {
+        console.warn("[auth] email-link completion failed", error)
+        clearStoredEmailLinkEmail()
+        setEmailLinkStatus("idle")
+        setStatus("unauthenticated")
+      }
+    })()
+  }, [])
+
+  useEffect(() => {
     if (status === "loading") {
       return
     }
@@ -88,18 +130,46 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }, [status])
 
-  const signInWithEmail = async (email: string, password: string) => {
+  const sendEmailLink = async (email: string) => {
     if (!auth) {
       throw new Error("Firebase Auth is not configured.")
     }
-    await signInWithEmailAndPassword(auth, email, password)
+
+    const normalizedEmail = email.trim()
+    storeEmailLinkEmail(normalizedEmail)
+
+    try {
+      await sendSignInLinkToEmail(auth, normalizedEmail, {
+        url: getEmailLinkRedirectUrl(),
+        handleCodeInApp: true,
+      })
+      setEmailLinkStatus("idle")
+    } catch (error) {
+      clearStoredEmailLinkEmail()
+      throw error
+    }
   }
 
-  const registerWithEmail = async (email: string, password: string) => {
-    if (!auth) {
+  const completeEmailLinkSignIn = async (email: string) => {
+    if (!auth || typeof window === "undefined") {
       throw new Error("Firebase Auth is not configured.")
     }
-    await createUserWithEmailAndPassword(auth, email, password)
+
+    const normalizedEmail = email.trim()
+    if (!normalizedEmail) {
+      throw new Error("Email is required to complete sign-in.")
+    }
+
+    setEmailLinkStatus("processing")
+
+    try {
+      await signInWithEmailLink(auth, normalizedEmail, window.location.href)
+      clearStoredEmailLinkEmail()
+      window.location.replace(getEmailLinkRedirectUrl())
+    } catch (error) {
+      setEmailLinkStatus("awaiting_email")
+      throw error
+    }
   }
 
   const signInWithGoogle = async () => {
@@ -127,13 +197,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     () => ({
       user,
       status,
-      signInWithEmail,
-      registerWithEmail,
+      emailLinkStatus,
+      sendEmailLink,
+      completeEmailLinkSignIn,
       signInWithGoogle,
       signOut,
       getIdToken,
     }),
-    [user, status],
+    [user, status, emailLinkStatus],
   )
 
   return <AuthContext.Provider value={contextValue}>{children}</AuthContext.Provider>
