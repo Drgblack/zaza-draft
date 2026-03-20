@@ -135,7 +135,14 @@ const fetchMock = vi.fn(async (input: RequestInfo, init?: RequestInit) => {
     return {
       ok: true,
       status: 200,
-      json: async () => ({ success: true, data: { dismissed: true } }),
+      json: async () => ({
+        success: true,
+        data: {
+          onboardingCompleted: true,
+          welcomeEmailSent: true,
+          firstLogin: false,
+        },
+      }),
     } as Response
   }
 

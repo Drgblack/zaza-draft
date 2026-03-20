@@ -34,6 +34,28 @@ export async function POST(request: Request) {
     )
   }
 
-  const created = await ensureUserDocument(firestore, authContext.uid)
-  return NextResponse.json({ success: true, created })
+  try {
+    const result = await ensureUserDocument(firestore, authContext.uid, {
+      email: authContext.decodedToken.email ?? null,
+      displayName: authContext.decodedToken.name ?? null,
+    })
+    console.info("[account-bootstrap] bootstrap completed", {
+      uid: authContext.uid,
+      created: result.created,
+      firstLogin: result.firstLogin,
+    })
+    return NextResponse.json({ success: true, data: result })
+  } catch (error) {
+    console.error("[account-bootstrap] bootstrap failed", error)
+    return NextResponse.json(
+      {
+        success: false,
+        error: {
+          code: "BOOTSTRAP_FAILED",
+          message: "Unable to initialize the account.",
+        },
+      },
+      { status: 500 },
+    )
+  }
 }

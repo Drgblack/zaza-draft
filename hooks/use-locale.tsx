@@ -877,6 +877,17 @@ export const localeMessages: Record<Locale, LocaleMessages> = {
     "editor.welcome.learnMoreSuffix": ".",
     "editor.welcome.dismiss": "Got it",
     "welcome.dontShowAgain": "Don't show this again",
+    "onboarding.eyebrow": "First steps",
+    "onboarding.title": "Welcome to Zaza Draft",
+    "onboarding.description":
+      "Start with Safe Draft for parent-ready messages, use Panic Scan when a screenshot needs a calm reply, and shape polished report comments from your classroom notes.",
+    "onboarding.dismiss": "Continue to Draft",
+    "onboarding.feature.safeDraft":
+      "Turn a rough parent message into a clear, professional draft you can send with confidence.",
+    "onboarding.feature.panicScan":
+      "Review a screenshot or urgent message before replying and keep the response steady.",
+    "onboarding.feature.reportComment":
+      "Convert observations into concise, report-ready comments without losing your meaning.",
     "editor.history.title": "Recent drafts",
     "editor.history.description": "Load a previous draft or remove it from history.",
     "editor.history.storage": "What we store: snippet text, tone, language, and timestamps. No student identifiers are saved.",
@@ -1500,6 +1511,17 @@ export const localeMessages: Record<Locale, LocaleMessages> = {
     "editor.welcome.learnMoreSuffix": ".",
     "editor.welcome.dismiss": "Got it",
     "welcome.dontShowAgain": "Don't show this again",
+    "onboarding.eyebrow": "First steps",
+    "onboarding.title": "Welcome to Zaza Draft",
+    "onboarding.description":
+      "Start with Safe Draft for parent-ready messages, use Panic Scan when a screenshot needs a calm reply, and shape polished report comments from your classroom notes.",
+    "onboarding.dismiss": "Continue to Draft",
+    "onboarding.feature.safeDraft":
+      "Turn a rough parent message into a clear, professional draft you can send with confidence.",
+    "onboarding.feature.panicScan":
+      "Review a screenshot or urgent message before replying and keep the response steady.",
+    "onboarding.feature.reportComment":
+      "Convert observations into concise, report-ready comments without losing your meaning.",
     "editor.history.title": "Recent drafts",
     "editor.history.description": "Load a previous draft or remove it from history.",
     "editor.history.storage": "What we store: snippet text, tone, language, and timestamps. No student identifiers are saved.",
@@ -2091,6 +2113,17 @@ export const localeMessages: Record<Locale, LocaleMessages> = {
     "editor.welcome.learnMoreSuffix": ".",
     "editor.welcome.dismiss": "Verstanden",
     "welcome.dontShowAgain": "Nicht mehr anzeigen",
+    "onboarding.eyebrow": "Erste Schritte",
+    "onboarding.title": "Willkommen bei Zaza Draft",
+    "onboarding.description":
+      "Nutzen Sie Safe Draft für elterngerechte Nachrichten, Panic Scan für ruhige Antworten auf Screenshots und Berichtskommentare für klare Formulierungen aus Ihren Unterrichtsnotizen.",
+    "onboarding.dismiss": "Weiter zu Draft",
+    "onboarding.feature.safeDraft":
+      "Formen Sie aus einer Rohfassung eine klare, professionelle Nachricht für Eltern.",
+    "onboarding.feature.panicScan":
+      "Prüfen Sie Screenshots oder dringende Nachrichten vor dem Antworten und halten Sie den Ton ruhig.",
+    "onboarding.feature.reportComment":
+      "Verdichten Sie Beobachtungen zu präzisen Berichtskommentaren, ohne Ihre Aussage zu verlieren.",
     "editor.history.title": "Kürzliche Entwürfe",
     "editor.history.description": "Laden Sie einen früheren Entwurf oder entfernen Sie ihn aus der Historie.",
     "editor.history.storage": "Was wir speichern: Entwurfstext, Ton, Sprache und Zeitstempel. Keine Schüleridentifikatoren werden gespeichert.",

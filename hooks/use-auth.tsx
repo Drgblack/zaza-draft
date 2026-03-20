@@ -67,17 +67,26 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setStatus("unauthenticated")
         return
       }
+      console.info("[auth] firebase auth success", {
+        uid: nextUser.uid,
+        email: nextUser.email ?? null,
+      })
       setUser(nextUser)
       setStatus("authenticated")
       void (async () => {
         try {
           const token = await nextUser.getIdToken()
-          await fetch("/api/account/bootstrap", {
+          const response = await fetch("/api/account/bootstrap", {
             method: "POST",
             headers: {
               Authorization: `Bearer ${token}`,
             },
           })
+          if (!response.ok) {
+            throw new Error(`Bootstrap failed with status ${response.status}`)
+          }
+          const payload = await response.json()
+          console.info("[auth] account bootstrap result", payload?.data ?? payload ?? null)
         } catch (error) {
           console.warn("[auth] account bootstrap failed", error)
         }

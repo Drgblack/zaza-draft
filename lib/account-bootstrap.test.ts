@@ -70,15 +70,25 @@ describe("ensureUserDocument", () => {
   it("creates a default free user document on first login", async () => {
     const firestore = createStatefulFirestore()
 
-    const created = await ensureUserDocument(firestore.db, "uid")
+    const result = await ensureUserDocument(firestore.db, "uid", {
+      email: "teacher@example.com",
+      displayName: "Teacher Example",
+    })
 
-    expect(created).toBe(true)
+    expect(result).toEqual({ created: true, firstLogin: true })
     expect(firestore.userRef.set).toHaveBeenCalledTimes(1)
     expect(firestore.readUserDoc()).toMatchObject({
+      email: "teacher@example.com",
+      displayName: "Teacher Example",
+      onboardingCompleted: false,
+      welcomeEmailSent: false,
       plan: "free",
+      monthlyDraftLimit: 10,
+      draftsUsedThisMonth: 0,
       preferredLanguage: "en",
     })
     expect(firestore.readUserDoc()).toHaveProperty("createdAt")
+    expect(firestore.readUserDoc()).toHaveProperty("firstLoginAt")
     expect(firestore.readUserDoc()).toHaveProperty("updatedAt")
   })
 
@@ -90,16 +100,24 @@ describe("ensureUserDocument", () => {
       subscriptionStatus: "active",
     })
 
-    const created = await ensureUserDocument(firestore.db, "uid")
+    const result = await ensureUserDocument(firestore.db, "uid", {
+      email: "teacher@example.com",
+      displayName: "Teacher Example",
+    })
 
-    expect(created).toBe(false)
+    expect(result).toEqual({ created: false, firstLogin: false })
     expect(firestore.userRef.set).toHaveBeenCalledTimes(1)
     expect(firestore.readUserDoc()).toMatchObject({
+      email: "teacher@example.com",
+      displayName: "Teacher Example",
       plan: "pro",
       preferredLanguage: "de",
       stripeCustomerId: "cus_123",
       subscriptionStatus: "active",
+      onboardingCompleted: true,
+      welcomeEmailSent: true,
     })
+    expect(firestore.readUserDoc()).toHaveProperty("firstLoginAt")
     expect(firestore.readUserDoc()).toHaveProperty("updatedAt")
   })
 

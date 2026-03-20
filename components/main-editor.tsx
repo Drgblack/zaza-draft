@@ -157,6 +157,19 @@ type InputModeCardDefinition = {
   action: { type: "focus"; labelKey: string } | { type: "link"; href: string; labelKey: string }
 }
 
+type OnboardingFeatureCard = {
+  id: string
+  titleKey: string
+  descriptionKey: string
+  icon: LucideIcon
+}
+
+type OnboardingState = {
+  onboardingCompleted: boolean
+  welcomeEmailSent: boolean
+  firstLogin: boolean
+}
+
 const INPUT_MODE_CARD_DEFINITIONS: InputModeCardDefinition[] = [
   {
     id: "safe-draft",
@@ -178,6 +191,27 @@ const INPUT_MODE_CARD_DEFINITIONS: InputModeCardDefinition[] = [
     descriptionKey: "voiceDescription",
     icon: Mic,
     action: { type: "link", href: "/voice", labelKey: "homeVoiceAction" },
+  },
+]
+
+const ONBOARDING_FEATURE_CARDS: OnboardingFeatureCard[] = [
+  {
+    id: "safe-draft",
+    titleKey: "homeSafeDraftTitle",
+    descriptionKey: "onboarding.feature.safeDraft",
+    icon: FileText,
+  },
+  {
+    id: "panic-scan",
+    titleKey: "panicScanTitle",
+    descriptionKey: "onboarding.feature.panicScan",
+    icon: Image,
+  },
+  {
+    id: "report-comment",
+    titleKey: "editor.mode.reportComment",
+    descriptionKey: "onboarding.feature.reportComment",
+    icon: MessageCircle,
   },
 ]
 
@@ -502,11 +536,11 @@ export function MainEditor({ canExport = true }: MainEditorProps = {}) {
   const [historyLoading, setHistoryLoading] = useState(false)
   const [historyCursor, setHistoryCursor] = useState<string | null>(null)
   const [historyError, setHistoryError] = useState<string | null>(null)
+  const [onboardingState, setOnboardingState] = useState<OnboardingState | null>(null)
   const [onboardingVisible, setOnboardingVisible] = useState(false)
   const [onboardingLoading, setOnboardingLoading] = useState(true)
   const [onboardingError, setOnboardingError] = useState<string | null>(null)
-  const [dontShowWelcome, setDontShowWelcome] = useState(false)
-  const [welcomeDismissed, setWelcomeDismissed] = useState(false)
+  const welcomeEmailRequestedRef = useRef(false)
   const focusEditor = useCallback(() => {
     textareaRef.current?.focus()
   }, [])
@@ -728,7 +762,21 @@ export function MainEditor({ canExport = true }: MainEditorProps = {}) {
 
         const payload = await response.json()
         if (payload?.success) {
-          setOnboardingVisible(!payload.data.dismissed)
+          const nextState: OnboardingState = {
+            onboardingCompleted: Boolean(
+              payload.data?.onboardingCompleted ?? payload.data?.dismissed ?? false,
+            ),
+            welcomeEmailSent: Boolean(payload.data?.welcomeEmailSent),
+            firstLogin: Boolean(payload.data?.firstLogin),
+          }
+          console.info("[onboarding] first-login detection", {
+            uid: user?.uid ?? null,
+            firstLogin: nextState.firstLogin,
+            onboardingCompleted: nextState.onboardingCompleted,
+            welcomeEmailSent: nextState.welcomeEmailSent,
+          })
+          setOnboardingState(nextState)
+          setOnboardingVisible(!nextState.onboardingCompleted)
           setOnboardingError(null)
         } else {
           setOnboardingError("Unable to load onboarding tips.")
@@ -750,44 +798,118 @@ export function MainEditor({ canExport = true }: MainEditorProps = {}) {
     return () => {
       isMounted = false
     }
-  }, [getIdToken])
+  }, [getIdToken, user?.uid])
 
   useEffect(() => {
-    if (typeof localStorage === "undefined") {
+    if (
+      onboardingLoading ||
+      !onboardingState ||
+      onboardingState.onboardingCompleted ||
+      !onboardingState.firstLogin ||
+      onboardingState.welcomeEmailSent ||
+      welcomeEmailRequestedRef.current
+    ) {
       return
     }
-    const savedDismissal = localStorage.getItem("zazaDraftWelcomeDismissed")
-    setWelcomeDismissed(savedDismissal === "true")
-  }, [])
 
-  const showWelcomeBox = onboardingVisible && !onboardingLoading && !welcomeDismissed
+    let isMounted = true
+    welcomeEmailRequestedRef.current = true
+
+    void (async () => {
+      try {
+        const token = await getIdToken()
+        if (!token) {
+          welcomeEmailRequestedRef.current = false
+          return
+        }
+
+        console.info("[onboarding] welcome-email trigger", {
+          uid: user?.uid ?? null,
+          firstLogin: onboardingState.firstLogin,
+        })
+
+        const response = await fetch("/api/onboarding/welcome", {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        })
+        const payload = await response.json().catch(() => null)
+
+        if (!response.ok || !payload?.success) {
+          throw new Error(payload?.error?.message ?? "Unable to send welcome email.")
+        }
+
+        console.info("[onboarding] welcome-email result", {
+          uid: user?.uid ?? null,
+          sent: Boolean(payload.data?.sent),
+          alreadySent: Boolean(payload.data?.alreadySent),
+        })
+
+        if (isMounted) {
+          setOnboardingState((current) =>
+            current
+              ? {
+                  ...current,
+                  welcomeEmailSent: true,
+                }
+              : current,
+          )
+        }
+      } catch (error) {
+        welcomeEmailRequestedRef.current = false
+        console.error("[onboarding] welcome-email trigger failed", error)
+        if (isMounted) {
+          setOnboardingError("Unable to send the welcome email.")
+        }
+      }
+    })()
+
+    return () => {
+      isMounted = false
+    }
+  }, [getIdToken, onboardingLoading, onboardingState, user?.uid])
+
+  const showWelcomeBox = onboardingVisible && !onboardingLoading
 
   const dismissOnboarding = async () => {
     try {
+      const token = await getIdToken()
+      if (!token) {
+        throw new Error("Missing authentication token.")
+      }
+
       const response = await fetch("/api/onboarding", {
         method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
       })
       if (!response.ok) {
         throw new Error("Unable to save preference.")
       }
+      console.info("[onboarding] onboarding-completed state", {
+        uid: user?.uid ?? null,
+        onboardingCompleted: true,
+      })
+      setOnboardingState((current) =>
+        current
+          ? {
+              ...current,
+              onboardingCompleted: true,
+            }
+          : {
+              onboardingCompleted: true,
+              welcomeEmailSent: false,
+              firstLogin: false,
+            },
+      )
       setOnboardingVisible(false)
       setOnboardingError(null)
     } catch (error) {
       console.error("[v0] Failed to dismiss onboarding", error)
       setOnboardingError("We couldn't save your onboarding preference.")
     }
-  }
-
-  const handleDontShowAgain = (event: ChangeEvent<HTMLInputElement>) => {
-    setDontShowWelcome(event.target.checked)
-  }
-
-  const handleWelcomeDismiss = async () => {
-    if (dontShowWelcome && typeof localStorage !== "undefined") {
-      localStorage.setItem("zazaDraftWelcomeDismissed", "true")
-      setWelcomeDismissed(true)
-    }
-    await dismissOnboarding()
   }
 
   useEffect(() => {
@@ -1672,38 +1794,52 @@ Examples:
       </section>
 
         {showWelcomeBox && !outOfScopeNotice && (
-          <div className="rounded-xl border border-white/20 bg-white/10 p-4 shadow-lg text-sm text-white">
-            <div className="flex flex-col gap-2">
-              <p className="font-semibold">{t("editor.welcome.title")}</p>
-              <p>
-                {t("editor.welcome.warning")} {t("editor.welcome.learnMorePrefix")}{" "}
-                <Link href="/privacy" className="underline">
-                  {t("link.privacy")}
-                </Link>{" "}
-                {t("editor.welcome.learnMoreMiddle")}{" "}
-                <Link href="/account/privacy" className="underline">
-                  {t("link.privacySafety")}
-                </Link>
-                {t("editor.welcome.learnMoreSuffix")}
-              </p>
-              <Button
-                onClick={handleWelcomeDismiss}
-                variant="tertiary"
-                size="md"
-                aria-label={t("editor.welcome.dismiss")}
-                className="self-start h-11 px-4 text-xs font-semibold uppercase tracking-[0.1em] rounded-full transition focus-visible:ring-2 focus-visible:ring-offset-2"
-              >
-                {t("editor.welcome.dismiss")}
-              </Button>
-              <label className="flex items-center gap-2 text-sm text-white/90 mt-2">
-                <input
-                  type="checkbox"
-                  checked={dontShowWelcome}
-                  onChange={handleDontShowAgain}
-                  className="rounded"
-                />
-                {t("welcome.dontShowAgain")}
-              </label>
+          <div className="rounded-2xl border border-white/20 bg-slate-950/30 p-5 shadow-xl text-white backdrop-blur">
+            <div className="flex flex-col gap-5">
+              <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+                <div className="space-y-2">
+                  <p className="text-xs font-semibold uppercase tracking-[0.24em] text-sky-100/80">
+                    {t("onboarding.eyebrow")}
+                  </p>
+                  <h2 className="text-xl font-semibold text-white">
+                    {t("onboarding.title")}
+                  </h2>
+                  <p className="max-w-2xl text-sm leading-6 text-slate-100/85">
+                    {t("onboarding.description")}
+                  </p>
+                </div>
+                <Button
+                  onClick={dismissOnboarding}
+                  variant="secondary"
+                  size="md"
+                  aria-label={t("onboarding.dismiss")}
+                  className="h-11 rounded-full border border-white/20 bg-white/95 px-5 text-xs font-semibold uppercase tracking-[0.12em] text-slate-900 hover:bg-white"
+                >
+                  {t("onboarding.dismiss")}
+                </Button>
+              </div>
+
+              <div className="grid gap-3 md:grid-cols-3">
+                {ONBOARDING_FEATURE_CARDS.map((feature) => {
+                  const Icon = feature.icon
+                  return (
+                    <div
+                      key={feature.id}
+                      className="rounded-2xl border border-white/15 bg-white/10 p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]"
+                    >
+                      <div className="flex items-center gap-3">
+                        <span className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-sky-400/20 text-sky-100">
+                          <Icon className="h-5 w-5" aria-hidden="true" />
+                        </span>
+                        <p className="font-semibold text-white">{t(feature.titleKey)}</p>
+                      </div>
+                      <p className="mt-3 text-sm leading-6 text-slate-100/80">
+                        {t(feature.descriptionKey)}
+                      </p>
+                    </div>
+                  )
+                })}
+              </div>
             </div>
             {onboardingError && <p className="text-xs text-rose-200 mt-2">{onboardingError}</p>}
           </div>

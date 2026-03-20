@@ -6,7 +6,9 @@ import { MainEditor } from "@/components/main-editor"
 
 type Locale = "en-GB" | "de-DE"
 let mockLocale: Locale = "en-GB"
-let mockOnboardingDismissed = true
+let mockOnboardingCompleted = true
+let mockWelcomeEmailSent = true
+let mockFirstLogin = false
 
 /**
  * Mock useLocale so MainEditor can render without LanguageProvider.
@@ -16,14 +18,40 @@ vi.mock("@/hooks/use-locale", () => {
     "editor.outOfScope.title": "Not generated",
     "editor.outOfScope.body": "This doesn't look like a school report or parent message.",
     "editor.outOfScope.helper": "Adjust the text or add context and try again.",
-    "welcome.dontShowAgain": "Don't show this again",
+    "onboarding.eyebrow": "First steps",
+    "onboarding.title": "Welcome to Zaza Draft",
+    "onboarding.description":
+      "Start with Safe Draft for parent-ready messages, use Panic Scan when a screenshot needs a calm reply, and shape polished report comments from your classroom notes.",
+    "onboarding.dismiss": "Continue to Draft",
+    "onboarding.feature.safeDraft":
+      "Turn a rough parent message into a clear, professional draft you can send with confidence.",
+    "onboarding.feature.panicScan":
+      "Review a screenshot or urgent message before replying and keep the response steady.",
+    "onboarding.feature.reportComment":
+      "Convert observations into concise, report-ready comments without losing your meaning.",
+    homeSafeDraftTitle: "Safe Draft",
+    panicScanTitle: "Panic Scan",
+    "editor.mode.reportComment": "Report comment",
   }
   const deStrings = {
     "editor.outOfScope.title": "Nicht generiert",
     "editor.outOfScope.body":
       "Das sieht nicht wie eine Elternnachricht oder ein Berichtskommentar aus. Zaza Draft hilft Ihnen bei professioneller schulischer Kommunikation.",
     "editor.outOfScope.helper": "Passen Sie den Text an oder f├╝gen Sie Kontext hinzu und versuchen Sie es erneut.",
-    "welcome.dontShowAgain": "Nicht mehr anzeigen",
+    "onboarding.eyebrow": "Erste Schritte",
+    "onboarding.title": "Willkommen bei Zaza Draft",
+    "onboarding.description":
+      "Nutzen Sie Safe Draft für elterngerechte Nachrichten, Panic Scan für ruhige Antworten auf Screenshots und Berichtskommentare für klare Formulierungen aus Ihren Unterrichtsnotizen.",
+    "onboarding.dismiss": "Weiter zu Draft",
+    "onboarding.feature.safeDraft":
+      "Formen Sie aus einer Rohfassung eine klare, professionelle Nachricht für Eltern.",
+    "onboarding.feature.panicScan":
+      "Prüfen Sie Screenshots oder dringende Nachrichten vor dem Antworten und halten Sie den Ton ruhig.",
+    "onboarding.feature.reportComment":
+      "Verdichten Sie Beobachtungen zu präzisen Berichtskommentaren, ohne Ihre Aussage zu verlieren.",
+    homeSafeDraftTitle: "Sicherer Entwurf",
+    panicScanTitle: "Panic Scan",
+    "editor.mode.reportComment": "Berichtskommentar",
   }
   const t = (key: string) => {
     const localeStrings = mockLocale === "de-DE" ? deStrings : enStrings
@@ -123,11 +151,26 @@ const fetchMock = vi.fn(async (input: RequestInfo, init?: RequestInit) => {
     } as any
   }
 
+  if (full.includes("/api/onboarding/welcome")) {
+    return {
+      ok: true,
+      status: 200,
+      json: async () => ({ success: true, data: { sent: true, alreadySent: false } }),
+    } as any
+  }
+
   if (full.includes("/api/onboarding")) {
     return {
       ok: true,
       status: 200,
-      json: async () => ({ success: true, data: { dismissed: mockOnboardingDismissed } }),
+      json: async () => ({
+        success: true,
+        data: {
+          onboardingCompleted: mockOnboardingCompleted,
+          welcomeEmailSent: mockWelcomeEmailSent,
+          firstLogin: mockFirstLogin,
+        },
+      }),
     } as any
   }
 
@@ -353,7 +396,9 @@ afterAll(() => {
 
 beforeEach(() => {
   vi.clearAllMocks()
-  mockOnboardingDismissed = true
+  mockOnboardingCompleted = true
+  mockWelcomeEmailSent = true
+  mockFirstLogin = false
 })
 
 function getPromptTextarea() {
@@ -424,17 +469,20 @@ describe("MainEditor scope guard notice", () => {
     expect(screen.queryByTestId("draft-output-body")).toBeNull()
   })
 
-  it("renders welcome checkbox label in German", async () => {
+  it("renders onboarding banner content in German for first-run users", async () => {
     mockLocale = "de-DE"
-    mockOnboardingDismissed = false
+    mockOnboardingCompleted = false
+    mockWelcomeEmailSent = false
+    mockFirstLogin = true
 
     render(<MainEditor />)
 
     await waitFor(() => {
-      expect(screen.queryByText("Nicht mehr anzeigen")).not.toBeNull()
+      expect(screen.queryByText("Weiter zu Draft")).not.toBeNull()
     })
 
-    expect(screen.queryByText("Don't show this again")).toBeNull()
+    expect(screen.getAllByText("Sicherer Entwurf").length).toBeGreaterThan(0)
+    expect(screen.getAllByText("Berichtskommentar").length).toBeGreaterThan(0)
   })
 
   it("removes a previously generated draft after an out-of-scope prompt", async () => {
