@@ -341,7 +341,7 @@ export const localeMessages: Record<Locale, LocaleMessages> = {
     "auth.msg.passwordMismatch": "Passwords do not match",
     "auth.title": "Welcome back",
     "auth.description":
-      "Enter your email and we’ll send a secure sign-in link. Open it on this device to continue.",
+      "Enter your school or preferred email. We’ll send you a secure sign-in link. No password required.",
     "auth.marketingEyebrow": "Teacher-safe writing",
     "auth.emailLabel": "Email",
     "auth.passwordLabel": "Password",
@@ -356,14 +356,15 @@ export const localeMessages: Record<Locale, LocaleMessages> = {
     "auth.loading": "Signing you in...",
     "auth.showPassword": "Show password",
     "auth.hidePassword": "Hide password",
-    "auth.cta.sendLink": "Send login link",
-    "auth.cta.resendLink": "Resend login link",
+    "auth.cta.sendLink": "Send sign-in link",
+    "auth.cta.resendLink": "Resend sign-in link",
     "auth.cta.completeEmailLink": "Complete sign in",
     "auth.emailLink.helper":
-      "Use your school or preferred email. We’ll send a secure link instead of asking for a password.",
+      "Enter your school or preferred email. We’ll send you a secure sign-in link. No password required.",
     "auth.emailLink.inputHelper": "We’ll email a one-time sign-in link to this address.",
-    "auth.emailLink.sent": "We sent a secure sign-in link to {email}.",
-    "auth.emailLink.sentHint": "Open the email on this device to finish signing in.",
+    "auth.emailLink.successTitle": "Check your inbox",
+    "auth.emailLink.sent": "We've sent a secure sign-in link to {email}.",
+    "auth.emailLink.sentHint": "Open it on this device to continue.",
     "auth.emailLink.confirmTitle": "Confirm your email",
     "auth.emailLink.confirmDescription":
       "We couldn’t find the saved email for this sign-in link. Enter it again to continue securely.",
@@ -1146,7 +1147,7 @@ export const localeMessages: Record<Locale, LocaleMessages> = {
       "Password must contain at least one uppercase letter, one lowercase letter, and one number",
     "auth.msg.passwordMismatch": "Passwords do not match",
     "auth.description":
-      "Enter your email and we’ll send a secure sign-in link. Open it on this device to continue.",
+      "Enter your school or preferred email. We’ll send you a secure sign-in link. No password required.",
     "auth.marketingEyebrow": "Teacher-safe writing",
     "auth.emailLabel": "Email",
     "auth.passwordLabel": "Password",
@@ -1161,14 +1162,15 @@ export const localeMessages: Record<Locale, LocaleMessages> = {
     "auth.loading": "Signing you in...",
     "auth.showPassword": "Show password",
     "auth.hidePassword": "Hide password",
-    "auth.cta.sendLink": "Send login link",
-    "auth.cta.resendLink": "Resend login link",
+    "auth.cta.sendLink": "Send sign-in link",
+    "auth.cta.resendLink": "Resend sign-in link",
     "auth.cta.completeEmailLink": "Complete sign in",
     "auth.emailLink.helper":
-      "Use your school or preferred email. We’ll send a secure link instead of asking for a password.",
+      "Enter your school or preferred email. We’ll send you a secure sign-in link. No password required.",
     "auth.emailLink.inputHelper": "We’ll email a one-time sign-in link to this address.",
-    "auth.emailLink.sent": "We sent a secure sign-in link to {email}.",
-    "auth.emailLink.sentHint": "Open the email on this device to finish signing in.",
+    "auth.emailLink.successTitle": "Check your inbox",
+    "auth.emailLink.sent": "We've sent a secure sign-in link to {email}.",
+    "auth.emailLink.sentHint": "Open it on this device to continue.",
     "auth.emailLink.confirmTitle": "Confirm your email",
     "auth.emailLink.confirmDescription":
       "We couldn’t find the saved email for this sign-in link. Enter it again to continue securely.",
@@ -1944,7 +1946,7 @@ export const localeMessages: Record<Locale, LocaleMessages> = {
     "auth.msg.passwordMismatch": "Passwörter stimmen nicht überein.",
     "auth.title": "Willkommen zurück",
     "auth.description":
-      "Geben Sie Ihre E-Mail-Adresse ein. Wir senden Ihnen einen sicheren Anmeldelink, damit Sie ohne Passwort fortfahren können.",
+      "Geben Sie Ihre Schul- oder bevorzugte E-Mail-Adresse ein. Wir senden Ihnen einen sicheren Anmeldelink. Kein Passwort erforderlich.",
     "auth.marketingEyebrow": "Sichere Kommunikation für Lehrkräfte",
     "auth.emailLabel": "E-Mail",
     "auth.passwordLabel": "Passwort",
@@ -1963,11 +1965,11 @@ export const localeMessages: Record<Locale, LocaleMessages> = {
     "auth.cta.resendLink": "Anmeldelink erneut senden",
     "auth.cta.completeEmailLink": "Anmeldung abschließen",
     "auth.emailLink.helper":
-      "Verwenden Sie Ihre Schul- oder bevorzugte E-Mail-Adresse. Wir senden einen sicheren Link statt eines Passworts.",
+      "Geben Sie Ihre Schul- oder bevorzugte E-Mail-Adresse ein. Wir senden Ihnen einen sicheren Anmeldelink. Kein Passwort erforderlich.",
     "auth.emailLink.inputHelper": "Wir senden einen einmaligen Anmeldelink an diese Adresse.",
+    "auth.emailLink.successTitle": "Posteingang prüfen",
     "auth.emailLink.sent": "Wir haben einen sicheren Anmeldelink an {email} gesendet.",
-    "auth.emailLink.sentHint":
-      "Öffnen Sie die E-Mail auf diesem Gerät, um die Anmeldung abzuschließen.",
+    "auth.emailLink.sentHint": "Öffnen Sie ihn auf diesem Gerät, um fortzufahren.",
     "auth.emailLink.confirmTitle": "E-Mail-Adresse bestätigen",
     "auth.emailLink.confirmDescription":
       "Für diesen Anmeldelink wurde keine gespeicherte E-Mail-Adresse gefunden. Geben Sie sie bitte erneut ein, um fortzufahren.",

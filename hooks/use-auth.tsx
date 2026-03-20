@@ -18,6 +18,7 @@ import {
 } from "@/lib/auth/cookie"
 import {
   clearStoredEmailLinkEmail,
+  getEmailLinkActionCodeSettings,
   getEmailLinkRedirectUrl,
   getStoredEmailLinkEmail,
   storeEmailLinkEmail,
@@ -136,15 +137,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
 
     const normalizedEmail = email.trim()
+    const actionCodeSettings = getEmailLinkActionCodeSettings()
     storeEmailLinkEmail(normalizedEmail)
+    console.info("[auth] sendSignInLinkToEmail actionCodeSettings", actionCodeSettings)
 
     try {
-      await sendSignInLinkToEmail(auth, normalizedEmail, {
-        url: getEmailLinkRedirectUrl(),
-        handleCodeInApp: true,
-      })
+      await sendSignInLinkToEmail(auth, normalizedEmail, actionCodeSettings)
+      console.info("[auth] sendSignInLinkToEmail success", { email: normalizedEmail })
       setEmailLinkStatus("idle")
     } catch (error) {
+      console.error("[auth] sendSignInLinkToEmail error", error)
       clearStoredEmailLinkEmail()
       throw error
     }

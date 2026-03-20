@@ -1,6 +1,6 @@
 "use client"
 
-import { useRef, useState } from "react"
+import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -19,7 +19,6 @@ const GOOGLE_ERROR_MAP: Record<string, string> = {
 export function AuthScreen() {
   const { status, emailLinkStatus, sendEmailLink, completeEmailLinkSignIn, signInWithGoogle } = useAuth()
   const { t } = useLocale()
-  const emailInputRef = useRef<HTMLInputElement | null>(null)
   const [email, setEmail] = useState("")
   const [successEmail, setSuccessEmail] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -44,7 +43,10 @@ export function AuthScreen() {
         if (err instanceof Error && err.message.includes("Email is required")) {
           return t("auth.error.invalidEmail")
         }
-        if (err instanceof Error && err.message.includes("not configured")) {
+        if (
+          err instanceof Error &&
+          (err.message.includes("not configured") || err.message.includes("NEXT_PUBLIC_APP_URL"))
+        ) {
           return t("auth.error.linkConfig")
         }
         return isAwaitingEmail ? t("auth.error.linkFailed") : t("auth.error.sendLinkFailed")
@@ -55,6 +57,10 @@ export function AuthScreen() {
     event.preventDefault()
     setIsSubmitting(true)
     setError(null)
+    console.info("[auth] submit start", {
+      flow: isAwaitingEmail ? "complete_email_link" : "send_email_link",
+      email: email.trim(),
+    })
 
     try {
       const normalizedEmail = email.trim()
@@ -66,6 +72,7 @@ export function AuthScreen() {
         setSuccessEmail(normalizedEmail)
       }
     } catch (err) {
+      console.error("[auth] auth screen submit error", err)
       setSuccessEmail(null)
       setError(getFriendlyEmailLinkError(err))
     } finally {
@@ -112,7 +119,7 @@ export function AuthScreen() {
             </p>
           </div>
 
-          <InstantDraftTest onCreateAccount={() => emailInputRef.current?.focus()} />
+          <InstantDraftTest onCreateAccount={() => document.getElementById("email")?.focus()} />
         </div>
 
         <div className="space-y-5 lg:justify-self-end lg:w-full lg:max-w-md">
@@ -134,7 +141,6 @@ export function AuthScreen() {
                 {t("auth.emailLabel")}
               </Label>
               <Input
-                ref={emailInputRef}
                 id="email"
                 type="email"
                 required
@@ -157,7 +163,8 @@ export function AuthScreen() {
 
             {successEmail && !isAwaitingEmail && !error && (
               <div className="rounded-xl border border-emerald-200/35 bg-emerald-500/12 px-3 py-3 text-sm text-emerald-50">
-                <p>{t("auth.emailLink.sent", { email: successEmail })}</p>
+                <p className="font-semibold">{t("auth.emailLink.successTitle")}</p>
+                <p className="mt-1">{t("auth.emailLink.sent", { email: successEmail })}</p>
                 <p className="mt-1 text-emerald-100/90">{t("auth.emailLink.sentHint")}</p>
               </div>
             )}

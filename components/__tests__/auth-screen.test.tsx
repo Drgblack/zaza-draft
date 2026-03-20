@@ -20,21 +20,22 @@ vi.mock("@/hooks/use-locale", () => ({
         "auth.marketingEyebrow": "Teacher-safe writing",
         "auth.title": "Welcome back",
         "auth.description":
-          "Enter your email and we’ll send a secure sign-in link. Open it on this device to continue.",
+          "Enter your school or preferred email. We’ll send you a secure sign-in link. No password required.",
         "auth.title.signin": "Email sign-in",
         "auth.emailLabel": "Email",
         "auth.emailLink.helper":
-          "Use your school or preferred email. We’ll send a secure link instead of asking for a password.",
+          "Enter your school or preferred email. We’ll send you a secure sign-in link. No password required.",
         "auth.emailLink.inputHelper": "We’ll email a one-time sign-in link to this address.",
-        "auth.emailLink.sent": `We sent a secure sign-in link to ${vars?.email ?? ""}.`,
-        "auth.emailLink.sentHint": "Open the email on this device to finish signing in.",
+        "auth.emailLink.successTitle": "Check your inbox",
+        "auth.emailLink.sent": `We've sent a secure sign-in link to ${vars?.email ?? ""}.`,
+        "auth.emailLink.sentHint": "Open it on this device to continue.",
         "auth.emailLink.confirmTitle": "Confirm your email",
         "auth.emailLink.confirmDescription":
           "We couldn’t find the saved email for this sign-in link. Enter it again to continue securely.",
         "auth.emailLink.confirmHelper": "Use the same email address that requested the link.",
         "auth.emailLink.processing": "Checking your secure sign-in link...",
-        "auth.cta.sendLink": "Send login link",
-        "auth.cta.resendLink": "Resend login link",
+        "auth.cta.sendLink": "Send sign-in link",
+        "auth.cta.resendLink": "Resend sign-in link",
         "auth.cta.completeEmailLink": "Complete sign in",
         "auth.processing.sendLink": "Sending secure link...",
         "auth.processing.completeLink": "Signing you in...",
@@ -85,7 +86,7 @@ describe("AuthScreen", () => {
 
     render(<AuthScreen />)
 
-    expect(screen.getByRole("button", { name: "Send login link" })).toBeInTheDocument()
+    expect(screen.getByRole("button", { name: "Send sign-in link" })).toBeInTheDocument()
     expect(screen.getByLabelText("Email")).toBeInTheDocument()
     expect(screen.queryByLabelText("Password")).not.toBeInTheDocument()
     expect(screen.getByText("Continue with Google")).toBeInTheDocument()
@@ -114,10 +115,11 @@ describe("AuthScreen", () => {
       expect(sendEmailLink).toHaveBeenCalledWith("teacher@example.com")
     })
 
+    expect(screen.getByText("Check your inbox")).toBeInTheDocument()
     expect(
-      screen.getByText("We sent a secure sign-in link to teacher@example.com."),
+      screen.getByText("We've sent a secure sign-in link to teacher@example.com."),
     ).toBeInTheDocument()
-    expect(screen.getByRole("button", { name: "Resend login link" })).toBeInTheDocument()
+    expect(screen.getByRole("button", { name: "Resend sign-in link" })).toBeInTheDocument()
   })
 
   it("prompts for the email again when returning from a sign-in link without local email", async () => {

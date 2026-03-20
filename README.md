@@ -63,7 +63,7 @@ For more details, see `docs/spec/Zaza Draft - Technical Specification.md`.
 - `STRIPE_SECRET_KEY`
 - `STRIPE_PRICE_DRAFT_PRO` (the price ID for the Draft Pro monthly plan)
 - `STRIPE_WEBHOOK_SECRET`
-- `NEXT_PUBLIC_APP_URL` (used in success/cancel URLs for Stripe and for Firebase email-link redirects; should match `http://localhost:3000` in dev and your canonical app origin in production)
+- `NEXT_PUBLIC_APP_URL` (used in success/cancel URLs for Stripe and for Firebase email-link redirects; should match `http://localhost:3000` in dev and `https://app.zazadraft.com` in production)
 - `INTERNAL_QA_UIDS` (optional comma-separated UID list that bypasses the monthly free-tier limit for internal QA/testing accounts; add values only in trusted environments such as your local `.env.local` or the Vercel project settings for your Preview and Production deployments). When you add a UID, mirror the same value into both Preview and Production environment variables and redeploy each environment so the bypass is applied everywhere.
 
 Firebase envs are already listed above in the Phase 2a section and remain required.
