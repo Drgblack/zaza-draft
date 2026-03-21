@@ -40,13 +40,13 @@ A quick mention here ensures Vercel sees a content change before the next previe
 - `GOOGLE_VISION_API_KEY` - Key for the Vision API used to OCR panic scans.
 - `GOOGLE_SPEECH_TO_TEXT_API_KEY` - Key for converting voice uploads into text.
 
-The client now uses Firebase Auth (email-link passwordless sign-in + Google) and surface the support email `greg@zazatechnologies.com` on the login screen. Every request to `/api/draft/generate` must include `Authorization: Bearer <id-token>`; the server verifies the token and enforces the 10-draft/month free tier in Firestore (`users/{uid}.monthlyUsage`).
+The client now uses Firebase Auth (email-link passwordless sign-in + Google) and surface the support email `greg@zazatechnologies.com` on the login screen. Every request to `/api/draft/generate` must include `Authorization: Bearer <id-token>`; the server verifies the token and enforces the 5-draft/month free tier in Firestore (`users/{uid}.monthlyUsage`).
 
 For more details, see `docs/spec/Zaza Draft - Technical Specification.md`.
 
 ## Phase 2b Billing & Analytics
 
-- **Stripe + Firestore**: The free tier remains capped at 10 drafts/month (enforced in `/api/draft/generate`), while paid `Draft Pro` subscribers enjoy unlimited drafts. `/api/account/status` reports the current plan/usage, `/api/billing/checkout` and `/api/billing/portal` drive the client upgrade/manage flows, and `/api/billing/webhook` syncs Stripe events into Firestore (making sure `users/{uid}` stores `stripeCustomerId`, `subscriptionStatus`, `priceId`, `currentPeriodEnd`, `cancelAtPeriodEnd`, and a `stripeCustomers/{customerId}` reverse lookup).
+- **Stripe + Firestore**: The free tier remains capped at 5 drafts/month (enforced in `/api/draft/generate`), while paid `Draft Pro` subscribers enjoy unlimited drafts. `/api/account/status` reports the current plan/usage, `/api/billing/checkout` and `/api/billing/portal` drive the client upgrade/manage flows, and `/api/billing/webhook` syncs Stripe events into Firestore (making sure `users/{uid}` stores `stripeCustomerId`, `subscriptionStatus`, `priceId`, `currentPeriodEnd`, `cancelAtPeriodEnd`, and a `stripeCustomers/{customerId}` reverse lookup).
 - **Analytics**: Client events (`auth_login_success`, `draft_generate_requested`, `draft_generate_succeeded`, `draft_generate_failed`, `upgrade_clicked`, `manage_subscription_clicked`, `checkout_redirected`) are logged via `lib/analytics`, while the server emits `draft_generation`, `billing_webhook_received`, `checkout_session_created`, `billing_portal_created`, `subscription_status_changed`, and `invoice_event`.
 
 ## Phase 3B Persistence & History
@@ -73,8 +73,8 @@ Firebase envs are already listed above in the Phase 2a section and remain requir
 1. Run `stripe listen --forward-to http://localhost:3000/api/billing/webhook` to forward events locally. Make sure `STRIPE_WEBHOOK_SECRET` matches the webhook signing secret printed by the CLI.
 2. Call `POST http://localhost:3000/api/billing/checkout` with a valid Firebase ID token (`Authorization: Bearer <id-token>`) to create a Checkout session, and follow the returned URL to complete payment with test card numbers.
 3. After `checkout.session.completed` and related webhook events fire, verify Firestore under `users/{uid}` contains the expected billing fields and `stripeCustomers/{customerId}` maps back to the user.
-4. Confirm `/api/account/status` now reports `plan: "pro"` and a null `limit`, and `/api/draft/generate` returns `usage.plan === "pro"` without enforcing the 10-draft cap.
-5. Repeat the flow for a free account to ensure the limit is enforced (expect `USAGE_LIMIT_EXCEEDED` once 10 drafts are consumed).
+4. Confirm `/api/account/status` now reports `plan: "pro"` and a null `limit`, and `/api/draft/generate` returns `usage.plan === "pro"` without enforcing the 5-draft cap.
+5. Repeat the flow for a free account to ensure the limit is enforced (expect `USAGE_LIMIT_EXCEEDED` once 5 drafts are consumed).
 
 ## Phase 3C Real AI generation
 
@@ -115,8 +115,8 @@ curl -X POST http://localhost:3000/api/draft/generate \
   "usage": {
     "plan": "free",
     "currentMonthUsage": 3,
-    "limit": 10,
-    "remaining": 7
+    "limit": 5,
+    "remaining": 2
   }
 }
 ```
@@ -187,7 +187,7 @@ curl -X POST http://localhost:3000/api/draft/generate \
 - **Smoke tests (run after deploy or config changes):**
   1. Email/password sign-in works and appears on the editor page with the teacher name.
   2. Google sign-in opens the chooser (no popup error) and returns the Google display name/photo everywhere.
-  3. Free-tier generation increments `usage.currentMonthUsage`; after 10 drafts, `/api/draft/generate` returns `USAGE_LIMIT_EXCEEDED`.
+  3. Free-tier generation increments `usage.currentMonthUsage`; after 5 drafts, `/api/draft/generate` returns `USAGE_LIMIT_EXCEEDED`.
   4. Upgrading via Stripe (checkout + webhook) flips `/api/account/status` to `plan: "pro"` with unlimited drafts.
   5. `/api/snippets` returns the latest history; deleting an entry removes it.
   6. Rate limit works: more than 10 requests in 10 minutes returns `RATE_LIMITED` with a retry estimate.
@@ -203,7 +203,7 @@ curl -X POST http://localhost:3000/api/draft/generate \
 1. Email/password login followed by accessing the editor and profile displays your name/photo.
 2. Google login completes without unauthorized-domain errors and surfaces the Google display name/photo everywhere.
 3. Generate/regenerate/rewrite flows return drafts and update `/api/snippets` history; deleting a snippet removes it instantly.
-4. `/api/account/status` mirrors your plan/usage (free 10/month vs pro unlimited) and the Diagnostics card in `/account` shows the primary/fallback models, the plan/usage snapshot, last model used, and any recent error code.
+4. `/api/account/status` mirrors your plan/usage (free 5/month vs pro unlimited) and the Diagnostics card in `/account` shows the primary/fallback models, the plan/usage snapshot, last model used, and any recent error code.
 5. Rate limiting kicks in after 10 requests per 10 minutes with a `RATE_LIMITED` error plus retry advice.
 6. Stripe upgrade workflow switches `/api/account/status` to `plan: "pro"` and drops limits.
 7. Set `OPENAI_FORCE_FAIL_PRIMARY=1` locally; the subsequent `/api/draft/generate` response should report the fallback `modelUsed`.

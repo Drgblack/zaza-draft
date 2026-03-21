@@ -110,6 +110,11 @@ export async function POST(request: NextRequest) {
     if (!uid) return
     const subscription = await stripeClient.subscriptions.retrieve(session.subscription as string)
     await updateBillingForUser(adminFirestore, uid, customerId, subscription)
+    logServerEvent("subscription_started", {
+      uid,
+      customerId,
+      subscriptionId: typeof session.subscription === "string" ? session.subscription : session.subscription?.id,
+    })
   }
 
   switch (event.type) {

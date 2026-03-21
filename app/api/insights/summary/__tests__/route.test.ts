@@ -27,6 +27,7 @@ const testState = vi.hoisted(() => ({
   snippets: [] as SnippetRecord[],
   userUpdatedAt: null as string | null,
   generationCount: 0,
+  draftsUsedThisMonth: 0,
   queryError: null as Error | null,
 }))
 
@@ -110,10 +111,15 @@ function createFirestoreStub() {
             return {
               async get() {
                 return {
-                  exists: Boolean(testState.userUpdatedAt || testState.generationCount),
+                  exists: Boolean(
+                    testState.userUpdatedAt ||
+                      testState.generationCount ||
+                      testState.draftsUsedThisMonth,
+                  ),
                   data: () => ({
                     updatedAt: testState.userUpdatedAt,
                     monthlyUsage: { generationCount: testState.generationCount },
+                    draftsUsedThisMonth: testState.draftsUsedThisMonth,
                   }),
                 }
               },
@@ -162,6 +168,7 @@ describe("GET /api/insights/summary", () => {
     testState.snippets = []
     testState.userUpdatedAt = null
     testState.generationCount = 0
+    testState.draftsUsedThisMonth = 0
     testState.queryError = null
     vi.clearAllMocks()
     vi.mocked(authorizeFirebaseRequest).mockImplementation(
@@ -395,6 +402,18 @@ describe("GET /api/insights/summary", () => {
 
     expect(response.status).toBe(200)
     expect(json.summary.draftsCreated.total).toBe(12)
+  })
+
+  it("falls back to draftsUsedThisMonth when monthly usage is missing or stale", async () => {
+    testState.draftsUsedThisMonth = 4
+    testState.userUpdatedAt = "2026-03-18T10:00:00.000Z"
+
+    const response = await GET(new Request("http://localhost/api/insights/summary"))
+    const json = await response.json()
+
+    expect(response.status).toBe(200)
+    expect(json.summary.draftsCreated.total).toBe(4)
+    expect(json.summary.dataSource).toBe("usage_fallback")
   })
 
   it("builds the weekly reflection from the last 7 days only", async () => {

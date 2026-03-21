@@ -14,7 +14,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { ArrowLeft, LogOut, Upload, Trash2 } from "lucide-react"
 import Link from "next/link"
-import { logClientEvent } from "@/lib/analytics"
+import { logClientEvent, logClientEventOnce, TRUST_FUNNEL_EVENTS } from "@/lib/analytics"
 import { canShowDevUid } from "@/lib/dev/feature-flags"
 import type { FirestoreTimestamp } from "@/lib/diagnostics/merge-last-run"
 import { getLastRunFromStorage } from "@/lib/diagnostics/local-storage"
@@ -227,7 +227,9 @@ export default function AccountPage() {
   const handleUpgrade = async () => {
     setBillingError(null)
     setBillingAction("upgrade")
-    logClientEvent("upgrade_clicked")
+    logClientEvent(TRUST_FUNNEL_EVENTS.upgradeClicked, {
+      source: "account_billing",
+    })
     try {
       const token = await getIdToken()
       if (!token) {
@@ -336,6 +338,20 @@ export default function AccountPage() {
       isMounted = false
     }
   }, [getIdToken, signOut])
+
+  useEffect(() => {
+    if (!user?.uid || !usageLimited || accountInfo?.usage.remaining !== 0) {
+      return
+    }
+
+    logClientEventOnce(TRUST_FUNNEL_EVENTS.paywallShown, {
+      payload: {
+        surface: "account_billing",
+      },
+      scopeKey: user.uid,
+      storage: "session",
+    })
+  }, [accountInfo?.usage.remaining, usageLimited, user?.uid])
 
   const handleCopyUid = async () => {
     if (!user?.uid) {

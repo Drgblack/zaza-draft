@@ -3,6 +3,9 @@ import type { ActionCodeSettings } from "firebase/auth"
 const EMAIL_LINK_STORAGE_KEY = "zaza.auth.emailLinkEmail"
 const LOCAL_APP_ORIGIN = "http://localhost:3000"
 const CANONICAL_PRODUCTION_APP_ORIGIN = "https://app.zazadraft.com"
+const EMAIL_LINK_QUERY_PARAM_KEYS = ["email", "emailAddress"] as const
+
+export type EmailLinkRecoveryReason = "expired_or_used" | "unknown"
 
 function getFallbackOrigin() {
   if (typeof window !== "undefined" && window.location.origin) {
@@ -61,6 +64,42 @@ export function getEmailLinkActionCodeSettings(): ActionCodeSettings {
     url: getEmailLinkRedirectUrl(),
     handleCodeInApp: true,
   }
+}
+
+function normalizeEmailCandidate(value: string | null | undefined) {
+  const normalized = value?.trim() ?? ""
+  if (!normalized || !normalized.includes("@")) {
+    return null
+  }
+  return normalized
+}
+
+export function getEmailLinkEmailFromUrl(currentUrl: string) {
+  try {
+    const url = new URL(currentUrl)
+    for (const key of EMAIL_LINK_QUERY_PARAM_KEYS) {
+      const email = normalizeEmailCandidate(url.searchParams.get(key))
+      if (email) {
+        return email
+      }
+    }
+  } catch {
+    return null
+  }
+
+  return null
+}
+
+export function getKnownEmailLinkEmail(currentUrl: string, storedEmail = getStoredEmailLinkEmail()) {
+  return normalizeEmailCandidate(storedEmail) ?? getEmailLinkEmailFromUrl(currentUrl)
+}
+
+export function classifyEmailLinkError(error: unknown): EmailLinkRecoveryReason {
+  const code = (error as { code?: string })?.code
+  if (code === "auth/invalid-action-code" || code === "auth/expired-action-code") {
+    return "expired_or_used"
+  }
+  return "unknown"
 }
 
 export function storeEmailLinkEmail(email: string) {

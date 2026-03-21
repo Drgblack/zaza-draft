@@ -14,6 +14,7 @@ import { GreetingBar } from "./zaza/greeting-bar"
 import { ToneSelector } from "./zaza/tone-selector"
 import { UpgradeButton } from "./zaza/upgrade-button"
 import { useLocale } from "@/hooks/use-locale"
+import { FREE_TIER_LIMIT } from "@/lib/usage"
 
 interface EditorProps {
   content: string
@@ -31,8 +32,8 @@ export function Editor({ content, onChange, rightPanelVisible, onToggleRightPane
   const { t } = useLocale()
 
   const isFreeUser = true
-  const draftsUsed = 8
-  const draftsLimit = 10
+  const draftsUsed = Math.max(FREE_TIER_LIMIT - 1, 0)
+  const draftsLimit = FREE_TIER_LIMIT
 
   useEffect(() => {
     const words = content.trim().split(/\s+/).filter(Boolean).length

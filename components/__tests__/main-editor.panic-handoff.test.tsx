@@ -109,7 +109,16 @@ vi.mock("@/hooks/use-locale", () => ({
 }))
 
 vi.mock("@/lib/analytics", () => ({
+  TRUST_FUNNEL_EVENTS: {
+    onboardingBannerShown: "onboarding_banner_shown",
+    onboardingCompleted: "onboarding_completed",
+    onboardingDismissed: "onboarding_dismissed",
+    firstDraftStarted: "first_draft_started",
+    firstDraftGenerated: "first_draft_generated",
+    paywallShown: "paywall_shown",
+  },
   logClientEvent: vi.fn(),
+  logClientEventOnce: vi.fn(),
   logDraftInteractionEvent: vi.fn(),
 }))
 

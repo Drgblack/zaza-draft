@@ -238,11 +238,16 @@ const ONBOARDING_TONE_OPTIONS: NonNullable<OnboardingTonePreference>[] = [
 ]
 
 const ONBOARDING_REGION_OPTIONS: NonNullable<OnboardingRegion>[] = [
-  "germany",
-  "austria",
-  "switzerland",
+  "germany_austria_switzerland",
   "uk_ireland",
-  "other",
+  "usa_canada",
+  "australia_new_zealand",
+  "international_school",
+  "other_europe",
+  "latin_america",
+  "middle_east_africa",
+  "asia_pacific",
+  "other_prefer_not_to_say",
 ]
 
 const FIRST_VALUE_SAMPLES: Record<"en" | "de", FirstValueSample> = {
@@ -1125,6 +1130,7 @@ export function MainEditor({ canExport = true }: MainEditorProps = {}) {
   }, [getIdToken, onboardingLoading, onboardingState, user?.uid])
 
   const showWelcomeBox = onboardingVisible && !onboardingLoading
+  const shouldLogOnboardingPersistence = process.env.NODE_ENV !== "production"
 
   useEffect(() => {
     if (!showWelcomeBox || !user?.uid || !onboardingState?.firstLogin) {
@@ -1161,6 +1167,47 @@ export function MainEditor({ canExport = true }: MainEditorProps = {}) {
     }
   }, [])
 
+  const finalizeOnboardingLocally = useCallback(
+    (action: "complete" | "skip") => {
+      if (action === "skip") {
+        logClientEvent(TRUST_FUNNEL_EVENTS.onboardingDismissed, {
+          surface: "main_editor",
+        })
+      }
+      logClientEvent(TRUST_FUNNEL_EVENTS.onboardingCompleted, {
+        surface: "main_editor",
+      })
+      if (shouldLogOnboardingPersistence) {
+        console.info("[onboarding] onboarding-completed state", {
+          uid: user?.uid ?? null,
+          onboardingCompleted: true,
+          onboardingSkipped: action === "skip",
+          answeredFields: onboardingAnsweredCount,
+        })
+      }
+      setOnboardingState((current) =>
+        current
+          ? {
+              ...current,
+              onboardingCompleted: true,
+              onboardingSkipped: action === "skip",
+              onboardingProfile: onboardingForm,
+            }
+          : {
+              onboardingCompleted: true,
+              onboardingSkipped: action === "skip",
+              onboardingProfile: onboardingForm,
+              welcomeEmailSent: false,
+              firstLogin: false,
+            },
+      )
+      applyOnboardingPersonalization(onboardingForm)
+      setOnboardingVisible(false)
+      setOnboardingError(null)
+    },
+    [applyOnboardingPersonalization, onboardingAnsweredCount, onboardingForm, user?.uid],
+  )
+
   const completeOnboarding = async (action: "complete" | "skip") => {
     try {
       setOnboardingSaving(true)
@@ -1184,43 +1231,12 @@ export function MainEditor({ canExport = true }: MainEditorProps = {}) {
       if (!response.ok || !payload?.success) {
         throw new Error(payload?.error?.message ?? "Unable to save preference.")
       }
-
-      if (action === "skip") {
-        logClientEvent(TRUST_FUNNEL_EVENTS.onboardingDismissed, {
-          surface: "main_editor",
-        })
-      }
-      logClientEvent(TRUST_FUNNEL_EVENTS.onboardingCompleted, {
-        surface: "main_editor",
-      })
-      console.info("[onboarding] onboarding-completed state", {
-        uid: user?.uid ?? null,
-        onboardingCompleted: true,
-        onboardingSkipped: action === "skip",
-        answeredFields: onboardingAnsweredCount,
-      })
-      setOnboardingState((current) =>
-        current
-          ? {
-              ...current,
-              onboardingCompleted: true,
-              onboardingSkipped: action === "skip",
-              onboardingProfile: onboardingForm,
-            }
-          : {
-              onboardingCompleted: true,
-              onboardingSkipped: action === "skip",
-              onboardingProfile: onboardingForm,
-              welcomeEmailSent: false,
-              firstLogin: false,
-            },
-      )
-      applyOnboardingPersonalization(onboardingForm)
-      setOnboardingVisible(false)
-      setOnboardingError(null)
+      finalizeOnboardingLocally(action)
     } catch (error) {
-      console.error("[v0] Failed to save onboarding", error)
-      setOnboardingError("We couldn't save your onboarding preference.")
+      if (shouldLogOnboardingPersistence) {
+        console.error("[v0] Failed to save onboarding", error)
+      }
+      finalizeOnboardingLocally(action)
     } finally {
       setOnboardingSaving(false)
     }

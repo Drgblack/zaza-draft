@@ -30,7 +30,7 @@ export function UpgradeButton({
   const { toast } = useToast()
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const shouldPulse = snippetsUsed === 9 && snippetsLimit === 10
+  const shouldPulse = snippetsLimit > 1 && snippetsUsed === snippetsLimit - 1
 
   const handleClick = async () => {
     setIsLoading(true)

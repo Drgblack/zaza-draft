@@ -17,20 +17,25 @@ import {
   AUTH_COOKIE_VALUE,
 } from "@/lib/auth/cookie"
 import {
+  classifyEmailLinkError,
   clearStoredEmailLinkEmail,
   getEmailLinkActionCodeSettings,
+  getKnownEmailLinkEmail,
   getEmailLinkRedirectUrl,
-  getStoredEmailLinkEmail,
+  type EmailLinkRecoveryReason,
   storeEmailLinkEmail,
 } from "@/lib/auth/email-link"
+import { logClientEvent, TRUST_FUNNEL_EVENTS } from "@/lib/analytics"
 
 type AuthStatus = "loading" | "authenticated" | "unauthenticated"
-type EmailLinkStatus = "idle" | "processing" | "awaiting_email"
+type EmailLinkStatus = "idle" | "processing" | "awaiting_email" | "recovery"
 
 interface AuthContextValue {
   user: User | null
   status: AuthStatus
   emailLinkStatus: EmailLinkStatus
+  emailLinkKnownEmail: string | null
+  emailLinkRecoveryReason: EmailLinkRecoveryReason | null
   sendEmailLink: (email: string) => Promise<void>
   completeEmailLinkSignIn: (email: string) => Promise<void>
   signInWithGoogle: () => Promise<void>
@@ -53,6 +58,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
   const [status, setStatus] = useState<AuthStatus>("loading")
   const [emailLinkStatus, setEmailLinkStatus] = useState<EmailLinkStatus>("idle")
+  const [emailLinkKnownEmail, setEmailLinkKnownEmail] = useState<string | null>(null)
+  const [emailLinkRecoveryReason, setEmailLinkRecoveryReason] =
+    useState<EmailLinkRecoveryReason | null>(null)
 
   useEffect(() => {
     if (!auth) {
@@ -71,6 +79,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         uid: nextUser.uid,
         email: nextUser.email ?? null,
       })
+      setEmailLinkStatus("idle")
+      setEmailLinkKnownEmail(nextUser.email ?? null)
+      setEmailLinkRecoveryReason(null)
       setUser(nextUser)
       setStatus("authenticated")
       void (async () => {
@@ -87,6 +98,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           }
           const payload = await response.json()
           console.info("[auth] account bootstrap result", payload?.data ?? payload ?? null)
+          logClientEvent(TRUST_FUNNEL_EVENTS.accountBootstrapCompleted, {
+            created: Boolean(payload?.data?.created),
+            firstLogin: Boolean(payload?.data?.firstLogin),
+          })
         } catch (error) {
           console.warn("[auth] account bootstrap failed", error)
         }
@@ -106,23 +121,39 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       return
     }
 
-    const storedEmail = getStoredEmailLinkEmail()
-    if (!storedEmail) {
+    const knownEmail = getKnownEmailLinkEmail(currentUrl)
+    if (!knownEmail) {
       setEmailLinkStatus("awaiting_email")
+      setEmailLinkKnownEmail(null)
+      setEmailLinkRecoveryReason(null)
       setStatus("unauthenticated")
       return
     }
 
+    storeEmailLinkEmail(knownEmail)
+    setEmailLinkKnownEmail(knownEmail)
+    setEmailLinkRecoveryReason(null)
     setEmailLinkStatus("processing")
     void (async () => {
       try {
-        await signInWithEmailLink(auth, storedEmail, currentUrl)
+        await signInWithEmailLink(auth, knownEmail, currentUrl)
+        logClientEvent(TRUST_FUNNEL_EVENTS.magicLinkCompleted, {
+          completionMode: "stored_email",
+        })
         clearStoredEmailLinkEmail()
         window.location.replace(getEmailLinkRedirectUrl())
       } catch (error) {
         console.warn("[auth] email-link completion failed", error)
-        clearStoredEmailLinkEmail()
-        setEmailLinkStatus("idle")
+        const recoveryReason = classifyEmailLinkError(error)
+        if (recoveryReason === "expired_or_used") {
+          setEmailLinkRecoveryReason(recoveryReason)
+          setEmailLinkKnownEmail(knownEmail)
+          setEmailLinkStatus("recovery")
+        } else {
+          clearStoredEmailLinkEmail()
+          setEmailLinkRecoveryReason(null)
+          setEmailLinkStatus("idle")
+        }
         setStatus("unauthenticated")
       }
     })()
@@ -148,6 +179,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const normalizedEmail = email.trim()
     const actionCodeSettings = getEmailLinkActionCodeSettings()
     storeEmailLinkEmail(normalizedEmail)
+    setEmailLinkKnownEmail(normalizedEmail)
+    setEmailLinkRecoveryReason(null)
     console.info("[auth] sendSignInLinkToEmail actionCodeSettings", actionCodeSettings)
 
     try {
@@ -171,14 +204,26 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       throw new Error("Email is required to complete sign-in.")
     }
 
+    storeEmailLinkEmail(normalizedEmail)
+    setEmailLinkKnownEmail(normalizedEmail)
+    setEmailLinkRecoveryReason(null)
     setEmailLinkStatus("processing")
 
     try {
       await signInWithEmailLink(auth, normalizedEmail, window.location.href)
+      logClientEvent(TRUST_FUNNEL_EVENTS.magicLinkCompleted, {
+        completionMode: "manual_email_entry",
+      })
       clearStoredEmailLinkEmail()
       window.location.replace(getEmailLinkRedirectUrl())
     } catch (error) {
-      setEmailLinkStatus("awaiting_email")
+      const recoveryReason = classifyEmailLinkError(error)
+      if (recoveryReason === "expired_or_used") {
+        setEmailLinkRecoveryReason(recoveryReason)
+        setEmailLinkStatus("recovery")
+      } else {
+        setEmailLinkStatus("awaiting_email")
+      }
       throw error
     }
   }
@@ -209,13 +254,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       user,
       status,
       emailLinkStatus,
+      emailLinkKnownEmail,
+      emailLinkRecoveryReason,
       sendEmailLink,
       completeEmailLinkSignIn,
       signInWithGoogle,
       signOut,
       getIdToken,
     }),
-    [user, status, emailLinkStatus],
+    [user, status, emailLinkKnownEmail, emailLinkRecoveryReason, emailLinkStatus],
   )
 
   return <AuthContext.Provider value={contextValue}>{children}</AuthContext.Provider>

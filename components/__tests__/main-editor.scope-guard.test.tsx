@@ -11,6 +11,7 @@ let mockOnboardingSkipped = false
 let mockWelcomeEmailSent = true
 let mockFirstLogin = false
 let lastOnboardingPostBody: Record<string, unknown> | null = null
+let failOnboardingSave = false
 const logClientEventMock = vi.fn()
 const logClientEventOnceMock = vi.fn()
 
@@ -54,9 +55,9 @@ vi.mock("@/hooks/use-locale", () => {
     "onboarding.capture.step.tone.title": "What tone usually fits best?",
     "onboarding.capture.step.tone.description":
       "We can use this as a gentle default later. You can still change tone anytime.",
-    "onboarding.capture.step.region.title": "Where are you working?",
+    "onboarding.capture.step.region.title": "Which education context best fits your school?",
     "onboarding.capture.step.region.description":
-      "Region helps us tailor wording and expectations more appropriately later.",
+      "This helps us tailor examples and wording more appropriately for your setting later.",
     "onboarding.capture.field.role": "Your role",
     "onboarding.capture.field.schoolType": "School type",
     "onboarding.capture.option.role.teacher": "Teacher",
@@ -81,11 +82,19 @@ vi.mock("@/hooks/use-locale", () => {
     "onboarding.capture.option.tonePreference.professional": "Professional",
     "onboarding.capture.option.tonePreference.direct": "Direct",
     "onboarding.capture.option.tonePreference.empathetic": "Empathetic",
-    "onboarding.capture.option.region.germany": "Germany",
-    "onboarding.capture.option.region.austria": "Austria",
-    "onboarding.capture.option.region.switzerland": "Switzerland",
+    "onboarding.capture.option.region.germany_austria_switzerland":
+      "Germany / Austria / Switzerland",
     "onboarding.capture.option.region.uk_ireland": "UK or Ireland",
-    "onboarding.capture.option.region.other": "Other",
+    "onboarding.capture.option.region.usa_canada": "USA / Canada",
+    "onboarding.capture.option.region.australia_new_zealand":
+      "Australia / New Zealand",
+    "onboarding.capture.option.region.international_school": "International school",
+    "onboarding.capture.option.region.other_europe": "Other Europe",
+    "onboarding.capture.option.region.latin_america": "Latin America",
+    "onboarding.capture.option.region.middle_east_africa": "Middle East / Africa",
+    "onboarding.capture.option.region.asia_pacific": "Asia-Pacific",
+    "onboarding.capture.option.region.other_prefer_not_to_say":
+      "Other / Prefer not to say",
     "onboarding.feature.safeDraft":
       "Turn a rough parent message into a clear, professional draft you can send with confidence.",
     "onboarding.feature.panicScan":
@@ -146,9 +155,10 @@ vi.mock("@/hooks/use-locale", () => {
     "onboarding.capture.step.tone.title": "Welcher Ton passt meist am besten?",
     "onboarding.capture.step.tone.description":
       "Das können wir später als sanfte Voreinstellung nutzen. Sie können den Ton jederzeit ändern.",
-    "onboarding.capture.step.region.title": "In welcher Region arbeiten Sie?",
+    "onboarding.capture.step.region.title":
+      "Welcher Bildungskontext passt am besten zu Ihrer Schule?",
     "onboarding.capture.step.region.description":
-      "Die Region hilft uns später dabei, Formulierungen und Erwartungen passender auszurichten.",
+      "So können wir Beispiele und Formulierungen später passender auf Ihr Umfeld abstimmen.",
     "onboarding.capture.field.role": "Ihre Rolle",
     "onboarding.capture.field.schoolType": "Schulart",
     "onboarding.capture.option.role.teacher": "Lehrkraft",
@@ -173,11 +183,19 @@ vi.mock("@/hooks/use-locale", () => {
     "onboarding.capture.option.tonePreference.professional": "Professionell",
     "onboarding.capture.option.tonePreference.direct": "Direkt",
     "onboarding.capture.option.tonePreference.empathetic": "Einfühlsam",
-    "onboarding.capture.option.region.germany": "Deutschland",
-    "onboarding.capture.option.region.austria": "Österreich",
-    "onboarding.capture.option.region.switzerland": "Schweiz",
+    "onboarding.capture.option.region.germany_austria_switzerland":
+      "Deutschland / Österreich / Schweiz",
     "onboarding.capture.option.region.uk_ireland": "Großbritannien oder Irland",
-    "onboarding.capture.option.region.other": "Andere",
+    "onboarding.capture.option.region.usa_canada": "USA / Kanada",
+    "onboarding.capture.option.region.australia_new_zealand":
+      "Australien / Neuseeland",
+    "onboarding.capture.option.region.international_school": "Internationale Schule",
+    "onboarding.capture.option.region.other_europe": "Übriges Europa",
+    "onboarding.capture.option.region.latin_america": "Lateinamerika",
+    "onboarding.capture.option.region.middle_east_africa": "Naher Osten / Afrika",
+    "onboarding.capture.option.region.asia_pacific": "Asien-Pazifik",
+    "onboarding.capture.option.region.other_prefer_not_to_say":
+      "Andere / Möchte ich nicht angeben",
     "onboarding.feature.safeDraft":
       "Formen Sie aus einer Rohfassung eine klare, professionelle Nachricht für Eltern.",
     "onboarding.feature.panicScan":
@@ -319,6 +337,16 @@ const fetchMock = vi.fn(async (input: RequestInfo, init?: RequestInit) => {
   if (full.includes("/api/onboarding")) {
     if ((init?.method ?? "GET") === "POST") {
       lastOnboardingPostBody = init?.body ? JSON.parse(String(init.body)) : null
+      if (failOnboardingSave) {
+        return {
+          ok: false,
+          status: 500,
+          json: async () => ({
+            success: false,
+            error: { code: "ONBOARDING_SAVE_FAILED", message: "Unable to save onboarding state." },
+          }),
+        } as any
+      }
       return {
         ok: true,
         status: 200,
@@ -709,6 +737,7 @@ beforeEach(() => {
   mockWelcomeEmailSent = true
   mockFirstLogin = false
   lastOnboardingPostBody = null
+  failOnboardingSave = false
   window.localStorage.clear()
   window.sessionStorage.clear()
 })
@@ -857,7 +886,7 @@ describe("MainEditor scope guard notice", () => {
     fireEvent.click(screen.getByRole("button", { name: "Next" }))
     fireEvent.click(screen.getByRole("button", { name: "Professional" }))
     fireEvent.click(screen.getByRole("button", { name: "Next" }))
-    fireEvent.click(screen.getByRole("button", { name: "Germany" }))
+    fireEvent.click(screen.getByRole("button", { name: "Germany / Austria / Switzerland" }))
     fireEvent.click(screen.getByRole("button", { name: "Finish setup" }))
 
     await waitFor(() => {
@@ -874,13 +903,42 @@ describe("MainEditor scope guard notice", () => {
         mainUseCase: "both",
         writingStressPoint: "tone",
         tonePreference: "professional",
-        region: "germany",
+        region: "germany_austria_switzerland",
       },
     })
 
     await waitFor(() => {
       expect(screen.queryByRole("button", { name: "Finish setup" })).toBeNull()
     })
+  })
+
+  it("does not block the UI when onboarding save fails", async () => {
+    mockLocale = "en-GB"
+    mockOnboardingCompleted = false
+    mockWelcomeEmailSent = false
+    mockFirstLogin = true
+    failOnboardingSave = true
+
+    render(<MainEditor />)
+
+    fireEvent.click(await screen.findByRole("button", { name: "Teacher" }))
+    fireEvent.click(screen.getByRole("button", { name: "Primary school" }))
+    fireEvent.click(screen.getByRole("button", { name: "Next" }))
+    fireEvent.click(screen.getByRole("button", { name: "Both equally" }))
+    fireEvent.click(screen.getByRole("button", { name: "Next" }))
+    fireEvent.click(screen.getByRole("button", { name: "Finding the right tone" }))
+    fireEvent.click(screen.getByRole("button", { name: "Next" }))
+    fireEvent.click(screen.getByRole("button", { name: "Professional" }))
+    fireEvent.click(screen.getByRole("button", { name: "Next" }))
+    fireEvent.click(screen.getByRole("button", { name: "USA / Canada" }))
+    fireEvent.click(screen.getByRole("button", { name: "Finish setup" }))
+
+    await waitFor(() => {
+      expect(screen.queryByRole("button", { name: "Finish setup" })).toBeNull()
+    })
+    expect(
+      screen.queryByText("We couldn't save your onboarding preference."),
+    ).toBeNull()
   })
 
   it("preloads a labelled demo sample for first-run free users and allows a blank editor escape hatch", async () => {

@@ -33,8 +33,20 @@ vi.mock("@/hooks/use-locale", () => ({
         "auth.emailLink.confirmDescription":
           "We couldn’t find the saved email for this sign-in link. Enter it again to continue securely.",
         "auth.emailLink.confirmHelper": "Use the same email address that requested the link.",
+        "auth.emailLink.recoveryTitle": "Link expired or already used",
+        "auth.emailLink.recoveryDescriptionKnown":
+          "This sign-in link has expired or has already been used. We can send you a fresh one right away.",
+        "auth.emailLink.recoveryDescriptionUnknown":
+          "This sign-in link has expired or has already been used. Enter the same email address and we’ll send you a fresh one.",
+        "auth.emailLink.recoveryHelperKnown":
+          "We’ll send a fresh secure sign-in link to this address.",
+        "auth.emailLink.recoveryHelperUnknown":
+          "Enter the same email address and we’ll send you a fresh sign-in link.",
+        "auth.emailLink.recoveryNotice":
+          "The sign-in link you opened can only be used once and may have expired.",
         "auth.emailLink.processing": "Checking your secure sign-in link...",
         "auth.cta.sendLink": "Send sign-in link",
+        "auth.cta.sendNewLink": "Send a new sign-in link",
         "auth.cta.resendLink": "Resend sign-in link",
         "auth.cta.completeEmailLink": "Complete sign in",
         "auth.processing.sendLink": "Sending secure link...",
@@ -58,6 +70,12 @@ vi.mock("@/hooks/use-locale", () => ({
 }))
 
 vi.mock("@/lib/analytics", () => ({
+  TRUST_FUNNEL_EVENTS: {
+    landingCtaHandoffCompleted: "landing_cta_handoff_completed",
+    magicLinkRequested: "magic_link_requested",
+    magicLinkRequestSucceeded: "magic_link_request_succeeded",
+    magicLinkRequestFailed: "magic_link_request_failed",
+  },
   logClientEvent: (...args: unknown[]) => logClientEventMock(...args),
 }))
 
@@ -75,14 +93,21 @@ describe("AuthScreen", () => {
     logClientEventMock.mockReset()
   })
 
-  it("renders the passwordless email-link flow as the primary auth option", () => {
-    useAuthMock.mockReturnValue({
+  function baseAuthState(overrides: Record<string, unknown> = {}) {
+    return {
       status: "unauthenticated",
       emailLinkStatus: "idle",
+      emailLinkKnownEmail: null,
+      emailLinkRecoveryReason: null,
       sendEmailLink: vi.fn(),
       completeEmailLinkSignIn: vi.fn(),
       signInWithGoogle: vi.fn(),
-    })
+      ...overrides,
+    }
+  }
+
+  it("renders the passwordless email-link flow as the primary auth option", () => {
+    useAuthMock.mockReturnValue(baseAuthState())
 
     render(<AuthScreen />)
 
@@ -95,13 +120,7 @@ describe("AuthScreen", () => {
   it("sends a login link and shows the success state", async () => {
     const sendEmailLink = vi.fn().mockResolvedValue(undefined)
 
-    useAuthMock.mockReturnValue({
-      status: "unauthenticated",
-      emailLinkStatus: "idle",
-      sendEmailLink,
-      completeEmailLinkSignIn: vi.fn(),
-      signInWithGoogle: vi.fn(),
-    })
+    useAuthMock.mockReturnValue(baseAuthState({ sendEmailLink }))
 
     render(<AuthScreen />)
 
@@ -115,6 +134,15 @@ describe("AuthScreen", () => {
       expect(sendEmailLink).toHaveBeenCalledWith("teacher@example.com")
     })
 
+    expect(logClientEventMock).toHaveBeenCalledWith("magic_link_requested", {
+      surface: "auth_screen",
+      resend: false,
+    })
+    expect(logClientEventMock).toHaveBeenCalledWith("magic_link_request_succeeded", {
+      surface: "auth_screen",
+      resend: false,
+    })
+
     expect(screen.getByText("Check your inbox")).toBeInTheDocument()
     expect(
       screen.getByText("We've sent a secure sign-in link to teacher@example.com."),
@@ -125,13 +153,12 @@ describe("AuthScreen", () => {
   it("prompts for the email again when returning from a sign-in link without local email", async () => {
     const completeEmailLinkSignIn = vi.fn().mockResolvedValue(undefined)
 
-    useAuthMock.mockReturnValue({
-      status: "unauthenticated",
-      emailLinkStatus: "awaiting_email",
-      sendEmailLink: vi.fn(),
-      completeEmailLinkSignIn,
-      signInWithGoogle: vi.fn(),
-    })
+    useAuthMock.mockReturnValue(
+      baseAuthState({
+        emailLinkStatus: "awaiting_email",
+        completeEmailLinkSignIn,
+      }),
+    )
 
     render(<AuthScreen />)
 
@@ -149,5 +176,118 @@ describe("AuthScreen", () => {
     expect(logClientEventMock).toHaveBeenCalledWith("auth_login_success", {
       provider: "email_link",
     })
+  })
+
+  it("tracks the landing CTA handoff into the auth form", () => {
+    useAuthMock.mockReturnValue(baseAuthState())
+
+    render(<AuthScreen />)
+
+    fireEvent.click(screen.getByRole("button", { name: "Instant draft CTA" }))
+
+    expect(logClientEventMock).toHaveBeenCalledWith("landing_cta_handoff_completed", {
+      source: "instant_draft_test",
+    })
+  })
+
+  it("tracks magic-link request failures", async () => {
+    const sendEmailLink = vi.fn().mockRejectedValue({ code: "auth/argument-error" })
+
+    useAuthMock.mockReturnValue(baseAuthState({ sendEmailLink }))
+
+    render(<AuthScreen />)
+
+    const emailInput = screen.getByLabelText("Email")
+    fireEvent.input(emailInput, {
+      target: { value: "teacher@example.com" },
+    })
+    fireEvent.submit(emailInput.closest("form")!)
+
+    await waitFor(() => {
+      expect(sendEmailLink).toHaveBeenCalledWith("teacher@example.com")
+    })
+
+    expect(logClientEventMock).toHaveBeenCalledWith("magic_link_request_failed", {
+      surface: "auth_screen",
+      resend: false,
+      code: "auth/argument-error",
+    })
+  })
+
+  it("shows a recovery state for an expired sign-in link with the known email prefilled", () => {
+    useAuthMock.mockReturnValue(
+      baseAuthState({
+        emailLinkStatus: "recovery",
+        emailLinkKnownEmail: "teacher@example.com",
+        emailLinkRecoveryReason: "expired_or_used",
+      }),
+    )
+
+    render(<AuthScreen />)
+
+    expect(screen.getAllByText("Link expired or already used").length).toBeGreaterThan(0)
+    expect(
+      screen.getByText(
+        "This sign-in link has expired or has already been used. We can send you a fresh one right away.",
+      ),
+    ).toBeInTheDocument()
+    expect(screen.getByDisplayValue("teacher@example.com")).toBeInTheDocument()
+    expect(screen.getByRole("button", { name: "Send a new sign-in link" })).toBeInTheDocument()
+  })
+
+  it("shows a recovery state for an already-used sign-in link when the email is unknown", () => {
+    useAuthMock.mockReturnValue(
+      baseAuthState({
+        emailLinkStatus: "recovery",
+        emailLinkRecoveryReason: "expired_or_used",
+      }),
+    )
+
+    render(<AuthScreen />)
+
+    expect(screen.getAllByText("Link expired or already used").length).toBeGreaterThan(0)
+    expect(
+      screen.getByText(
+        "This sign-in link has expired or has already been used. Enter the same email address and we’ll send you a fresh one.",
+      ),
+    ).toBeInTheDocument()
+    expect(
+      screen.getByText("Enter the same email address and we’ll send you a fresh sign-in link."),
+    ).toBeInTheDocument()
+  })
+
+  it("resends a fresh link directly from the recovery state", async () => {
+    const sendEmailLink = vi.fn().mockResolvedValue(undefined)
+
+    useAuthMock.mockReturnValue(
+      baseAuthState({
+        emailLinkStatus: "recovery",
+        emailLinkKnownEmail: "teacher@example.com",
+        emailLinkRecoveryReason: "expired_or_used",
+        sendEmailLink,
+      }),
+    )
+
+    render(<AuthScreen />)
+
+    await waitFor(() => {
+      expect(screen.getByDisplayValue("teacher@example.com")).toBeInTheDocument()
+    })
+
+    fireEvent.submit(screen.getByLabelText("Email").closest("form")!)
+
+    await waitFor(() => {
+      expect(sendEmailLink).toHaveBeenCalledWith("teacher@example.com")
+    })
+
+    expect(logClientEventMock).toHaveBeenCalledWith("magic_link_requested", {
+      surface: "auth_screen",
+      resend: true,
+    })
+    expect(logClientEventMock).toHaveBeenCalledWith("magic_link_request_succeeded", {
+      surface: "auth_screen",
+      resend: true,
+    })
+    expect(screen.getByText("Check your inbox")).toBeInTheDocument()
   })
 })

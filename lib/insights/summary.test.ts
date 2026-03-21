@@ -62,6 +62,16 @@ describe("insights summary helpers", () => {
     expect(hasMeaningfulInsights(buildFallbackInsightsSummary(1))).toBe(true)
   })
 
+  it("does not invent quality or streak signals in the usage fallback summary", () => {
+    const summary = buildFallbackInsightsSummary(4, "2026-03-20T10:00:00.000Z")
+
+    expect(summary.dataSource).toBe("usage_fallback")
+    expect(summary.draftsCreated?.usedWithoutEdits).toBe(0)
+    expect(summary.draftsCreated?.percentage).toBe(0)
+    expect(summary.currentStreak?.days).toBe(0)
+    expect(summary.qualityScore?.score).toBe(0)
+  })
+
   it("normalizes unsupported date ranges to the safer default", () => {
     expect(normalizeInsightsRangeDays("7")).toBe(7)
     expect(normalizeInsightsRangeDays("999")).toBe(30)

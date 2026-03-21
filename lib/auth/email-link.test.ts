@@ -3,7 +3,9 @@
 import { afterEach, describe, expect, it, vi } from "vitest"
 
 import {
+  classifyEmailLinkError,
   getEmailLinkActionCodeSettings,
+  getEmailLinkEmailFromUrl,
   getEmailLinkRedirectUrl,
   resolveEmailLinkRedirectUrl,
 } from "@/lib/auth/email-link"
@@ -36,5 +38,25 @@ describe("email-link auth helpers", () => {
       url: "https://app.zazadraft.com/",
       handleCodeInApp: true,
     })
+  })
+
+  it("reads a known email from the current email-link URL", () => {
+    expect(
+      getEmailLinkEmailFromUrl(
+        "https://app.zazadraft.com/?mode=signIn&oobCode=abc123&email=teacher@example.com",
+      ),
+    ).toBe("teacher@example.com")
+  })
+
+  it("classifies expired email-link codes as recoverable", () => {
+    expect(classifyEmailLinkError({ code: "auth/expired-action-code" })).toBe(
+      "expired_or_used",
+    )
+  })
+
+  it("classifies already-used or invalid email-link codes as recoverable", () => {
+    expect(classifyEmailLinkError({ code: "auth/invalid-action-code" })).toBe(
+      "expired_or_used",
+    )
   })
 })

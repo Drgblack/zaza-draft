@@ -13,6 +13,7 @@ import { createHash, randomUUID } from "crypto"
 import { resolveDraftMode } from "@/lib/draft-mode"
 import {
   buildUsageResponse,
+  FREE_TIER_LIMIT,
   getCurrentMonthKey,
   incrementUsage,
   type MonthlyUsageRecord,
@@ -819,8 +820,8 @@ function resolveGreetingFromRawText(
 function buildUsageLimitError(usage: ReturnType<typeof buildUsageResponse>, language?: string) {
   const isGerman = language?.toLowerCase().startsWith("de")
   const message = isGerman
-    ? "Dein Gratis-Limit ist erreicht. Upgrade auf Draft Pro für unbegrenzte Entwürfe."
-    : "You have reached your monthly draft limit. Upgrade to unlock Draft Pro for unlimited generations."
+    ? `Du hast alle ${FREE_TIER_LIMIT} Gratis-Entwürfe in diesem Monat verbraucht. Upgrade auf Draft Pro für unbegrenzte Entwürfe.`
+    : `You have used all ${FREE_TIER_LIMIT} free drafts for this month. Upgrade to unlock Draft Pro for unlimited generations.`
   return {
     message,
     data: {

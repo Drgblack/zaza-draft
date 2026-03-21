@@ -42,8 +42,8 @@ const localEntitlements = {
   usage: {
     plan: "free" as const,
     currentMonthUsage: 0,
-    limit: 10,
-    remaining: 10,
+    limit: 5,
+    remaining: 5,
     unlimited: false,
   },
   usageRecord: {

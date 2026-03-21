@@ -15,7 +15,7 @@ export function ProgressMeter({ used, limit }: ProgressMeterProps) {
   const remaining = limit - used
 
   return (
-    <div className="flex items-center gap-3" title={`${remaining} free drafts left this week`}>
+    <div className="flex items-center gap-3" title={`${remaining} free drafts left this month`}>
       <div className="relative w-10 h-10">
         <svg className="w-10 h-10 transform -rotate-90" viewBox="0 0 36 36">
           <circle

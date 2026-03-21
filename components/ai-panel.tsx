@@ -13,6 +13,7 @@ import { ProgressMeter } from "./zaza/progress-meter"
 import type { Suggestion } from "@/lib/types"
 import { useTeacherPrefs } from "@/hooks/use-teacher-prefs"
 import { useLocale } from "@/hooks/use-locale"
+import { FREE_TIER_LIMIT } from "@/lib/usage"
 
 interface AiPanelProps {
   suggestions: Suggestion[]
@@ -38,8 +39,8 @@ export function AiPanel({
   const { t } = useLocale()
 
   const isFreeUser = true
-  const draftsUsed = 8
-  const draftsLimit = 10
+  const draftsUsed = Math.max(FREE_TIER_LIMIT - 1, 0)
+  const draftsLimit = FREE_TIER_LIMIT
 
   const newSuggestions = suggestions.filter((s) => !s.viewed).sort((a, b) => b.confidence - a.confidence)
   const viewedSuggestions = suggestions.filter((s) => s.viewed).sort((a, b) => b.confidence - a.confidence)

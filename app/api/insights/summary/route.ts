@@ -98,12 +98,18 @@ export async function GET(req: Request) {
 
     const userData =
       userSnapshot.status === "fulfilled" && userSnapshot.value.exists
-        ? (userSnapshot.value.data() as { updatedAt?: string | null; monthlyUsage?: { generationCount?: unknown } })
+        ? (userSnapshot.value.data() as {
+            updatedAt?: string | null
+            monthlyUsage?: { generationCount?: unknown }
+            draftsUsedThisMonth?: unknown
+          })
         : null
+    const generationCountCandidates = [
+      userData?.monthlyUsage?.generationCount,
+      userData?.draftsUsedThisMonth,
+    ].filter((value): value is number => typeof value === "number" && Number.isFinite(value))
     const generationCount =
-      typeof userData?.monthlyUsage?.generationCount === "number"
-        ? userData.monthlyUsage.generationCount
-        : 0
+      generationCountCandidates.length > 0 ? Math.max(...generationCountCandidates) : 0
 
     const eventsError = eventsResult.status === "rejected" ? eventsResult.reason : null
     if (eventsError && !isFirestoreIndexPreconditionError(eventsError)) {

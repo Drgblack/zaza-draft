@@ -91,6 +91,7 @@ const buildFallbackResult = (text: string) => ({
 
 const TRUST_GRADE_FAILURE_MESSAGE =
   "Unable to generate a compliant draft. Please rephrase or contact support."
+const MOCK_FREE_TIER_LIMIT = 5
 
 vi.mock("@/lib/firebase/server", () => ({
   authorizeFirebaseRequest: vi.fn().mockResolvedValue({
@@ -136,10 +137,11 @@ vi.mock("@/src/lib/safetyEngine", () => ({
 }))
 
 vi.mock("@/lib/usage", () => ({
+  FREE_TIER_LIMIT: 5,
   buildUsageResponse: vi.fn().mockReturnValue({
     currentMonthUsage: 1,
-    limit: 10,
-    remaining: 9,
+    limit: 5,
+    remaining: 4,
     plan: "free",
   }),
   incrementUsage: vi.fn().mockResolvedValue({ generationCount: 1 }),
@@ -151,8 +153,8 @@ vi.mock("@/lib/entitlements", () => ({
     plan: "free",
     usage: {
       currentMonthUsage: 0,
-      limit: 10,
-      remaining: 10,
+      limit: 5,
+      remaining: 5,
     },
     usageRecord: { month: "2025-01", generationCount: 0, lastReset: new Date().toISOString() },
     isProSubscriber: false,
@@ -181,8 +183,8 @@ vi.mock("@/lib/draft-entitlements", () => ({
       usage: {
         plan: "free",
         currentMonthUsage: 0,
-        limit: 10,
-        remaining: 10,
+        limit: 5,
+        remaining: 5,
         unlimited: false,
       },
       usageRecord: { month: "2025-01", generationCount: 0, lastReset: new Date().toISOString() },
@@ -511,8 +513,8 @@ beforeEach(() => {
   })
   mockedBuildUsageResponse.mockReturnValue({
     currentMonthUsage: 1,
-    limit: 10,
-    remaining: 9,
+    limit: MOCK_FREE_TIER_LIMIT,
+    remaining: MOCK_FREE_TIER_LIMIT - 1,
     plan: "free",
     unlimited: false,
   })
@@ -527,8 +529,8 @@ beforeEach(() => {
     usage: {
       plan: "free",
       currentMonthUsage: 0,
-      limit: 10,
-      remaining: 10,
+      limit: MOCK_FREE_TIER_LIMIT,
+      remaining: MOCK_FREE_TIER_LIMIT,
       unlimited: false,
     },
     usageRecord: {
@@ -563,8 +565,8 @@ beforeEach(() => {
       usage: {
         plan: "free",
         currentMonthUsage: 0,
-        limit: 10,
-        remaining: 10,
+        limit: MOCK_FREE_TIER_LIMIT,
+        remaining: MOCK_FREE_TIER_LIMIT,
         unlimited: false,
       },
       usageRecord: {
@@ -3055,8 +3057,8 @@ describe("/api/draft/generate usage entitlement parity", () => {
         usage: {
           plan: "free",
           currentMonthUsage: 0,
-          limit: 10,
-          remaining: 10,
+          limit: 5,
+          remaining: 5,
           unlimited: false,
         },
         usageRecord: {
@@ -3095,12 +3097,14 @@ describe("/api/draft/generate usage entitlement parity", () => {
     {
       language: "en",
       uiLocale: "en-GB",
-      expectedMessage: "You have reached your monthly draft limit. Upgrade to unlock Draft Pro for unlimited generations.",
+      expectedMessage:
+        "You have used all 5 free drafts for this month. Upgrade to unlock Draft Pro for unlimited generations.",
     },
     {
       language: "de",
       uiLocale: "de-DE",
-      expectedMessage: "Dein Gratis-Limit ist erreicht. Upgrade auf Draft Pro für unbegrenzte Entwürfe.",
+      expectedMessage:
+        "Du hast alle 5 Gratis-Entwürfe in diesem Monat verbraucht. Upgrade auf Draft Pro für unbegrenzte Entwürfe.",
     },
   ]
 
@@ -3111,7 +3115,7 @@ describe("/api/draft/generate usage entitlement parity", () => {
         usage: {
           plan: "free",
           currentMonthUsage: 11,
-          limit: 10,
+          limit: MOCK_FREE_TIER_LIMIT,
           remaining: 0,
           unlimited: false,
         },
@@ -3165,7 +3169,7 @@ describe("/api/draft/generate usage entitlement parity", () => {
         usage: {
           plan: "free",
           currentMonthUsage: 12,
-          limit: 10,
+          limit: MOCK_FREE_TIER_LIMIT,
           remaining: 0,
           unlimited: false,
         },
@@ -3249,13 +3253,13 @@ describe("/api/draft/generate usage entitlement parity", () => {
         usage: {
           plan: "free",
           currentMonthUsage: 0,
-          limit: 10,
-          remaining: 10,
+          limit: MOCK_FREE_TIER_LIMIT,
+          remaining: MOCK_FREE_TIER_LIMIT,
           unlimited: false,
         },
         usageRecord: {
           month: "2025-01",
-          generationCount: 10,
+          generationCount: MOCK_FREE_TIER_LIMIT,
           lastReset: new Date().toISOString(),
         },
         isProSubscriber: false,
@@ -3282,7 +3286,7 @@ describe("/api/draft/generate usage entitlement parity", () => {
       const json = await response.json()
       expect(json.success).toBe(true)
       expect(json.data?.usage?.plan).toBe("free")
-      expect(json.data?.usage?.remaining).toBe(9)
+      expect(json.data?.usage?.remaining).toBe(4)
       expect(mockedIncrementUsage).toHaveBeenCalled()
     })
   })

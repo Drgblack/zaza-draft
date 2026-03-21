@@ -73,27 +73,27 @@ export function InstantDraftTest({ onCreateAccount }: InstantDraftTestProps) {
   }
 
   return (
-    <Card className="glass border-white/24 bg-white/[0.16] text-white shadow-[0_24px_56px_rgba(15,23,42,0.22)] backdrop-blur-[24px]">
+    <Card className="border-white/40 bg-[linear-gradient(180deg,rgba(248,250,252,0.96),rgba(226,232,240,0.92))] text-slate-900 shadow-[0_24px_56px_rgba(15,23,42,0.22)] backdrop-blur-[24px]">
       <CardHeader className="gap-3">
         <div className="flex flex-wrap items-center gap-3">
-          <Badge className="rounded-full border border-white/18 bg-white/20 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.24em] text-white/95">
+          <Badge className="rounded-full border border-slate-200 bg-white px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.24em] text-slate-600 shadow-sm">
             {t("auth.instant.badge")}
           </Badge>
-          <div className="flex items-center gap-2 text-xs font-medium text-white/78">
+          <div className="flex items-center gap-2 text-xs font-medium text-slate-500">
             <ShieldCheck className="h-4 w-4" />
             <span>{t("auth.instant.limitHint")}</span>
           </div>
         </div>
-        <CardTitle className="text-2xl font-semibold tracking-tight text-white">
+        <CardTitle className="text-2xl font-semibold tracking-tight text-slate-900">
           {t("auth.instant.title")}
         </CardTitle>
-        <CardDescription className="max-w-2xl text-sm leading-7 text-white/86">
+        <CardDescription className="max-w-2xl text-sm leading-7 text-slate-600">
           {t("auth.instant.description")}
         </CardDescription>
       </CardHeader>
 
       <CardContent className="space-y-4">
-        <div className="rounded-2xl border border-white/18 bg-slate-950/16 p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]">
+        <div className="rounded-2xl border border-slate-200 bg-slate-200/65 p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.6)]">
           <Textarea
             value={message}
             onChange={(event) => setMessage(event.target.value)}
@@ -102,7 +102,7 @@ export function InstantDraftTest({ onCreateAccount }: InstantDraftTestProps) {
             disabled={isSubmitting || limitReached}
           />
           <div className="mt-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <p className="text-xs leading-5 text-white/76">
+            <p className="text-xs leading-5 text-slate-600">
               {t("auth.instant.privacyHint")}
             </p>
             <Button
@@ -152,10 +152,10 @@ export function InstantDraftTest({ onCreateAccount }: InstantDraftTestProps) {
         ) : null}
 
         {limitReached ? (
-          <div className="flex flex-col gap-3 rounded-2xl border border-emerald-200/30 bg-emerald-500/14 p-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex flex-col gap-3 rounded-2xl border border-emerald-200/60 bg-emerald-50 p-4 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <p className="text-sm font-semibold text-white">{t("auth.instant.ctaTitle")}</p>
-              <p className="mt-1 text-sm leading-relaxed text-white/82">
+              <p className="text-sm font-semibold text-slate-900">{t("auth.instant.ctaTitle")}</p>
+              <p className="mt-1 text-sm leading-relaxed text-slate-600">
                 {t("auth.instant.ctaDescription")}
               </p>
             </div>

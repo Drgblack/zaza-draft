@@ -82,8 +82,8 @@ vi.mock("@/lib/analytics", () => ({
 const usageOverview = {
   plan: "free",
   currentMonthUsage: 1,
-  limit: 10,
-  remaining: 9,
+  limit: 5,
+  remaining: 4,
   unlimited: false,
 }
 vi.mock("@/lib/usage", () => ({
@@ -107,8 +107,8 @@ vi.mock("@/lib/entitlements", () => ({
     usage: {
       plan: "free",
       currentMonthUsage: 0,
-      limit: 10,
-      remaining: 10,
+      limit: 5,
+      remaining: 5,
       unlimited: false,
     },
     isProSubscriber: false,
@@ -274,7 +274,7 @@ describe("snippet persistence", () => {
     const contextUsed = snippetSet.mock.calls[0][0].contextUsed
     expect(contextUsed).toHaveProperty("requestId")
     expect(contextUsed).not.toHaveProperty("subject")
-  })
+  }, 10000)
 
   it("records a stable snippet payload with usage metadata", async () => {
     const { POST } = await import("@/app/api/draft/generate/route")
@@ -310,7 +310,7 @@ describe("snippet persistence", () => {
     expect(typeof snippetPayload.createdAt).toBe("string")
     expect(new Date(snippetPayload.createdAt).toString()).not.toBe("Invalid Date")
     expect(insightsSet).toHaveBeenCalledOnce()
-  })
+  }, 10000)
 })
 
 

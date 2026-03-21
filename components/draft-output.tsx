@@ -17,6 +17,7 @@ import { useLocale } from "@/hooks/use-locale"
 import { useSearchParams } from "next/navigation"
 import { isDebugEnabled } from "@/lib/debug"
 import type { SafeToSendAssessment } from "@/lib/safe-to-send"
+import { logClientEvent, TRUST_FUNNEL_EVENTS } from "@/lib/analytics"
 
 interface DraftOutputProps {
   draftText: string
@@ -169,6 +170,9 @@ export function DraftOutput({
   const handleCopy = async () => {
     try {
       await navigator.clipboard.writeText(clipboardText)
+      logClientEvent(TRUST_FUNNEL_EVENTS.draftCopied, {
+        mode: metadata.modeUsed ?? DEFAULT_DRAFT_MODE,
+      })
       setCopied(true)
       setTimeout(() => setCopied(false), 2000)
     } catch (err) {
@@ -241,6 +245,10 @@ export function DraftOutput({
         extractFilenameFromDisposition(response.headers.get("content-disposition")) ??
         `zaza-draft-${new Date().toISOString().replace(/[:.]/g, "-")}.pdf`
       createDownloadLink(blob, filename)
+      logClientEvent(TRUST_FUNNEL_EVENTS.draftExported, {
+        format: "pdf",
+        mode,
+      })
       setActionMessage("PDF download started.")
     } catch (error) {
       console.error("[draft output] PDF export failed", error)
@@ -290,6 +298,10 @@ export function DraftOutput({
         extractFilenameFromDisposition(response.headers.get("content-disposition")) ??
         `zaza-draft-${new Date().toISOString().replace(/[:.]/g, "-")}.docx`
       createDownloadLink(blob, filename)
+      logClientEvent(TRUST_FUNNEL_EVENTS.draftExported, {
+        format: "docx",
+        mode,
+      })
       setActionMessage("DOCX download started.")
     } catch (error) {
       console.error("[draft output] DOCX export failed", error)

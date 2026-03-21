@@ -357,6 +357,7 @@ export const localeMessages: Record<Locale, LocaleMessages> = {
     "auth.showPassword": "Show password",
     "auth.hidePassword": "Hide password",
     "auth.cta.sendLink": "Send sign-in link",
+    "auth.cta.sendNewLink": "Send a new sign-in link",
     "auth.cta.resendLink": "Resend sign-in link",
     "auth.cta.completeEmailLink": "Complete sign in",
     "auth.emailLink.helper":
@@ -369,6 +370,17 @@ export const localeMessages: Record<Locale, LocaleMessages> = {
     "auth.emailLink.confirmDescription":
       "We couldn’t find the saved email for this sign-in link. Enter it again to continue securely.",
     "auth.emailLink.confirmHelper": "Use the same email address that requested the link.",
+    "auth.emailLink.recoveryTitle": "Link expired or already used",
+    "auth.emailLink.recoveryDescriptionKnown":
+      "This sign-in link has expired or has already been used. We can send you a fresh one right away.",
+    "auth.emailLink.recoveryDescriptionUnknown":
+      "This sign-in link has expired or has already been used. Enter the same email address and we’ll send you a fresh one.",
+    "auth.emailLink.recoveryHelperKnown":
+      "We’ll send a fresh secure sign-in link to this address.",
+    "auth.emailLink.recoveryHelperUnknown":
+      "Enter the same email address and we’ll send you a fresh sign-in link.",
+    "auth.emailLink.recoveryNotice":
+      "The sign-in link you opened can only be used once and may have expired.",
     "auth.emailLink.processing": "Checking your secure sign-in link...",
     "auth.error.invalidEmail": "Enter a valid email address.",
     "auth.error.linkExpired": "This sign-in link is no longer valid. Request a new one.",
@@ -486,6 +498,38 @@ export const localeMessages: Record<Locale, LocaleMessages> = {
     "insights.empty.title": "Not enough data yet",
     "insights.empty.subtitle": "Once you have drafted a few messages, you will see patterns and progress here.",
     "insights.empty.cta": "Back to editor",
+    "insights.starter.eyebrow": "Starter insights",
+    "insights.starter.title": "Your insights are getting ready",
+    "insights.starter.subtitle":
+      "You already have a usable Draft space here. As a little more history builds, this page will turn it into grounded patterns.",
+    "insights.starter.usageTitle": "Usage summary",
+    "insights.starter.usageCount": "{count} drafts in this view",
+    "insights.starter.usageEmpty": "Your first drafts will appear here.",
+    "insights.starter.usageHint":
+      "Saved drafts, recent activity, and weekly patterns will fill in automatically.",
+    "insights.starter.toneTitle": "Tone guidance",
+    "insights.starter.toneWithPreference": "Your current default tone is {tone}.",
+    "insights.starter.toneGeneric":
+      "Start with a calm, professional tone for parent-facing writing.",
+    "insights.starter.toneHint": "You can adjust tone in the editor at any time.",
+    "insights.starter.laterTitle": "What will appear later",
+    "insights.starter.later.one": "Draft volume and recent writing patterns",
+    "insights.starter.later.two": "Recurring safety and editing signals",
+    "insights.starter.later.three": "Weekly reflection prompts grounded in your drafts",
+    "insights.starter.nextTitle": "Recommended next step",
+    "insights.starter.nextNew":
+      "Create your first parent message or report comment to unlock your first personal insights.",
+    "insights.starter.nextLow":
+      "A few more drafts will unlock fuller trend cards and reflection summaries.",
+    "insights.detail.snapshotTitle": "Usage snapshot",
+    "insights.detail.snapshotDrafts": "{count} drafts in the selected period",
+    "insights.detail.snapshotUpdated": "Last activity recorded: {date}",
+    "insights.detail.snapshotEmpty": "Activity will appear here as soon as you create drafts.",
+    "insights.detail.signalTitle": "Current signal",
+    "insights.detail.signalFallback":
+      "Draft is collecting patterns from your recent work so this page can stay grounded in what you actually write.",
+    "insights.detail.qualityHint":
+      "Quality and edit-depth signals grow stronger as more drafts are created.",
     "insights.dataControl": "Your data, your control",
     "insights.downloadReport": "Download Report",
     "insights.filter.last7": "Last 7 days",
@@ -599,7 +643,8 @@ export const localeMessages: Record<Locale, LocaleMessages> = {
     "insights.suggestion.reminder.openCalendar": "Open Google Calendar",
     "insights.suggestion.reminder.downloadIcs": "Download .ics",
     "insights.suggestion.classBrain.title": "Unlock Class Brain",
-    "insights.suggestion.classBrain.desc": "Add student context to increase your one-shot rate by 35%",
+    "insights.suggestion.classBrain.desc":
+      "Add student context so Draft can produce more specific first drafts.",
     "insights.suggestion.classBrain.cta": "Get started",
     "insights.suggestion.reminderToastTitle": "Reminders coming soon",
     "insights.suggestion.reminderToastDescription": "We'll add scheduling nudges so you can focus on teaching.",
@@ -911,9 +956,9 @@ export const localeMessages: Record<Locale, LocaleMessages> = {
     "onboarding.capture.step.tone.title": "What tone usually fits best?",
     "onboarding.capture.step.tone.description":
       "We can use this as a gentle default later. You can still change tone anytime.",
-    "onboarding.capture.step.region.title": "Where are you working?",
+    "onboarding.capture.step.region.title": "Which education context best fits your school?",
     "onboarding.capture.step.region.description":
-      "Region helps us tailor wording and expectations more appropriately later.",
+      "This helps us tailor examples and wording more appropriately for your setting later.",
     "onboarding.capture.field.role": "Your role",
     "onboarding.capture.field.schoolType": "School type",
     "onboarding.capture.option.role.teacher": "Teacher",
@@ -938,11 +983,19 @@ export const localeMessages: Record<Locale, LocaleMessages> = {
     "onboarding.capture.option.tonePreference.professional": "Professional",
     "onboarding.capture.option.tonePreference.direct": "Direct",
     "onboarding.capture.option.tonePreference.empathetic": "Empathetic",
-    "onboarding.capture.option.region.germany": "Germany",
-    "onboarding.capture.option.region.austria": "Austria",
-    "onboarding.capture.option.region.switzerland": "Switzerland",
+    "onboarding.capture.option.region.germany_austria_switzerland":
+      "Germany / Austria / Switzerland",
     "onboarding.capture.option.region.uk_ireland": "UK or Ireland",
-    "onboarding.capture.option.region.other": "Other",
+    "onboarding.capture.option.region.usa_canada": "USA / Canada",
+    "onboarding.capture.option.region.australia_new_zealand":
+      "Australia / New Zealand",
+    "onboarding.capture.option.region.international_school": "International school",
+    "onboarding.capture.option.region.other_europe": "Other Europe",
+    "onboarding.capture.option.region.latin_america": "Latin America",
+    "onboarding.capture.option.region.middle_east_africa": "Middle East / Africa",
+    "onboarding.capture.option.region.asia_pacific": "Asia-Pacific",
+    "onboarding.capture.option.region.other_prefer_not_to_say":
+      "Other / Prefer not to say",
     "onboarding.feature.safeDraft":
       "Turn a rough parent message into a clear, professional draft you can send with confidence.",
     "onboarding.feature.panicScan":
@@ -1254,6 +1307,7 @@ export const localeMessages: Record<Locale, LocaleMessages> = {
     "auth.showPassword": "Show password",
     "auth.hidePassword": "Hide password",
     "auth.cta.sendLink": "Send sign-in link",
+    "auth.cta.sendNewLink": "Send a new sign-in link",
     "auth.cta.resendLink": "Resend sign-in link",
     "auth.cta.completeEmailLink": "Complete sign in",
     "auth.emailLink.helper":
@@ -1266,6 +1320,17 @@ export const localeMessages: Record<Locale, LocaleMessages> = {
     "auth.emailLink.confirmDescription":
       "We couldn’t find the saved email for this sign-in link. Enter it again to continue securely.",
     "auth.emailLink.confirmHelper": "Use the same email address that requested the link.",
+    "auth.emailLink.recoveryTitle": "Link expired or already used",
+    "auth.emailLink.recoveryDescriptionKnown":
+      "This sign-in link has expired or has already been used. We can send you a fresh one right away.",
+    "auth.emailLink.recoveryDescriptionUnknown":
+      "This sign-in link has expired or has already been used. Enter the same email address and we’ll send you a fresh one.",
+    "auth.emailLink.recoveryHelperKnown":
+      "We’ll send a fresh secure sign-in link to this address.",
+    "auth.emailLink.recoveryHelperUnknown":
+      "Enter the same email address and we’ll send you a fresh sign-in link.",
+    "auth.emailLink.recoveryNotice":
+      "The sign-in link you opened can only be used once and may have expired.",
     "auth.emailLink.processing": "Checking your secure sign-in link...",
     "auth.error.invalidEmail": "Enter a valid email address.",
     "auth.error.linkExpired": "This sign-in link is no longer valid. Request a new one.",
@@ -1357,6 +1422,43 @@ export const localeMessages: Record<Locale, LocaleMessages> = {
     "insights.subtitle": "Insights that celebrate your growth",
     "insights.explainer":
       "Insights help you understand how your communication evolves over time and how Draft helps reduce conflict risk.",
+    "insights.titleNoName": "Your insights",
+    "insights.empty.title": "Not enough data yet",
+    "insights.empty.subtitle":
+      "Once you have drafted a few messages, you will see patterns and progress here.",
+    "insights.empty.cta": "Back to editor",
+    "insights.starter.eyebrow": "Starter insights",
+    "insights.starter.title": "Your insights are getting ready",
+    "insights.starter.subtitle":
+      "You already have a usable Draft space here. As a little more history builds, this page will turn it into grounded patterns.",
+    "insights.starter.usageTitle": "Usage summary",
+    "insights.starter.usageCount": "{count} drafts in this view",
+    "insights.starter.usageEmpty": "Your first drafts will appear here.",
+    "insights.starter.usageHint":
+      "Saved drafts, recent activity, and weekly patterns will fill in automatically.",
+    "insights.starter.toneTitle": "Tone guidance",
+    "insights.starter.toneWithPreference": "Your current default tone is {tone}.",
+    "insights.starter.toneGeneric":
+      "Start with a calm, professional tone for parent-facing writing.",
+    "insights.starter.toneHint": "You can adjust tone in the editor at any time.",
+    "insights.starter.laterTitle": "What will appear later",
+    "insights.starter.later.one": "Draft volume and recent writing patterns",
+    "insights.starter.later.two": "Recurring safety and editing signals",
+    "insights.starter.later.three": "Weekly reflection prompts grounded in your drafts",
+    "insights.starter.nextTitle": "Recommended next step",
+    "insights.starter.nextNew":
+      "Create your first parent message or report comment to unlock your first personal insights.",
+    "insights.starter.nextLow":
+      "A few more drafts will unlock fuller trend cards and reflection summaries.",
+    "insights.detail.snapshotTitle": "Usage snapshot",
+    "insights.detail.snapshotDrafts": "{count} drafts in the selected period",
+    "insights.detail.snapshotUpdated": "Last activity recorded: {date}",
+    "insights.detail.snapshotEmpty": "Activity will appear here as soon as you create drafts.",
+    "insights.detail.signalTitle": "Current signal",
+    "insights.detail.signalFallback":
+      "Draft is collecting patterns from your recent work so this page can stay grounded in what you actually write.",
+    "insights.detail.qualityHint":
+      "Quality and edit-depth signals grow stronger as more drafts are created.",
     "insights.dataControl": "Your data, your control",
     "insights.downloadReport": "Download Report",
     "insights.filter.last7": "Last 7 days",
@@ -1452,7 +1554,8 @@ export const localeMessages: Record<Locale, LocaleMessages> = {
     "insights.suggestion.reminder.openCalendar": "Open Google Calendar",
     "insights.suggestion.reminder.downloadIcs": "Download .ics",
     "insights.suggestion.classBrain.title": "Unlock Class Brain",
-    "insights.suggestion.classBrain.desc": "Add student context to increase your one-shot rate by 35%",
+    "insights.suggestion.classBrain.desc":
+      "Add student context so Draft can produce more specific first drafts.",
     "insights.suggestion.classBrain.cta": "Get started",
     "insights.suggestion.badge.new": "NEW",
     "insights.dataControls.title": "Data Controls",
@@ -1625,9 +1728,9 @@ export const localeMessages: Record<Locale, LocaleMessages> = {
     "onboarding.capture.step.tone.title": "What tone usually fits best?",
     "onboarding.capture.step.tone.description":
       "We can use this as a gentle default later. You can still change tone anytime.",
-    "onboarding.capture.step.region.title": "Where are you working?",
+    "onboarding.capture.step.region.title": "Which education context best fits your school?",
     "onboarding.capture.step.region.description":
-      "Region helps us tailor wording and expectations more appropriately later.",
+      "This helps us tailor examples and wording more appropriately for your setting later.",
     "onboarding.capture.field.role": "Your role",
     "onboarding.capture.field.schoolType": "School type",
     "onboarding.capture.option.role.teacher": "Teacher",
@@ -1652,11 +1755,19 @@ export const localeMessages: Record<Locale, LocaleMessages> = {
     "onboarding.capture.option.tonePreference.professional": "Professional",
     "onboarding.capture.option.tonePreference.direct": "Direct",
     "onboarding.capture.option.tonePreference.empathetic": "Empathetic",
-    "onboarding.capture.option.region.germany": "Germany",
-    "onboarding.capture.option.region.austria": "Austria",
-    "onboarding.capture.option.region.switzerland": "Switzerland",
+    "onboarding.capture.option.region.germany_austria_switzerland":
+      "Germany / Austria / Switzerland",
     "onboarding.capture.option.region.uk_ireland": "UK or Ireland",
-    "onboarding.capture.option.region.other": "Other",
+    "onboarding.capture.option.region.usa_canada": "USA / Canada",
+    "onboarding.capture.option.region.australia_new_zealand":
+      "Australia / New Zealand",
+    "onboarding.capture.option.region.international_school": "International school",
+    "onboarding.capture.option.region.other_europe": "Other Europe",
+    "onboarding.capture.option.region.latin_america": "Latin America",
+    "onboarding.capture.option.region.middle_east_africa": "Middle East / Africa",
+    "onboarding.capture.option.region.asia_pacific": "Asia-Pacific",
+    "onboarding.capture.option.region.other_prefer_not_to_say":
+      "Other / Prefer not to say",
     "onboarding.feature.safeDraft":
       "Turn a rough parent message into a clear, professional draft you can send with confidence.",
     "onboarding.feature.panicScan":
@@ -2144,6 +2255,7 @@ export const localeMessages: Record<Locale, LocaleMessages> = {
     "auth.showPassword": "Passwort anzeigen",
     "auth.hidePassword": "Passwort verbergen",
     "auth.cta.sendLink": "Anmeldelink senden",
+    "auth.cta.sendNewLink": "Neuen Anmeldelink senden",
     "auth.cta.resendLink": "Anmeldelink erneut senden",
     "auth.cta.completeEmailLink": "Anmeldung abschließen",
     "auth.emailLink.helper":
@@ -2157,6 +2269,17 @@ export const localeMessages: Record<Locale, LocaleMessages> = {
       "Für diesen Anmeldelink wurde keine gespeicherte E-Mail-Adresse gefunden. Geben Sie sie bitte erneut ein, um fortzufahren.",
     "auth.emailLink.confirmHelper":
       "Verwenden Sie dieselbe E-Mail-Adresse, mit der Sie den Link angefordert haben.",
+    "auth.emailLink.recoveryTitle": "Link abgelaufen oder bereits verwendet",
+    "auth.emailLink.recoveryDescriptionKnown":
+      "Dieser Anmeldelink ist abgelaufen oder wurde bereits verwendet. Wir können Ihnen sofort einen neuen senden.",
+    "auth.emailLink.recoveryDescriptionUnknown":
+      "Dieser Anmeldelink ist abgelaufen oder wurde bereits verwendet. Geben Sie dieselbe E-Mail-Adresse ein, dann senden wir Ihnen sofort einen neuen.",
+    "auth.emailLink.recoveryHelperKnown":
+      "Wir senden einen neuen sicheren Anmeldelink an diese Adresse.",
+    "auth.emailLink.recoveryHelperUnknown":
+      "Geben Sie dieselbe E-Mail-Adresse ein, dann senden wir Ihnen einen neuen Anmeldelink.",
+    "auth.emailLink.recoveryNotice":
+      "Der geöffnete Anmeldelink kann nur einmal verwendet werden und ist möglicherweise bereits abgelaufen.",
     "auth.emailLink.processing": "Ihr Anmeldelink wird geprüft...",
     "auth.error.invalidEmail": "Bitte geben Sie eine gültige E-Mail-Adresse ein.",
     "auth.error.linkExpired":
@@ -2305,9 +2428,10 @@ export const localeMessages: Record<Locale, LocaleMessages> = {
     "onboarding.capture.step.tone.title": "Welcher Ton passt meist am besten?",
     "onboarding.capture.step.tone.description":
       "Das können wir später als sanfte Voreinstellung nutzen. Sie können den Ton jederzeit ändern.",
-    "onboarding.capture.step.region.title": "In welcher Region arbeiten Sie?",
+    "onboarding.capture.step.region.title":
+      "Welcher Bildungskontext passt am besten zu Ihrer Schule?",
     "onboarding.capture.step.region.description":
-      "Die Region hilft uns später dabei, Formulierungen und Erwartungen passender auszurichten.",
+      "So können wir Beispiele und Formulierungen später passender auf Ihr Umfeld abstimmen.",
     "onboarding.capture.field.role": "Ihre Rolle",
     "onboarding.capture.field.schoolType": "Schulart",
     "onboarding.capture.option.role.teacher": "Lehrkraft",
@@ -2332,11 +2456,19 @@ export const localeMessages: Record<Locale, LocaleMessages> = {
     "onboarding.capture.option.tonePreference.professional": "Professionell",
     "onboarding.capture.option.tonePreference.direct": "Direkt",
     "onboarding.capture.option.tonePreference.empathetic": "Einfühlsam",
-    "onboarding.capture.option.region.germany": "Deutschland",
-    "onboarding.capture.option.region.austria": "Österreich",
-    "onboarding.capture.option.region.switzerland": "Schweiz",
+    "onboarding.capture.option.region.germany_austria_switzerland":
+      "Deutschland / Österreich / Schweiz",
     "onboarding.capture.option.region.uk_ireland": "Großbritannien oder Irland",
-    "onboarding.capture.option.region.other": "Andere",
+    "onboarding.capture.option.region.usa_canada": "USA / Kanada",
+    "onboarding.capture.option.region.australia_new_zealand":
+      "Australien / Neuseeland",
+    "onboarding.capture.option.region.international_school": "Internationale Schule",
+    "onboarding.capture.option.region.other_europe": "Übriges Europa",
+    "onboarding.capture.option.region.latin_america": "Lateinamerika",
+    "onboarding.capture.option.region.middle_east_africa": "Naher Osten / Afrika",
+    "onboarding.capture.option.region.asia_pacific": "Asien-Pazifik",
+    "onboarding.capture.option.region.other_prefer_not_to_say":
+      "Andere / Möchte ich nicht angeben",
     "onboarding.feature.safeDraft":
       "Formen Sie aus einer Rohfassung eine klare, professionelle Nachricht für Eltern.",
     "onboarding.feature.panicScan":
@@ -2486,6 +2618,38 @@ export const localeMessages: Record<Locale, LocaleMessages> = {
     "insights.empty.title": "Noch nicht genug Daten",
     "insights.empty.subtitle": "Sobald Sie ein paar Nachrichten erstellt haben, sehen Sie hier Muster und Fortschritt.",
     "insights.empty.cta": "Zurück zum Editor",
+    "insights.starter.eyebrow": "Starter-Einblicke",
+    "insights.starter.title": "Ihre Einblicke werden vorbereitet",
+    "insights.starter.subtitle":
+      "Sie haben hier bereits einen nutzbaren Draft-Bereich. Mit etwas mehr Verlauf wird diese Seite daraus belastbare Muster ableiten.",
+    "insights.starter.usageTitle": "Nutzungsübersicht",
+    "insights.starter.usageCount": "{count} Entwürfe in dieser Ansicht",
+    "insights.starter.usageEmpty": "Ihre ersten Entwürfe erscheinen hier.",
+    "insights.starter.usageHint":
+      "Gespeicherte Entwürfe, letzte Aktivität und Wochenmuster füllen sich hier automatisch.",
+    "insights.starter.toneTitle": "Ton-Empfehlung",
+    "insights.starter.toneWithPreference": "Ihr aktueller Standardton ist {tone}.",
+    "insights.starter.toneGeneric":
+      "Beginnen Sie bei Elternkommunikation mit einem ruhigen, professionellen Ton.",
+    "insights.starter.toneHint": "Sie können den Ton jederzeit im Editor anpassen.",
+    "insights.starter.laterTitle": "Was später erscheint",
+    "insights.starter.later.one": "Entwurfsvolumen und aktuelle Schreibmuster",
+    "insights.starter.later.two": "Wiederkehrende Sicherheits- und Bearbeitungssignale",
+    "insights.starter.later.three": "Wochenrückblicke auf Grundlage Ihrer Entwürfe",
+    "insights.starter.nextTitle": "Empfohlener nächster Schritt",
+    "insights.starter.nextNew":
+      "Erstellen Sie Ihre erste Elternnachricht oder Ihren ersten Berichtskommentar, um persönliche Einblicke freizuschalten.",
+    "insights.starter.nextLow":
+      "Mit ein paar weiteren Entwürfen werden aussagekräftigere Trendkarten und Wochenrückblicke sichtbar.",
+    "insights.detail.snapshotTitle": "Nutzungssnapshot",
+    "insights.detail.snapshotDrafts": "{count} Entwürfe im gewählten Zeitraum",
+    "insights.detail.snapshotUpdated": "Letzte erfasste Aktivität: {date}",
+    "insights.detail.snapshotEmpty": "Sobald Sie Entwürfe erstellen, erscheint die Aktivität hier.",
+    "insights.detail.signalTitle": "Aktuelles Signal",
+    "insights.detail.signalFallback":
+      "Draft sammelt gerade Muster aus Ihrer letzten Arbeit, damit diese Seite bei dem bleibt, was Sie tatsächlich schreiben.",
+    "insights.detail.qualityHint":
+      "Qualitäts- und Bearbeitungssignale werden mit mehr Entwürfen belastbarer.",
     "insights.dataControl": "Ihre Daten, Ihre Kontrolle",
     "insights.downloadReport": "Bericht herunterladen",
     "insights.filter.last7": "Letzte 7 Tage",
@@ -2630,7 +2794,8 @@ export const localeMessages: Record<Locale, LocaleMessages> = {
     "insights.suggestion.reminder.openCalendar": "Google Kalender oeffnen",
     "insights.suggestion.reminder.downloadIcs": ".ics herunterladen",
     "insights.suggestion.classBrain.title": "Klassengehirn freischalten",
-    "insights.suggestion.classBrain.desc": "Fügen Sie Schülerkontext hinzu, um Ihre Trefferquote um 35% zu erhöhen",
+    "insights.suggestion.classBrain.desc":
+      "Fügen Sie Schülerkontext hinzu, damit Draft spezifischere Erstfassungen erstellen kann.",
     "insights.suggestion.classBrain.cta": "Los geht's",
     "insights.suggestion.reminderToastTitle": "Erinnerungen bald verfügbar",
     "insights.suggestion.reminderToastDescription": "Wir bauen Termin-Erinnerungen, damit Sie sich auf das Unterrichten konzentrieren können.",

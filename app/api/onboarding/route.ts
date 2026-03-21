@@ -3,7 +3,20 @@ import { FieldValue } from "firebase-admin/firestore"
 
 import { ensureUserDocument } from "@/lib/account-bootstrap"
 import { authorizeFirebaseRequest, FirebaseAuthorizationError } from "@/lib/firebase/server"
-import { normalizeOnboardingProfile } from "@/lib/onboarding-profile"
+import {
+  buildFirestoreOnboardingData,
+  normalizeOnboardingProfile,
+  onboardingProfileFromFirestore,
+} from "@/lib/onboarding-profile"
+
+function logOnboardingPersistence(level: "info" | "error", message: string, payload: Record<string, unknown>) {
+  if (process.env.NODE_ENV === "production") {
+    return
+  }
+
+  const logger = level === "error" ? console.error : console.info
+  logger(message, payload)
+}
 
 function unauthorizedResponse(error: unknown) {
   const status = error instanceof FirebaseAuthorizationError ? error.statusCode : 401
@@ -55,15 +68,9 @@ export async function GET(request: Request) {
     const onboardingCompleted = Boolean(data.onboardingCompleted)
     const onboardingSkipped = Boolean(data.onboardingSkipped)
     const welcomeEmailSent = Boolean(data.welcomeEmailSent)
-    const onboardingProfile = normalizeOnboardingProfile(data.onboardingProfile)
-
-    console.info("[onboarding] status loaded", {
-      uid,
-      onboardingCompleted,
-      onboardingSkipped,
-      welcomeEmailSent,
-      firstLogin: bootstrapResult.firstLogin,
-    })
+    const onboardingProfile =
+      onboardingProfileFromFirestore(data.onboarding) ??
+      normalizeOnboardingProfile(data.onboardingProfile)
 
     return NextResponse.json({
       success: true,
@@ -109,6 +116,7 @@ export async function POST(request: Request) {
     const onboardingProfile = normalizeOnboardingProfile(
       body && typeof body === "object" ? (body as Record<string, unknown>).profile : null,
     )
+    const firestoreOnboarding = buildFirestoreOnboardingData(onboardingProfile)
 
     await ensureUserDocument(firestore, uid, {
       email: decodedToken.email ?? null,
@@ -119,6 +127,10 @@ export async function POST(request: Request) {
       {
         onboardingCompleted: true,
         onboardingSkipped: action === "skip",
+        onboarding: {
+          ...firestoreOnboarding,
+          completedAt: FieldValue.serverTimestamp(),
+        },
         onboardingProfile,
         onboardingCompletedAt: FieldValue.serverTimestamp(),
         updatedAt: FieldValue.serverTimestamp(),
@@ -126,10 +138,10 @@ export async function POST(request: Request) {
       { merge: true },
     )
 
-    console.info("[onboarding] onboarding completed", {
+    logOnboardingPersistence("info", "[onboarding] Firestore onboarding saved", {
       uid,
-      onboardingCompleted: true,
-      onboardingSkipped: action === "skip",
+      action,
+      version: firestoreOnboarding.version,
       answeredFields: Object.values(onboardingProfile).filter(Boolean).length,
     })
 
@@ -142,7 +154,10 @@ export async function POST(request: Request) {
       },
     })
   } catch (error) {
-    console.error("[onboarding] Failed to save completion state", error)
+    logOnboardingPersistence("error", "[onboarding] Failed to save onboarding", {
+      uid,
+      error: error instanceof Error ? error.message : String(error),
+    })
     return NextResponse.json(
       {
         success: false,

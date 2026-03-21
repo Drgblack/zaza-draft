@@ -154,7 +154,7 @@ const baseProps = {
   onRegenerate: vi.fn(),
   onRewrite: vi.fn(),
   draftsUsed: 1,
-  draftsLimit: 10,
+  draftsLimit: 5,
   showUsageLimit: false,
 }
 

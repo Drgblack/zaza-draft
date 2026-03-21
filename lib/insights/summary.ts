@@ -16,6 +16,7 @@ export type WeeklyReflection = {
 }
 
 export type InsightsSummary = {
+  dataSource?: "events" | "snippets" | "usage_fallback" | "empty"
   timeSaved?: {
     hours?: number
     minutes?: number
@@ -247,12 +248,12 @@ export function buildFallbackInsightsSummary(
 ): InsightsSummary {
   const minutes = draftCount * MINUTES_SAVED_PER_DRAFT
   const communicationLoad = buildTeacherCommunicationLoadSummary([])
-  const percentage = draftCount > 0 ? 1 : 0
   return {
+    dataSource: draftCount > 0 ? "usage_fallback" : "empty",
     draftsCreated: {
       total: draftCount,
-      usedWithoutEdits: draftCount,
-      percentage,
+      usedWithoutEdits: 0,
+      percentage: 0,
     },
     timeSaved: {
       minutes,
@@ -261,8 +262,8 @@ export function buildFallbackInsightsSummary(
       trendDirection: "up",
       contextCount: draftCount,
     },
-    currentStreak: { days: draftCount > 0 ? 1 : 0 },
-    qualityScore: { score: percentage * 100, trend: 0 },
+    currentStreak: { days: 0 },
+    qualityScore: { score: 0, trend: 0 },
     communicationLoad: {
       score: communicationLoad.score,
       trend: communicationLoad.trend,
@@ -304,6 +305,7 @@ export function mergeInsightsSummaries(
 
   return {
     ...eventSummary,
+    dataSource: eventDraftCount > 0 ? eventSummary.dataSource : usageSummary.dataSource ?? eventSummary.dataSource,
     draftsCreated: usageSummary.draftsCreated ?? eventSummary.draftsCreated,
     timeSaved: usageSummary.timeSaved ?? eventSummary.timeSaved,
     currentStreak: usageSummary.currentStreak ?? eventSummary.currentStreak,
@@ -375,6 +377,7 @@ export function buildInsightsSummaryFromEvents(
   const weeklyReflection = buildWeeklyReflection(weeklyEvents)
 
   return {
+    dataSource: currentDraftsCreated > 0 ? "events" : weeklyReflection ? "events" : "empty",
     draftsCreated: {
       total: currentDraftsCreated,
       usedWithoutEdits,
@@ -432,6 +435,7 @@ export function buildInsightsSummaryFromSnippets(
   const communicationLoad = buildTeacherCommunicationLoadSummary(weeklyMetrics)
 
   return {
+    dataSource: total > 0 ? "snippets" : "empty",
     draftsCreated: {
       total,
       usedWithoutEdits: 0,

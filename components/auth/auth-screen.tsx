@@ -1,12 +1,13 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { useAuth } from "@/hooks/use-auth"
 import { useLocale } from "@/hooks/use-locale"
-import { logClientEvent } from "@/lib/analytics"
+import { classifyEmailLinkError } from "@/lib/auth/email-link"
+import { logClientEvent, TRUST_FUNNEL_EVENTS } from "@/lib/analytics"
 import { InstantDraftTest } from "@/components/marketing/instant-draft-test"
 const GOOGLE_ERROR_MAP: Record<string, string> = {
   "auth/popup-closed-by-user": "You closed the Google window. Please try again.",
@@ -17,14 +18,31 @@ const GOOGLE_ERROR_MAP: Record<string, string> = {
 }
 
 export function AuthScreen() {
-  const { status, emailLinkStatus, sendEmailLink, completeEmailLinkSignIn, signInWithGoogle } = useAuth()
+  const {
+    status,
+    emailLinkStatus,
+    emailLinkKnownEmail,
+    sendEmailLink,
+    completeEmailLinkSignIn,
+    signInWithGoogle,
+  } = useAuth()
   const { t } = useLocale()
   const [email, setEmail] = useState("")
   const [successEmail, setSuccessEmail] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const isAwaitingEmail = emailLinkStatus === "awaiting_email"
+  const isRecoveryState = emailLinkStatus === "recovery"
   const isProcessingEmailLink = emailLinkStatus === "processing"
+  const isResend = Boolean(successEmail) || isRecoveryState
+
+  useEffect(() => {
+    if (!emailLinkKnownEmail) {
+      return
+    }
+
+    setEmail((current) => current || emailLinkKnownEmail)
+  }, [emailLinkKnownEmail])
 
   const getFriendlyEmailLinkError = (err: unknown) => {
     const code = (err as { code?: string })?.code
@@ -58,7 +76,7 @@ export function AuthScreen() {
     setIsSubmitting(true)
     setError(null)
     console.info("[auth] submit start", {
-      flow: isAwaitingEmail ? "complete_email_link" : "send_email_link",
+      flow: isAwaitingEmail ? "complete_email_link" : isRecoveryState ? "recover_email_link" : "send_email_link",
       email: email.trim(),
     })
 
@@ -68,16 +86,42 @@ export function AuthScreen() {
         await completeEmailLinkSignIn(normalizedEmail)
         logClientEvent("auth_login_success", { provider: "email_link" })
       } else {
+        logClientEvent(TRUST_FUNNEL_EVENTS.magicLinkRequested, {
+          surface: "auth_screen",
+          resend: isResend,
+        })
         await sendEmailLink(normalizedEmail)
+        logClientEvent(TRUST_FUNNEL_EVENTS.magicLinkRequestSucceeded, {
+          surface: "auth_screen",
+          resend: isResend,
+        })
         setSuccessEmail(normalizedEmail)
       }
     } catch (err) {
       console.error("[auth] auth screen submit error", err)
       setSuccessEmail(null)
-      setError(getFriendlyEmailLinkError(err))
+      if (!isAwaitingEmail) {
+        logClientEvent(TRUST_FUNNEL_EVENTS.magicLinkRequestFailed, {
+          surface: "auth_screen",
+          resend: isResend,
+          code: (err as { code?: string })?.code ?? "unknown",
+        })
+      }
+      if (classifyEmailLinkError(err) === "expired_or_used") {
+        setError(null)
+      } else {
+        setError(getFriendlyEmailLinkError(err))
+      }
     } finally {
       setIsSubmitting(false)
     }
+  }
+
+  const handleLandingCtaHandoff = () => {
+    logClientEvent(TRUST_FUNNEL_EVENTS.landingCtaHandoffCompleted, {
+      source: "instant_draft_test",
+    })
+    document.getElementById("email")?.focus()
   }
 
   const handleGoogleSignIn = async () => {
@@ -101,10 +145,34 @@ export function AuthScreen() {
     }
   }
 
+  const formTitle = isRecoveryState
+    ? t("auth.emailLink.recoveryTitle")
+    : isAwaitingEmail
+    ? t("auth.emailLink.confirmTitle")
+    : t("auth.title.signin")
+  const formDescription = isRecoveryState
+    ? t(
+        emailLinkKnownEmail
+          ? "auth.emailLink.recoveryDescriptionKnown"
+          : "auth.emailLink.recoveryDescriptionUnknown",
+      )
+    : isAwaitingEmail
+    ? t("auth.emailLink.confirmDescription")
+    : t("auth.emailLink.helper")
+  const inputHelper = isRecoveryState
+    ? t(
+        emailLinkKnownEmail
+          ? "auth.emailLink.recoveryHelperKnown"
+          : "auth.emailLink.recoveryHelperUnknown",
+      )
+    : isAwaitingEmail
+    ? t("auth.emailLink.confirmHelper")
+    : t("auth.emailLink.inputHelper")
+
   return (
     <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-gradient-to-br from-[#5b36a6] via-[#3b63b8] to-[#264f96] px-4 py-12 text-white">
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(255,255,255,0.16),transparent_32%),radial-gradient(circle_at_bottom_right,rgba(255,255,255,0.08),transparent_28%)]" />
-      <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(180deg,rgba(15,23,42,0.12),rgba(15,23,42,0.34))]" />
+      <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(180deg,rgba(15,23,42,0.16),rgba(15,23,42,0.44))]" />
       <div className="relative z-10 grid w-full max-w-6xl gap-10 lg:grid-cols-[1.15fr_0.85fr] lg:items-center">
         <div className="space-y-7 lg:pr-6">
           <div className="max-w-2xl">
@@ -119,25 +187,23 @@ export function AuthScreen() {
             </p>
           </div>
 
-          <InstantDraftTest onCreateAccount={() => document.getElementById("email")?.focus()} />
+          <InstantDraftTest onCreateAccount={handleLandingCtaHandoff} />
         </div>
 
         <div className="space-y-5 lg:justify-self-end lg:w-full lg:max-w-md">
           <form
-            className="space-y-5 rounded-[28px] border border-white/28 bg-[linear-gradient(180deg,rgba(255,255,255,0.24),rgba(255,255,255,0.16))] p-6 shadow-[0_28px_72px_rgba(15,23,42,0.28)] backdrop-blur-[28px] sm:p-7"
+            className="space-y-5 rounded-[28px] border border-white/18 bg-[linear-gradient(180deg,rgba(53,86,154,0.88),rgba(37,62,124,0.94))] p-6 shadow-[0_32px_72px_rgba(15,23,42,0.34)] backdrop-blur-[28px] sm:p-7"
             onSubmit={handleSubmit}
           >
             <div className="space-y-1.5">
-              <p className="text-xs font-semibold uppercase tracking-[0.28em] text-white/72">
-                {isAwaitingEmail ? t("auth.emailLink.confirmTitle") : t("auth.title.signin")}
+              <p className="text-xs font-semibold uppercase tracking-[0.28em] text-white/75">
+                {formTitle}
               </p>
-              <p className="text-sm leading-6 text-white/82">
-                {isAwaitingEmail ? t("auth.emailLink.confirmDescription") : t("auth.emailLink.helper")}
-              </p>
+              <p className="text-sm leading-6 text-white/92">{formDescription}</p>
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="email" className="text-sm font-semibold text-white/92">
+              <Label htmlFor="email" className="text-sm font-semibold text-white">
                 {t("auth.emailLabel")}
               </Label>
               <Input
@@ -156,16 +222,21 @@ export function AuthScreen() {
                 disabled={isSubmitting || isProcessingEmailLink}
                 className="h-11 rounded-xl border-white/30 bg-white/95 px-4 text-slate-900 shadow-[inset_0_1px_0_rgba(255,255,255,0.55)] placeholder:text-slate-400 focus-visible:border-white/50 focus-visible:ring-white/25"
               />
-              <p className="text-[13px] leading-5 text-white/78">
-                {isAwaitingEmail ? t("auth.emailLink.confirmHelper") : t("auth.emailLink.inputHelper")}
-              </p>
+              <p className="text-[13px] leading-5 text-white/86">{inputHelper}</p>
             </div>
 
             {successEmail && !isAwaitingEmail && !error && (
-              <div className="rounded-xl border border-emerald-200/35 bg-emerald-500/12 px-3 py-3 text-sm text-emerald-50">
+              <div className="rounded-xl border border-emerald-200/28 bg-[linear-gradient(180deg,rgba(20,83,45,0.34),rgba(14,116,144,0.28))] px-3 py-3 text-sm text-emerald-50">
                 <p className="font-semibold">{t("auth.emailLink.successTitle")}</p>
                 <p className="mt-1">{t("auth.emailLink.sent", { email: successEmail })}</p>
-                <p className="mt-1 text-emerald-100/90">{t("auth.emailLink.sentHint")}</p>
+                <p className="mt-1 text-emerald-50/90">{t("auth.emailLink.sentHint")}</p>
+              </div>
+            )}
+
+            {isRecoveryState && !successEmail && (
+              <div className="rounded-xl border border-amber-200/30 bg-amber-500/10 px-3 py-3 text-sm text-amber-50">
+                <p className="font-semibold">{t("auth.emailLink.recoveryTitle")}</p>
+                <p className="mt-1">{t("auth.emailLink.recoveryNotice")}</p>
               </div>
             )}
 
@@ -188,14 +259,16 @@ export function AuthScreen() {
                   : t("auth.processing.sendLink")
                 : isAwaitingEmail
                 ? t("auth.cta.completeEmailLink")
+                : isRecoveryState
+                ? t("auth.cta.sendNewLink")
                 : successEmail
                 ? t("auth.cta.resendLink")
                 : t("auth.cta.sendLink")}
             </Button>
           </form>
 
-          <div className="space-y-3 rounded-2xl border border-white/18 bg-white/10 p-4 shadow-[0_18px_40px_rgba(15,23,42,0.16)] backdrop-blur-[22px]">
-            <p className="text-center text-sm font-medium text-white/84">{t("auth.orContinue")}</p>
+          <div className="space-y-3 rounded-2xl border border-white/16 bg-[linear-gradient(180deg,rgba(47,74,139,0.82),rgba(36,58,115,0.88))] p-4 shadow-[0_18px_40px_rgba(15,23,42,0.2)] backdrop-blur-[22px]">
+            <p className="text-center text-sm font-medium text-white/92">{t("auth.orContinue")}</p>
             <Button
               variant="outline"
               className="flex h-11 w-full items-center justify-center gap-2 rounded-xl border-white/45 bg-white/96 text-slate-900 shadow-[0_10px_22px_rgba(15,23,42,0.12)] hover:bg-white hover:text-slate-950"

@@ -1,15 +1,19 @@
 ﻿"use client"
 
 import { useMemo, useState, useEffect } from "react"
-import { ArrowLeft, CalendarDays, Download, Shield } from "lucide-react"
+import {
+  ArrowLeft,
+  BarChart3,
+  CalendarDays,
+  Compass,
+  Download,
+  FileStack,
+  Lightbulb,
+  Shield,
+} from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
-import { Switch } from "@/components/ui/switch"
 import { StatCard } from "@/components/insights/stat-card"
-import { TimeHeatmap } from "@/components/insights/time-heatmap"
-import { ToneDistribution } from "@/components/insights/tone-distribution"
-import { ConfidenceChart } from "@/components/insights/confidence-chart"
-import { BadgesGrid } from "@/components/insights/badges-grid"
 import DataControlsExplainer from "@/components/insights/data-controls-explainer"
 import FooterSlim from "@/components/FooterSlim"
 import Link from "next/link"
@@ -39,76 +43,9 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 
-const mockHeatmapData = Array.from({ length: 7 * 24 }, (_, i) => ({
-  day: ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"][Math.floor(i / 24)],
-  hour: i % 24,
-  intensity: Math.random() * (i % 24 >= 9 && i % 24 <= 17 ? 1 : 0.3),
-}))
-
-const mockToneData = [
-  { tone: "Warm", percentage: 40, color: "#F59E0B" },
-  { tone: "Professional", percentage: 30, color: "#8B5CF6" },
-  { tone: "Empathetic", percentage: 20, color: "#EC4899" },
-  { tone: "Direct", percentage: 10, color: "#3B82F6" },
-]
-
-const mockConfidenceData = [
-  { week: "Week 1", editRate: 80 },
-  { week: "Week 2", editRate: 65 },
-  { week: "Week 3", editRate: 45 },
-  { week: "Week 4", editRate: 30 },
-]
-
-const mockBadges = [
-  {
-    id: "1",
-    name: "Time Reclaimed - Bronze",
-    description: "Saved 2+ hours with AI assistance",
-    icon: "??",
-    status: "earned" as const,
-  },
-  {
-    id: "2",
-    name: "5-Week Streak",
-    description: "Used Zaza Draft for 5 consecutive weeks",
-    icon: "??",
-    status: "earned" as const,
-  },
-  {
-    id: "3",
-    name: "Tone Master",
-    description: "Used all 4 communication tones",
-    icon: "??",
-    status: "in-progress" as const,
-    progress: 3,
-    total: 4,
-  },
-  {
-    id: "4",
-    name: "Multilingual Champion",
-    description: "Created drafts in 3+ languages",
-    icon: "??",
-    status: "locked" as const,
-  },
-  {
-    id: "5",
-    name: "One-Shot Wonder",
-    description: "90% first-draft success rate",
-    icon: "??",
-    status: "in-progress" as const,
-    progress: 72,
-    total: 90,
-  },
-  {
-    id: "6",
-    name: "Weekend Warrior Retired",
-    description: "Zero weekend drafts for 4 weeks",
-    icon: "??",
-    status: "locked" as const,
-  },
-]
-
 const REMINDER_EVENT_TITLE = "Protected writing time - Zaza Draft"
+
+type InsightsDisplayState = "starter" | "full"
 
 function isInsightsIndexPreconditionError(
   payload: { error?: { code?: string; message?: string }; emptyReason?: string } | null,
@@ -124,9 +61,21 @@ function isInsightsIndexPreconditionError(
   )
 }
 
+function getInsightsDisplayState(summary: InsightsSummary | null): InsightsDisplayState {
+  const draftCount = summary?.draftsCreated?.total ?? 0
+  const hasWeeklyReflection = Boolean(summary?.weeklyReflection)
+  const communicationTrendPoints =
+    summary?.communicationLoad?.fourWeekTrend?.filter((value) => value > 0).length ?? 0
+
+  if (draftCount >= 3 || hasWeeklyReflection || communicationTrendPoints >= 2) {
+    return "full"
+  }
+
+  return "starter"
+}
+
 export default function InsightsPage() {
   const [dateRange, setDateRange] = useState<"7" | "30" | "90">("30")
-  const [showWellbeing, setShowWellbeing] = useState(false)
   const [isReminderDialogOpen, setIsReminderDialogOpen] = useState(false)
   const [insightsSummary, setInsightsSummary] = useState<InsightsSummary | null>(null)
   const [summaryLoading, setSummaryLoading] = useState(true)
@@ -208,27 +157,37 @@ export default function InsightsPage() {
   const summaryQuality = insightsSummary?.qualityScore
   const summaryCommunicationLoad = insightsSummary?.communicationLoad
   const summaryWeeklyReflection = insightsSummary?.weeklyReflection
-  const timeSavedValue = summaryTimeSaved?.hours ?? summaryTimeSaved?.minutes ?? 0
   const hasMetrics = hasMeaningfulInsights(insightsSummary)
+  const displayState = getInsightsDisplayState(insightsSummary)
+  const showStarterState =
+    isAuthenticated && !summaryLoading && !summaryError && displayState === "starter"
+  const showFullInsights =
+    isAuthenticated && !summaryLoading && !summaryError && hasMetrics && displayState === "full"
   const downloadDisabled = !hasMetrics
   const timeSavedHours =
     summaryTimeSaved?.hours ??
     (summaryTimeSaved?.minutes != null ? summaryTimeSaved.minutes / 60 : 0)
   const timeSavedTrend = summaryTimeSaved?.trend ?? 0
-  const timeSavedContextCount = summaryTimeSaved?.contextCount ?? Math.round(summaryDrafts?.percentage ?? 0)
   const draftsTotal = summaryDrafts?.total ?? 0
   const draftsUsed = summaryDrafts?.usedWithoutEdits ?? 0
+  const timeSavedContextCount = summaryTimeSaved?.contextCount ?? draftsTotal
   const streakDays = summaryStreak?.days ?? 0
   const qualityScoreValue = summaryQuality?.score ?? 0
   const qualityTrendValue = summaryQuality?.trend ?? 0
   const communicationLoadScore = summaryCommunicationLoad?.score ?? 0
   const communicationLoadTrend = summaryCommunicationLoad?.trend ?? 0
   const communicationLoadDirection = summaryCommunicationLoad?.trendDirection ?? "down"
-  const communicationLoadIndicator = summaryCommunicationLoad?.improvementIndicator ?? "stable"
   const communicationLoadSeries = summaryCommunicationLoad?.fourWeekTrend ?? []
   const weeklyReflectionText = summaryWeeklyReflection
     ? t(summaryWeeklyReflection.key as any, summaryWeeklyReflection.values)
     : null
+  const preferredTone = prefs.preferredTone?.trim() || null
+  const toneGuidanceText = preferredTone
+    ? t("insights.starter.toneWithPreference", { tone: preferredTone })
+    : t("insights.starter.toneGeneric")
+  const starterRecommendation = draftsTotal > 0
+    ? t("insights.starter.nextLow")
+    : t("insights.starter.nextNew")
   const currentLoadWeek = summaryCommunicationLoad?.currentWeek
   const previousLoadWeek = summaryCommunicationLoad?.previousWeek
   const communicationLoadInsight = useMemo(() => {
@@ -259,6 +218,10 @@ export default function InsightsPage() {
 
     return t("insights.communicationLoad.context.stable")
   }, [communicationLoadDirection, currentLoadWeek, previousLoadWeek, t])
+  const usageSummaryText =
+    draftsTotal > 0
+      ? t("insights.starter.usageCount", { count: draftsTotal })
+      : t("insights.starter.usageEmpty")
   const reminderInsight = t("insights.suggestion.wednesday.desc")
   const reminderHint = t("insights.suggestion.reminder.modalHint")
   const reminderFootnote = t("insights.suggestion.reminder.modalFootnote")
@@ -297,6 +260,22 @@ export default function InsightsPage() {
       }),
     [locale],
   )
+  const summaryUpdatedAtLabel = useMemo(() => {
+    if (!insightsSummary?.updatedAt) {
+      return null
+    }
+
+    const parsed = new Date(insightsSummary.updatedAt)
+    if (Number.isNaN(parsed.getTime())) {
+      return null
+    }
+
+    return new Intl.DateTimeFormat(locale, {
+      month: "long",
+      day: "numeric",
+      year: "numeric",
+    }).format(parsed)
+  }, [insightsSummary?.updatedAt, locale])
   const reminderDateLabel = dateFormatter.format(reminderStart)
   const reminderTimeLabel = `${timeFormatter.format(reminderStart)} - ${timeFormatter.format(
     reminderEnd,
@@ -318,12 +297,6 @@ export default function InsightsPage() {
     document.body.removeChild(link)
     URL.revokeObjectURL(url)
     setIsReminderDialogOpen(false)
-  }
-
-  const getFireIntensity = (days: number) => {
-    if (days >= 15) return "🔥🔥🔥"
-    if (days >= 10) return "🔥🔥"
-    return "🔥"
   }
 
   const handleDownloadReport = () => {
@@ -481,247 +454,228 @@ export default function InsightsPage() {
               </div>
             </Card>
           )}
-          {!summaryLoading && !hasMetrics && (
-            <Card className="rounded-3xl border border-dashed border-gray-300 bg-white/80 dark:border-gray-700 dark:bg-white/5 p-8 text-center">
-              <p className="text-xl font-semibold text-gray-900 dark:text-white">
-                {t("insights.empty.title")}
-              </p>
-              <p className="text-sm text-gray-600 dark:text-gray-300 mt-2">
-                {t("insights.empty.subtitle")}
-              </p>
-              <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-                {t("insights.empty.cta")}
-              </p>
-            </Card>
+          {showStarterState && (
+            <>
+              <Card className="rounded-3xl border border-white/30 bg-white/92 p-6 shadow-2xl shadow-purple-500/10 backdrop-blur-2xl dark:border-white/20 dark:bg-white/10">
+                <div className="space-y-2">
+                  <p className="text-sm font-semibold uppercase tracking-[0.14em] text-gray-500 dark:text-white/60">
+                    {t("insights.starter.eyebrow")}
+                  </p>
+                  <h2 className="text-2xl font-semibold text-gray-900 dark:text-white">
+                    {t("insights.starter.title")}
+                  </h2>
+                  <p className="max-w-3xl text-sm leading-6 text-gray-600 dark:text-white/75">
+                    {t("insights.starter.subtitle")}
+                  </p>
+                </div>
+              </Card>
+
+              <div className="grid gap-6 lg:grid-cols-2 xl:grid-cols-4">
+                <Card className="rounded-3xl border border-white/30 bg-white/92 p-6 shadow-xl shadow-purple-500/10 backdrop-blur-2xl dark:border-white/20 dark:bg-white/10">
+                  <div className="flex items-start gap-3">
+                    <div className="rounded-2xl bg-sky-100 p-3 text-sky-700 dark:bg-sky-500/15 dark:text-sky-200">
+                      <BarChart3 className="h-5 w-5" />
+                    </div>
+                    <div className="space-y-2">
+                      <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                        {t("insights.starter.usageTitle")}
+                      </h3>
+                      <p className="text-sm font-medium text-gray-900 dark:text-white">
+                        {usageSummaryText}
+                      </p>
+                      <p className="text-sm text-gray-600 dark:text-white/75">
+                        {t("insights.starter.usageHint")}
+                      </p>
+                    </div>
+                  </div>
+                </Card>
+
+                <Card className="rounded-3xl border border-white/30 bg-white/92 p-6 shadow-xl shadow-purple-500/10 backdrop-blur-2xl dark:border-white/20 dark:bg-white/10">
+                  <div className="flex items-start gap-3">
+                    <div className="rounded-2xl bg-violet-100 p-3 text-violet-700 dark:bg-violet-500/15 dark:text-violet-200">
+                      <Lightbulb className="h-5 w-5" />
+                    </div>
+                    <div className="space-y-2">
+                      <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                        {t("insights.starter.toneTitle")}
+                      </h3>
+                      <p className="text-sm font-medium text-gray-900 dark:text-white">
+                        {toneGuidanceText}
+                      </p>
+                      <p className="text-sm text-gray-600 dark:text-white/75">
+                        {t("insights.starter.toneHint")}
+                      </p>
+                    </div>
+                  </div>
+                </Card>
+
+                <Card className="rounded-3xl border border-white/30 bg-white/92 p-6 shadow-xl shadow-purple-500/10 backdrop-blur-2xl dark:border-white/20 dark:bg-white/10">
+                  <div className="flex items-start gap-3">
+                    <div className="rounded-2xl bg-emerald-100 p-3 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-200">
+                      <FileStack className="h-5 w-5" />
+                    </div>
+                    <div className="space-y-2">
+                      <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                        {t("insights.starter.laterTitle")}
+                      </h3>
+                      <ul className="space-y-2 text-sm text-gray-600 dark:text-white/75">
+                        <li>{t("insights.starter.later.one")}</li>
+                        <li>{t("insights.starter.later.two")}</li>
+                        <li>{t("insights.starter.later.three")}</li>
+                      </ul>
+                    </div>
+                  </div>
+                </Card>
+
+                <Card className="rounded-3xl border border-white/30 bg-white/92 p-6 shadow-xl shadow-purple-500/10 backdrop-blur-2xl dark:border-white/20 dark:bg-white/10">
+                  <div className="flex items-start gap-3">
+                    <div className="rounded-2xl bg-amber-100 p-3 text-amber-700 dark:bg-amber-500/15 dark:text-amber-200">
+                      <Compass className="h-5 w-5" />
+                    </div>
+                    <div className="space-y-2">
+                      <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                        {t("insights.starter.nextTitle")}
+                      </h3>
+                      <p className="text-sm text-gray-600 dark:text-white/75">
+                        {starterRecommendation}
+                      </p>
+                    </div>
+                  </div>
+                </Card>
+              </div>
+            </>
           )}
-          {hasMetrics && (
+          {showFullInsights && (
             <>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-10">
-          <StatCard
-            title={t("insights.timeSaved.title")}
-            value={t("insights.timeSaved.hours", { hours: timeSavedHours.toFixed(1) })}
-            numericValue={timeSavedHours}
-            subtitle={t("insights.timeSaved.thisWeek")}
-            trend={{
-              value: t("insights.timeSaved.trend", { percent: `${timeSavedTrend}` }),
-              direction: summaryTimeSaved?.trendDirection ?? "up",
-              color: "text-green-600 dark:text-green-400",
-            }}
-            tooltip={t("insights.timeSaved.tooltip")}
-            contextMessage={t("insights.timeSaved.context", { count: `${timeSavedContextCount}` })}
-          />
-          <StatCard
-            title={t("insights.draftsCreated.title")}
-            value={t("insights.draftsCreated.value", { count: draftsTotal })}
-            numericValue={draftsTotal}
-            subtitle={t("insights.draftsCreated.subtitle", { used: draftsUsed, total: draftsTotal })}
-            icon={
-              <div className="relative w-12 h-12">
-                <svg className="w-12 h-12 transform -rotate-90">
-                  <circle
-                    cx="24"
-                    cy="24"
-                    r="20"
-                    stroke="currentColor"
-                    strokeWidth="4"
-                    fill="none"
-                    className="text-gray-200 dark:text-gray-700"
-                  />
-                  <circle
-                    cx="24"
-                    cy="24"
-                    r="20"
-                    stroke="currentColor"
-                    strokeWidth="4"
-                    fill="none"
-                    strokeDasharray={`${2 * Math.PI * 20}`}
-                    strokeDashoffset={`${2 * Math.PI * 20 * (1 - 0.8)}`}
-                    className="text-purple-600"
-                  />
-                </svg>
+                <StatCard
+                  title={t("insights.timeSaved.title")}
+                  value={t("insights.timeSaved.hours", { hours: timeSavedHours.toFixed(1) })}
+                  numericValue={timeSavedHours}
+                  subtitle={t("insights.timeSaved.thisWeek")}
+                  trend={draftsTotal > 0 ? {
+                    value: t("insights.timeSaved.trend", { percent: `${timeSavedTrend}` }),
+                    direction: summaryTimeSaved?.trendDirection ?? "up",
+                    color: "text-green-600 dark:text-green-400",
+                  } : undefined}
+                  tooltip={t("insights.timeSaved.tooltip")}
+                  contextMessage={t("insights.timeSaved.context", { count: `${timeSavedContextCount}` })}
+                />
+                <StatCard
+                  title={t("insights.draftsCreated.title")}
+                  value={t("insights.draftsCreated.value", { count: draftsTotal })}
+                  numericValue={draftsTotal}
+                  subtitle={t("insights.draftsCreated.subtitle", { used: draftsUsed, total: draftsTotal })}
+                  icon={<FileStack className="h-10 w-10 text-violet-500" />}
+                  tooltip={t("insights.draftsCreated.tooltip")}
+                />
+                <StatCard
+                  title={t("insights.currentStreak.title")}
+                  value={t("insights.currentStreak.days", { count: streakDays })}
+                  numericValue={streakDays}
+                  subtitle={t("insights.currentStreak.subtitle")}
+                  icon={<CalendarDays className="h-10 w-10 text-amber-500" />}
+                  gradient="bg-gradient-to-br from-orange-50 to-yellow-50 dark:from-orange-950/20 dark:to-yellow-950/20"
+                  tooltip={t("insights.currentStreak.tooltip")}
+                />
+                <StatCard
+                  title={t("insights.qualityScore.title")}
+                  value={t("insights.qualityScore.value", { score: qualityScoreValue })}
+                  numericValue={qualityScoreValue}
+                  subtitle={t("insights.qualityScore.subtitle")}
+                  trend={draftsTotal > 0 ? {
+                    value: t("insights.qualityScore.trend", { points: qualityTrendValue }),
+                    direction: qualityTrendValue < 0 ? "down" : "up",
+                    color: qualityTrendValue < 0 ? "text-amber-600 dark:text-amber-400" : "text-green-600 dark:text-green-400",
+                  } : undefined}
+                  icon={<Lightbulb className="h-10 w-10 text-fuchsia-500" />}
+                  tooltip={t("insights.qualityScore.tooltip")}
+                  sparklineData={communicationLoadSeries.length > 0 ? communicationLoadSeries : undefined}
+                  sparklineLabel={t("insights.communicationLoad.sparklineLabel")}
+                />
+                <StatCard
+                  title={t("insights.communicationLoad.title")}
+                  value={String(communicationLoadScore)}
+                  numericValue={communicationLoadScore}
+                  subtitle={t("insights.communicationLoad.subtitle")}
+                  trend={communicationLoadSeries.some((value) => value > 0) ? {
+                    value: t("insights.communicationLoad.trend", {
+                      percent: Math.abs(communicationLoadTrend),
+                    }),
+                    direction: communicationLoadDirection,
+                    color:
+                      communicationLoadDirection === "down"
+                        ? "text-green-600 dark:text-green-400"
+                        : "text-amber-600 dark:text-amber-400",
+                  } : undefined}
+                  icon={<Compass className="h-10 w-10 text-sky-500" />}
+                  tooltip={t("insights.communicationLoad.tooltip")}
+                  contextMessage={communicationLoadInsight}
+                  sparklineData={communicationLoadSeries.some((value) => value > 0) ? communicationLoadSeries : undefined}
+                  sparklineLabel={t("insights.communicationLoad.sparklineLabel")}
+                />
               </div>
-            }
-          celebration="🎯"
-            tooltip={t("insights.draftsCreated.tooltip")}
-          />
-          <StatCard
-            title={t("insights.currentStreak.title")}
-            value={t("insights.currentStreak.days", { count: streakDays })}
-            numericValue={streakDays}
-            subtitle={t("insights.currentStreak.subtitle")}
-            icon={<span className="text-3xl">{getFireIntensity(streakDays)}</span>}
-            gradient="bg-gradient-to-br from-orange-50 to-yellow-50 dark:from-orange-950/20 dark:to-yellow-950/20"
-            tooltip={t("insights.currentStreak.tooltip")}
-          />
-          <StatCard
-            title={t("insights.qualityScore.title")}
-            value={t("insights.qualityScore.value", { score: qualityScoreValue })}
-            numericValue={qualityScoreValue}
-            subtitle={t("insights.qualityScore.subtitle")}
-            trend={{
-              value: t("insights.qualityScore.trend", { points: qualityTrendValue }),
-              direction: "up",
-              color: "text-green-600 dark:text-green-400",
-            }}
-            icon={<span className="text-2xl">✨</span>}
-            tooltip={t("insights.qualityScore.tooltip")}
-            sparklineData={[85, 87, 89, 90, 91, 91, 92]}
-          />
-          <StatCard
-            title={t("insights.communicationLoad.title")}
-            value={String(communicationLoadScore)}
-            numericValue={communicationLoadScore}
-            subtitle={t("insights.communicationLoad.subtitle")}
-            trend={{
-              value: t("insights.communicationLoad.trend", {
-                percent: Math.abs(communicationLoadTrend),
-              }),
-              direction: communicationLoadDirection,
-              color:
-                communicationLoadDirection === "down"
-                  ? "text-green-600 dark:text-green-400"
-                  : "text-amber-600 dark:text-amber-400",
-            }}
-            icon={<span className="text-2xl">📬</span>}
-            celebration={
-              communicationLoadIndicator === "improving"
-                ? "↓"
-                : communicationLoadIndicator === "rising"
-                  ? "↑"
-                  : "→"
-            }
-            tooltip={t("insights.communicationLoad.tooltip")}
-            contextMessage={communicationLoadInsight}
-            sparklineData={communicationLoadSeries}
-            sparklineLabel={t("insights.communicationLoad.sparklineLabel")}
-          />
-        </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
-          <TimeHeatmap
-            data={mockHeatmapData}
-            title={t("insights.heatmap.title")}
-            insight={t("insights.heatmap.insight")}
-            warning={t("insights.heatmap.warning", { count: "6" })}
-          />
-          <ToneDistribution
-            data={mockToneData}
-            title={t("insights.toneDistribution.title")}
-            insight={t("insights.toneDistribution.insight", { percent: "40" })}
-          />
-        </div>
-
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
-          <ConfidenceChart
-            data={mockConfidenceData}
-            title={t("insights.confidence.title")}
-            insight={t("insights.confidence.insight")}
-          />
-          <BadgesGrid badges={mockBadges} />
-        </div>
-
-        <Card className="p-6 bg-white/85 dark:bg-white/10 backdrop-blur-2xl border-white/30 shadow-2xl shadow-purple-500/10">
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-2">
-              <h2 className="text-xl font-semibold text-gray-900 dark:text-white">{t("insights.wellbeing.title")}</h2>
-              <span className="text-2xl">💚</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="text-sm text-gray-600 dark:text-white/80">{t("insights.wellbeing.toggle")}</span>
-              <Switch checked={showWellbeing} onCheckedChange={setShowWellbeing} />
-            </div>
-          </div>
-
-          {showWellbeing && (
-            <div className="space-y-6 mt-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <Card className="p-5 border-2 border-purple-200 dark:border-purple-400/40 bg-white/90 dark:bg-white/15 backdrop-blur-xl shadow-lg shadow-purple-500/10">
-                  <div className="flex items-start gap-3">
-                    <span className="text-2xl">🌙</span>
-                    <div className="flex-1">
-                      <h3 className="font-semibold mb-1 text-gray-900 dark:text-white">
-                        {t("insights.wellbeing.afterHours", { percent: "18" })}
+              <div className="grid gap-6 lg:grid-cols-3">
+                <Card className="rounded-3xl border border-white/30 bg-white/92 p-6 shadow-xl shadow-purple-500/10 backdrop-blur-2xl dark:border-white/20 dark:bg-white/10">
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-3">
+                      <div className="rounded-2xl bg-sky-100 p-3 text-sky-700 dark:bg-sky-500/15 dark:text-sky-200">
+                        <BarChart3 className="h-5 w-5" />
+                      </div>
+                      <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                        {t("insights.detail.snapshotTitle")}
                       </h3>
-                      <div className="flex items-center gap-2 mb-2">
-                        <div className="w-2 h-2 rounded-full bg-green-500 shadow-sm shadow-green-500/50" />
-                        <span className="text-sm text-gray-600 dark:text-white/80">
-                          {t("insights.wellbeing.healthyBoundary")}
-                        </span>
-                      </div>
-                      <p className="text-sm text-gray-600 dark:text-white/70 mb-3">
-                        {t("insights.wellbeing.afterHours.desc", { count: "3" })}
-                      </p>
-                      <a
-                        href="https://www.zazadraft.com/products/shield"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-sm font-medium text-purple-600 dark:text-purple-400 hover:text-purple-700 dark:hover:text-purple-300 underline decoration-2 underline-offset-2 transition-colors"
-                      >
-                        {t("insights.wellbeing.learnBoundaries")}
-                      </a>
                     </div>
+                    <p className="text-sm font-medium text-gray-900 dark:text-white">
+                      {t("insights.detail.snapshotDrafts", { count: draftsTotal })}
+                    </p>
+                    <p className="text-sm text-gray-600 dark:text-white/75">
+                      {summaryUpdatedAtLabel
+                        ? t("insights.detail.snapshotUpdated", { date: summaryUpdatedAtLabel })
+                        : t("insights.detail.snapshotEmpty")}
+                    </p>
                   </div>
                 </Card>
 
-                <Card className="p-5 bg-white/90 dark:bg-white/15 backdrop-blur-xl border-white/30 shadow-lg shadow-purple-500/10">
-                  <h3 className="font-semibold mb-4 text-gray-900 dark:text-white">
-                    {t("insights.wellbeing.workLife")}
-                  </h3>
-                  <div className="flex items-center justify-center mb-4">
-                    <div className="relative w-32 h-32">
-                      <svg className="w-32 h-32 transform -rotate-90">
-                        <circle
-                          cx="64"
-                          cy="64"
-                          r="56"
-                          stroke="currentColor"
-                          strokeWidth="8"
-                          fill="none"
-                          className="text-gray-200 dark:text-gray-700"
-                        />
-                        <circle
-                          cx="64"
-                          cy="64"
-                          r="56"
-                          stroke="currentColor"
-                          strokeWidth="8"
-                          fill="none"
-                          strokeDasharray={`${2 * Math.PI * 56}`}
-                          strokeDashoffset={`${2 * Math.PI * 56 * (1 - 0.85)}`}
-                          className="text-green-500"
-                        />
-                      </svg>
-                      <div className="absolute inset-0 flex items-center justify-center">
-                        <span className="text-3xl font-bold text-gray-900 dark:text-white">85</span>
+                <Card className="rounded-3xl border border-white/30 bg-white/92 p-6 shadow-xl shadow-purple-500/10 backdrop-blur-2xl dark:border-white/20 dark:bg-white/10">
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-3">
+                      <div className="rounded-2xl bg-violet-100 p-3 text-violet-700 dark:bg-violet-500/15 dark:text-violet-200">
+                        <Lightbulb className="h-5 w-5" />
                       </div>
+                      <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                        {t("insights.starter.toneTitle")}
+                      </h3>
                     </div>
+                    <p className="text-sm font-medium text-gray-900 dark:text-white">
+                      {toneGuidanceText}
+                    </p>
+                    <p className="text-sm text-gray-600 dark:text-white/75">
+                      {t("insights.starter.toneHint")}
+                    </p>
                   </div>
-                  <div className="space-y-2 text-sm">
-                    <div className="flex justify-between">
-                      <span className="text-gray-600 dark:text-white/70">
-                        {t("insights.wellbeing.weekendProtection")}
-                      </span>
-                      <span className="font-medium text-gray-900 dark:text-white">90%</span>
+                </Card>
+
+                <Card className="rounded-3xl border border-white/30 bg-white/92 p-6 shadow-xl shadow-purple-500/10 backdrop-blur-2xl dark:border-white/20 dark:bg-white/10">
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-3">
+                      <div className="rounded-2xl bg-emerald-100 p-3 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-200">
+                        <Compass className="h-5 w-5" />
+                      </div>
+                      <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                        {t("insights.detail.signalTitle")}
+                      </h3>
                     </div>
-                    <div className="flex justify-between">
-                      <span className="text-gray-600 dark:text-white/70">
-                        {t("insights.wellbeing.eveningBoundaries")}
-                      </span>
-                      <span className="font-medium text-gray-900 dark:text-white">75%</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-gray-600 dark:text-white/70">
-                        {t("insights.wellbeing.consecutiveDays")}
-                      </span>
-                      <span className="font-medium text-gray-900 dark:text-white">80%</span>
-                    </div>
+                    <p className="text-sm text-gray-600 dark:text-white/75">
+                      {weeklyReflectionText ?? communicationLoadInsight ?? t("insights.detail.signalFallback")}
+                    </p>
+                    <p className="text-sm text-gray-600 dark:text-white/75">
+                      {t("insights.detail.qualityHint")}
+                    </p>
                   </div>
                 </Card>
               </div>
-            </div>
-          )}
-        </Card>
-
             </>
           )}
 
