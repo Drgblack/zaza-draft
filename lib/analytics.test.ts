@@ -1,7 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
 import { writeAnalyticsConsent } from "@/lib/analytics-consent"
-import { logClientEvent, logDraftInteractionEvent } from "@/lib/analytics"
+import {
+  logClientEvent,
+  logClientEventOnce,
+  logDraftInteractionEvent,
+  TRUST_FUNNEL_EVENTS,
+} from "@/lib/analytics"
 
 describe("analytics consent gating", () => {
   const analyticsEvent = vi.fn()
@@ -35,6 +40,42 @@ describe("analytics consent gating", () => {
 
     logClientEvent("draft_generate_requested", { tone: "warm" })
     expect(analyticsEvent).toHaveBeenCalledWith("draft_generate_requested", { tone: "warm" })
+  })
+
+  it("deduplicates once-only trust funnel events per user scope", () => {
+    writeAnalyticsConsent(true)
+
+    logClientEventOnce(TRUST_FUNNEL_EVENTS.firstDraftStarted, {
+      payload: { mode: "parent_message" },
+      scopeKey: "user-123",
+    })
+    logClientEventOnce(TRUST_FUNNEL_EVENTS.firstDraftStarted, {
+      payload: { mode: "parent_message" },
+      scopeKey: "user-123",
+    })
+
+    expect(analyticsEvent).toHaveBeenCalledTimes(1)
+    expect(analyticsEvent).toHaveBeenCalledWith(
+      TRUST_FUNNEL_EVENTS.firstDraftStarted,
+      { mode: "parent_message" },
+    )
+  })
+
+  it("keeps session-scoped funnel events isolated from local-scoped events", () => {
+    writeAnalyticsConsent(true)
+
+    logClientEventOnce(TRUST_FUNNEL_EVENTS.paywallShown, {
+      payload: { surface: "editor" },
+      scopeKey: "user-123",
+      storage: "session",
+    })
+    logClientEventOnce(TRUST_FUNNEL_EVENTS.paywallShown, {
+      payload: { surface: "editor" },
+      scopeKey: "user-123",
+      storage: "local",
+    })
+
+    expect(analyticsEvent).toHaveBeenCalledTimes(2)
   })
 
   it("posts only sanitized draft interaction metadata when consent is enabled", async () => {

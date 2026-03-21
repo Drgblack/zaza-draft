@@ -21,13 +21,21 @@ function pushReason(reasons: string[], reason: string, condition: boolean) {
   }
 }
 
-export function buildDraftAdjustmentReasons(options: {
+type AdjustmentSignals = {
+  judgementResolved: boolean
+  diagnosticResolved: boolean
+  collaborationAdded: boolean
+  escalationSoftened: boolean
+  observationReframe: boolean
+  directiveResolved: boolean
+}
+
+function resolveAdjustmentSignals(options: {
   inputSafetyAnalysis?: SafetyEngineOutput | null
   outputSafetyAnalysis?: SafetyEngineOutput | null
   deescalationSummary?: DeescalationSummary | null
 }) {
   const { inputSafetyAnalysis, outputSafetyAnalysis, deescalationSummary } = options
-  const reasons: string[] = []
   const deescalationCategories = new Set(
     (deescalationSummary?.flaggedPhrases ?? []).map((phrase) => phrase.category),
   )
@@ -44,21 +52,14 @@ export function buildDraftAdjustmentReasons(options: {
     deescalationCategories.has("insult") ||
     deescalationCategories.has("absolute") ||
     deescalationCategories.has("inflammatory")
-  pushReason(
-    reasons,
-    "Replaced judgement wording with observation-based phrasing",
-    judgementResolved,
-  )
 
   const diagnosticResolved =
     hasProfessionalRiskFlag(inputSafetyAnalysis, "pro_medical_speculation") &&
     !hasProfessionalRiskFlag(outputSafetyAnalysis, "pro_medical_speculation")
-  pushReason(reasons, "Removed diagnostic speculation", diagnosticResolved)
 
   const collaborationAdded =
     hasTriggeredSignal(inputSafetyAnalysis, (signal) => signal.id === "cold_no_collaboration") &&
     !hasTriggeredSignal(outputSafetyAnalysis, (signal) => signal.id === "cold_no_collaboration")
-  pushReason(reasons, "Added a more collaborative next step", collaborationAdded)
 
   const escalationSoftened =
     (hasTriggeredSignal(inputSafetyAnalysis, (signal) => signal.category === "escalation") &&
@@ -66,18 +67,55 @@ export function buildDraftAdjustmentReasons(options: {
     (hasProfessionalRiskFlag(inputSafetyAnalysis, "pro_legal_certainty") &&
       !hasProfessionalRiskFlag(outputSafetyAnalysis, "pro_legal_certainty")) ||
     deescalationCategories.has("threat")
-  pushReason(reasons, "Softened escalation risk", escalationSoftened)
 
   const observationReframe =
-    ((hasProfessionalRiskFlag(inputSafetyAnalysis, "pro_motive_attribution") &&
+    (hasProfessionalRiskFlag(inputSafetyAnalysis, "pro_motive_attribution") &&
       !hasProfessionalRiskFlag(outputSafetyAnalysis, "pro_motive_attribution")) ||
-      (hasProfessionalRiskFlag(inputSafetyAnalysis, "pro_psychological_interpretation") &&
-        !hasProfessionalRiskFlag(outputSafetyAnalysis, "pro_psychological_interpretation")))
-  pushReason(reasons, "Reframed behaviour as classroom observation", observationReframe)
+    (hasProfessionalRiskFlag(inputSafetyAnalysis, "pro_psychological_interpretation") &&
+      !hasProfessionalRiskFlag(outputSafetyAnalysis, "pro_psychological_interpretation"))
 
   const directiveResolved =
     hasTriggeredSignal(inputSafetyAnalysis, (signal) => signal.category === "prescriptive_demand") &&
     !hasTriggeredSignal(outputSafetyAnalysis, (signal) => signal.category === "prescriptive_demand")
+
+  return {
+    judgementResolved,
+    diagnosticResolved,
+    collaborationAdded,
+    escalationSoftened,
+    observationReframe,
+    directiveResolved,
+  } satisfies AdjustmentSignals
+}
+
+export function buildDraftAdjustmentReasons(options: {
+  inputSafetyAnalysis?: SafetyEngineOutput | null
+  outputSafetyAnalysis?: SafetyEngineOutput | null
+  deescalationSummary?: DeescalationSummary | null
+}) {
+  const {
+    judgementResolved,
+    diagnosticResolved,
+    collaborationAdded,
+    escalationSoftened,
+    observationReframe,
+    directiveResolved,
+  } = resolveAdjustmentSignals(options)
+  const reasons: string[] = []
+  pushReason(
+    reasons,
+    "Replaced judgement wording with observation-based phrasing",
+    judgementResolved,
+  )
+
+  pushReason(reasons, "Removed diagnostic speculation", diagnosticResolved)
+
+  pushReason(reasons, "Added a more collaborative next step", collaborationAdded)
+
+  pushReason(reasons, "Softened escalation risk", escalationSoftened)
+
+  pushReason(reasons, "Reframed behaviour as classroom observation", observationReframe)
+
   pushReason(reasons, "Replaced directive language with parent-safe wording", directiveResolved)
 
   return reasons.slice(0, 5)
@@ -115,4 +153,50 @@ export function buildDraftAdjustmentSummary(adjustmentReasons: string[]) {
   }
 
   return `Draft ${fragments[0]} and ${fragments[1]}.`
+}
+
+export type SaferDraftCategory =
+  | "softened_escalation"
+  | "reduced_blame"
+  | "clearer_next_step"
+  | "professional_tone"
+
+export function buildSaferDraftCategories(options: {
+  inputSafetyAnalysis?: SafetyEngineOutput | null
+  outputSafetyAnalysis?: SafetyEngineOutput | null
+  deescalationSummary?: DeescalationSummary | null
+  inputReframed?: boolean
+}) {
+  const {
+    judgementResolved,
+    collaborationAdded,
+    escalationSoftened,
+    observationReframe,
+    directiveResolved,
+  } = resolveAdjustmentSignals(options)
+
+  const categories: SaferDraftCategory[] = []
+
+  if (escalationSoftened) {
+    categories.push("softened_escalation")
+  }
+
+  if (judgementResolved || observationReframe || directiveResolved) {
+    categories.push("reduced_blame")
+  }
+
+  if (collaborationAdded) {
+    categories.push("clearer_next_step")
+  }
+
+  if (
+    options.inputReframed ||
+    options.deescalationSummary?.wasDeescalated ||
+    escalationSoftened ||
+    judgementResolved
+  ) {
+    categories.push("professional_tone")
+  }
+
+  return categories.slice(0, 4)
 }

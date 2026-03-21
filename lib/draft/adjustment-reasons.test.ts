@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest"
 
 import {
   buildDraftAdjustmentReasons,
+  buildSaferDraftCategories,
   buildDraftAdjustmentSummary,
   shouldShowToneSofteningExplanation,
 } from "@/lib/draft/adjustment-reasons"
@@ -125,5 +126,64 @@ describe("buildDraftAdjustmentSummary", () => {
 
   it("returns null when there are no adjustment reasons", () => {
     expect(buildDraftAdjustmentSummary([])).toBeNull()
+  })
+})
+
+describe("buildSaferDraftCategories", () => {
+  it("maps resolved safety changes into compact first-value categories", () => {
+    const inputSafety = buildSafetyAnalysis({
+      triggeredSignals: [
+        {
+          id: "cold_no_collaboration",
+          category: "escalation",
+          label: "Escalation wording",
+          weight: 5,
+          adjustedWeight: 5,
+          patterns: ["escalate"],
+          matchMode: "any",
+          proximityBoost: false,
+          detectionNote: "test",
+        } as any,
+        {
+          id: "blame",
+          category: "accusation",
+          label: "Blame language",
+          weight: 5,
+          adjustedWeight: 5,
+          patterns: ["you caused"],
+          matchMode: "any",
+          proximityBoost: false,
+          detectionNote: "test",
+        } as any,
+      ],
+    })
+    const outputSafety = buildSafetyAnalysis({
+      riskScore: 8,
+      riskLevel: "low",
+      triggeredSignals: [],
+    })
+
+    expect(
+      buildSaferDraftCategories({
+        inputSafetyAnalysis: inputSafety,
+        outputSafetyAnalysis: outputSafety,
+        deescalationSummary: {
+          wasDeescalated: true,
+          coachingLine: "Made calmer.",
+          flaggedPhrases: [
+            {
+              originalSnippet: "escalate this",
+              suggestionSnippet: "follow up on this",
+              category: "threat",
+            },
+          ],
+        },
+      }),
+    ).toEqual([
+      "softened_escalation",
+      "reduced_blame",
+      "clearer_next_step",
+      "professional_tone",
+    ])
   })
 })

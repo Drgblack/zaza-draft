@@ -1,6 +1,12 @@
 import { describe, expect, it, vi } from "vitest"
 
-import { buildUsageResponse, getCurrentMonthKey, incrementUsage, type MonthlyUsageRecord } from "./usage"
+import {
+  buildUsageResponse,
+  FREE_TIER_LIMIT,
+  getCurrentMonthKey,
+  incrementUsage,
+  type MonthlyUsageRecord,
+} from "./usage"
 
 class MockDocRef {
   constructor(private store: Record<string, Record<string, unknown>>, private key: string) {}
@@ -75,8 +81,8 @@ describe("buildUsageResponse", () => {
   it("respects limits for free plans when override is absent", () => {
     const usage = buildUsageResponse(baseRecord, "free")
     expect(usage.unlimited).toBe(false)
-    expect(usage.limit).toBe(10)
-    expect(usage.remaining).toBe(5)
+    expect(usage.limit).toBe(FREE_TIER_LIMIT)
+    expect(usage.remaining).toBe(0)
   })
 })
 
@@ -85,7 +91,7 @@ describe("incrementUsage", () => {
 
   it("throws when the free limit is reached and unlimited flag is false", async () => {
     const firestore = new MockFirestore({
-      [uid]: { monthlyUsage: createUsageRecord(10) },
+      [uid]: { monthlyUsage: createUsageRecord(FREE_TIER_LIMIT) },
     })
 
     await expect(incrementUsage(uid, firestore, false)).rejects.toThrow("USAGE_LIMIT_EXCEEDED")
@@ -93,12 +99,12 @@ describe("incrementUsage", () => {
 
   it("allows additional drafts when unlimited flag is true", async () => {
     const store: Record<string, Record<string, unknown>> = {
-      [uid]: { monthlyUsage: createUsageRecord(10) },
+      [uid]: { monthlyUsage: createUsageRecord(FREE_TIER_LIMIT) },
     }
     const firestore = new MockFirestore(store)
 
     const updated = await incrementUsage(uid, firestore, true)
-    expect(updated.generationCount).toBe(11)
+    expect(updated.generationCount).toBe(FREE_TIER_LIMIT + 1)
     expect(store[uid].monthlyUsage).toEqual(updated)
   })
 })

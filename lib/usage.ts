@@ -8,7 +8,7 @@ export interface MonthlyUsageRecord {
 
 export type PlanType = "free" | "pro"
 
-const FREE_TIER_LIMIT = 10
+export const FREE_TIER_LIMIT = 5
 
 export function getCurrentMonthKey() {
   const now = new Date()
