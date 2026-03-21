@@ -40,6 +40,7 @@ import { useSearchParams } from "next/navigation"
 import { Camera, FileText, Image, Info, Mail, MessageCircle, Mic, Sun, Target, Users } from "lucide-react"
 import type { LucideIcon } from "lucide-react"
 import { formatGreetingDisplay } from "@/lib/text/greeting-display"
+import { looksLikeHumanDisplayName } from "@/lib/text/human-display-name"
 import { saveLastRunTimestamp } from "@/lib/diagnostics/local-storage"
 import { resolveTeacherSignatureName } from "@/lib/draft/teacher-signature"
 import {
@@ -691,6 +692,26 @@ export function MainEditor({ canExport = true }: MainEditorProps = {}) {
   }, [])
   const [prefillApplied, setPrefillApplied] = useState(false)
   const [panicScanReturnHandled, setPanicScanReturnHandled] = useState(false)
+  const draftsCreatedThisWeek = useMemo(() => {
+    const weekAgo = Date.now() - 7 * 24 * 60 * 60 * 1000
+    return history.filter((item) => {
+      const timestamp = new Date(item.createdAt).getTime()
+      return Number.isFinite(timestamp) && timestamp >= weekAgo
+    }).length
+  }, [history])
+  const recentDraftsAvailable = history.length
+  const usedDraftThisTerm = recentDraftsAvailable > 0 || usage.currentMonthUsage > 0
+  const selectedModeLabel = useMemo(
+    () => t(mode === "report_comment" ? MODE_LABEL_KEYS.report_comment : MODE_LABEL_KEYS.parent_message),
+    [mode, t],
+  )
+  const greetingHeading = useMemo(() => {
+    if (looksLikeHumanDisplayName(userName, user?.email)) {
+      return formatGreetingDisplay(greeting, userName)
+    }
+
+    return t("editor.greetingFallback")
+  }, [greeting, t, user?.email, userName])
   const adjustTextareaHeight = useCallback(() => {
     const el = textareaRef.current
     if (!el) return
@@ -1791,7 +1812,7 @@ export function MainEditor({ canExport = true }: MainEditorProps = {}) {
         {/* Main Content Area */}
         <div className="mb-6 sm:mb-8 animate-fade-in">
             <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold text-white mb-3 tracking-tight leading-tight drop-shadow-[0_2px_8px_rgba(0,0,0,0.3)]">
-              {formatGreetingDisplay(greeting, userName)}
+              {greetingHeading}
             </h1>
             <p className="text-base sm:text-lg text-white/95 leading-relaxed drop-shadow-[0_1px_4px_rgba(0,0,0,0.25)]">
               {locale === "de-DE"
@@ -1827,7 +1848,14 @@ export function MainEditor({ canExport = true }: MainEditorProps = {}) {
         )}
 
         <div className="space-y-6">
-          {showWellbeingInsights && <MiniInsightsBar />}
+          {showWellbeingInsights && (
+            <MiniInsightsBar
+              draftsCreatedThisWeek={draftsCreatedThisWeek}
+              recentDraftsAvailable={recentDraftsAvailable}
+              usedDraftThisTerm={usedDraftThisTerm}
+              selectedModeLabel={selectedModeLabel}
+            />
+          )}
 
           <section className="space-y-4">
             <div className="grid gap-3 md:grid-cols-3">
