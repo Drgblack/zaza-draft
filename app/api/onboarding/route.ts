@@ -3,6 +3,7 @@ import { FieldValue } from "firebase-admin/firestore"
 
 import { ensureUserDocument } from "@/lib/account-bootstrap"
 import { authorizeFirebaseRequest, FirebaseAuthorizationError } from "@/lib/firebase/server"
+import { normalizeOnboardingProfile } from "@/lib/onboarding-profile"
 
 function unauthorizedResponse(error: unknown) {
   const status = error instanceof FirebaseAuthorizationError ? error.statusCode : 401
@@ -52,11 +53,14 @@ export async function GET(request: Request) {
     const snapshot = await firestore.collection("users").doc(uid).get()
     const data = snapshot.data() ?? {}
     const onboardingCompleted = Boolean(data.onboardingCompleted)
+    const onboardingSkipped = Boolean(data.onboardingSkipped)
     const welcomeEmailSent = Boolean(data.welcomeEmailSent)
+    const onboardingProfile = normalizeOnboardingProfile(data.onboardingProfile)
 
     console.info("[onboarding] status loaded", {
       uid,
       onboardingCompleted,
+      onboardingSkipped,
       welcomeEmailSent,
       firstLogin: bootstrapResult.firstLogin,
     })
@@ -65,6 +69,8 @@ export async function GET(request: Request) {
       success: true,
       data: {
         onboardingCompleted,
+        onboardingSkipped,
+        onboardingProfile,
         welcomeEmailSent,
         firstLogin: bootstrapResult.firstLogin,
       },
@@ -98,6 +104,12 @@ export async function POST(request: Request) {
   }
 
   try {
+    const body = await request.json().catch(() => null)
+    const action = body && typeof body === "object" && body.action === "skip" ? "skip" : "complete"
+    const onboardingProfile = normalizeOnboardingProfile(
+      body && typeof body === "object" ? (body as Record<string, unknown>).profile : null,
+    )
+
     await ensureUserDocument(firestore, uid, {
       email: decodedToken.email ?? null,
       displayName: decodedToken.name ?? null,
@@ -106,17 +118,27 @@ export async function POST(request: Request) {
     await firestore.collection("users").doc(uid).set(
       {
         onboardingCompleted: true,
+        onboardingSkipped: action === "skip",
+        onboardingProfile,
+        onboardingCompletedAt: FieldValue.serverTimestamp(),
         updatedAt: FieldValue.serverTimestamp(),
       },
       { merge: true },
     )
 
-    console.info("[onboarding] onboarding completed", { uid, onboardingCompleted: true })
+    console.info("[onboarding] onboarding completed", {
+      uid,
+      onboardingCompleted: true,
+      onboardingSkipped: action === "skip",
+      answeredFields: Object.values(onboardingProfile).filter(Boolean).length,
+    })
 
     return NextResponse.json({
       success: true,
       data: {
         onboardingCompleted: true,
+        onboardingSkipped: action === "skip",
+        onboardingProfile,
       },
     })
   } catch (error) {

@@ -20,8 +20,13 @@ import { ExplanationPanel } from "@/src/components/ExplanationPanel"
 import { ProfessionalRiskBanner } from "@/src/components/ProfessionalRiskBanner"
 import { DocumentationModeButton } from "@/src/components/DocumentationModeButton"
 import { useAuth } from "@/hooks/use-auth"
-import { logClientEvent, logDraftInteractionEvent } from "@/lib/analytics"
-import type { PlanType } from "@/lib/usage"
+import {
+  logClientEvent,
+  logClientEventOnce,
+  logDraftInteractionEvent,
+  TRUST_FUNNEL_EVENTS,
+} from "@/lib/analytics"
+import { FREE_TIER_LIMIT, type PlanType } from "@/lib/usage"
 import type { DeescalationSummary } from "@/lib/deescalation/types"
 import type { DraftStructure } from "@/lib/draft/format"
 import { cleanStudentName } from "@/lib/draft/student-name"
@@ -39,8 +44,10 @@ import { saveLastRunTimestamp } from "@/lib/diagnostics/local-storage"
 import { resolveTeacherSignatureName } from "@/lib/draft/teacher-signature"
 import {
   buildDraftAdjustmentReasons,
+  buildSaferDraftCategories,
   buildDraftAdjustmentSummary,
   shouldShowToneSofteningExplanation,
+  type SaferDraftCategory,
 } from "@/lib/draft/adjustment-reasons"
 import { assessSafeToSend } from "@/lib/safe-to-send"
 import { buildObservationOnlyRecoveryInput } from "@/lib/draft/diagnostic-recovery"
@@ -50,6 +57,17 @@ import {
   resolveDraftSignatureEnabled,
   shouldShowDraftAttribution,
 } from "@/lib/draft/draft-attribution"
+import {
+  countAnsweredOnboardingFields,
+  EMPTY_ONBOARDING_PROFILE,
+  type OnboardingMainUseCase,
+  type OnboardingProfile,
+  type OnboardingRegion,
+  type OnboardingRole,
+  type OnboardingSchoolType,
+  type OnboardingTonePreference,
+  type OnboardingWritingStressPoint,
+} from "@/lib/onboarding-profile"
 import type { SafetyEngineOutput } from "@/src/lib/safetyEngine"
 import {
   inferDraftMessageContext,
@@ -148,6 +166,13 @@ const LOADING_MESSAGES = [
 ] as const
 
 const PREFILL_STORAGE_KEY = "zazaDraftPrefill"
+const FIRST_VALUE_SAMPLE_STORAGE_KEY = "zaza:first-value-sample"
+const FIRST_VALUE_SAMPLE_SEEN_STORAGE_KEY = "zaza:first-value-sample-seen"
+
+type FirstValueSample = {
+  subject: string
+  content: string
+}
 
 type InputModeCardDefinition = {
   id: string
@@ -166,8 +191,70 @@ type OnboardingFeatureCard = {
 
 type OnboardingState = {
   onboardingCompleted: boolean
+  onboardingSkipped: boolean
+  onboardingProfile: OnboardingProfile
   welcomeEmailSent: boolean
   firstLogin: boolean
+}
+
+type OnboardingStepId = "context" | "use_case" | "stress" | "tone" | "region"
+
+const ONBOARDING_ROLE_OPTIONS: NonNullable<OnboardingRole>[] = [
+  "teacher",
+  "school_leader",
+  "senc_support",
+  "admin_staff",
+  "other",
+]
+
+const ONBOARDING_SCHOOL_TYPE_OPTIONS: NonNullable<OnboardingSchoolType>[] = [
+  "primary",
+  "secondary",
+  "all_through",
+  "international_private",
+  "other",
+]
+
+const ONBOARDING_USE_CASE_OPTIONS: NonNullable<OnboardingMainUseCase>[] = [
+  "parent_messages",
+  "reports",
+  "both",
+]
+
+const ONBOARDING_STRESS_OPTIONS: NonNullable<OnboardingWritingStressPoint>[] = [
+  "deescalation",
+  "clarity",
+  "tone",
+  "speed",
+  "difficult_conversations",
+]
+
+const ONBOARDING_TONE_OPTIONS: NonNullable<OnboardingTonePreference>[] = [
+  "warm",
+  "professional",
+  "direct",
+  "empathetic",
+]
+
+const ONBOARDING_REGION_OPTIONS: NonNullable<OnboardingRegion>[] = [
+  "germany",
+  "austria",
+  "switzerland",
+  "uk_ireland",
+  "other",
+]
+
+const FIRST_VALUE_SAMPLES: Record<"en" | "de", FirstValueSample> = {
+  en: {
+    subject: "Homework concern follow-up",
+    content:
+      "A parent emailed late last night saying they are frustrated because their child keeps coming home upset about homework. They wrote that the workload feels unreasonable, the instructions are often unclear, and they are considering escalating the issue to the head teacher if this continues. I want to reply calmly, acknowledge the concern, and suggest a constructive next step without sounding defensive.",
+  },
+  de: {
+    subject: "Rückmeldung zu Hausaufgaben",
+    content:
+      "Ein Elternteil hat gestern spät geschrieben, dass das Kind wegen der Hausaufgaben wiederholt belastet nach Hause kommt. In der Nachricht steht, die Arbeitsmenge wirke zu hoch, die Aufträge seien nicht immer klar und man erwäge, das Thema an die Schulleitung weiterzugeben, wenn sich nichts ändere. Ich möchte ruhig antworten, die Sorge ernst nehmen und einen konstruktiven nächsten Schritt vorschlagen, ohne defensiv zu wirken.",
+  },
 }
 
 const INPUT_MODE_CARD_DEFINITIONS: InputModeCardDefinition[] = [
@@ -220,7 +307,7 @@ const GENERATION_ERROR_MAP: Record<
   { message: string; action: string | null }
 > = {
   USAGE_LIMIT_EXCEEDED: {
-    message: "You've reached your free tier limit. Upgrade to Draft Pro for unlimited drafts.",
+    message: `You've used all ${FREE_TIER_LIMIT} free drafts for this month. Upgrade to Draft Pro for unlimited drafts.`,
     action: "Visit Account > Billing to upgrade.",
   },
   RATE_LIMITED: {
@@ -298,9 +385,9 @@ export function MainEditor({ canExport = true }: MainEditorProps = {}) {
     remaining: number | null
   }>({
     plan: "free",
-    currentMonthUsage: 8,
-    limit: 10,
-    remaining: 2,
+    currentMonthUsage: Math.max(FREE_TIER_LIMIT - 1, 0),
+    limit: FREE_TIER_LIMIT,
+    remaining: Math.max(FREE_TIER_LIMIT - Math.max(FREE_TIER_LIMIT - 1, 0), 0),
   })
   const draftsUsed = usage.currentMonthUsage
   const draftsLimit = usage.limit ?? 0
@@ -383,6 +470,7 @@ export function MainEditor({ canExport = true }: MainEditorProps = {}) {
   const [mode, setMode] = useState<ModeKey>("parent_message")
   const [rewriteMode, setRewriteMode] = useState<RewriteMode>("standard")
   const [inputReframeTier, setInputReframeTier] = useState<"tier1" | "tier2" | null>(null)
+  const [inputWasReframed, setInputWasReframed] = useState(false)
   const explanationTier = useMemo(
     () => resolveExplanationTier(inputReframeTier, deescalationSummary),
     [inputReframeTier, deescalationSummary],
@@ -422,6 +510,16 @@ export function MainEditor({ canExport = true }: MainEditorProps = {}) {
   const draftAdjustmentSummary = useMemo(
     () => buildDraftAdjustmentSummary(adjustmentReasons),
     [adjustmentReasons],
+  )
+  const saferDraftCategories = useMemo<SaferDraftCategory[]>(
+    () =>
+      buildSaferDraftCategories({
+        inputSafetyAnalysis: safetyAnalysis,
+        outputSafetyAnalysis,
+        deescalationSummary,
+        inputReframed: inputWasReframed,
+      }),
+    [deescalationSummary, inputWasReframed, outputSafetyAnalysis, safetyAnalysis],
   )
   const blockedDiagnosticVisible =
     blockedLanguageContext?.variant === "diagnostic_speculation"
@@ -503,6 +601,7 @@ export function MainEditor({ canExport = true }: MainEditorProps = {}) {
     setOutputSafetyAnalysis(null)
     setDocumentationModeActive(false)
     setInputReframeTier(null)
+    setInputWasReframed(false)
     setLastGenerationSignature(null)
     draftEditDepthRef.current = 0
     draftModificationLoggedRef.current = false
@@ -540,7 +639,53 @@ export function MainEditor({ canExport = true }: MainEditorProps = {}) {
   const [onboardingVisible, setOnboardingVisible] = useState(false)
   const [onboardingLoading, setOnboardingLoading] = useState(true)
   const [onboardingError, setOnboardingError] = useState<string | null>(null)
+  const [onboardingSaving, setOnboardingSaving] = useState(false)
+  const [onboardingStepIndex, setOnboardingStepIndex] = useState(0)
+  const [onboardingForm, setOnboardingForm] = useState<OnboardingProfile>(EMPTY_ONBOARDING_PROFILE)
   const welcomeEmailRequestedRef = useRef(false)
+  const [firstValueSampleLoaded, setFirstValueSampleLoaded] = useState(false)
+  const [firstValueSampleSeen, setFirstValueSampleSeen] = useState(false)
+  const firstValueSample = useMemo(
+    () => (locale === "de-DE" ? FIRST_VALUE_SAMPLES.de : FIRST_VALUE_SAMPLES.en),
+    [locale],
+  )
+  const isFirstRunFreeUser = Boolean(onboardingState?.firstLogin && usage.plan === "free")
+  const isFirstValueSampleActive =
+    firstValueSampleLoaded && content.trim() === firstValueSample.content.trim()
+  const onboardingAnsweredCount = countAnsweredOnboardingFields(onboardingForm)
+  const onboardingSteps = useMemo<
+    Array<{ id: OnboardingStepId; title: string; description: string }>
+  >(
+    () => [
+      {
+        id: "context",
+        title: t("onboarding.capture.step.context.title"),
+        description: t("onboarding.capture.step.context.description"),
+      },
+      {
+        id: "use_case",
+        title: t("onboarding.capture.step.useCase.title"),
+        description: t("onboarding.capture.step.useCase.description"),
+      },
+      {
+        id: "stress",
+        title: t("onboarding.capture.step.stress.title"),
+        description: t("onboarding.capture.step.stress.description"),
+      },
+      {
+        id: "tone",
+        title: t("onboarding.capture.step.tone.title"),
+        description: t("onboarding.capture.step.tone.description"),
+      },
+      {
+        id: "region",
+        title: t("onboarding.capture.step.region.title"),
+        description: t("onboarding.capture.step.region.description"),
+      },
+    ],
+    [t],
+  )
+  const activeOnboardingStep = onboardingSteps[onboardingStepIndex] ?? onboardingSteps[0]
   const focusEditor = useCallback(() => {
     textareaRef.current?.focus()
   }, [])
@@ -559,6 +704,19 @@ export function MainEditor({ canExport = true }: MainEditorProps = {}) {
   useEffect(() => {
     adjustTextareaHeight()
   }, [content, adjustTextareaHeight])
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return
+    }
+
+    if (window.sessionStorage.getItem(FIRST_VALUE_SAMPLE_STORAGE_KEY) === "1") {
+      setFirstValueSampleLoaded(true)
+    }
+    if (window.sessionStorage.getItem(FIRST_VALUE_SAMPLE_SEEN_STORAGE_KEY) === "1") {
+      setFirstValueSampleSeen(true)
+    }
+  }, [])
 
   useEffect(() => {
     if (prefillApplied) {
@@ -612,8 +770,72 @@ export function MainEditor({ canExport = true }: MainEditorProps = {}) {
     setPrefillApplied(true)
   }, [content, prefillApplied])
 
+  const loadFirstValueSample = useCallback(
+    ({ focus = false }: { focus?: boolean } = {}) => {
+      setSubject(firstValueSample.subject)
+      setContent(firstValueSample.content)
+      setSelectedTone("professional")
+      setMode("parent_message")
+      setFirstValueSampleLoaded(true)
+      setFirstValueSampleSeen(true)
+      if (typeof window !== "undefined") {
+        window.sessionStorage.setItem(FIRST_VALUE_SAMPLE_STORAGE_KEY, "1")
+        window.sessionStorage.setItem(FIRST_VALUE_SAMPLE_SEEN_STORAGE_KEY, "1")
+      }
+      if (focus) {
+        requestAnimationFrame(() => {
+          focusEditor()
+        })
+      }
+    },
+    [firstValueSample.content, firstValueSample.subject, focusEditor],
+  )
+
+  const clearFirstValueSample = useCallback(() => {
+    if (content.trim() === firstValueSample.content.trim()) {
+      setContent("")
+    }
+    if (subject.trim() === firstValueSample.subject.trim()) {
+      setSubject("")
+    }
+    setFirstValueSampleLoaded(false)
+    setFirstValueSampleSeen(true)
+    if (typeof window !== "undefined") {
+      window.sessionStorage.removeItem(FIRST_VALUE_SAMPLE_STORAGE_KEY)
+      window.sessionStorage.setItem(FIRST_VALUE_SAMPLE_SEEN_STORAGE_KEY, "1")
+    }
+    requestAnimationFrame(() => {
+      focusEditor()
+    })
+  }, [content, firstValueSample.content, firstValueSample.subject, focusEditor, subject])
+
+  useEffect(() => {
+    if (!prefillApplied || !isFirstRunFreeUser || content.trim() || panicScanHandoff) {
+      return
+    }
+
+    if (firstValueSampleLoaded || !firstValueSampleSeen) {
+      loadFirstValueSample()
+    }
+  }, [
+    content,
+    firstValueSampleLoaded,
+    firstValueSampleSeen,
+    isFirstRunFreeUser,
+    loadFirstValueSample,
+    panicScanHandoff,
+    prefillApplied,
+  ])
+
   const handleContentChange = (nextContent: string) => {
     const nextTrimmed = nextContent.trim()
+
+    if (firstValueSampleLoaded && nextTrimmed !== firstValueSample.content.trim()) {
+      setFirstValueSampleLoaded(false)
+      if (typeof window !== "undefined") {
+        window.sessionStorage.removeItem(FIRST_VALUE_SAMPLE_STORAGE_KEY)
+      }
+    }
 
     if (panicScanHandoff && nextTrimmed !== panicScanHandoff.originalContent.trim()) {
       clearPanicScanHandoff()
@@ -766,6 +988,14 @@ export function MainEditor({ canExport = true }: MainEditorProps = {}) {
             onboardingCompleted: Boolean(
               payload.data?.onboardingCompleted ?? payload.data?.dismissed ?? false,
             ),
+            onboardingSkipped: Boolean(payload.data?.onboardingSkipped),
+            onboardingProfile:
+              payload.data?.onboardingProfile && typeof payload.data.onboardingProfile === "object"
+                ? {
+                    ...EMPTY_ONBOARDING_PROFILE,
+                    ...payload.data.onboardingProfile,
+                  }
+                : EMPTY_ONBOARDING_PROFILE,
             welcomeEmailSent: Boolean(payload.data?.welcomeEmailSent),
             firstLogin: Boolean(payload.data?.firstLogin),
           }
@@ -773,9 +1003,12 @@ export function MainEditor({ canExport = true }: MainEditorProps = {}) {
             uid: user?.uid ?? null,
             firstLogin: nextState.firstLogin,
             onboardingCompleted: nextState.onboardingCompleted,
+            onboardingSkipped: nextState.onboardingSkipped,
             welcomeEmailSent: nextState.welcomeEmailSent,
           })
           setOnboardingState(nextState)
+          setOnboardingForm(nextState.onboardingProfile)
+          setOnboardingStepIndex(0)
           setOnboardingVisible(!nextState.onboardingCompleted)
           setOnboardingError(null)
         } else {
@@ -872,8 +1105,44 @@ export function MainEditor({ canExport = true }: MainEditorProps = {}) {
 
   const showWelcomeBox = onboardingVisible && !onboardingLoading
 
-  const dismissOnboarding = async () => {
+  useEffect(() => {
+    if (!showWelcomeBox || !user?.uid || !onboardingState?.firstLogin) {
+      return
+    }
+
+    logClientEventOnce(TRUST_FUNNEL_EVENTS.onboardingBannerShown, {
+      payload: {
+        surface: "main_editor",
+      },
+      scopeKey: user.uid,
+    })
+  }, [onboardingState?.firstLogin, showWelcomeBox, user?.uid])
+
+  const updateOnboardingField = useCallback(
+    <K extends keyof OnboardingProfile>(key: K, value: OnboardingProfile[K]) => {
+      setOnboardingForm((current) => ({
+        ...current,
+        [key]: value,
+      }))
+    },
+    [],
+  )
+
+  const applyOnboardingPersonalization = useCallback((profile: OnboardingProfile) => {
+    if (profile.mainUseCase === "reports") {
+      setMode("report_comment")
+    } else if (profile.mainUseCase === "parent_messages") {
+      setMode("parent_message")
+    }
+
+    if (profile.tonePreference) {
+      setSelectedTone(profile.tonePreference)
+    }
+  }, [])
+
+  const completeOnboarding = async (action: "complete" | "skip") => {
     try {
+      setOnboardingSaving(true)
       const token = await getIdToken()
       if (!token) {
         throw new Error("Missing authentication token.")
@@ -883,33 +1152,65 @@ export function MainEditor({ canExport = true }: MainEditorProps = {}) {
         method: "POST",
         headers: {
           Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
         },
+        body: JSON.stringify({
+          action,
+          profile: onboardingForm,
+        }),
       })
-      if (!response.ok) {
-        throw new Error("Unable to save preference.")
+      const payload = await response.json().catch(() => null)
+      if (!response.ok || !payload?.success) {
+        throw new Error(payload?.error?.message ?? "Unable to save preference.")
       }
+
+      if (action === "skip") {
+        logClientEvent(TRUST_FUNNEL_EVENTS.onboardingDismissed, {
+          surface: "main_editor",
+        })
+      }
+      logClientEvent(TRUST_FUNNEL_EVENTS.onboardingCompleted, {
+        surface: "main_editor",
+      })
       console.info("[onboarding] onboarding-completed state", {
         uid: user?.uid ?? null,
         onboardingCompleted: true,
+        onboardingSkipped: action === "skip",
+        answeredFields: onboardingAnsweredCount,
       })
       setOnboardingState((current) =>
         current
           ? {
               ...current,
               onboardingCompleted: true,
+              onboardingSkipped: action === "skip",
+              onboardingProfile: onboardingForm,
             }
           : {
               onboardingCompleted: true,
+              onboardingSkipped: action === "skip",
+              onboardingProfile: onboardingForm,
               welcomeEmailSent: false,
               firstLogin: false,
             },
       )
+      applyOnboardingPersonalization(onboardingForm)
       setOnboardingVisible(false)
       setOnboardingError(null)
     } catch (error) {
-      console.error("[v0] Failed to dismiss onboarding", error)
+      console.error("[v0] Failed to save onboarding", error)
       setOnboardingError("We couldn't save your onboarding preference.")
+    } finally {
+      setOnboardingSaving(false)
     }
+  }
+
+  const goToPreviousOnboardingStep = () => {
+    setOnboardingStepIndex((current) => Math.max(current - 1, 0))
+  }
+
+  const goToNextOnboardingStep = () => {
+    setOnboardingStepIndex((current) => Math.min(current + 1, onboardingSteps.length - 1))
   }
 
   useEffect(() => {
@@ -929,6 +1230,27 @@ export function MainEditor({ canExport = true }: MainEditorProps = {}) {
       window.removeEventListener("wellbeingSettingsChanged", handleSettingsChange as EventListener)
     }
   }, [])
+
+  useEffect(() => {
+    if (!user?.uid || !isLimitedUser || usage.remaining !== 0) {
+      return
+    }
+
+    logClientEventOnce(TRUST_FUNNEL_EVENTS.paywallShown, {
+      payload: {
+        surface: "editor_usage_state",
+      },
+      scopeKey: user.uid,
+      storage: "session",
+    })
+  }, [isLimitedUser, usage.remaining, user?.uid])
+
+  const handleTryFirstValueRewrite = async () => {
+    if (!isFirstValueSampleActive) {
+      loadFirstValueSample()
+    }
+    await handleGenerate({ overrideSituation: firstValueSample.content })
+  }
 
   useEffect(() => {
     const resolvedName = user?.displayName ?? prefs.firstName
@@ -971,7 +1293,7 @@ export function MainEditor({ canExport = true }: MainEditorProps = {}) {
   ) => {
     const trimmedContent = content.trim()
     const requestSituation = options.overrideSituation?.trim() || trimmedContent
-    if (!trimmedContent || isGenerating) {
+    if (!requestSituation || isGenerating) {
       return
     }
 
@@ -1014,6 +1336,7 @@ export function MainEditor({ canExport = true }: MainEditorProps = {}) {
     setDraftStructure(null)
     setDeescalationSummary(null)
     setInputReframeTier(null)
+    setInputWasReframed(false)
     setDocumentationModeActive(Boolean(options.documentationMode))
     setBlockedLanguageContext(null)
     setOutOfScopeNotice(false)
@@ -1101,6 +1424,16 @@ export function MainEditor({ canExport = true }: MainEditorProps = {}) {
         return
       }
 
+      if (user?.uid) {
+        logClientEventOnce(TRUST_FUNNEL_EVENTS.firstDraftStarted, {
+          payload: {
+            mode,
+            sourceFlow,
+          },
+          scopeKey: user.uid,
+        })
+      }
+
       const response = await fetch("/api/draft/generate", {
         method: "POST",
         headers: {
@@ -1151,6 +1484,15 @@ export function MainEditor({ canExport = true }: MainEditorProps = {}) {
         if (data?.data?.redactedPreview) {
           setSensitivePreview(data.data.redactedPreview)
         }
+        if (responseCode === "USAGE_LIMIT_EXCEEDED" && user?.uid) {
+          logClientEventOnce(TRUST_FUNNEL_EVENTS.paywallShown, {
+            payload: {
+              surface: "editor_limit_error",
+            },
+            scopeKey: user.uid,
+            storage: "session",
+          })
+        }
         logClientEvent("draft_generate_failed", {
           code: responseCode ?? "UNKNOWN_ERROR",
         })
@@ -1172,9 +1514,21 @@ export function MainEditor({ canExport = true }: MainEditorProps = {}) {
         inputReframedTier: responseMeta?.inputReframedTier ?? null,
       })
 
+      if (user?.uid) {
+        logClientEventOnce(TRUST_FUNNEL_EVENTS.firstDraftGenerated, {
+          payload: {
+            mode,
+            sourceFlow,
+          },
+          scopeKey: user.uid,
+        })
+      }
+
       if (responseMeta?.inputReframed) {
+        setInputWasReframed(true)
         setInputReframeTier(responseMeta.inputReframedTier ?? null)
       } else {
+        setInputWasReframed(false)
         setInputReframeTier(null)
       }
 
@@ -1512,6 +1866,28 @@ export function MainEditor({ canExport = true }: MainEditorProps = {}) {
             })}
             </div>
           <section className="glass shadow-lg rounded-xl p-6 sm:p-8 transition-all duration-200 border border-white/40 dark:border-white/30 bg-white/90 dark:bg-white/15 backdrop-blur-[32px]">
+              {isFirstValueSampleActive && (
+                <div className="mb-4 flex flex-col gap-3 rounded-2xl border border-sky-300/25 bg-sky-400/10 p-4 text-slate-900 dark:text-white sm:flex-row sm:items-start sm:justify-between">
+                  <div className="space-y-1">
+                    <span className="inline-flex rounded-full border border-sky-200/50 bg-white/70 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.22em] text-sky-700 dark:border-sky-200/20 dark:bg-white/10 dark:text-sky-100">
+                      {t("editor.firstValue.badge")}
+                    </span>
+                    <p className="text-sm font-semibold">{t("editor.firstValue.title")}</p>
+                    <p className="text-xs leading-5 text-slate-700 dark:text-white/75">
+                      {t("editor.firstValue.description")}
+                    </p>
+                  </div>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={clearFirstValueSample}
+                    className="rounded-full border border-slate-300/70 bg-white/70 text-slate-900 hover:bg-white dark:border-white/20 dark:bg-white/10 dark:text-white dark:hover:bg-white/15"
+                  >
+                    {t("editor.firstValue.clear")}
+                  </Button>
+                </div>
+              )}
               <textarea
                 ref={textareaRef}
                 value={content}
@@ -1808,16 +2184,269 @@ Examples:
                     {t("onboarding.description")}
                   </p>
                 </div>
-                <Button
-                  onClick={dismissOnboarding}
-                  variant="secondary"
-                  size="md"
-                  aria-label={t("onboarding.dismiss")}
-                  className="h-11 rounded-full border border-white/20 bg-white/95 px-5 text-xs font-semibold uppercase tracking-[0.12em] text-slate-900 hover:bg-white"
-                >
-                  {t("onboarding.dismiss")}
-                </Button>
+                <div className="flex flex-col items-stretch gap-2 sm:flex-row sm:items-center">
+                  <span className="text-xs text-slate-100/70">
+                    {t("onboarding.capture.optional")}
+                  </span>
+                  <Button
+                    type="button"
+                    onClick={() => void completeOnboarding("skip")}
+                    variant="secondary"
+                    size="md"
+                    disabled={onboardingSaving}
+                    aria-label={t("onboarding.capture.skip")}
+                    className="h-11 rounded-full border border-white/20 bg-white/95 px-5 text-xs font-semibold uppercase tracking-[0.12em] text-slate-900 hover:bg-white disabled:opacity-60"
+                  >
+                    {t("onboarding.capture.skip")}
+                  </Button>
+                </div>
               </div>
+
+              <div className="rounded-2xl border border-white/15 bg-white/10 p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]">
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="space-y-1">
+                    <p className="text-xs font-semibold uppercase tracking-[0.18em] text-sky-100/80">
+                      {t("onboarding.capture.progress", {
+                        current: onboardingStepIndex + 1,
+                        total: onboardingSteps.length,
+                      })}
+                    </p>
+                    <p className="text-base font-semibold text-white">{activeOnboardingStep.title}</p>
+                    <p className="max-w-2xl text-sm leading-6 text-slate-100/80">
+                      {activeOnboardingStep.description}
+                    </p>
+                  </div>
+                  <span className="text-xs text-slate-100/70">
+                    {t("onboarding.capture.answered", {
+                      answered: onboardingAnsweredCount,
+                      total: 6,
+                    })}
+                  </span>
+                </div>
+
+                {activeOnboardingStep.id === "context" && (
+                  <div className="mt-4 grid gap-4 lg:grid-cols-2">
+                    <div className="space-y-3">
+                      <p className="text-sm font-semibold text-white">
+                        {t("onboarding.capture.field.role")}
+                      </p>
+                      <div className="grid gap-2">
+                        {ONBOARDING_ROLE_OPTIONS.map((option) => {
+                          const selected = onboardingForm.role === option
+                          return (
+                            <button
+                              key={option}
+                              type="button"
+                              onClick={() => updateOnboardingField("role", option)}
+                              className={`rounded-2xl border px-4 py-3 text-left transition ${
+                                selected
+                                  ? "border-sky-200 bg-sky-300/20 text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.15)]"
+                                  : "border-white/15 bg-white/5 text-slate-100/80 hover:border-white/25 hover:bg-white/10"
+                              }`}
+                            >
+                              <span className="text-sm font-semibold">
+                                {t(`onboarding.capture.option.role.${option}`)}
+                              </span>
+                            </button>
+                          )
+                        })}
+                      </div>
+                    </div>
+
+                    <div className="space-y-3">
+                      <p className="text-sm font-semibold text-white">
+                        {t("onboarding.capture.field.schoolType")}
+                      </p>
+                      <div className="grid gap-2">
+                        {ONBOARDING_SCHOOL_TYPE_OPTIONS.map((option) => {
+                          const selected = onboardingForm.schoolType === option
+                          return (
+                            <button
+                              key={option}
+                              type="button"
+                              onClick={() => updateOnboardingField("schoolType", option)}
+                              className={`rounded-2xl border px-4 py-3 text-left transition ${
+                                selected
+                                  ? "border-sky-200 bg-sky-300/20 text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.15)]"
+                                  : "border-white/15 bg-white/5 text-slate-100/80 hover:border-white/25 hover:bg-white/10"
+                              }`}
+                            >
+                              <span className="text-sm font-semibold">
+                                {t(`onboarding.capture.option.schoolType.${option}`)}
+                              </span>
+                            </button>
+                          )
+                        })}
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {activeOnboardingStep.id === "use_case" && (
+                  <div className="mt-4 grid gap-2 md:grid-cols-3">
+                    {ONBOARDING_USE_CASE_OPTIONS.map((option) => {
+                      const selected = onboardingForm.mainUseCase === option
+                      return (
+                        <button
+                          key={option}
+                          type="button"
+                          onClick={() => updateOnboardingField("mainUseCase", option)}
+                          className={`rounded-2xl border px-4 py-3 text-left transition ${
+                            selected
+                              ? "border-sky-200 bg-sky-300/20 text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.15)]"
+                              : "border-white/15 bg-white/5 text-slate-100/80 hover:border-white/25 hover:bg-white/10"
+                          }`}
+                        >
+                          <span className="text-sm font-semibold">
+                            {t(`onboarding.capture.option.mainUseCase.${option}`)}
+                          </span>
+                        </button>
+                      )
+                    })}
+                  </div>
+                )}
+
+                {activeOnboardingStep.id === "stress" && (
+                  <div className="mt-4 grid gap-2 md:grid-cols-2 xl:grid-cols-3">
+                    {ONBOARDING_STRESS_OPTIONS.map((option) => {
+                      const selected = onboardingForm.writingStressPoint === option
+                      return (
+                        <button
+                          key={option}
+                          type="button"
+                          onClick={() => updateOnboardingField("writingStressPoint", option)}
+                          className={`rounded-2xl border px-4 py-3 text-left transition ${
+                            selected
+                              ? "border-sky-200 bg-sky-300/20 text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.15)]"
+                              : "border-white/15 bg-white/5 text-slate-100/80 hover:border-white/25 hover:bg-white/10"
+                          }`}
+                        >
+                          <span className="text-sm font-semibold">
+                            {t(`onboarding.capture.option.writingStressPoint.${option}`)}
+                          </span>
+                        </button>
+                      )
+                    })}
+                  </div>
+                )}
+
+                {activeOnboardingStep.id === "tone" && (
+                  <div className="mt-4 grid gap-2 md:grid-cols-2 xl:grid-cols-4">
+                    {ONBOARDING_TONE_OPTIONS.map((option) => {
+                      const selected = onboardingForm.tonePreference === option
+                      return (
+                        <button
+                          key={option}
+                          type="button"
+                          onClick={() => updateOnboardingField("tonePreference", option)}
+                          className={`rounded-2xl border px-4 py-3 text-left transition ${
+                            selected
+                              ? "border-sky-200 bg-sky-300/20 text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.15)]"
+                              : "border-white/15 bg-white/5 text-slate-100/80 hover:border-white/25 hover:bg-white/10"
+                          }`}
+                        >
+                          <span className="text-sm font-semibold">
+                            {t(`onboarding.capture.option.tonePreference.${option}`)}
+                          </span>
+                        </button>
+                      )
+                    })}
+                  </div>
+                )}
+
+                {activeOnboardingStep.id === "region" && (
+                  <div className="mt-4 grid gap-2 md:grid-cols-2 xl:grid-cols-3">
+                    {ONBOARDING_REGION_OPTIONS.map((option) => {
+                      const selected = onboardingForm.region === option
+                      return (
+                        <button
+                          key={option}
+                          type="button"
+                          onClick={() => updateOnboardingField("region", option)}
+                          className={`rounded-2xl border px-4 py-3 text-left transition ${
+                            selected
+                              ? "border-sky-200 bg-sky-300/20 text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.15)]"
+                              : "border-white/15 bg-white/5 text-slate-100/80 hover:border-white/25 hover:bg-white/10"
+                          }`}
+                        >
+                          <span className="text-sm font-semibold">
+                            {t(`onboarding.capture.option.region.${option}`)}
+                          </span>
+                        </button>
+                      )
+                    })}
+                  </div>
+                )}
+
+                <div className="mt-4 flex flex-col gap-3 border-t border-white/10 pt-4 sm:flex-row sm:items-center sm:justify-between">
+                  <p className="text-xs text-slate-100/70">{t("onboarding.capture.helper")}</p>
+                  <div className="flex flex-col gap-2 sm:flex-row">
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      onClick={goToPreviousOnboardingStep}
+                      disabled={onboardingStepIndex === 0 || onboardingSaving}
+                      className="rounded-full border border-white/15 bg-white/5 px-4 text-sm font-semibold text-white hover:bg-white/10 disabled:opacity-50"
+                    >
+                      {t("onboarding.capture.back")}
+                    </Button>
+                    {onboardingStepIndex < onboardingSteps.length - 1 ? (
+                      <Button
+                        type="button"
+                        onClick={goToNextOnboardingStep}
+                        disabled={onboardingSaving}
+                        className="rounded-full bg-white px-4 text-sm font-semibold text-slate-900 hover:bg-slate-100 disabled:opacity-60"
+                      >
+                        {t("onboarding.capture.next")}
+                      </Button>
+                    ) : (
+                      <Button
+                        type="button"
+                        onClick={() => void completeOnboarding("complete")}
+                        disabled={onboardingSaving}
+                        className="rounded-full bg-white px-4 text-sm font-semibold text-slate-900 hover:bg-slate-100 disabled:opacity-60"
+                      >
+                        {onboardingSaving
+                          ? t("onboarding.capture.saving")
+                          : t("onboarding.capture.finish")}
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {isFirstRunFreeUser && (
+                <div className="rounded-2xl border border-sky-300/25 bg-sky-400/10 p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]">
+                  <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+                    <div className="space-y-2">
+                      <span className="inline-flex rounded-full border border-sky-200/30 bg-white/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.22em] text-sky-100">
+                        {t("onboarding.demo.badge")}
+                      </span>
+                      <p className="text-base font-semibold text-white">{t("onboarding.demo.title")}</p>
+                      <p className="max-w-2xl text-sm leading-6 text-slate-100/80">
+                        {t("onboarding.demo.description")}
+                      </p>
+                    </div>
+                    <div className="flex flex-col gap-2 sm:flex-row">
+                      <Button
+                        type="button"
+                        onClick={() => void handleTryFirstValueRewrite()}
+                        className="rounded-full bg-white px-4 text-sm font-semibold text-slate-900 hover:bg-slate-100"
+                      >
+                        {t("onboarding.demo.action")}
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        onClick={clearFirstValueSample}
+                        className="rounded-full border border-white/20 bg-white/10 px-4 text-sm font-semibold text-white hover:bg-white/15"
+                      >
+                        {t("onboarding.demo.clear")}
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              )}
 
               <div className="grid gap-3 md:grid-cols-3">
                 {ONBOARDING_FEATURE_CARDS.map((feature) => {
@@ -2055,6 +2684,29 @@ Examples:
               rewriteSummary={draftAdjustmentSummary}
               safeToSend={safeToSendAssessment}
             />
+            {isFirstRunFreeUser && saferDraftCategories.length > 0 && (
+              <div className="rounded-2xl border border-slate-200/80 bg-white/90 p-4 text-slate-900 shadow-sm dark:border-white/10 dark:bg-white/5 dark:text-white">
+                <div className="space-y-1">
+                  <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-white/60">
+                    {t("editor.saferSummary.eyebrow")}
+                  </p>
+                  <p className="text-base font-semibold">{t("editor.saferSummary.title")}</p>
+                  <p className="text-sm leading-6 text-slate-600 dark:text-white/70">
+                    {t("editor.saferSummary.description")}
+                  </p>
+                </div>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {saferDraftCategories.map((category) => (
+                    <span
+                      key={category}
+                      className="inline-flex rounded-full border border-slate-200 bg-slate-100 px-3 py-1 text-xs font-medium text-slate-700 dark:border-white/10 dark:bg-white/10 dark:text-white/85"
+                    >
+                      {t(`editor.saferSummary.category.${category}`)}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
             {!blockedForSafety && displaySafetyAnalysis && (
               <ReactionForecast
                 forecast={displaySafetyAnalysis.reactionForecast}

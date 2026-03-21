@@ -49,6 +49,15 @@ describe("/api/onboarding", () => {
       },
       firestore: createFirestoreStub({
         onboardingCompleted: false,
+        onboardingSkipped: false,
+        onboardingProfile: {
+          role: "teacher",
+          schoolType: "primary",
+          mainUseCase: "parent_messages",
+          writingStressPoint: null,
+          tonePreference: "professional",
+          region: "germany",
+        },
         welcomeEmailSent: false,
       }),
     } as never)
@@ -69,6 +78,15 @@ describe("/api/onboarding", () => {
       success: true,
       data: {
         onboardingCompleted: false,
+        onboardingSkipped: false,
+        onboardingProfile: {
+          role: "teacher",
+          schoolType: "primary",
+          mainUseCase: "parent_messages",
+          writingStressPoint: null,
+          tonePreference: "professional",
+          region: "germany",
+        },
         welcomeEmailSent: false,
         firstLogin: true,
       },
@@ -89,13 +107,37 @@ describe("/api/onboarding", () => {
       }),
     } as never)
 
-    const response = await POST(new Request("https://example.com/api/onboarding", { method: "POST" }))
+    const response = await POST(
+      new Request("https://example.com/api/onboarding", {
+        method: "POST",
+        body: JSON.stringify({
+          action: "complete",
+          profile: {
+            role: "teacher",
+            schoolType: "secondary",
+            mainUseCase: "both",
+            writingStressPoint: "tone",
+            tonePreference: "warm",
+            region: "austria",
+          },
+        }),
+      }),
+    )
     const json = await response.json()
 
     expect(response.status).toBe(200)
     expect(userSet).toHaveBeenCalledWith(
       expect.objectContaining({
         onboardingCompleted: true,
+        onboardingSkipped: false,
+        onboardingProfile: {
+          role: "teacher",
+          schoolType: "secondary",
+          mainUseCase: "both",
+          writingStressPoint: "tone",
+          tonePreference: "warm",
+          region: "austria",
+        },
       }),
       { merge: true },
     )
@@ -103,6 +145,62 @@ describe("/api/onboarding", () => {
       success: true,
       data: {
         onboardingCompleted: true,
+        onboardingSkipped: false,
+        onboardingProfile: {
+          role: "teacher",
+          schoolType: "secondary",
+          mainUseCase: "both",
+          writingStressPoint: "tone",
+          tonePreference: "warm",
+          region: "austria",
+        },
+      },
+    })
+  })
+
+  it("marks onboarding as completed when intentionally skipped", async () => {
+    vi.mocked(ensureUserDocument).mockResolvedValue({ created: false, firstLogin: false } as never)
+    vi.mocked(authorizeFirebaseRequest).mockResolvedValue({
+      uid: "user-1",
+      decodedToken: {
+        email: "teacher@example.com",
+        name: "Teacher Example",
+      },
+      firestore: createFirestoreStub({
+        onboardingCompleted: false,
+        welcomeEmailSent: true,
+      }),
+    } as never)
+
+    const response = await POST(
+      new Request("https://example.com/api/onboarding", {
+        method: "POST",
+        body: JSON.stringify({ action: "skip" }),
+      }),
+    )
+    const json = await response.json()
+
+    expect(response.status).toBe(200)
+    expect(userSet).toHaveBeenCalledWith(
+      expect.objectContaining({
+        onboardingCompleted: true,
+        onboardingSkipped: true,
+      }),
+      { merge: true },
+    )
+    expect(json).toEqual({
+      success: true,
+      data: {
+        onboardingCompleted: true,
+        onboardingSkipped: true,
+        onboardingProfile: {
+          role: null,
+          schoolType: null,
+          mainUseCase: null,
+          writingStressPoint: null,
+          tonePreference: null,
+          region: null,
+        },
       },
     })
   })

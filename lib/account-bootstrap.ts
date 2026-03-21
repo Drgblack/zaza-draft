@@ -1,4 +1,6 @@
 import { FieldValue } from "firebase-admin/firestore"
+import { FREE_TIER_LIMIT } from "@/lib/usage"
+import { EMPTY_ONBOARDING_PROFILE } from "@/lib/onboarding-profile"
 
 export type FirestoreLike = {
   collection: (path: string) => {
@@ -35,9 +37,11 @@ export async function ensureUserDocument(
         createdAt: FieldValue.serverTimestamp(),
         firstLoginAt: FieldValue.serverTimestamp(),
         onboardingCompleted: false,
+        onboardingSkipped: false,
+        onboardingProfile: EMPTY_ONBOARDING_PROFILE,
         welcomeEmailSent: false,
         plan: "free",
-        monthlyDraftLimit: 10,
+        monthlyDraftLimit: FREE_TIER_LIMIT,
         draftsUsedThisMonth: 0,
         preferredLanguage: "en",
         updatedAt: FieldValue.serverTimestamp(),
@@ -66,8 +70,21 @@ export async function ensureUserDocument(
     safeBackfill.displayName = displayName
   }
 
+  const isFreePlanUser = existingData.plan !== "pro"
+  if (isFreePlanUser && existingData.monthlyDraftLimit !== FREE_TIER_LIMIT) {
+    safeBackfill.monthlyDraftLimit = FREE_TIER_LIMIT
+  }
+
+  if (isFreePlanUser && typeof existingData.draftsUsedThisMonth !== "number") {
+    safeBackfill.draftsUsedThisMonth = 0
+  }
+
   if (typeof existingData.onboardingCompleted !== "boolean") {
     safeBackfill.onboardingCompleted = true
+  }
+
+  if (typeof existingData.onboardingSkipped !== "boolean") {
+    safeBackfill.onboardingSkipped = false
   }
 
   if (typeof existingData.welcomeEmailSent !== "boolean") {

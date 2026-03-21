@@ -3,6 +3,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
 import { ensureUserDocument } from "./account-bootstrap"
 import { getUserEntitlements } from "./entitlements"
+import { EMPTY_ONBOARDING_PROFILE } from "./onboarding-profile"
+import { FREE_TIER_LIMIT } from "./usage"
 import * as usageModule from "./usage"
 import { getCurrentMonthKey } from "./usage"
 
@@ -81,9 +83,11 @@ describe("ensureUserDocument", () => {
       email: "teacher@example.com",
       displayName: "Teacher Example",
       onboardingCompleted: false,
+      onboardingSkipped: false,
+      onboardingProfile: EMPTY_ONBOARDING_PROFILE,
       welcomeEmailSent: false,
       plan: "free",
-      monthlyDraftLimit: 10,
+      monthlyDraftLimit: FREE_TIER_LIMIT,
       draftsUsedThisMonth: 0,
       preferredLanguage: "en",
     })

@@ -7,8 +7,12 @@ import { MainEditor } from "@/components/main-editor"
 type Locale = "en-GB" | "de-DE"
 let mockLocale: Locale = "en-GB"
 let mockOnboardingCompleted = true
+let mockOnboardingSkipped = false
 let mockWelcomeEmailSent = true
 let mockFirstLogin = false
+let lastOnboardingPostBody: Record<string, unknown> | null = null
+const logClientEventMock = vi.fn()
+const logClientEventOnceMock = vi.fn()
 
 /**
  * Mock useLocale so MainEditor can render without LanguageProvider.
@@ -23,6 +27,65 @@ vi.mock("@/hooks/use-locale", () => {
     "onboarding.description":
       "Start with Safe Draft for parent-ready messages, use Panic Scan when a screenshot needs a calm reply, and shape polished report comments from your classroom notes.",
     "onboarding.dismiss": "Continue to Draft",
+    "onboarding.demo.badge": "Demo sample",
+    "onboarding.demo.title": "A sample parent email is ready below",
+    "onboarding.demo.description":
+      "We loaded a realistic difficult parent email so you can see what a calmer, safer rewrite looks like before using your own message.",
+    "onboarding.demo.action": "Try safer rewrite",
+    "onboarding.demo.clear": "Use blank editor",
+    "onboarding.capture.optional": "Optional quick setup",
+    "onboarding.capture.progress": "Step 1 of 5",
+    "onboarding.capture.answered": "0 of 6 questions answered",
+    "onboarding.capture.helper": "You can leave any question blank and keep moving.",
+    "onboarding.capture.skip": "Skip for now",
+    "onboarding.capture.back": "Back",
+    "onboarding.capture.next": "Next",
+    "onboarding.capture.finish": "Finish setup",
+    "onboarding.capture.saving": "Saving setup...",
+    "onboarding.capture.step.context.title": "A little context",
+    "onboarding.capture.step.context.description":
+      "Optional details so Draft can feel more relevant from the start.",
+    "onboarding.capture.step.useCase.title": "What will you use Draft for most?",
+    "onboarding.capture.step.useCase.description":
+      "This helps us bias examples and defaults without changing your control.",
+    "onboarding.capture.step.stress.title": "What feels hardest when writing?",
+    "onboarding.capture.step.stress.description":
+      "Choose the pressure point that would save you the most energy.",
+    "onboarding.capture.step.tone.title": "What tone usually fits best?",
+    "onboarding.capture.step.tone.description":
+      "We can use this as a gentle default later. You can still change tone anytime.",
+    "onboarding.capture.step.region.title": "Where are you working?",
+    "onboarding.capture.step.region.description":
+      "Region helps us tailor wording and expectations more appropriately later.",
+    "onboarding.capture.field.role": "Your role",
+    "onboarding.capture.field.schoolType": "School type",
+    "onboarding.capture.option.role.teacher": "Teacher",
+    "onboarding.capture.option.role.school_leader": "School leader",
+    "onboarding.capture.option.role.senc_support": "SEN / support staff",
+    "onboarding.capture.option.role.admin_staff": "Admin or pastoral staff",
+    "onboarding.capture.option.role.other": "Other",
+    "onboarding.capture.option.schoolType.primary": "Primary school",
+    "onboarding.capture.option.schoolType.secondary": "Secondary school",
+    "onboarding.capture.option.schoolType.all_through": "All-through school",
+    "onboarding.capture.option.schoolType.international_private": "International or private school",
+    "onboarding.capture.option.schoolType.other": "Other",
+    "onboarding.capture.option.mainUseCase.parent_messages": "Parent messages",
+    "onboarding.capture.option.mainUseCase.reports": "Reports and comments",
+    "onboarding.capture.option.mainUseCase.both": "Both equally",
+    "onboarding.capture.option.writingStressPoint.deescalation": "Keeping difficult messages calm",
+    "onboarding.capture.option.writingStressPoint.clarity": "Making the wording clearer",
+    "onboarding.capture.option.writingStressPoint.tone": "Finding the right tone",
+    "onboarding.capture.option.writingStressPoint.speed": "Getting to a strong draft quickly",
+    "onboarding.capture.option.writingStressPoint.difficult_conversations": "Handling sensitive parent conversations",
+    "onboarding.capture.option.tonePreference.warm": "Warm",
+    "onboarding.capture.option.tonePreference.professional": "Professional",
+    "onboarding.capture.option.tonePreference.direct": "Direct",
+    "onboarding.capture.option.tonePreference.empathetic": "Empathetic",
+    "onboarding.capture.option.region.germany": "Germany",
+    "onboarding.capture.option.region.austria": "Austria",
+    "onboarding.capture.option.region.switzerland": "Switzerland",
+    "onboarding.capture.option.region.uk_ireland": "UK or Ireland",
+    "onboarding.capture.option.region.other": "Other",
     "onboarding.feature.safeDraft":
       "Turn a rough parent message into a clear, professional draft you can send with confidence.",
     "onboarding.feature.panicScan":
@@ -32,6 +95,19 @@ vi.mock("@/hooks/use-locale", () => {
     homeSafeDraftTitle: "Safe Draft",
     panicScanTitle: "Panic Scan",
     "editor.mode.reportComment": "Report comment",
+    "editor.firstValue.badge": "Demo sample",
+    "editor.firstValue.title": "This first-run example is sample content",
+    "editor.firstValue.description":
+      "Replace it with your own message at any time. The goal is to show what a calmer rewrite can look like straight away.",
+    "editor.firstValue.clear": "Use my own text",
+    "editor.saferSummary.eyebrow": "Why this is safer",
+    "editor.saferSummary.title": "The message keeps the concern, but lowers the heat.",
+    "editor.saferSummary.description":
+      "Draft keeps the teacher's intent intact while making the wording easier to send.",
+    "editor.saferSummary.category.softened_escalation": "Softened escalation",
+    "editor.saferSummary.category.reduced_blame": "Reduced blame",
+    "editor.saferSummary.category.clearer_next_step": "Clearer next step",
+    "editor.saferSummary.category.professional_tone": "More professional tone",
   }
   const deStrings = {
     "editor.outOfScope.title": "Nicht generiert",
@@ -43,6 +119,65 @@ vi.mock("@/hooks/use-locale", () => {
     "onboarding.description":
       "Nutzen Sie Safe Draft für elterngerechte Nachrichten, Panic Scan für ruhige Antworten auf Screenshots und Berichtskommentare für klare Formulierungen aus Ihren Unterrichtsnotizen.",
     "onboarding.dismiss": "Weiter zu Draft",
+    "onboarding.demo.badge": "Demo-Beispiel",
+    "onboarding.demo.title": "Unten ist bereits eine Beispielnachricht geladen",
+    "onboarding.demo.description":
+      "Wir haben eine realistische schwierige Elternnachricht vorbereitet, damit Sie sofort sehen können, wie eine ruhigere, sicherere Antwort wirken kann.",
+    "onboarding.demo.action": "Sicherere Fassung testen",
+    "onboarding.demo.clear": "Leeren Editor verwenden",
+    "onboarding.capture.optional": "Optionale Kurzeinrichtung",
+    "onboarding.capture.progress": "Schritt 1 von 5",
+    "onboarding.capture.answered": "0 von 6 Fragen beantwortet",
+    "onboarding.capture.helper": "Sie können jede Frage offen lassen und einfach weitergehen.",
+    "onboarding.capture.skip": "Jetzt überspringen",
+    "onboarding.capture.back": "Zurück",
+    "onboarding.capture.next": "Weiter",
+    "onboarding.capture.finish": "Einrichtung abschließen",
+    "onboarding.capture.saving": "Einrichtung wird gespeichert...",
+    "onboarding.capture.step.context.title": "Ein wenig Kontext",
+    "onboarding.capture.step.context.description":
+      "Optionale Angaben, damit Draft von Anfang an passender wirkt.",
+    "onboarding.capture.step.useCase.title": "Wofür werden Sie Draft am häufigsten nutzen?",
+    "onboarding.capture.step.useCase.description":
+      "So können wir Beispiele und Standardwerte später sinnvoll ausrichten, ohne Ihre Kontrolle einzuschränken.",
+    "onboarding.capture.step.stress.title": "Was ist beim Schreiben am anstrengendsten?",
+    "onboarding.capture.step.stress.description":
+      "Wählen Sie den Punkt, der Ihnen im Alltag am meisten Entlastung bringen würde.",
+    "onboarding.capture.step.tone.title": "Welcher Ton passt meist am besten?",
+    "onboarding.capture.step.tone.description":
+      "Das können wir später als sanfte Voreinstellung nutzen. Sie können den Ton jederzeit ändern.",
+    "onboarding.capture.step.region.title": "In welcher Region arbeiten Sie?",
+    "onboarding.capture.step.region.description":
+      "Die Region hilft uns später dabei, Formulierungen und Erwartungen passender auszurichten.",
+    "onboarding.capture.field.role": "Ihre Rolle",
+    "onboarding.capture.field.schoolType": "Schulart",
+    "onboarding.capture.option.role.teacher": "Lehrkraft",
+    "onboarding.capture.option.role.school_leader": "Schulleitung",
+    "onboarding.capture.option.role.senc_support": "Förder- oder Unterstützungsteam",
+    "onboarding.capture.option.role.admin_staff": "Verwaltung oder pastoral zuständig",
+    "onboarding.capture.option.role.other": "Andere",
+    "onboarding.capture.option.schoolType.primary": "Grundschule / Primarstufe",
+    "onboarding.capture.option.schoolType.secondary": "Sekundarstufe",
+    "onboarding.capture.option.schoolType.all_through": "Durchgängige Schule",
+    "onboarding.capture.option.schoolType.international_private": "Internationale oder private Schule",
+    "onboarding.capture.option.schoolType.other": "Andere",
+    "onboarding.capture.option.mainUseCase.parent_messages": "Elternnachrichten",
+    "onboarding.capture.option.mainUseCase.reports": "Berichte und Kommentare",
+    "onboarding.capture.option.mainUseCase.both": "Beides gleich häufig",
+    "onboarding.capture.option.writingStressPoint.deescalation": "Schwierige Nachrichten ruhig halten",
+    "onboarding.capture.option.writingStressPoint.clarity": "Formulierungen klarer machen",
+    "onboarding.capture.option.writingStressPoint.tone": "Den richtigen Ton treffen",
+    "onboarding.capture.option.writingStressPoint.speed": "Schnell zu einer guten Fassung kommen",
+    "onboarding.capture.option.writingStressPoint.difficult_conversations": "Sensible Elterngespräche bewältigen",
+    "onboarding.capture.option.tonePreference.warm": "Warm",
+    "onboarding.capture.option.tonePreference.professional": "Professionell",
+    "onboarding.capture.option.tonePreference.direct": "Direkt",
+    "onboarding.capture.option.tonePreference.empathetic": "Einfühlsam",
+    "onboarding.capture.option.region.germany": "Deutschland",
+    "onboarding.capture.option.region.austria": "Österreich",
+    "onboarding.capture.option.region.switzerland": "Schweiz",
+    "onboarding.capture.option.region.uk_ireland": "Großbritannien oder Irland",
+    "onboarding.capture.option.region.other": "Andere",
     "onboarding.feature.safeDraft":
       "Formen Sie aus einer Rohfassung eine klare, professionelle Nachricht für Eltern.",
     "onboarding.feature.panicScan":
@@ -52,6 +187,19 @@ vi.mock("@/hooks/use-locale", () => {
     homeSafeDraftTitle: "Sicherer Entwurf",
     panicScanTitle: "Panic Scan",
     "editor.mode.reportComment": "Berichtskommentar",
+    "editor.firstValue.badge": "Demo-Beispiel",
+    "editor.firstValue.title": "Dieses Erstbeispiel ist Demo-Inhalt",
+    "editor.firstValue.description":
+      "Sie können es jederzeit durch Ihren eigenen Text ersetzen. Es soll nur sofort zeigen, wie eine ruhigere Fassung aussehen kann.",
+    "editor.firstValue.clear": "Eigenen Text verwenden",
+    "editor.saferSummary.eyebrow": "Warum das sicherer ist",
+    "editor.saferSummary.title": "Die Aussage bleibt erhalten, aber die Formulierung nimmt Spannung heraus.",
+    "editor.saferSummary.description":
+      "Draft bewahrt die pädagogische Absicht, macht die Nachricht aber leichter versendbar.",
+    "editor.saferSummary.category.softened_escalation": "Eskalation entschärft",
+    "editor.saferSummary.category.reduced_blame": "Weniger Vorwurf",
+    "editor.saferSummary.category.clearer_next_step": "Klarerer nächster Schritt",
+    "editor.saferSummary.category.professional_tone": "Professionellerer Ton",
   }
   const t = (key: string) => {
     const localeStrings = mockLocale === "de-DE" ? deStrings : enStrings
@@ -125,7 +273,16 @@ vi.mock("next/navigation", () => ({
 }))
 
 vi.mock("@/lib/analytics", () => ({
-  logClientEvent: vi.fn(),
+  TRUST_FUNNEL_EVENTS: {
+    onboardingBannerShown: "onboarding_banner_shown",
+    onboardingCompleted: "onboarding_completed",
+    onboardingDismissed: "onboarding_dismissed",
+    firstDraftStarted: "first_draft_started",
+    firstDraftGenerated: "first_draft_generated",
+    paywallShown: "paywall_shown",
+  },
+  logClientEvent: (...args: unknown[]) => logClientEventMock(...args),
+  logClientEventOnce: (...args: unknown[]) => logClientEventOnceMock(...args),
   logDraftInteractionEvent: vi.fn(),
 }))
 
@@ -144,7 +301,7 @@ const fetchMock = vi.fn(async (input: RequestInfo, init?: RequestInit) => {
       json: async () => ({
         success: true,
         data: {
-          usage: { plan: "free", currentMonthUsage: 0, limit: 10, remaining: 10 },
+          usage: { plan: "free", currentMonthUsage: 0, limit: 5, remaining: 5 },
           isQaUser: false,
         },
       }),
@@ -160,6 +317,36 @@ const fetchMock = vi.fn(async (input: RequestInfo, init?: RequestInit) => {
   }
 
   if (full.includes("/api/onboarding")) {
+    if ((init?.method ?? "GET") === "POST") {
+      lastOnboardingPostBody = init?.body ? JSON.parse(String(init.body)) : null
+      return {
+        ok: true,
+        status: 200,
+        json: async () => ({
+          success: true,
+          data: {
+            onboardingCompleted: true,
+            onboardingSkipped:
+              lastOnboardingPostBody &&
+              typeof lastOnboardingPostBody === "object" &&
+              lastOnboardingPostBody.action === "skip",
+            onboardingProfile:
+              lastOnboardingPostBody &&
+              typeof lastOnboardingPostBody === "object" &&
+              "profile" in lastOnboardingPostBody
+                ? lastOnboardingPostBody.profile
+                : {
+                    role: null,
+                    schoolType: null,
+                    mainUseCase: null,
+                    writingStressPoint: null,
+                    tonePreference: null,
+                    region: null,
+                  },
+          },
+        }),
+      } as any
+    }
     return {
       ok: true,
       status: 200,
@@ -167,6 +354,15 @@ const fetchMock = vi.fn(async (input: RequestInfo, init?: RequestInit) => {
         success: true,
         data: {
           onboardingCompleted: mockOnboardingCompleted,
+          onboardingSkipped: mockOnboardingSkipped,
+          onboardingProfile: {
+            role: null,
+            schoolType: null,
+            mainUseCase: null,
+            writingStressPoint: null,
+            tonePreference: null,
+            region: null,
+          },
           welcomeEmailSent: mockWelcomeEmailSent,
           firstLogin: mockFirstLogin,
         },
@@ -238,8 +434,8 @@ const fetchMock = vi.fn(async (input: RequestInfo, init?: RequestInit) => {
             usage: {
               plan: "free",
               currentMonthUsage: 3,
-              limit: 10,
-              remaining: 7,
+              limit: 5,
+              remaining: 2,
             },
             safetyAnalysis: {
               riskScore: 10,
@@ -309,6 +505,118 @@ const fetchMock = vi.fn(async (input: RequestInfo, init?: RequestInit) => {
         }),
       } as any
     }
+    if (
+      situation.includes("head teacher") ||
+      situation.includes("schulleitung weiterzugeben")
+    ) {
+      return {
+        ok: true,
+        status: 200,
+        json: async () => ({
+          success: true,
+          data: {
+            generatedDraft:
+              "Dear Mr and Mrs Patel,\n\nThank you for sharing your concern about the recent homework load. I understand why the last few evenings have felt stressful, and I want to respond clearly and constructively.\n\nI will review the current homework instructions with the class, keep the next set more focused, and check in with your child this week so we can see what is feeling most manageable.\n\nIf it would help, we can also arrange a short call to agree the next step together.\n\nKind regards,\nGreg Blackburn",
+            formattedDraft: {
+              subject: "Homework concern follow-up",
+              paragraphs: [
+                "Dear Mr and Mrs Patel,",
+                "Thank you for sharing your concern about the recent homework load. I understand why the last few evenings have felt stressful, and I want to respond clearly and constructively.",
+                "I will review the current homework instructions with the class, keep the next set more focused, and check in with your child this week so we can see what is feeling most manageable.",
+                "If it would help, we can also arrange a short call to agree the next step together.",
+                "Kind regards,\nGreg Blackburn",
+              ],
+            },
+            metadata: {
+              wordCount: 109,
+              toneUsed: "professional",
+              modelUsed: "model-v1",
+              pronounPreference: "auto",
+              pronounResolution: {
+                resolvedPreference: "auto",
+                reason: null,
+                source: null,
+              },
+              generationTime: 610,
+              tokensUsed: 340,
+              safetyFlags: [],
+              generatedAt: new Date().toISOString(),
+              requestedAt: new Date().toISOString(),
+              contextUsed: {},
+              signatureBlock: "Greg Blackburn",
+            },
+            meta: {
+              inputReframed: false,
+              inputReframedTier: null,
+              latencyMs: 610,
+              usedFallback: false,
+              errorCode: null,
+            },
+            usage: {
+              plan: "free",
+              currentMonthUsage: 1,
+              limit: 5,
+              remaining: 4,
+            },
+            safetyAnalysis: {
+              riskScore: 44,
+              riskLevel: "medium",
+              triggeredSignals: [
+                {
+                  id: "cold_no_collaboration",
+                  category: "escalation",
+                  label: "No collaboration invitation",
+                  matchedPhrase: "Please deal with this immediately",
+                },
+                {
+                  id: "blame",
+                  category: "accusation",
+                  label: "Blame wording",
+                  matchedPhrase: "your homework expectations are unreasonable",
+                },
+              ],
+              toneClass: "tense",
+              topicSensitivity: "high",
+              reactionForecast: {
+                collaborative: 20,
+                concerned: 35,
+                defensive: 30,
+                hostile: 5,
+                confused: 10,
+              },
+              explanationLines: [],
+              documentationModeAvailable: false,
+              professionalRiskFlags: [],
+              structuralImbalance: false,
+            },
+            outputSafetyAnalysis: {
+              riskScore: 12,
+              riskLevel: "low",
+              triggeredSignals: [],
+              toneClass: "collaborative",
+              topicSensitivity: "high",
+              reactionForecast: {
+                collaborative: 60,
+                concerned: 20,
+                defensive: 10,
+                hostile: 0,
+                confused: 10,
+              },
+              explanationLines: [],
+              documentationModeAvailable: false,
+              professionalRiskFlags: [],
+              structuralImbalance: false,
+            },
+            deescalationSummary: {
+              wasDeescalated: true,
+              flaggedPhrases: [{ original: "escalating", replacement: "follow up", category: "threat" }],
+              coachingLine: "The wording was made calmer and easier to send.",
+            },
+            documentationModeActive: false,
+          },
+        }),
+      } as any
+    }
     if (situation.includes("reading progress")) {
       const success = {
         success: true,
@@ -349,8 +657,8 @@ const fetchMock = vi.fn(async (input: RequestInfo, init?: RequestInit) => {
           usage: {
             plan: "free",
             currentMonthUsage: 3,
-            limit: 10,
-            remaining: 7,
+            limit: 5,
+            remaining: 2,
           },
           deescalationSummary: null,
         },
@@ -397,8 +705,12 @@ afterAll(() => {
 beforeEach(() => {
   vi.clearAllMocks()
   mockOnboardingCompleted = true
+  mockOnboardingSkipped = false
   mockWelcomeEmailSent = true
   mockFirstLogin = false
+  lastOnboardingPostBody = null
+  window.localStorage.clear()
+  window.sessionStorage.clear()
 })
 
 function getPromptTextarea() {
@@ -478,11 +790,147 @@ describe("MainEditor scope guard notice", () => {
     render(<MainEditor />)
 
     await waitFor(() => {
-      expect(screen.queryByText("Weiter zu Draft")).not.toBeNull()
+      expect(screen.queryByText("Jetzt überspringen")).not.toBeNull()
     })
 
     expect(screen.getAllByText("Sicherer Entwurf").length).toBeGreaterThan(0)
     expect(screen.getAllByText("Berichtskommentar").length).toBeGreaterThan(0)
+    expect(screen.getByText("Ein wenig Kontext")).toBeInTheDocument()
+    expect(logClientEventOnceMock).toHaveBeenCalledWith("onboarding_banner_shown", {
+      payload: {
+        surface: "main_editor",
+      },
+      scopeKey: "test-uid",
+    })
+  })
+
+  it("tracks onboarding dismissal and completion when onboarding is intentionally skipped", async () => {
+    mockLocale = "en-GB"
+    mockOnboardingCompleted = false
+    mockWelcomeEmailSent = false
+    mockFirstLogin = true
+
+    render(<MainEditor />)
+
+    const dismissButton = await screen.findByRole("button", { name: "Skip for now" })
+    fireEvent.click(dismissButton)
+
+    await waitFor(() => {
+      expect(logClientEventMock).toHaveBeenCalledWith("onboarding_dismissed", {
+        surface: "main_editor",
+      })
+      expect(logClientEventMock).toHaveBeenCalledWith("onboarding_completed", {
+        surface: "main_editor",
+      })
+    })
+    expect(lastOnboardingPostBody).toEqual({
+      action: "skip",
+      profile: {
+        role: null,
+        schoolType: null,
+        mainUseCase: null,
+        writingStressPoint: null,
+        tonePreference: null,
+        region: null,
+      },
+    })
+
+    await waitFor(() => {
+      expect(screen.queryByRole("button", { name: "Skip for now" })).toBeNull()
+    })
+  })
+
+  it("captures onboarding answers and saves them on completion", async () => {
+    mockLocale = "en-GB"
+    mockOnboardingCompleted = false
+    mockWelcomeEmailSent = false
+    mockFirstLogin = true
+
+    render(<MainEditor />)
+
+    fireEvent.click(await screen.findByRole("button", { name: "Teacher" }))
+    fireEvent.click(screen.getByRole("button", { name: "Primary school" }))
+    fireEvent.click(screen.getByRole("button", { name: "Next" }))
+    fireEvent.click(screen.getByRole("button", { name: "Both equally" }))
+    fireEvent.click(screen.getByRole("button", { name: "Next" }))
+    fireEvent.click(screen.getByRole("button", { name: "Finding the right tone" }))
+    fireEvent.click(screen.getByRole("button", { name: "Next" }))
+    fireEvent.click(screen.getByRole("button", { name: "Professional" }))
+    fireEvent.click(screen.getByRole("button", { name: "Next" }))
+    fireEvent.click(screen.getByRole("button", { name: "Germany" }))
+    fireEvent.click(screen.getByRole("button", { name: "Finish setup" }))
+
+    await waitFor(() => {
+      expect(logClientEventMock).toHaveBeenCalledWith("onboarding_completed", {
+        surface: "main_editor",
+      })
+    })
+
+    expect(lastOnboardingPostBody).toEqual({
+      action: "complete",
+      profile: {
+        role: "teacher",
+        schoolType: "primary",
+        mainUseCase: "both",
+        writingStressPoint: "tone",
+        tonePreference: "professional",
+        region: "germany",
+      },
+    })
+
+    await waitFor(() => {
+      expect(screen.queryByRole("button", { name: "Finish setup" })).toBeNull()
+    })
+  })
+
+  it("preloads a labelled demo sample for first-run free users and allows a blank editor escape hatch", async () => {
+    mockLocale = "en-GB"
+    mockOnboardingCompleted = false
+    mockWelcomeEmailSent = false
+    mockFirstLogin = true
+
+    render(<MainEditor />)
+
+    await waitFor(() => {
+      expect(screen.getAllByText("Demo sample").length).toBeGreaterThan(0)
+    })
+
+    await waitFor(() => {
+      expect(getPromptTextarea().value).toContain(
+        "considering escalating the issue to the head teacher",
+      )
+    })
+    expect(screen.getByText("This first-run example is sample content")).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole("button", { name: "Use blank editor" }))
+
+    await waitFor(() => {
+      expect(getPromptTextarea().value).toBe("")
+    })
+
+    expect(screen.queryByText("This first-run example is sample content")).toBeNull()
+  })
+
+  it("shows a compact safer-summary block after the first demo rewrite", async () => {
+    mockLocale = "en-GB"
+    mockOnboardingCompleted = false
+    mockWelcomeEmailSent = false
+    mockFirstLogin = true
+
+    render(<MainEditor />)
+
+    const tryDemoButton = await screen.findByRole("button", { name: "Try safer rewrite" })
+    fireEvent.click(tryDemoButton)
+
+    await waitFor(() => {
+      expect(screen.getByTestId("draft-output-body")).toBeInTheDocument()
+    })
+
+    expect(screen.getByText("Why this is safer")).toBeInTheDocument()
+    expect(screen.getByText("Softened escalation")).toBeInTheDocument()
+    expect(screen.getByText("Reduced blame")).toBeInTheDocument()
+    expect(screen.getByText("Clearer next step")).toBeInTheDocument()
+    expect(screen.getByText("More professional tone")).toBeInTheDocument()
   })
 
   it("removes a previously generated draft after an out-of-scope prompt", async () => {
@@ -497,6 +945,21 @@ describe("MainEditor scope guard notice", () => {
 
     await waitFor(() => {
       expect(screen.queryByTestId("draft-output-body")).not.toBeNull()
+    })
+
+    expect(logClientEventOnceMock).toHaveBeenCalledWith("first_draft_started", {
+      payload: {
+        mode: "parent_message",
+        sourceFlow: "safe_draft",
+      },
+      scopeKey: "test-uid",
+    })
+    expect(logClientEventOnceMock).toHaveBeenCalledWith("first_draft_generated", {
+      payload: {
+        mode: "parent_message",
+        sourceFlow: "safe_draft",
+      },
+      scopeKey: "test-uid",
     })
 
     fireEvent.change(prompt, { target: { value: "What is the capital of France?" } })
