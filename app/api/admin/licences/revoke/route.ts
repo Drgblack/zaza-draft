@@ -46,7 +46,8 @@ async function authorizeAdmin(request: Request) {
   }
 
   const uid = authContext?.uid ?? ""
-  if (!uid || !isAdminUid(uid)) {
+  const hasAdminClaim = authContext?.decodedToken?.admin === true
+  if (!uid || (!hasAdminClaim && !isAdminUid(uid))) {
     return buildError("Admin access required", 403)
   }
 

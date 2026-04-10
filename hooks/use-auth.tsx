@@ -1,6 +1,6 @@
 "use client"
 
-import { createContext, useContext, useEffect, useMemo, useState } from "react"
+import { createContext, useContext, useEffect, useMemo, useRef, useState } from "react"
 import {
   isSignInWithEmailLink,
   onIdTokenChanged,
@@ -40,7 +40,7 @@ interface AuthContextValue {
   completeEmailLinkSignIn: (email: string) => Promise<void>
   signInWithGoogle: () => Promise<void>
   signOut: () => Promise<void>
-  getIdToken: () => Promise<string | null>
+  getIdToken: (forceRefresh?: boolean) => Promise<string | null>
 }
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined)
@@ -61,6 +61,59 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [emailLinkKnownEmail, setEmailLinkKnownEmail] = useState<string | null>(null)
   const [emailLinkRecoveryReason, setEmailLinkRecoveryReason] =
     useState<EmailLinkRecoveryReason | null>(null)
+  const refreshedClaimUidRef = useRef<string | null>(null)
+  const refreshInFlightRef = useRef<{
+    uid: string | null
+    promise: Promise<string | null> | null
+  }>({
+    uid: null,
+    promise: null,
+  })
+
+  const resolveIdToken = async (
+    nextUser: User,
+    options?: {
+      forceRefresh?: boolean
+      reason?: string
+    },
+  ) => {
+    const activeRefresh = refreshInFlightRef.current
+    if (activeRefresh.uid === nextUser.uid && activeRefresh.promise) {
+      return activeRefresh.promise
+    }
+
+    const shouldForceRefresh =
+      options?.forceRefresh || refreshedClaimUidRef.current !== nextUser.uid
+
+    if (!shouldForceRefresh) {
+      return nextUser.getIdToken()
+    }
+
+    const refreshPromise = (async () => {
+      const refreshedToken = await nextUser.getIdToken(true)
+      refreshedClaimUidRef.current = nextUser.uid
+      const tokenResult = await nextUser.getIdTokenResult()
+      console.log("[auth] refreshed token result", {
+        reason: options?.reason ?? "unspecified",
+        claims: tokenResult.claims,
+        authTime: tokenResult.authTime,
+        issuedAtTime: tokenResult.issuedAtTime,
+        expirationTime: tokenResult.expirationTime,
+      })
+      return refreshedToken
+    })().finally(() => {
+      if (refreshInFlightRef.current.promise === refreshPromise) {
+        refreshInFlightRef.current = { uid: null, promise: null }
+      }
+    })
+
+    refreshInFlightRef.current = {
+      uid: nextUser.uid,
+      promise: refreshPromise,
+    }
+
+    return refreshPromise
+  }
 
   useEffect(() => {
     if (!auth) {
@@ -71,10 +124,27 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     const unsubscribe = onIdTokenChanged(auth, async (nextUser) => {
       if (!nextUser) {
+        refreshedClaimUidRef.current = null
+        refreshInFlightRef.current = { uid: null, promise: null }
         setUser(null)
         setStatus("unauthenticated")
         return
       }
+
+      let token: string | null = null
+      try {
+        token = await resolveIdToken(nextUser, {
+          reason: "on_id_token_changed",
+        })
+      } catch (error) {
+        console.warn("[auth] token refresh failed", error)
+        try {
+          token = await nextUser.getIdToken()
+        } catch (tokenError) {
+          console.warn("[auth] fallback token read failed", tokenError)
+        }
+      }
+
       console.info("[auth] firebase auth success", {
         uid: nextUser.uid,
         email: nextUser.email ?? null,
@@ -86,7 +156,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setStatus("authenticated")
       void (async () => {
         try {
-          const token = await nextUser.getIdToken()
+          if (!token) {
+            throw new Error("Missing ID token for bootstrap")
+          }
           const response = await fetch("/api/account/bootstrap", {
             method: "POST",
             headers: {
@@ -136,7 +208,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setEmailLinkStatus("processing")
     void (async () => {
       try {
-        await signInWithEmailLink(auth, knownEmail, currentUrl)
+        const result = await signInWithEmailLink(auth, knownEmail, currentUrl)
+        await resolveIdToken(result.user, {
+          forceRefresh: true,
+          reason: "email_link_known_email",
+        })
         logClientEvent(TRUST_FUNNEL_EVENTS.magicLinkCompleted, {
           completionMode: "stored_email",
         })
@@ -210,7 +286,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setEmailLinkStatus("processing")
 
     try {
-      await signInWithEmailLink(auth, normalizedEmail, window.location.href)
+      const result = await signInWithEmailLink(auth, normalizedEmail, window.location.href)
+      await resolveIdToken(result.user, {
+        forceRefresh: true,
+        reason: "email_link_manual_completion",
+      })
       logClientEvent(TRUST_FUNNEL_EVENTS.magicLinkCompleted, {
         completionMode: "manual_email_entry",
       })
@@ -232,21 +312,30 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (!auth) {
       throw new Error("Firebase Auth is not configured.")
     }
-    await signInWithPopup(auth, googleAuthProvider)
+    const result = await signInWithPopup(auth, googleAuthProvider)
+    await resolveIdToken(result.user, {
+      forceRefresh: true,
+      reason: "google_sign_in",
+    })
   }
 
   const signOut = async () => {
     if (!auth) {
       return
     }
+    refreshedClaimUidRef.current = null
+    refreshInFlightRef.current = { uid: null, promise: null }
     await firebaseSignOut(auth)
   }
 
-  const getIdToken = async () => {
+  const getIdToken = async (forceRefresh = false) => {
     if (!auth?.currentUser) {
       return null
     }
-    return auth.currentUser.getIdToken()
+    return resolveIdToken(auth.currentUser, {
+      forceRefresh,
+      reason: forceRefresh ? "explicit_force_refresh" : "api_request",
+    })
   }
 
   const contextValue = useMemo(

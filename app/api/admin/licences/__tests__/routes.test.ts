@@ -1,6 +1,6 @@
 import type { Firestore } from "firebase-admin/firestore"
 
-import { describe, expect, it, vi } from "vitest"
+import { beforeEach, describe, expect, it, vi } from "vitest"
 
 import * as internalQa from "@/lib/auth/internal-qa"
 
@@ -26,8 +26,8 @@ function createMockFirestore() {
   const docMap = new Map<
     string,
     {
-      set: ReturnType<typeof vi.fn>
-      delete: ReturnType<typeof vi.fn>
+      set: ReturnType<typeof vi.fn<any, any>>
+      delete: ReturnType<typeof vi.fn<any, any>>
     }
   >()
 
@@ -66,16 +66,45 @@ describe("admin licence routes", () => {
 
   it("rejects non-admins from grant", async () => {
     const { firestore } = createMockFirestore()
-    mockAuthorize.mockResolvedValue({ uid: "not-admin", firestore, auth: null, storage: null })
+    mockAuthorize.mockResolvedValue({
+      uid: "not-admin",
+      decodedToken: { uid: "not-admin", admin: false },
+      firestore,
+      auth: null,
+      storage: null,
+    })
     vi.mocked(internalQa.isAdminUid).mockReturnValue(false)
 
     const response = await callRoute(grantRoute, { type: "uid", uid: "teacher", plan: "pro" })
     expect(response.status).toBe(403)
   })
 
+  it("accepts a Firebase admin custom claim for grant", async () => {
+    const { firestore, docMap } = createMockFirestore()
+    mockAuthorize.mockResolvedValue({
+      uid: "claimed-admin",
+      decodedToken: { uid: "claimed-admin", admin: true },
+      firestore,
+      auth: null,
+      storage: null,
+    })
+    vi.mocked(internalQa.isAdminUid).mockReturnValue(false)
+
+    const response = await callRoute(grantRoute, { type: "uid", uid: "teacher", plan: "pro" })
+
+    expect(response.status).toBe(200)
+    expect(docMap.get("users/teacher")?.set).toHaveBeenCalled()
+  })
+
   it("grants a uid entitlement", async () => {
     const { firestore, docMap } = createMockFirestore()
-    mockAuthorize.mockResolvedValue({ uid: "admin", firestore, auth: null, storage: null })
+    mockAuthorize.mockResolvedValue({
+      uid: "admin",
+      decodedToken: { uid: "admin", admin: false },
+      firestore,
+      auth: null,
+      storage: null,
+    })
     vi.mocked(internalQa.isAdminUid).mockReturnValue(true)
     const future = new Date(Date.now() + 1_000_000).toISOString()
 
@@ -103,7 +132,13 @@ describe("admin licence routes", () => {
 
   it("grants a domain licence", async () => {
     const { firestore, docMap } = createMockFirestore()
-    mockAuthorize.mockResolvedValue({ uid: "admin", firestore, auth: null, storage: null })
+    mockAuthorize.mockResolvedValue({
+      uid: "admin",
+      decodedToken: { uid: "admin", admin: false },
+      firestore,
+      auth: null,
+      storage: null,
+    })
     vi.mocked(internalQa.isAdminUid).mockReturnValue(true)
     const response = await callRoute(grantRoute, {
       type: "domain",
@@ -125,7 +160,13 @@ describe("admin licence routes", () => {
 
   it("revokes a uid entitlement", async () => {
     const { firestore, docMap } = createMockFirestore()
-    mockAuthorize.mockResolvedValue({ uid: "admin", firestore, auth: null, storage: null })
+    mockAuthorize.mockResolvedValue({
+      uid: "admin",
+      decodedToken: { uid: "admin", admin: false },
+      firestore,
+      auth: null,
+      storage: null,
+    })
     vi.mocked(internalQa.isAdminUid).mockReturnValue(true)
 
     const response = await callRoute(revokeRoute, { type: "uid", uid: "teacher" })
@@ -144,7 +185,13 @@ describe("admin licence routes", () => {
 
   it("revokes a domain licence", async () => {
     const { firestore, docMap } = createMockFirestore()
-    mockAuthorize.mockResolvedValue({ uid: "admin", firestore, auth: null, storage: null })
+    mockAuthorize.mockResolvedValue({
+      uid: "admin",
+      decodedToken: { uid: "admin", admin: false },
+      firestore,
+      auth: null,
+      storage: null,
+    })
     vi.mocked(internalQa.isAdminUid).mockReturnValue(true)
 
     const response = await callRoute(revokeRoute, { type: "domain", domain: "school.edu" })
