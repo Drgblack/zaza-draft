@@ -10,6 +10,7 @@ import { resolvePanicScanLocale } from "@/lib/panic-scan/locale"
 import { sanitizeEmailText } from "@/lib/text/email-sanitizer"
 import { performVisionOcr } from "@/lib/panic-scan/ocr"
 import type { PanicScanDocument } from "@/lib/panic-scan/types"
+import type { OpenAICallInstrumentation } from "@/lib/ai/client"
 
 const MAX_IMAGE_SIZE_BYTES = 10 * 1024 * 1024
 const SCAN_TTL_MS = 24 * 60 * 60 * 1000
@@ -131,18 +132,59 @@ function createMediaPath(scanId: string, fileName: string) {
   return `panic_scans/${scanId}/${timestamp}-${safeName}`
 }
 
+function approxTokensFromText(text: string) {
+  return Math.ceil(text.length / 4)
+}
+
+function logPanicScanStructured(event: string, data: Record<string, unknown>) {
+  console.info(`[panic-scan][${event}]`, data)
+}
+
 export async function POST(request: Request) {
   const requestId = randomUUID()
   const diagnostics = createDiagnostics()
+  const attemptStartedAt = Date.now()
   try {
     const form = await request.formData()
     const file = form.get("file")
     const platform = (form.get("platform") as string) ?? "web"
     const sessionId = form.get("sessionId") as string | null
+    const uploadAttemptId =
+      ((form.get("uploadAttemptId") as string | null) ?? "").trim() || requestId
     const rawUiLocale = form.get("uiLocale") as string | null
     const uiLocale = canonicalizeLocaleIdentifier(rawUiLocale)
+    const fileName = typeof file === "string" || !file ? null : file.name
+    const fileType = typeof file === "string" || !file ? null : file.type
+    const fileSizeBytes = typeof file === "string" || !file ? null : file.size
+    let openAiCallCount = 0
+    let openAiRetryTriggered = false
+
+    const finalizeAttempt = (status: "ok" | "error", extra: Record<string, unknown> = {}) => {
+      logPanicScanStructured("attempt_end", {
+        requestId,
+        uploadAttemptId,
+        sessionId,
+        status,
+        elapsedMs: Date.now() - attemptStartedAt,
+        openAiCallCount,
+        openAiRetryTriggered,
+        ...extra,
+      })
+    }
+
+    logPanicScanStructured("attempt_start", {
+      requestId,
+      uploadAttemptId,
+      sessionId,
+      platform,
+      uiLocale,
+      fileName,
+      fileType,
+      fileSizeBytes,
+    })
 
     if (typeof file === "string" && isSuspiciousClientPath(file)) {
+      finalizeAttempt("error", { stage: "parse", code: "INVALID_FILE_PATH" })
       return createErrorResponse({
         code: "INVALID_FILE_PATH",
         message: "Upload the screenshot directly instead of providing a local path.",
@@ -154,6 +196,7 @@ export async function POST(request: Request) {
     }
 
     if (!file || typeof file === "string") {
+      finalizeAttempt("error", { stage: "parse", code: "MISSING_FILE" })
       return createErrorResponse({
         code: "MISSING_FILE",
         message: "Please attach an image.",
@@ -165,6 +208,7 @@ export async function POST(request: Request) {
     }
 
     if (!["web", "mobile_ios", "mobile_android"].includes(platform)) {
+      finalizeAttempt("error", { stage: "validate", code: "INVALID_PLATFORM" })
       return createErrorResponse({
         code: "INVALID_PLATFORM",
         message: "Unsupported platform.",
@@ -180,6 +224,7 @@ export async function POST(request: Request) {
     const buffer = Buffer.from(arrayBuffer)
 
     if (buffer.length === 0 || buffer.length > MAX_IMAGE_SIZE_BYTES) {
+      finalizeAttempt("error", { stage: "validate", code: "FILE_TOO_LARGE" })
       return createErrorResponse({
         code: "FILE_TOO_LARGE",
         message: `Image must be under ${Math.round(MAX_IMAGE_SIZE_BYTES / (1024 * 1024))}MB.`,
@@ -191,6 +236,7 @@ export async function POST(request: Request) {
     }
 
     if (!file.type?.startsWith("image/")) {
+      finalizeAttempt("error", { stage: "validate", code: "INVALID_FORMAT" })
       return createErrorResponse({
         code: "INVALID_FORMAT",
         message: "Only image uploads are supported.",
@@ -203,11 +249,20 @@ export async function POST(request: Request) {
     logStage(requestId, "parse", true)
 
     let authContext
+    const authStartedAt = Date.now()
     try {
       authContext = await authorizeFirebaseRequest(request)
     } catch (error) {
       const status =
         error instanceof Error && error.name === "FirebaseAuthorizationError" ? 401 : 401
+      logPanicScanStructured("step", {
+        requestId,
+        uploadAttemptId,
+        step: "auth",
+        status: "error",
+        elapsedMs: Date.now() - authStartedAt,
+      })
+      finalizeAttempt("error", { stage: "auth", code: "UNAUTHORIZED" })
       return createErrorResponse({
         code: "UNAUTHORIZED",
         message: "Unauthorized",
@@ -217,10 +272,18 @@ export async function POST(request: Request) {
         requestId,
       })
     }
+    logPanicScanStructured("step", {
+      requestId,
+      uploadAttemptId,
+      step: "auth",
+      status: "ok",
+      elapsedMs: Date.now() - authStartedAt,
+    })
     logStage(requestId, "auth", true)
 
     const { uid, firestore, storage } = authContext
     if (!firestore) {
+      finalizeAttempt("error", { stage: "storage", code: "FIRESTORE_UNAVAILABLE" })
       return createErrorResponse({
         code: "FIRESTORE_UNAVAILABLE",
         message: "Unable to access Firestore.",
@@ -231,10 +294,19 @@ export async function POST(request: Request) {
       })
     }
 
+    const rateLimitStartedAt = Date.now()
     try {
       await enforcePerUserRateLimit(uid, firestore, { docName: "panicScanUpload" })
     } catch (error) {
       if (error instanceof RateLimitError) {
+        logPanicScanStructured("step", {
+          requestId,
+          uploadAttemptId,
+          step: "rate_limit.check",
+          status: "error",
+          elapsedMs: Date.now() - rateLimitStartedAt,
+        })
+        finalizeAttempt("error", { stage: "rate_limit", code: "RATE_LIMIT" })
         return createErrorResponse({
           code: "RATE_LIMIT",
           message: `Try again in ${Math.ceil(error.retryAfterMs / 1000)} seconds.`,
@@ -246,6 +318,13 @@ export async function POST(request: Request) {
       }
       console.error("[panic-scan] Rate limit check failed", error)
     }
+    logPanicScanStructured("step", {
+      requestId,
+      uploadAttemptId,
+      step: "rate_limit.check",
+      status: "ok",
+      elapsedMs: Date.now() - rateLimitStartedAt,
+    })
 
     const bucketName = process.env.FIREBASE_STORAGE_BUCKET
     const scanRef = firestore.collection("panic_scans").doc()
@@ -269,12 +348,21 @@ export async function POST(request: Request) {
       storageError: null as string | null,
     }
     if (storage && bucketName) {
+      const storageStartedAt = Date.now()
       try {
         const bucket = storage.bucket(bucketName)
         await bucket
           .file(doc.mediaPath)
           .save(buffer, { metadata: { contentType: file.type || "application/octet-stream" } })
         storageDiagnostics.storageConfigured = true
+        logPanicScanStructured("step", {
+          requestId,
+          uploadAttemptId,
+          step: "storage.upload",
+          status: "ok",
+          elapsedMs: Date.now() - storageStartedAt,
+          mediaPath: doc.mediaPath,
+        })
         logStage(requestId, "storage", true)
       } catch (uploadError) {
         storageDiagnostics.storageConfigured = false
@@ -289,6 +377,14 @@ export async function POST(request: Request) {
           { merge: true },
         )
 
+        logPanicScanStructured("step", {
+          requestId,
+          uploadAttemptId,
+          step: "storage.upload",
+          status: "error",
+          elapsedMs: Date.now() - storageStartedAt,
+        })
+        finalizeAttempt("error", { stage: "storage", code: "STORAGE_UPLOAD_FAILED" })
         return createErrorResponse({
           code: "STORAGE_UPLOAD_FAILED",
           message: storageDiagnostics.storageError,
@@ -321,6 +417,7 @@ export async function POST(request: Request) {
         },
         { merge: true },
       )
+      finalizeAttempt("error", { stage: "analysis", code: "AI_NOT_CONFIGURED" })
       return createErrorResponse({
         code: "AI_NOT_CONFIGURED",
         message,
@@ -332,8 +429,20 @@ export async function POST(request: Request) {
 
     try {
       diagnostics.ocrPerformed = true
+      const ocrStartedAt = Date.now()
       const extractedText = await performVisionOcr(buffer)
+      const ocrElapsedMs = Date.now() - ocrStartedAt
       const sanitized = sanitizeEmailText(extractedText)
+      logPanicScanStructured("step", {
+        requestId,
+        uploadAttemptId,
+        step: "ocr.vision",
+        status: "ok",
+        elapsedMs: ocrElapsedMs,
+        extractedChars: extractedText.length,
+        sanitizedWordCount: sanitized.wordCount,
+        sanitizedGreetingOnly: sanitized.greetingOrSignatureOnly,
+      })
       if (sanitized.wordCount < 20 || sanitized.greetingOrSignatureOnly) {
         diagnostics.ocrSucceeded = false
         await scanRef.set(
@@ -348,6 +457,7 @@ export async function POST(request: Request) {
         )
 
         logStage(requestId, "ocr", false, "insufficient OCR data")
+        finalizeAttempt("error", { stage: "ocr", code: "INSUFFICIENT_OCR" })
         return createErrorResponse({
           code: "INSUFFICIENT_OCR",
           message: "OCR did not capture enough of the message; please try again or type the note manually.",
@@ -361,18 +471,69 @@ export async function POST(request: Request) {
       diagnostics.ocrSucceeded = true
       logStage(requestId, "ocr", true)
 
+      const cleanStartedAt = Date.now()
       const cleaned = cleanOcrText(sanitized.cleanText)
       const analysisLocale = resolvePanicScanLocale({
         uiLocale,
         sourceText: cleaned.cleanText || extractedText,
         acceptLanguage: request.headers.get("accept-language"),
       })
+      logPanicScanStructured("step", {
+        requestId,
+        uploadAttemptId,
+        step: "analysis.prepare",
+        status: "ok",
+        elapsedMs: Date.now() - cleanStartedAt,
+        cleanedChars: cleaned.cleanText.length,
+        cleanedApproxTokens: approxTokensFromText(cleaned.cleanText),
+        cleanConfidence: cleaned.confidence,
+        analysisLanguage: analysisLocale.language,
+        analysisLanguageSource: analysisLocale.source,
+      })
 
-      const analysis = await analyzePanicMessage(extractedText, analysisLocale.language)
+      const openAiInstrumentation: OpenAICallInstrumentation = {
+        step: "analysis.openai",
+        onCallStart: (event) => {
+          openAiCallCount += 1
+          logPanicScanStructured("openai_call_start", {
+            requestId,
+            uploadAttemptId,
+            sessionId,
+            callIndex: openAiCallCount,
+            ...event,
+          })
+        },
+        onRetry: (event) => {
+          openAiRetryTriggered = true
+          logPanicScanStructured("openai_retry", {
+            requestId,
+            uploadAttemptId,
+            sessionId,
+            callIndex: openAiCallCount,
+            ...event,
+          })
+        },
+        onCallEnd: (event) => {
+          logPanicScanStructured("openai_call_end", {
+            requestId,
+            uploadAttemptId,
+            sessionId,
+            callIndex: openAiCallCount,
+            ...event,
+          })
+        },
+      }
+
+      const analysis = await analyzePanicMessage(
+        extractedText,
+        analysisLocale.language,
+        openAiInstrumentation,
+      )
       diagnostics.analysisSucceeded = true
       logStage(requestId, "analysis", true)
       const processingTimeMs = Date.now() - createdAt.getTime()
 
+      const persistStartedAt = Date.now()
       await scanRef.set(
         {
           extractedText,
@@ -387,8 +548,21 @@ export async function POST(request: Request) {
         },
         { merge: true },
       )
+      logPanicScanStructured("step", {
+        requestId,
+        uploadAttemptId,
+        step: "storage.scan_write",
+        status: "ok",
+        elapsedMs: Date.now() - persistStartedAt,
+        scanId: scanRef.id,
+      })
 
       logStage(requestId, "done", true)
+      finalizeAttempt("ok", {
+        stage: "done",
+        scanId: scanRef.id,
+        processingTimeMs,
+      })
       return createSuccessResponse({
         scanId: scanRef.id,
         diagnostics,
@@ -409,6 +583,11 @@ export async function POST(request: Request) {
         { merge: true },
       )
       logStage(requestId, "analysis", false, message)
+      finalizeAttempt("error", {
+        stage: "analysis",
+        code: "PROCESSING_FAILED",
+        busyError,
+      })
       return createErrorResponse({
         code: "PROCESSING_FAILED",
         message,
@@ -421,6 +600,12 @@ export async function POST(request: Request) {
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unexpected server error"
     logStage(requestId, "unknown", false, message)
+    logPanicScanStructured("attempt_end", {
+      requestId,
+      status: "error",
+      stage: "unknown",
+      elapsedMs: Date.now() - attemptStartedAt,
+    })
     return createErrorResponse({
       code: "UNEXPECTED_ERROR",
       message,

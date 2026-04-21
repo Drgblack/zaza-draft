@@ -1,4 +1,7 @@
-import { runChatWithFallback } from "@/lib/ai/client"
+import {
+  runChatWithFallback,
+  type OpenAICallInstrumentation,
+} from "@/lib/ai/client"
 import type { Message } from "@/lib/ai/types"
 import type { LanguageKey } from "@/lib/draft/fallback"
 import type { MessageClassification, PanicScanAnalysis } from "./types"
@@ -27,7 +30,11 @@ function extractJsonObject(text: string) {
   return JSON.parse(match[0])
 }
 
-export async function analyzePanicMessage(message: string, language: LanguageKey): Promise<{
+export async function analyzePanicMessage(
+  message: string,
+  language: LanguageKey,
+  instrumentation?: OpenAICallInstrumentation,
+): Promise<{
   classification: MessageClassification
   analysis: PanicScanAnalysis
 }> {
@@ -42,7 +49,11 @@ export async function analyzePanicMessage(message: string, language: LanguageKey
     },
   ]
 
-  const result = await runChatWithFallback(messages, { temperature: 0.0, maxTokens: 500 })
+  const result = await runChatWithFallback(messages, {
+    temperature: 0.0,
+    maxTokens: 500,
+    instrumentation,
+  })
   const body = extractJsonObject(result.text)
 
   if (!body.classification || !body.analysis) {

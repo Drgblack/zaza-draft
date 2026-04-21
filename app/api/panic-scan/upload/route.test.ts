@@ -225,6 +225,7 @@ describe("panic scan upload route", () => {
     expect(analyzePanicMessage).toHaveBeenCalledWith(
       expect.stringContaining("Sehr geehrte Eltern"),
       "en",
+      expect.any(Object),
     )
     expect(firestoreSet).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -291,6 +292,7 @@ describe("panic scan upload route", () => {
     expect(analyzePanicMessage).toHaveBeenCalledWith(
       expect.stringContaining("I am very concerned about the homework situation this week."),
       "de",
+      expect.any(Object),
     )
     expect(firestoreSet).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -350,6 +352,7 @@ describe("panic scan upload route", () => {
     expect(analyzePanicMessage).toHaveBeenCalledWith(
       expect.stringContaining("My child came home upset after maths"),
       "de",
+      expect.any(Object),
     )
     expect(firestoreSet).toHaveBeenCalledWith(
       expect.objectContaining({

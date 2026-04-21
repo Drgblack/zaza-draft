@@ -1,6 +1,6 @@
 "use client"
 
-import { ChangeEvent, useEffect, useMemo, useState } from "react"
+import { ChangeEvent, useEffect, useMemo, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
@@ -22,6 +22,10 @@ export default function PanicScanPage() {
   const [aiConfigured, setAiConfigured] = useState(true)
   const [lastDiagnostics, setLastDiagnostics] = useState<Record<string, any> | null>(null)
   const [lastErrorMeta, setLastErrorMeta] = useState<{ stage?: string; code?: string } | null>(null)
+  const uploadInFlightRef = useRef(false)
+  const [pageSessionId] = useState(
+    () => globalThis.crypto?.randomUUID?.() ?? `panic-session-${Date.now()}`,
+  )
   const [errorDetails, setErrorDetails] = useState<
     | {
         code?: string
@@ -122,6 +126,10 @@ export default function PanicScanPage() {
   }, [status, getIdToken])
 
   const handleSubmit = async () => {
+    if (uploadInFlightRef.current || isUploading) {
+      return
+    }
+
     if (!aiConfigured) {
       setError(t("config.aiMissingReason"))
       return
@@ -137,6 +145,7 @@ export default function PanicScanPage() {
       return
     }
 
+    uploadInFlightRef.current = true
     setError(null)
     setIsUploading(true)
     try {
@@ -146,9 +155,12 @@ export default function PanicScanPage() {
       }
 
       const form = new FormData()
+      const uploadAttemptId =
+        globalThis.crypto?.randomUUID?.() ?? `${pageSessionId}-${Date.now()}`
       form.append("file", file)
       form.append("platform", platform)
-      form.append("sessionId", crypto.randomUUID())
+      form.append("sessionId", pageSessionId)
+      form.append("uploadAttemptId", uploadAttemptId)
       form.append("uiLocale", locale)
 
       const response = await fetch("/api/panic-scan/upload", {
@@ -247,6 +259,7 @@ export default function PanicScanPage() {
         uploadError instanceof Error ? uploadError.message : t("panicScan.error.uploadFailed"),
       )
     } finally {
+      uploadInFlightRef.current = false
       setIsUploading(false)
     }
   }

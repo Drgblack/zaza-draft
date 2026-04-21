@@ -84,10 +84,19 @@ export function isOpenAIBusyError(error: unknown) {
   )
 }
 
+export interface OpenAIRetryEvent {
+  context: string
+  retryAttempt: number
+  requestId?: string | null
+  status?: number
+  code?: string
+}
+
 export async function withOpenAIRetry<T>(
   operation: () => Promise<T>,
   options: {
     context?: string
+    onRetry?: (event: OpenAIRetryEvent) => void
   } = {},
 ): Promise<T> {
   let lastError: OpenAIRequestError | null = null
@@ -113,11 +122,19 @@ export async function withOpenAIRetry<T>(
         })
       }
 
-      console.warn("[openai] retrying request", {
+      const retryEvent: OpenAIRetryEvent = {
         context: options.context ?? "openai",
         requestId: normalizedError.requestId ?? null,
         retryAttempt: attemptIndex + 1,
+        status: normalizedError.status,
+        code: normalizedError.code,
+      }
+      console.warn("[openai] retrying request", {
+        context: retryEvent.context,
+        requestId: retryEvent.requestId,
+        retryAttempt: retryEvent.retryAttempt,
       })
+      options.onRetry?.(retryEvent)
       await delay(OPENAI_RETRY_DELAYS_MS[attemptIndex])
     }
   }
