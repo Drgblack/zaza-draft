@@ -50,7 +50,7 @@ const createDefaultPrefs = (): TeacherPrefs => ({
   signatureLine1: "",
   signatureLine2: undefined,
   signatureLine3: undefined,
-  autoAppendSignatureParentMessage: false,
+  autoAppendSignatureParentMessage: true,
   autoAppendSignatureReportComment: false,
   includeDraftSignature: undefined,
 })

@@ -1149,6 +1149,39 @@ describe("/api/draft/generate greeting handoff", () => {
     expect(json.data?.generatedDraft).not.toContain("Your child's teacher")
   })
 
+  it("still appends the final parent-message sign-off when the request carries a false auto-append flag", async () => {
+    const fallbackText = [
+      "Dear Parent/Carer,",
+      "Thank you for your message. I will review this tomorrow and follow up with the next steps.",
+    ].join("\n\n")
+    fallbackGenerator.mockResolvedValueOnce(buildFallbackResult(fallbackText))
+    const request = new Request("https://example.com/api/draft/generate", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: "Bearer token",
+      },
+      body: JSON.stringify({
+        situation:
+          "Need a calm parent update about homework, explain what I will check tomorrow, and confirm the follow-up I will send after that review.",
+        tone: "professional",
+        language: "en",
+        uiLocale: "en-GB",
+        mode: "parent_message",
+        signature: {
+          line1: "Dr Greg Blackburn",
+          autoAppendParentMessage: false,
+        },
+      }),
+    })
+
+    const response = await POST(request)
+    expect(response.status).toBe(200)
+    const json = await response.json()
+    expect(json.data?.generatedDraft).toContain("Kind regards,\nDr Greg Blackburn")
+    expect(json.data?.formattedDraft?.paragraphs.at(-1)).toBe("Kind regards,\nDr Greg Blackburn")
+  })
+
   it("anchors the English concern for Ella in the first paragraph", async () => {
     const englishOutput = [
       "Dear family,",

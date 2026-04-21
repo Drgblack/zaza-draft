@@ -116,6 +116,7 @@ const MODE_SEGMENT_OPTIONS = [
 
 type ToneKey = (typeof TONE_OPTIONS)[number]["id"]
 type RewriteMode = "standard" | "forward_safe"
+type DisplayModeKey = DraftMode | "documentation_mode"
 
 const TONE_STYLES: Record<
   ToneKey,
@@ -706,7 +707,29 @@ export function MainEditor({ canExport = true }: MainEditorProps = {}) {
   }, [history])
   const recentDraftsAvailable = history.length
   const usedDraftThisTerm = recentDraftsAvailable > 0 || usage.currentMonthUsage > 0
+  const documentationDisplayActive = documentationModeActive && mode === "parent_message"
+  const effectiveDisplayMode: DisplayModeKey = documentationDisplayActive
+    ? "documentation_mode"
+    : mode
   const selectedModeLabel = useMemo(
+    () =>
+      effectiveDisplayMode === "documentation_mode"
+        ? t("draft.documentation.badge")
+        : t(
+            effectiveDisplayMode === "report_comment"
+              ? MODE_LABEL_KEYS.report_comment
+              : MODE_LABEL_KEYS.parent_message,
+          ),
+    [effectiveDisplayMode, t],
+  )
+  const modeSwitchButtonLabel = documentationDisplayActive
+    ? t("editor.mode.switchToMessage")
+    : t("editor.mode.switchToDocumentation")
+  const selectedModeHelper = documentationDisplayActive
+    ? t("editor.mode.documentationHelper")
+    : t("editor.mode.helper")
+  const selectedModeStatus = documentationDisplayActive
+  const selectedModeLabelForInsights = useMemo(
     () => t(mode === "report_comment" ? MODE_LABEL_KEYS.report_comment : MODE_LABEL_KEYS.parent_message),
     [mode, t],
   )
@@ -1802,6 +1825,11 @@ export function MainEditor({ canExport = true }: MainEditorProps = {}) {
     handleGenerate({ rewrite: true, previousDraft: generatedDraft })
   }
 
+  const handleSwitchToMessageMode = () => {
+    rewriteSuggestionPendingRef.current = false
+    void handleGenerate()
+  }
+
   const handleActivateDocumentationMode = () => {
     sendDraftInteraction({
       event_name: "documentation_mode_enabled",
@@ -1869,7 +1897,7 @@ export function MainEditor({ canExport = true }: MainEditorProps = {}) {
               draftsCreatedThisWeek={draftsCreatedThisWeek}
               recentDraftsAvailable={recentDraftsAvailable}
               usedDraftThisTerm={usedDraftThisTerm}
-              selectedModeLabel={selectedModeLabel}
+              selectedModeLabel={selectedModeLabelForInsights}
             />
           )}
 
@@ -2057,16 +2085,22 @@ Examples:
 
           <section className="space-y-2">
             <span className="text-sm font-semibold text-gray-800 dark:text-gray-200 mb-2">{t("editor.mode.label")}</span>
-            <p className="text-xs text-gray-600 dark:text-gray-400 mb-3">{t("editor.mode.helper")}</p>
-            <div className="bg-white/10 border border-white/20 dark:bg-white/5 dark:border-white/10 rounded-xl p-1 shadow-inner">
-              <SegmentedControl
-                options={modeControlOptions}
-                value={mode}
-                onChange={(value) => handleModeChange(value as ModeKey)}
-                ariaLabel={t("editor.mode.label")}
-                className="border-none bg-transparent p-0 shadow-none"
-              />
-            </div>
+            <p className="text-xs text-gray-600 dark:text-gray-400 mb-3">{selectedModeHelper}</p>
+            {selectedModeStatus ? (
+              <div className="rounded-xl border border-slate-200 bg-white/90 px-4 py-3 text-sm font-semibold text-slate-800 shadow-sm dark:border-slate-600 dark:bg-slate-900/70 dark:text-slate-100">
+                {selectedModeLabel}
+              </div>
+            ) : (
+              <div className="bg-white/10 border border-white/20 dark:bg-white/5 dark:border-white/10 rounded-xl p-1 shadow-inner">
+                <SegmentedControl
+                  options={modeControlOptions}
+                  value={mode}
+                  onChange={(value) => handleModeChange(value as ModeKey)}
+                  ariaLabel={t("editor.mode.label")}
+                  className="border-none bg-transparent p-0 shadow-none"
+                />
+              </div>
+            )}
           </section>
 
           <section>
@@ -2717,12 +2751,13 @@ Examples:
               headerBadge={<SafetyBadge status={safeToSendAssessment?.status} />}
               headerBanner={<ProfessionalRiskBanner flags={displaySafetyAnalysis?.professionalRiskFlags} />}
               resultModeBadge={
-                documentationModeActive
-                  ? t("draft.documentation.badge")
+                documentationDisplayActive
+                  ? null
                   : draftMetadata?.forwardSafeRewrite
                     ? t("editor.rewriteMode.forwardSafeBadge")
                     : null
               }
+              modeLabelOverride={selectedModeLabel}
               documentationMode={documentationModeActive}
               draftAttribution={draftAttributionLine}
               rewriteSummary={draftAdjustmentSummary}
@@ -2764,8 +2799,16 @@ Examples:
               <DeescalationBanner summary={deescalationSummary} />
             )}
             <DocumentationModeButton
-              available={Boolean(safetyAnalysis?.documentationModeAvailable)}
-              onActivate={handleActivateDocumentationMode}
+              visible={
+                mode === "parent_message" &&
+                (documentationDisplayActive || Boolean(safetyAnalysis?.documentationModeAvailable))
+              }
+              label={modeSwitchButtonLabel}
+              onActivate={
+                documentationDisplayActive
+                  ? handleSwitchToMessageMode
+                  : handleActivateDocumentationMode
+              }
             />
           </div>
         )}

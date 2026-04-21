@@ -1067,7 +1067,7 @@ export async function POST(request: Request) {
   greetingText = enforceTitledGreetingSafeguard({
     greeting: greetingText,
     locale: greetingLocale,
-    mode,
+    mode: mode ?? undefined,
     direction: generationTrace?.metadata.direction,
     recipientTitle: greetingRecipientTitle,
     recipientSurname: greetingRecipientSurname,
@@ -1225,18 +1225,29 @@ export async function POST(request: Request) {
     }
 
   const { uid, firestore } = authContext
+  const requestedSignatureName = normalizeName(payload.signature?.line1 ?? null) || undefined
   const teacherProfileDisplayName =
     normalizeName(
       (authContext as { decodedToken?: { name?: string | null } })?.decodedToken?.name ?? null,
     ) || undefined
   const teacherSignatureName = resolveTeacherSignatureName(
     teacherProfileDisplayName,
-    payload.signature?.line1,
+    requestedSignatureName,
   )
+  const teacherSignatureSource =
+    requestedSignatureName && teacherSignatureName === requestedSignatureName
+      ? "request_signature_line1"
+      : teacherProfileDisplayName && teacherSignatureName === teacherProfileDisplayName
+        ? "auth_display_name"
+        : "fallback_placeholder"
+  const shouldForceParentMessageSignoff = mode === "parent_message"
   const resolvedSignature = resolveSignature({
     ...payload.signature,
     line1: teacherSignatureName,
     fallbackName: teacherSignatureName,
+    autoAppendParentMessage: shouldForceParentMessageSignoff
+      ? true
+      : payload.signature?.autoAppendParentMessage,
   })
   const isDevBypassRequest = devBypassActive
   const uidHash = createHash("sha256").update(uid).digest("hex").slice(0, 12)
@@ -1248,6 +1259,14 @@ export async function POST(request: Request) {
     ocr_used: generationTrace.ocrUsed,
     transcript_used: generationTrace.transcriptUsed,
     prompt_builder: generationMetadata.prompt_builder,
+  })
+  DEBUG_DRAFT_LOGS && console.info("[draft] signature resolution", {
+    requestId,
+    mode,
+    teacherSignatureName: teacherSignatureName ?? null,
+    teacherSignatureSource,
+    requestedAutoAppendParentMessage: payload.signature?.autoAppendParentMessage ?? null,
+    forcedParentMessageSignoff: shouldForceParentMessageSignoff,
   })
   const logDraftOutcome = (
     outcomeCode: string,

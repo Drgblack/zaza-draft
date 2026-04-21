@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 
 import "@testing-library/jest-dom"
-import { render, screen, within } from "@testing-library/react"
+import { act, fireEvent, render, screen, within } from "@testing-library/react"
 import { vi } from "vitest"
 import { DraftOutput } from "@/components/draft-output"
 import type { DraftStructure } from "@/lib/draft/format"
@@ -266,6 +266,51 @@ I wanted to give you a clear update about today's maths lesson.`}
     const body = screen.getByTestId("draft-output-body")
     const signature = within(body).getByText((text) => text.includes("Kind regards,") && text.includes("Dr Greg Blackburn"))
     expect(signature).toBeInTheDocument()
+  })
+
+  it("copies the fully assembled parent-message draft including the final teacher sign-off", async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined)
+    Object.defineProperty(navigator, "clipboard", {
+      value: { writeText },
+      configurable: true,
+    })
+
+    const staleStructure: DraftStructure = {
+      subject: "Homework update",
+      paragraphs: [
+        "Dear Parent/Carer,",
+        "I wanted to give you a clear update about today's maths lesson.",
+      ],
+    }
+
+    render(
+      <DraftOutput
+        {...baseProps}
+        draftText={`Subject: Homework update
+
+Dear Parent/Carer,
+
+I wanted to give you a clear update about today's maths lesson.`}
+        structure={staleStructure}
+        metadata={{
+          ...baseProps.metadata,
+          signatureBlock: "Dr Greg Blackburn",
+        }}
+      />,
+    )
+
+    const copyButton = screen.getAllByRole("button", { name: "Copy to Clipboard" })[0]
+    await act(async () => {
+      fireEvent.click(copyButton)
+    })
+
+    expect(writeText).toHaveBeenCalledWith(`Subject: Homework update
+
+Dear Parent/Carer,
+
+I wanted to give you a clear update about today's maths lesson.
+Kind regards,
+Dr Greg Blackburn`)
   })
 
   it("renders the repaired unknown-recipient greeting as its own line in the final output", () => {

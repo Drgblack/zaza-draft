@@ -22,6 +22,7 @@ import { logClientEvent, TRUST_FUNNEL_EVENTS } from "@/lib/analytics"
 interface DraftOutputProps {
   draftText: string
   tone: string
+  modeLabelOverride?: string
   metadata: {
     generationTime: number
     wordCount: number
@@ -52,6 +53,7 @@ interface DraftOutputProps {
 export function DraftOutput({
   draftText,
   tone,
+  modeLabelOverride,
   metadata,
   structure,
   onSave,
@@ -80,7 +82,7 @@ export function DraftOutput({
   const searchParams = useSearchParams()
   const showDiagnostics = isDebugEnabled(searchParams)
   const modeKey = (metadata.modeUsed ?? DEFAULT_DRAFT_MODE) as keyof typeof MODE_LABEL_KEYS
-  const modeLabel = t(MODE_LABEL_KEYS[modeKey])
+  const modeLabel = modeLabelOverride ?? t(MODE_LABEL_KEYS[modeKey])
   const { displaySubject, displayParagraphs, signatureParagraph } = useMemo(() => {
     const parsedDraftText = formatDraftText(draftText, locale)
     const baseStructure = structure ?? parsedDraftText
