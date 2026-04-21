@@ -1,3 +1,12 @@
+import {
+  extractOpenAIRequestId,
+  isOpenAIBusyError,
+  isRetryableOpenAIError,
+  OpenAIRequestError,
+  toOpenAIRequestError,
+  withOpenAIRetry,
+} from "@/lib/ai/openai-retry"
+
 const OPENAI_CHAT_URL = "https://api.openai.com/v1/chat/completions"
 
 export type ZaraLanguage = "en" | "de"
@@ -42,34 +51,49 @@ interface FetchPayload {
 async function queryOpenAI(payload: FetchPayload) {
   const openAiKey = process.env.OPENAI_API_KEY
   if (!openAiKey) {
-    throw new Error("Missing AI provider key (OPENAI_API_KEY)")
+    throw new OpenAIRequestError("Missing AI provider key (OPENAI_API_KEY)")
   }
 
-  const response = await fetch(OPENAI_CHAT_URL, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${openAiKey}`,
-    },
-    body: JSON.stringify(payload),
-  })
+  const json = await withOpenAIRetry(async () => {
+    let response: Response
+    try {
+      response = await fetch(OPENAI_CHAT_URL, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${openAiKey}`,
+        },
+        body: JSON.stringify(payload),
+      })
+    } catch (error) {
+      throw toOpenAIRequestError(error, "AI request failed")
+    }
 
-  const text = await response.text()
-  let json: any
-  try {
-    json = JSON.parse(text)
-  } catch {
-    json = null
-  }
+    const text = await response.text()
+    let parsed: any
+    try {
+      parsed = JSON.parse(text)
+    } catch {
+      throw new OpenAIRequestError("AI provider returned invalid JSON")
+    }
 
-  if (!response.ok) {
-    const message = json?.error?.message ?? response.statusText ?? "AI request failed"
-    throw new Error(message)
-  }
+    if (!response.ok) {
+      throw new OpenAIRequestError(
+        parsed?.error?.message ?? response.statusText ?? "AI request failed",
+        {
+          status: response.status,
+          code: parsed?.error?.code ?? parsed?.error?.type,
+          requestId: extractOpenAIRequestId(response, parsed),
+        },
+      )
+    }
+
+    return parsed
+  }, { context: "zara.chat" })
 
   const reply = json?.choices?.[0]?.message?.content?.trim()
   if (!reply) {
-    throw new Error("AI provider returned no reply")
+    throw new OpenAIRequestError("AI provider returned no reply")
   }
 
   return reply
@@ -80,7 +104,7 @@ export async function generateZaraReply(message: string, locale?: string | null)
   const fallbackModel = process.env.OPENAI_MODEL_FALLBACK
   const models = [primaryModel, fallbackModel].filter((model): model is string => Boolean(model))
   if (!models.length) {
-    throw new Error("Missing AI model configuration (OPENAI_MODEL_PRIMARY or OPENAI_MODEL)")
+    throw new OpenAIRequestError("Missing AI model configuration (OPENAI_MODEL_PRIMARY or OPENAI_MODEL)")
   }
 
   const systemPrompt = buildZaraSystemPrompt(locale)
@@ -98,9 +122,12 @@ export async function generateZaraReply(message: string, locale?: string | null)
     try {
       return await queryOpenAI({ ...payload, model })
     } catch (error) {
-      lastError = error instanceof Error ? error : new Error("AI request failed")
+      lastError = error instanceof Error ? error : new OpenAIRequestError("AI request failed")
+      if (isOpenAIBusyError(error) || !isRetryableOpenAIError(error)) {
+        break
+      }
     }
   }
 
-  throw lastError ?? new Error("AI request failed")
+  throw lastError ?? new OpenAIRequestError("AI request failed")
 }

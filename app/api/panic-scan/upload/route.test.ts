@@ -12,6 +12,7 @@ import { enforcePerUserRateLimit } from "@/lib/rate-limit"
 import { performVisionOcr } from "@/lib/panic-scan/ocr"
 import { cleanOcrText } from "@/lib/panic-scan/clean-ocr"
 import { analyzePanicMessage } from "@/lib/panic-scan/analysis"
+import { OPENAI_BUSY_MESSAGE, OpenAIRequestError } from "@/lib/ai/openai-retry"
 
 const storageSave = vi.fn().mockResolvedValue(undefined)
 const firestoreSet = vi.fn().mockResolvedValue(undefined)
@@ -111,6 +112,39 @@ describe("panic scan upload route", () => {
     expect(body.diagnostics.aiConfigured).toBe(true)
     expect(body.requestId).toBeDefined()
     expect(response.headers.get("x-request-id")).toBe(body.requestId)
+  })
+
+  it("returns a clean busy message when OpenAI retries are exhausted", async () => {
+    vi.mocked(analyzePanicMessage).mockRejectedValue(
+      new OpenAIRequestError(OPENAI_BUSY_MESSAGE, {
+        status: 429,
+        requestId: "req_openai_busy",
+        retryExhausted: true,
+        userMessage: OPENAI_BUSY_MESSAGE,
+      }),
+    )
+
+    const request = {
+      formData: async () => createFakeFormData(),
+      headers: new Headers({
+        Authorization: "Bearer token",
+      }),
+    } as unknown as Request
+
+    const response = await POST(request)
+    const body = await response.json()
+
+    expect(response.status).toBe(503)
+    expect(body.ok).toBe(false)
+    expect(body.error.code).toBe("PROCESSING_FAILED")
+    expect(body.error.message).toBe(OPENAI_BUSY_MESSAGE)
+    expect(firestoreSet).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        status: "failed",
+        failureReason: OPENAI_BUSY_MESSAGE,
+      }),
+      { merge: true },
+    )
   })
 
   it("rejects suspicious client paths instead of an uploaded file", async () => {

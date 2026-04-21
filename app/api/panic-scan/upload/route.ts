@@ -3,6 +3,7 @@ import { randomUUID } from "crypto"
 import { authorizeFirebaseRequest } from "@/lib/firebase/server"
 import { enforcePerUserRateLimit, RateLimitError } from "@/lib/rate-limit"
 import { analyzePanicMessage } from "@/lib/panic-scan/analysis"
+import { OPENAI_BUSY_MESSAGE, isOpenAIBusyError } from "@/lib/ai/openai-retry"
 import { cleanOcrText } from "@/lib/panic-scan/clean-ocr"
 import { canonicalizeLocaleIdentifier } from "@/lib/draft/language"
 import { resolvePanicScanLocale } from "@/lib/panic-scan/locale"
@@ -394,7 +395,12 @@ export async function POST(request: Request) {
         requestId,
       })
     } catch (error) {
-      const message = error instanceof Error ? error.message : "Processing error"
+      const busyError = isOpenAIBusyError(error)
+      const message = busyError
+        ? OPENAI_BUSY_MESSAGE
+        : error instanceof Error
+          ? error.message
+          : "Processing error"
       await scanRef.set(
         {
           status: "failed",
@@ -407,6 +413,7 @@ export async function POST(request: Request) {
         code: "PROCESSING_FAILED",
         message,
         stage: "analysis",
+        status: busyError ? 503 : 500,
         diagnostics,
         requestId,
       })

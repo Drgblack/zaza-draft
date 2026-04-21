@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import { randomUUID } from "crypto"
 import { authorizeFirebaseRequest, FirebaseAuthorizationError } from "@/lib/firebase/server"
 import { generateZaraReply } from "@/lib/ai/zara"
+import { OPENAI_BUSY_MESSAGE, isOpenAIBusyError } from "@/lib/ai/openai-retry"
 
 interface ZaraChatRequest {
   message?: string
@@ -72,7 +73,12 @@ export async function POST(request: Request) {
       },
     })
   } catch (error) {
-    const status = error instanceof Error && error.message.includes("Missing") ? 500 : 502
+    const busyError = isOpenAIBusyError(error)
+    const status = busyError
+      ? 503
+      : error instanceof Error && error.message.includes("Missing")
+        ? 500
+        : 502
     console.error("[zara] chat error", {
       requestId,
       uid: authContext?.uid ?? "unknown",
@@ -84,7 +90,11 @@ export async function POST(request: Request) {
         success: false,
         error: {
           code: "AI_ERROR",
-          message: error instanceof Error ? error.message : "Unable to call AI",
+          message: busyError
+            ? OPENAI_BUSY_MESSAGE
+            : error instanceof Error
+              ? error.message
+              : "Unable to call AI",
           status,
           requestId,
         },

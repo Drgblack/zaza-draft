@@ -1,4 +1,12 @@
 import type { Message } from "@/lib/ai/types"
+import {
+  extractOpenAIRequestId,
+  isOpenAIBusyError,
+  isRetryableOpenAIError,
+  OpenAIRequestError,
+  toOpenAIRequestError,
+  withOpenAIRetry,
+} from "@/lib/ai/openai-retry"
 
 const API_URL = "https://api.openai.com/v1/chat/completions"
 const DEFAULT_GENERATION_SEED = 23
@@ -10,37 +18,15 @@ function getApiKey() {
 function resolveModels() {
   const primary = process.env.OPENAI_MODEL_PRIMARY ?? process.env.OPENAI_MODEL
   if (!primary) {
-    throw new OpenAIClientError("Missing OpenAI model configuration (OPENAI_MODEL_PRIMARY or OPENAI_MODEL)")
+    throw new OpenAIRequestError(
+      "Missing OpenAI model configuration (OPENAI_MODEL_PRIMARY or OPENAI_MODEL)",
+    )
   }
 
   return {
     primary,
     fallback: process.env.OPENAI_MODEL_FALLBACK ?? null,
   }
-}
-
-class OpenAIClientError extends Error {
-  constructor(message: string, public status?: number, public code?: string) {
-    super(message)
-    this.name = "OpenAIClientError"
-  }
-}
-
-function isTransientError(error: unknown) {
-  if (error instanceof OpenAIClientError) {
-    if (typeof error.status === "number") {
-      return [429, 500, 502, 503, 504].includes(error.status)
-    }
-  }
-  if (error instanceof Error) {
-    const message = error.message.toLowerCase()
-    return (
-      message.includes("timeout") ||
-      message.includes("rate limit") ||
-      message.includes("network")
-    )
-  }
-  return false
 }
 
 interface CallOptions {
@@ -60,7 +46,7 @@ interface CallResult {
 async function callModel(messages: Message[], model: string, options: CallOptions): Promise<CallResult> {
   const apiKey = getApiKey()
   if (!apiKey) {
-    throw new OpenAIClientError("Missing OpenAI API key (OPENAI_API_KEY)")
+    throw new OpenAIRequestError("Missing OpenAI API key (OPENAI_API_KEY)")
   }
 
   const envSeed = process.env.OPENAI_GENERATION_SEED?.trim()
@@ -82,66 +68,76 @@ async function callModel(messages: Message[], model: string, options: CallOption
   }
 
   const requestOnce = async (requestPayload: Record<string, unknown>) => {
-    const response = await fetch(API_URL, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify(requestPayload),
-    })
+    let response: Response
+    try {
+      response = await fetch(API_URL, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${apiKey}`,
+        },
+        body: JSON.stringify(requestPayload),
+      })
+    } catch (error) {
+      throw toOpenAIRequestError(error)
+    }
     const text = await response.text()
     return { response, text }
   }
 
-  let { response, text } = await requestOnce(payload)
-  if (!response.ok) {
-    let errorId: string | undefined
-    let errorMessage = ""
-    try {
-      const json = JSON.parse(text)
-      errorId = json?.error?.code
-      errorMessage = String(json?.error?.message ?? "").toLowerCase()
-    } catch {
-      // ignore
+  const { response, text } = await withOpenAIRetry(async () => {
+    let currentPayload = payload
+    let currentResponse = await requestOnce(currentPayload)
+
+    if (!currentResponse.response.ok) {
+      let errorId: string | undefined
+      let errorMessage = ""
+      try {
+        const json = JSON.parse(currentResponse.text)
+        errorId = json?.error?.code
+        errorMessage = String(json?.error?.message ?? "").toLowerCase()
+      } catch {
+        // ignore
+      }
+
+      if (
+        Object.prototype.hasOwnProperty.call(currentPayload, "seed") &&
+        currentResponse.response.status === 400 &&
+        (errorId === "unsupported_parameter" || errorMessage.includes("seed"))
+      ) {
+        currentPayload = { ...currentPayload }
+        delete (currentPayload as { seed?: number }).seed
+        currentResponse = await requestOnce(currentPayload)
+      }
     }
 
-    if (
-      Object.prototype.hasOwnProperty.call(payload, "seed") &&
-      response.status === 400 &&
-      (errorId === "unsupported_parameter" || errorMessage.includes("seed"))
-    ) {
-      const payloadWithoutSeed = { ...payload }
-      delete (payloadWithoutSeed as { seed?: number }).seed
-      ;({ response, text } = await requestOnce(payloadWithoutSeed))
+    if (!currentResponse.response.ok) {
+      let json: any
+      try {
+        json = JSON.parse(currentResponse.text)
+      } catch {
+        json = null
+      }
+      throw new OpenAIRequestError(`${currentResponse.response.status} ${currentResponse.response.statusText}`, {
+        status: currentResponse.response.status,
+        code: json?.error?.code,
+        requestId: extractOpenAIRequestId(currentResponse.response, json),
+      })
     }
-  }
 
-  if (!response.ok) {
-    let errorId: string | undefined
-    try {
-      const json = JSON.parse(text)
-      errorId = json?.error?.code
-    } catch {
-      // ignore
-    }
-    throw new OpenAIClientError(
-      `${response.status} ${response.statusText}`,
-      response.status,
-      errorId,
-    )
-  }
+    return currentResponse
+  }, { context: "chat.completions" })
 
   let json: any
   try {
     json = JSON.parse(text)
   } catch {
-    throw new OpenAIClientError("OpenAI returned invalid JSON response")
+    throw new OpenAIRequestError("OpenAI returned invalid JSON response")
   }
 
   const content = json?.choices?.[0]?.message?.content?.trim()
   if (!content) {
-    throw new OpenAIClientError("OpenAI returned empty response")
+    throw new OpenAIRequestError("OpenAI returned empty response")
   }
 
   return {
@@ -165,15 +161,15 @@ export async function runChatWithFallback(messages: Message[], options: CallOpti
       return await callModel(messages, model, options)
     } catch (error) {
       lastError = error
-      if (!isTransientError(error)) {
+      if (isOpenAIBusyError(error) || !isRetryableOpenAIError(error)) {
         break
       }
     }
   }
 
-  if (lastError instanceof OpenAIClientError) {
+  if (lastError instanceof OpenAIRequestError) {
     throw lastError
   }
 
-  throw new OpenAIClientError("OpenAI request failed")
+  throw new OpenAIRequestError("OpenAI request failed")
 }
