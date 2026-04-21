@@ -1120,6 +1120,35 @@ describe("/api/draft/generate greeting handoff", () => {
     expect((generatedDraft.match(/Dr Greg Blackburn/g) ?? []).length).toBe(1)
   })
 
+  it("uses the exact authenticated profile name Dr Greg Blackburn in the final parent-message sign-off", async () => {
+    const fallbackText = [
+      "Dear Parent/Carer,",
+      "Thank you for your message. I will review this carefully and come back to you with the next steps.",
+    ].join("\n\n")
+    fallbackGenerator.mockResolvedValueOnce(buildFallbackResult(fallbackText))
+    const request = new Request("https://example.com/api/draft/generate", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: "Bearer token",
+      },
+      body: JSON.stringify({
+        situation:
+          "Need a calm parent update about a homework concern, the support I will put in place tomorrow, and the follow-up I will send after checking the detail in school.",
+        tone: "professional",
+        language: "en",
+        uiLocale: "en-GB",
+        mode: "parent_message",
+      }),
+    })
+
+    const response = await POST(request)
+    expect(response.status).toBe(200)
+    const json = await response.json()
+    expect(json.data?.formattedDraft?.paragraphs.at(-1)).toBe("Kind regards,\nDr Greg Blackburn")
+    expect(json.data?.generatedDraft).not.toContain("Your child's teacher")
+  })
+
   it("anchors the English concern for Ella in the first paragraph", async () => {
     const englishOutput = [
       "Dear family,",
@@ -1264,6 +1293,44 @@ describe("/api/draft/generate greeting handoff", () => {
       language: "en",
       uiLocale: "en-GB",
       mode: "parent_message",
+      situationRaw: "Sharing a follow-up.\nKind regards\nMs Parker\n",
+    }
+    const request = new Request("https://example.com/api/draft/generate", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: "Bearer token",
+      },
+      body: JSON.stringify(payload),
+    })
+
+    const response = await POST(request)
+    expect(response.status).toBe(200)
+    const json = await response.json()
+    const generatedDraft = json.data?.generatedDraft ?? ""
+    expect(json.data?.greeting?.text).toBe("Dear Ms Parker,")
+    expect(generatedDraft).toContain("\n\nDear Ms Parker,\n\n")
+    expect(generatedDraft).not.toContain("Hello Parker")
+  })
+
+  it("replaces a bare-surname English greeting when the raw source detected Ms Parker", async () => {
+    const fallbackDraft = [
+      "Thank you for getting in touch about this.",
+      "I will review what happened and follow up with the next steps.",
+    ].join("\n\n")
+    fallbackGenerator.mockResolvedValueOnce(buildFallbackResult(fallbackDraft))
+    const payload = {
+      situation: englishGreetingSituation,
+      tone: "professional",
+      language: "en",
+      uiLocale: "en-GB",
+      mode: "parent_message",
+      greeting: {
+        text: "Hello Parker,",
+        confidence: "HIGH",
+        source: "resolved-name",
+        name: "Ms Parker",
+      },
       situationRaw: "Sharing a follow-up.\nKind regards\nMs Parker\n",
     }
     const request = new Request("https://example.com/api/draft/generate", {

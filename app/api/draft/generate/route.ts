@@ -772,6 +772,47 @@ function detectExtraSignoffName(raw: string, locale: GreetingLocale, policy: Gre
     return normalizeParentFacingGreetingLine(normalized, locale)
   }
 
+function enforceTitledGreetingSafeguard(options: {
+  greeting: string
+  locale: GreetingLocale
+  mode?: DraftMode
+  direction?: GenerationMetadata["direction"]
+  recipientTitle?: string | null
+  recipientSurname?: string | null
+}) {
+  const greeting = normalizeGreetingValue(options.greeting, options.locale)
+  if (!greeting) {
+    return greeting
+  }
+  if (options.mode !== "parent_message" || options.direction === "report_comment") {
+    return greeting
+  }
+
+  const recipientTitle = normalizeName(options.recipientTitle)
+  const recipientSurname = normalizeName(options.recipientSurname)
+  if (!recipientTitle || !recipientSurname || options.locale !== "en") {
+    return greeting
+  }
+
+  const titledGreetingPattern = new RegExp(
+    `\\b${escapeRegExp(recipientTitle)}\\s+${escapeRegExp(recipientSurname)}\\b`,
+    "i",
+  )
+  if (titledGreetingPattern.test(greeting)) {
+    return greeting
+  }
+
+  const bareSurnameGreetingPattern = new RegExp(
+    `^(dear|hello|hi)\\s+${escapeRegExp(recipientSurname)},?$`,
+    "i",
+  )
+  if (bareSurnameGreetingPattern.test(greeting)) {
+    return `Dear ${recipientTitle} ${recipientSurname},`
+  }
+
+  return greeting
+}
+
 function resolveGreetingFromRawText(
   raw: string,
   language: string | undefined,
@@ -977,6 +1018,12 @@ export async function POST(request: Request) {
   }
   let greetingFinal = Boolean(payload.greetingFinal && greetingText)
   const greetingLocale: GreetingLocale = language?.toLowerCase().startsWith("de") ? "de" : "en"
+  if (greetingName) {
+    const recipient = summarizeRecipientName(greetingName, greetingLocale)
+    greetingRecipientTitle = greetingRecipientTitle ?? recipient.title
+    greetingRecipientSurname = greetingRecipientSurname ?? recipient.surname
+    greetingRecipientDisplayName = greetingRecipientDisplayName ?? recipient.displayName
+  }
   const normalizedRequestGreeting = greetingText.replace(/\s+/g, " ").trim()
   const shouldResetGreeting =
     Boolean(greetingText) &&
@@ -1016,6 +1063,15 @@ export async function POST(request: Request) {
       greetingFinal = resolvedGreeting.final
     }
   }
+
+  greetingText = enforceTitledGreetingSafeguard({
+    greeting: greetingText,
+    locale: greetingLocale,
+    mode,
+    direction: generationTrace?.metadata.direction,
+    recipientTitle: greetingRecipientTitle,
+    recipientSurname: greetingRecipientSurname,
+  })
 
   if (!greetingFinal && greetingText && mode === "parent_message" && generationTrace?.metadata.direction !== "report_comment") {
     greetingFinal = true
