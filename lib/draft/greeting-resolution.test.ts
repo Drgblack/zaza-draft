@@ -55,6 +55,36 @@ describe("resolveGreeting", () => {
     expect(greeting.greeting).toBe("Hello John,")
   })
 
+  it("preserves Ms title in English parent greetings", () => {
+    const text = "Kind regards\nMs Parker\n"
+    const greeting = resolveGreeting({
+      cleanedOcrText: text,
+      locale: "en",
+      mode: "parent_message",
+      direction: "parent_to_teacher",
+      tone: "professional",
+    })
+    expect(greeting.greeting).toBe("Dear Ms Parker,")
+    expect(greeting.greeting).not.toContain("Hello Parker")
+    expect(greeting.recipientTitle).toBe("Ms")
+    expect(greeting.recipientSurname).toBe("Parker")
+  })
+
+  it("preserves Mr title in English parent greetings", () => {
+    const text = "Best regards\nMr Ahmed\n"
+    const greeting = resolveGreeting({
+      cleanedOcrText: text,
+      locale: "en",
+      mode: "parent_message",
+      direction: "parent_to_teacher",
+      tone: "professional",
+    })
+    expect(greeting.greeting).toBe("Dear Mr Ahmed,")
+    expect(greeting.greeting).not.toContain("Hi Ahmed")
+    expect(greeting.recipientTitle).toBe("Mr")
+    expect(greeting.recipientSurname).toBe("Ahmed")
+  })
+
   it("falls back to a generic English greeting when the parent name is unknown", () => {
     const text = "Best regards\nOpen in Gmail\n"
     const greeting = resolveGreeting({

@@ -4,9 +4,6 @@ const PLACEHOLDER_SIGNATURE_NAMES = new Set([
   "[lehrkraft name]",
 ])
 
-const LEADING_TITLE_PATTERN =
-  /^(mr|mrs|ms|miss|mx|dr|prof|professor)\.?\s+/i
-
 function normalizeCandidate(value?: string | null) {
   if (!value) {
     return ""
@@ -24,15 +21,21 @@ export function resolveTeacherSignatureName(
 ): string | undefined {
   const explicitSignature = normalizeCandidate(storedSignatureName)
   const fallbackDisplayName = normalizeCandidate(userDisplayName)
-  const candidate = explicitSignature || fallbackDisplayName.replace(LEADING_TITLE_PATTERN, "")
-  if (!candidate) {
+  if (explicitSignature) {
+    const normalizedExplicitSignature = explicitSignature.toLowerCase()
+    if (!PLACEHOLDER_SIGNATURE_NAMES.has(normalizedExplicitSignature)) {
+      return explicitSignature
+    }
+  }
+
+  if (!fallbackDisplayName) {
     return undefined
   }
 
-  const normalized = candidate.toLowerCase()
-  if (PLACEHOLDER_SIGNATURE_NAMES.has(normalized)) {
+  const normalizedFallbackDisplayName = fallbackDisplayName.toLowerCase()
+  if (PLACEHOLDER_SIGNATURE_NAMES.has(normalizedFallbackDisplayName)) {
     return undefined
   }
 
-  return candidate
+  return fallbackDisplayName
 }

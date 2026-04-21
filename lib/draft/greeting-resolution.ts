@@ -129,6 +129,12 @@ function resolveGreetingFormality(
   return "standard" satisfies GreetingFormality
 }
 
+export interface RecipientNameParts {
+  title: string | null
+  surname: string | null
+  displayName: string | null
+}
+
 interface ParsedName {
   cleaned: string
   firstName: string | null
@@ -205,6 +211,31 @@ interface GreetingPolicyInput {
   allowEnglishFullName?: boolean
 }
 
+function resolveEnglishSalutationTitle(parsed: ParsedName) {
+  if (parsed.honorific) {
+    return ENGLISH_HONORIFICS.get(parsed.honorific.toLowerCase()) ?? parsed.honorific.replace(/\.\s*$/, "")
+  }
+  if (parsed.academicTitles.length > 0) {
+    return parsed.academicTitles[0].replace(/\.\s*$/, "")
+  }
+  return null
+}
+
+export function summarizeRecipientName(
+  fullName: string,
+  locale: GreetingLocale,
+): RecipientNameParts {
+  const parsed = parseNameParts(fullName)
+  return {
+    title:
+      locale === "en"
+        ? resolveEnglishSalutationTitle(parsed)
+        : parsed.honorific ?? parsed.academicTitles[0] ?? null,
+    surname: parsed.lastName,
+    displayName: parsed.cleaned || parsed.displayName || null,
+  }
+}
+
 function buildNamedGreeting(fullName: string, input: GreetingPolicyInput): string {
   const parsed = parseNameParts(fullName)
   const formality = resolveGreetingFormality(input.locale, input.tone, input.messageType)
@@ -214,14 +245,10 @@ function buildNamedGreeting(fullName: string, input: GreetingPolicyInput): strin
   }
 
   if (input.locale === "en") {
-    const englishHonorific = parsed.honorific
-      ? ENGLISH_HONORIFICS.get(parsed.honorific.toLowerCase())
-      : null
-    if (englishHonorific && parsed.lastName && formality === "formal") {
-      return `Dear ${englishHonorific} ${parsed.lastName},`
-    }
-    if (parsed.academicTitles.length && parsed.displayName) {
-      return `Hello ${parsed.displayName},`
+    const englishSalutationTitle = resolveEnglishSalutationTitle(parsed)
+    const addressedSurname = parsed.lastName ?? parsed.firstName
+    if (englishSalutationTitle && addressedSurname) {
+      return `Dear ${englishSalutationTitle} ${addressedSurname},`
     }
     if (parsed.firstName) {
       return `Hello ${parsed.firstName},`
@@ -410,6 +437,9 @@ export type GreetingSource = "resolved-name" | "generic-fallback"
 export interface GreetingResult {
   greeting: string
   safeName?: string
+  recipientTitle?: string | null
+  recipientSurname?: string | null
+  recipientDisplayName?: string | null
   confidence: NameConfidenceLevel
   source: GreetingSource
   final: boolean
@@ -419,6 +449,9 @@ export interface GreetingDecision {
   greeting: string
   source: GreetingSource
   safeParentName: string | null
+  recipientTitle?: string | null
+  recipientSurname?: string | null
+  recipientDisplayName?: string | null
   confidence: NameConfidenceLevel
   locale: GreetingLocale
   messageType?: string
@@ -437,6 +470,25 @@ export interface ResolveGreetingArgs {
   allowEnglishFullName?: boolean
 }
 
+function buildGreetingResultFromResolvedName(
+  rawName: string,
+  confidence: NameConfidenceLevel,
+  locale: GreetingLocale,
+  policyInput: GreetingPolicyInput,
+): GreetingResult {
+  const recipient = summarizeRecipientName(rawName, locale)
+  return {
+    greeting: normalizeParentFacingGreetingLine(greetingWithName(locale, rawName, policyInput), locale),
+    safeName: rawName,
+    recipientTitle: recipient.title,
+    recipientSurname: recipient.surname,
+    recipientDisplayName: recipient.displayName,
+    confidence,
+    source: "resolved-name",
+    final: true,
+  }
+}
+
 export function resolveGreeting(args: ResolveGreetingArgs): GreetingResult {
   const locale = args.locale === "de" ? "de" : "en"
   const override = args.recipientOverride?.trim()
@@ -453,6 +505,9 @@ export function resolveGreeting(args: ResolveGreetingArgs): GreetingResult {
   if (!isParentFacingMode(args.mode, args.direction)) {
     return {
       greeting: "",
+      recipientTitle: null,
+      recipientSurname: null,
+      recipientDisplayName: null,
       confidence: "NONE",
       source: "generic-fallback",
       final: false,
@@ -462,13 +517,7 @@ export function resolveGreeting(args: ResolveGreetingArgs): GreetingResult {
   if (override) {
     const overrideScore = scoreSafeName(override, locale)
     if (overrideScore.level === "HIGH" || overrideScore.level === "MEDIUM") {
-      return {
-        greeting: normalizeParentFacingGreetingLine(greetingWithName(locale, override, policyInput), locale),
-        safeName: override,
-        confidence: overrideScore.level,
-        source: "resolved-name",
-        final: true,
-      }
+      return buildGreetingResultFromResolvedName(override, overrideScore.level, locale, policyInput)
     }
   }
 
@@ -476,21 +525,15 @@ export function resolveGreeting(args: ResolveGreetingArgs): GreetingResult {
   if (signatureName) {
     const signatureScore = scoreSafeName(signatureName, locale)
     if (signatureScore.level === "HIGH" || signatureScore.level === "MEDIUM") {
-      return {
-        greeting: normalizeParentFacingGreetingLine(
-          greetingWithName(locale, signatureName, policyInput),
-          locale,
-        ),
-        safeName: signatureName,
-        confidence: signatureScore.level,
-        source: "resolved-name",
-        final: true,
-      }
+      return buildGreetingResultFromResolvedName(signatureName, signatureScore.level, locale, policyInput)
     }
   }
 
   return {
     greeting: normalizeParentFacingGreetingLine(buildFallbackGreeting(policyInput), locale),
+    recipientTitle: null,
+    recipientSurname: null,
+    recipientDisplayName: null,
     confidence: "NONE",
     source: "generic-fallback",
     final: true,

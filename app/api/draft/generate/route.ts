@@ -68,6 +68,7 @@ import {
   GreetingDecision,
   greetingWithName,
   normalizeParentFacingGreetingLine,
+  summarizeRecipientName,
   type GreetingLocale,
   type GreetingSource,
   logGreetingDecision,
@@ -189,10 +190,14 @@ function detectTrailingName(raw: string, locale: GreetingLocale, policy: Greetin
     if (score.level === "NONE") {
       continue
     }
+    const recipient = summarizeRecipientName(candidate, locale)
     return {
       greeting: greetingWithName(locale, candidate, policy),
       confidence: score.level,
       safeName: candidate,
+      recipientTitle: recipient.title,
+      recipientSurname: recipient.surname,
+      recipientDisplayName: recipient.displayName,
       source: "resolved-name" as GreetingSource,
       final: true,
     }
@@ -734,10 +739,14 @@ function detectExtraSignoffName(raw: string, locale: GreetingLocale, policy: Gre
       const candidate = lines[index + 1]
       const score = scoreSafeName(candidate, locale)
       if (score.level === "MEDIUM" || score.level === "HIGH") {
+        const recipient = summarizeRecipientName(candidate, locale)
         return {
           greeting: greetingWithName(locale, candidate, policy),
           confidence: score.level,
           safeName: candidate,
+          recipientTitle: recipient.title,
+          recipientSurname: recipient.surname,
+          recipientDisplayName: recipient.displayName,
           source: "resolved-name" as GreetingSource,
           final: true,
         }
@@ -812,6 +821,9 @@ function resolveGreetingFromRawText(
     greeting: normalizedGreeting || greetingResult.greeting,
     confidence: greetingResult.confidence,
     safeName: normalizedSafeName ?? null,
+    recipientTitle: greetingResult.recipientTitle ?? null,
+    recipientSurname: greetingResult.recipientSurname ?? null,
+    recipientDisplayName: greetingResult.recipientDisplayName ?? null,
     source: greetingResult.source,
     final: Boolean(greetingResult.final && (normalizedGreeting || greetingResult.greeting)),
   }
@@ -957,6 +969,9 @@ export async function POST(request: Request) {
   let greetingConfidence = payload.greetingConfidence ?? payload.greeting?.confidence ?? "NONE"
   let greetingSource = payload.greetingSource ?? payload.greeting?.source ?? "generic-fallback"
   let greetingName = payload.greeting?.name ? normalizeName(payload.greeting.name) : null
+  let greetingRecipientTitle: string | null = null
+  let greetingRecipientSurname: string | null = null
+  let greetingRecipientDisplayName: string | null = null
   if (!greetingName) {
     greetingName = null
   }
@@ -989,6 +1004,9 @@ export async function POST(request: Request) {
       greetingText = normalizeGreetingValue(resolvedGreeting.greeting, greetingLocale)
       greetingConfidence = resolvedGreeting.confidence
       greetingSource = resolvedGreeting.source
+      greetingRecipientTitle = resolvedGreeting.recipientTitle ?? null
+      greetingRecipientSurname = resolvedGreeting.recipientSurname ?? null
+      greetingRecipientDisplayName = resolvedGreeting.recipientDisplayName ?? null
       const normalizedResolvedName = resolvedGreeting.safeName
         ? normalizeName(resolvedGreeting.safeName)
         : null
@@ -1013,6 +1031,9 @@ export async function POST(request: Request) {
   const greetingDecision: GreetingDecision = {
     greeting: greetingText,
     safeParentName: greetingName,
+    recipientTitle: greetingRecipientTitle,
+    recipientSurname: greetingRecipientSurname,
+    recipientDisplayName: greetingRecipientDisplayName,
     confidence: greetingConfidence,
     source: greetingSource,
     locale: greetingLocale,
@@ -1032,13 +1053,6 @@ export async function POST(request: Request) {
       : ""
   const sanitizedStudentFirstName = cleanStudentName(studentFirstNameInput)
   const studentNameForPayload = sanitizedStudentFirstName || ""
-
-  const teacherSignatureName = resolveTeacherSignatureName(undefined, payload.signature?.line1)
-
-  const resolvedSignature = resolveSignature({
-    ...payload.signature,
-    fallbackName: studentNameForPayload || undefined,
-  })
 
   if (mode === null) {
     return fail(400, "INVALID_MODE", "Please select a valid mode option.")
@@ -1155,6 +1169,19 @@ export async function POST(request: Request) {
     }
 
   const { uid, firestore } = authContext
+  const teacherProfileDisplayName =
+    normalizeName(
+      (authContext as { decodedToken?: { name?: string | null } })?.decodedToken?.name ?? null,
+    ) || undefined
+  const teacherSignatureName = resolveTeacherSignatureName(
+    teacherProfileDisplayName,
+    payload.signature?.line1,
+  )
+  const resolvedSignature = resolveSignature({
+    ...payload.signature,
+    line1: teacherSignatureName,
+    fallbackName: teacherSignatureName,
+  })
   const isDevBypassRequest = devBypassActive
   const uidHash = createHash("sha256").update(uid).digest("hex").slice(0, 12)
   DEBUG_DRAFT_LOGS && console.info("[draft] routing", {
@@ -1409,8 +1436,8 @@ export async function POST(request: Request) {
     teacherSignatureName,
     greeting: providerGreeting,
     greetingFinal: hasFinalGreeting,
-    greetingConfidence: payload.greetingConfidence,
-    greetingSource: payload.greetingSource,
+    greetingConfidence,
+    greetingSource,
     messageType: payload.messageType,
     scanId: payload.scanId,
     ocrConfidence: payload.ocrConfidence,

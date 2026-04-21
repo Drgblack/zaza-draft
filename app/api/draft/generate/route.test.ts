@@ -96,6 +96,9 @@ const MOCK_FREE_TIER_LIMIT = 5
 vi.mock("@/lib/firebase/server", () => ({
   authorizeFirebaseRequest: vi.fn().mockResolvedValue({
     uid: "test-uid",
+    decodedToken: {
+      name: "Dr Greg Blackburn",
+    },
     firestore: createFirestoreStub(),
   }),
   FirebaseAuthorizationError: class FirebaseAuthorizationError extends Error {},
@@ -544,6 +547,9 @@ beforeEach(() => {
   mockedIsInternalQaUid.mockReturnValue(false)
   mockedAuthorizeFirebaseRequest.mockResolvedValue({
     uid: "test-uid",
+    decodedToken: {
+      name: "Dr Greg Blackburn",
+    },
     firestore: createFirestoreStub(),
   })
   mockedResolveDraftEntitlement.mockResolvedValue({
@@ -649,26 +655,19 @@ vi.mock("@/lib/draft/language", () => ({
   },
 }))
 
-vi.mock("@/lib/draft/signature", () => ({
-  applySignatureToDraft: (text: string) => text,
-  resolveSignature: (payload?: { line1?: string; line2?: string; line3?: string }) => {
-    const lines = [payload?.line1, payload?.line2, payload?.line3].filter(Boolean) as string[]
-    return {
-      lines,
-      block: lines.join("\n"),
-      placeholders: {},
-      appendForMode: {
-        parent_message: true,
-        report_comment: false,
-      },
-    }
-  },
-}))
+vi.mock("@/lib/draft/signature", async () => {
+  const actual = await vi.importActual<typeof import("@/lib/draft/signature")>(
+    "@/lib/draft/signature",
+  )
+  return actual
+})
 
-vi.mock("@/lib/draft/teacher-signature", () => ({
-  resolveTeacherSignatureName: (_displayName?: string, signatureLine1?: string) =>
-    signatureLine1?.trim() || undefined,
-}))
+vi.mock("@/lib/draft/teacher-signature", async () => {
+  const actual = await vi.importActual<typeof import("@/lib/draft/teacher-signature")>(
+    "@/lib/draft/teacher-signature",
+  )
+  return actual
+})
 
 vi.mock("./scope-guard", () => ({
   isValidDraftRequest: () => true,
@@ -1087,7 +1086,38 @@ describe("/api/draft/generate greeting handoff", () => {
     const json = await response.json()
     const generatedDraft = json.data?.generatedDraft ?? ""
     expect(generatedDraft).toContain("Mit freundlichen Grüßen,")
-    expect(generatedDraft.trim().endsWith("Ihre Klassenlehrkraft")).toBe(true)
+    expect(generatedDraft).toMatch(/Mit freundlichen Gr[üu]ßen,\s+Dr Greg Blackburn\s*$/)
+  })
+
+  it("uses the authenticated teacher profile name as the default sign-off in parent-message mode", async () => {
+    const fallbackText = [
+      "Dear Parent/Carer,",
+      "Thank you for your message. I will look into this and follow up shortly.",
+    ].join("\n\n")
+    fallbackGenerator.mockResolvedValueOnce(buildFallbackResult(fallbackText))
+    const payload = {
+      situation:
+        "Need a calm parent update about a homework concern and the next steps I will check tomorrow morning in school.",
+      tone: "professional",
+      language: "en",
+      uiLocale: "en-GB",
+      mode: "parent_message",
+    }
+    const request = new Request("https://example.com/api/draft/generate", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: "Bearer token",
+      },
+      body: JSON.stringify(payload),
+    })
+
+    const response = await POST(request)
+    expect(response.status).toBe(200)
+    const json = await response.json()
+    const generatedDraft = json.data?.generatedDraft ?? ""
+    expect(generatedDraft).toMatch(/Kind regards,\s+Dr Greg Blackburn\s*$/)
+    expect((generatedDraft.match(/Dr Greg Blackburn/g) ?? []).length).toBe(1)
   })
 
   it("anchors the English concern for Ella in the first paragraph", async () => {
@@ -1117,7 +1147,7 @@ describe("/api/draft/generate greeting handoff", () => {
     const json = await response.json()
     const generatedDraft = json.data?.generatedDraft ?? ""
     expect(generatedDraft).toContain("Kind regards")
-    expect(generatedDraft.trim().endsWith("Your child's teacher")).toBe(true)
+    expect(generatedDraft).toMatch(/Kind regards,\s+Dr Greg Blackburn\s*$/)
     const paragraphs = generatedDraft
       .split(/\n{2,}/)
       .map((paragraph) => paragraph.trim())
@@ -1220,6 +1250,38 @@ describe("/api/draft/generate greeting handoff", () => {
     const greetingLine = json.data?.greeting?.text ?? "Hello Jordan,"
     expect(greetingLine).toBe("Hello Jordan,")
     expect(generatedDraft).toContain(`\n\n${greetingLine}\n\n`)
+  })
+
+  it("preserves titled English parent greetings from signed raw text", async () => {
+    const fallbackDraft = [
+      "Thank you for getting in touch about this.",
+      "I will review what happened and follow up with the next steps.",
+    ].join("\n\n")
+    fallbackGenerator.mockResolvedValueOnce(buildFallbackResult(fallbackDraft))
+    const payload = {
+      situation: englishGreetingSituation,
+      tone: "professional",
+      language: "en",
+      uiLocale: "en-GB",
+      mode: "parent_message",
+      situationRaw: "Sharing a follow-up.\nKind regards\nMs Parker\n",
+    }
+    const request = new Request("https://example.com/api/draft/generate", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: "Bearer token",
+      },
+      body: JSON.stringify(payload),
+    })
+
+    const response = await POST(request)
+    expect(response.status).toBe(200)
+    const json = await response.json()
+    const generatedDraft = json.data?.generatedDraft ?? ""
+    expect(json.data?.greeting?.text).toBe("Dear Ms Parker,")
+    expect(generatedDraft).toContain("\n\nDear Ms Parker,\n\n")
+    expect(generatedDraft).not.toContain("Hello Parker")
   })
 
   it("repairs the malformed unknown-recipient fallback path that previously surfaced as Hello comma I", async () => {
@@ -1574,6 +1636,41 @@ describe("/api/draft/generate closing normalization", () => {
     expect(generatedDraft.trim().endsWith("Kind regards,\nDr Greg Blackburn")).toBe(true)
   })
 
+  it("avoids duplicate sign-off blocks when the model already includes the teacher profile name", async () => {
+    fallbackGenerator.mockResolvedValueOnce(
+      buildFallbackResult(
+        [
+          "Subject: Homework update",
+          "Dear Parent/Carer,",
+          "I wanted to give you a clear update about the homework concern and the support I will put in place tomorrow.",
+          "Kind regards,\nDr Greg Blackburn",
+        ].join("\n\n"),
+      ),
+    )
+    const request = new Request("https://example.com/api/draft/generate", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: "Bearer token",
+      },
+      body: JSON.stringify({
+        situation:
+          "Need to send a calm parent update about homework, explain the support I will put in place tomorrow, clarify the next steps, and keep the tone clear and steady for the family.",
+        tone: "professional",
+        language: "en",
+        mode: "parent_message",
+      }),
+    })
+
+    const response = await POST(request)
+    expect(response.status).toBe(200)
+    const json = await response.json()
+    const generatedDraft = json.data?.generatedDraft ?? ""
+    expect((generatedDraft.match(/Kind regards,/gi) ?? []).length).toBe(1)
+    expect((generatedDraft.match(/Dr Greg Blackburn/gi) ?? []).length).toBe(1)
+    expect(generatedDraft.trim().endsWith("Kind regards,\nDr Greg Blackburn")).toBe(true)
+  })
+
   it("normalizes a panic scan response down to one closing block", async () => {
     fallbackGenerator.mockResolvedValueOnce(
       buildFallbackResult(
@@ -1751,6 +1848,36 @@ describe("/api/draft/generate closing normalization", () => {
         signature: {
           line1: "Dr Greg Blackburn",
         },
+      }),
+    })
+
+    const response = await POST(request)
+    expect(response.status).toBe(200)
+    const json = await response.json()
+    const generatedDraft = json.data?.generatedDraft ?? ""
+    expect(generatedDraft).not.toContain("Kind regards")
+    expect(generatedDraft).not.toContain("Best regards")
+    expect(generatedDraft).not.toContain("Dr Greg Blackburn")
+  })
+
+  it("does not append the authenticated teacher sign-off in report comment mode", async () => {
+    fallbackGenerator.mockResolvedValueOnce(
+      buildFallbackResult(
+        "The student has shown more consistent focus this week and completes follow-up tasks with less prompting.",
+      ),
+    )
+    const request = new Request("https://example.com/api/draft/generate", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: "Bearer token",
+      },
+      body: JSON.stringify({
+        situation:
+          "Write a report comment about the student's calmer participation, better focus, stronger follow-through during classwork, and the more consistent independence shown across lessons this week.",
+        tone: "professional",
+        language: "en",
+        mode: "report_comment",
       }),
     })
 
