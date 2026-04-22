@@ -4,14 +4,17 @@ vi.mock("@/lib/firebase/server")
 vi.mock("@/lib/rate-limit")
 vi.mock("@/lib/panic-scan/ocr")
 vi.mock("@/lib/panic-scan/clean-ocr")
-vi.mock("@/lib/panic-scan/analysis")
+vi.mock("@/lib/panic-scan/analysis", () => ({
+  analyzePanicMessage: vi.fn(),
+  buildHeuristicPanicAnalysis: vi.fn(),
+}))
 
 import { POST } from "@/app/api/panic-scan/upload/route"
 import { authorizeFirebaseRequest } from "@/lib/firebase/server"
 import { enforcePerUserRateLimit } from "@/lib/rate-limit"
 import { performVisionOcr } from "@/lib/panic-scan/ocr"
 import { cleanOcrText } from "@/lib/panic-scan/clean-ocr"
-import { analyzePanicMessage } from "@/lib/panic-scan/analysis"
+import { analyzePanicMessage, buildHeuristicPanicAnalysis } from "@/lib/panic-scan/analysis"
 import { OPENAI_BUSY_MESSAGE, OpenAIRequestError } from "@/lib/ai/openai-retry"
 
 const storageSave = vi.fn().mockResolvedValue(undefined)
@@ -87,6 +90,22 @@ describe("panic scan upload route", () => {
     vi.mocked(analyzePanicMessage).mockImplementation(() => {
       throw new Error("analysis failed")
     })
+    vi.mocked(buildHeuristicPanicAnalysis).mockReturnValue({
+      classification: {
+        messageType: "parent_complaint",
+        emotionalTone: "anxious",
+        riskLevel: "medium",
+        urgency: "medium",
+        confidenceScore: 68,
+      },
+      analysis: {
+        summary: "Fallback summary",
+        emotionalInterpretation: "Fallback interpretation",
+        professionalRisk: "Fallback risk",
+        likelyMeaning: "Fallback meaning",
+        suggestedResponse: "acknowledge_concern",
+      },
+    })
   })
 
   afterEach(() => {
@@ -114,7 +133,7 @@ describe("panic scan upload route", () => {
     expect(response.headers.get("x-request-id")).toBe(body.requestId)
   })
 
-  it("returns a clean busy message when OpenAI retries are exhausted", async () => {
+  it("falls back to deterministic analysis when OpenAI retries are exhausted", async () => {
     vi.mocked(analyzePanicMessage).mockRejectedValue(
       new OpenAIRequestError(OPENAI_BUSY_MESSAGE, {
         status: 429,
@@ -134,14 +153,13 @@ describe("panic scan upload route", () => {
     const response = await POST(request)
     const body = await response.json()
 
-    expect(response.status).toBe(503)
-    expect(body.ok).toBe(false)
-    expect(body.error.code).toBe("PROCESSING_FAILED")
-    expect(body.error.message).toBe(OPENAI_BUSY_MESSAGE)
+    expect(response.status).toBe(200)
+    expect(body.ok).toBe(true)
+    expect(buildHeuristicPanicAnalysis).toHaveBeenCalledWith("text", "en")
     expect(firestoreSet).toHaveBeenLastCalledWith(
       expect.objectContaining({
-        status: "failed",
-        failureReason: OPENAI_BUSY_MESSAGE,
+        analysisProvider: "heuristic_fallback",
+        status: "completed",
       }),
       { merge: true },
     )
@@ -223,7 +241,7 @@ describe("panic scan upload route", () => {
     expect(response.status).toBe(200)
     expect(body.ok).toBe(true)
     expect(analyzePanicMessage).toHaveBeenCalledWith(
-      expect.stringContaining("Sehr geehrte Eltern"),
+      "My child came home upset about the homework load.",
       "en",
       expect.any(Object),
     )
@@ -237,6 +255,7 @@ describe("panic scan upload route", () => {
           messageType: "parent_complaint",
           confidenceScore: 84,
         }),
+        analysisProvider: "openai",
         status: "completed",
       }),
       { merge: true },
@@ -290,7 +309,7 @@ describe("panic scan upload route", () => {
 
     expect(response.status).toBe(200)
     expect(analyzePanicMessage).toHaveBeenCalledWith(
-      expect.stringContaining("I am very concerned about the homework situation this week."),
+      expect.stringContaining("Dear parents,"),
       "de",
       expect.any(Object),
     )
