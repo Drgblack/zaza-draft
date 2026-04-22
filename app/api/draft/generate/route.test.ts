@@ -3595,6 +3595,115 @@ describe("/api/draft/generate documentation mode", () => {
   })
 })
 
+describe("/api/draft/generate resilience", () => {
+  it("keeps parent-message generation working when the safety engine fails", async () => {
+    mockedRunSafetyEngine.mockImplementationOnce(async () => {
+      throw new Error("Anthropic tone classification failed: 400 Bad Request")
+    })
+
+    const request = new Request("https://example.com/api/draft/generate", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: "Bearer token",
+      },
+      body: JSON.stringify({
+        situation: detailedSituation,
+        tone: "professional",
+        language: "en",
+        mode: "parent_message",
+      }),
+    })
+
+    const response = await POST(request)
+    const json = await response.json()
+
+    expect(response.status).toBe(200)
+    expect(json.success).toBe(true)
+    expect(json.data?.generatedDraft).toContain("Lukas hat beschrieben")
+  })
+
+  it("keeps documentation mode generation working when profile and signature data are missing", async () => {
+    mockedAuthorizeFirebaseRequest.mockResolvedValueOnce({
+      uid: "test-uid",
+      decodedToken: {
+        name: null,
+      },
+      firestore: createFirestoreStub(),
+    })
+    mockedRunSafetyEngine.mockResolvedValueOnce({
+      riskScore: 82,
+      riskLevel: "high",
+      triggeredSignals: [],
+      toneClass: "accusatory",
+      topicSensitivity: "high",
+      reactionForecast: {
+        collaborative: 10,
+        concerned: 15,
+        defensive: 45,
+        hostile: 20,
+        confused: 10,
+      },
+      explanationLines: [],
+      documentationModeAvailable: true,
+      professionalRiskFlags: [],
+      structuralImbalance: false,
+    })
+
+    const request = new Request("https://example.com/api/draft/generate", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: "Bearer token",
+      },
+      body: JSON.stringify({
+        situation:
+          "Your child refuses to listen and constantly disrupts the class. I've told you this before. If this continues we will have to involve the head teacher.",
+        tone: "professional",
+        language: "en",
+        mode: "parent_message",
+        documentationMode: true,
+      }),
+    })
+
+    const response = await POST(request)
+    const json = await response.json()
+
+    expect(response.status).toBe(200)
+    expect(json.success).toBe(true)
+    expect(json.data?.documentationModeActive).toBe(true)
+    expect(json.data?.generatedDraft).toContain("Incident Record")
+  })
+
+  it("returns a safe backend message for unexpected route failures", async () => {
+    mockedIncrementUsage.mockRejectedValueOnce(new Error("firestore write failed"))
+
+    const request = new Request("https://example.com/api/draft/generate", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: "Bearer token",
+      },
+      body: JSON.stringify({
+        situation: detailedSituation,
+        tone: "professional",
+        language: "en",
+        mode: "parent_message",
+      }),
+    })
+
+    const response = await POST(request)
+    const json = await response.json()
+
+    expect(response.status).toBe(503)
+    expect(json.success).toBe(false)
+    expect(json.error?.code).toBe("AI_GENERATION_FAILED")
+    expect(json.error?.message).toBe(
+      "Draft generation is temporarily unavailable. Please try again in a few seconds.",
+    )
+  })
+})
+
 describe("/api/draft/generate professional risk handling", () => {
   it("pauses ADHD speculation with a teacher-protective coaching response", async () => {
     mockedDetectBlockedLanguage.mockReturnValueOnce({

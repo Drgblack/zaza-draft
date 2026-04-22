@@ -143,7 +143,18 @@ export async function runSafetyEngine(
   const firedSignals = detectSignals(input.rawMessage)
   const topicSensitivity = detectTopicSensitivity(input.rawMessage)
   const structuralImbalance = detectStructuralImbalance(input.rawMessage, firedSignals)
-  const { toneClass, toneModifier } = await classifyTone(input.rawMessage)
+  let toneClass: ToneClass = "clinical"
+  let toneModifier = 0
+  try {
+    const toneResult = await classifyTone(input.rawMessage)
+    toneClass = toneResult.toneClass
+    toneModifier = toneResult.toneModifier
+  } catch (error) {
+    console.warn("[safety-engine] tone classification fallback", {
+      errorClass: error instanceof Error ? error.name : typeof error,
+      errorMessage: error instanceof Error ? error.message : String(error),
+    })
+  }
   const { riskScore, riskLevel } = scoreSafetySignals(
     firedSignals,
     topicSensitivity,
