@@ -486,6 +486,29 @@ describe("buildSystemPrompt", () => {
     expect(prompt).toContain("Make the subject neutral, teacher-authentic, and specific to the issue or update.")
   })
 
+  it("tells typed parent-email replies not to replay the complaint back line by line", () => {
+    const prompt = buildSystemPrompt({
+      situation:
+        "Subject: Concern about how Lucy was treated in class\n\nHello,\n\nLucy came home upset and felt embarrassed after being asked to put her phone away.\n\nKind regards,\nLucy's Dad",
+      generationMetadata: {
+        mode: "safe_draft",
+        direction: "parent_to_teacher",
+        source_type: "typed_text",
+        locale: "en",
+        prompt_builder: "safe_draft",
+      },
+      tone: "professional",
+      language: "en",
+      mode: "parent_message",
+      pronounPreference: "auto",
+    })
+
+    expect(prompt).toContain("For typed or pasted parent emails, acknowledge the concern briefly")
+    expect(prompt).toContain("Do not restate the parent's complaint in detail")
+    expect(prompt).toContain("do not replay their wording back to them sentence by sentence")
+    expect(prompt).toContain("move straight to the teacher's explanation, boundary, or next step")
+  })
+
   it("adds safety-sensitive opening guidance for panic scan safeguarding concerns", () => {
     const prompt = buildSystemPrompt({
       situation: "My daughter says she was pushed at break and felt unsafe for the rest of the day.",

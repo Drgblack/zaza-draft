@@ -97,6 +97,36 @@ describe("resolveGreeting", () => {
     expect(greeting.greeting).toBe("Dear Parent/Carer,")
   })
 
+  it("falls back when the sign-off is a possessive relationship phrase such as Lucy's Dad", () => {
+    const text = "Kind regards\nLucy's Dad\n"
+    const greeting = resolveGreeting({
+      cleanedOcrText: text,
+      locale: "en",
+      mode: "parent_message",
+      direction: "parent_to_teacher",
+      tone: "professional",
+    })
+
+    expect(greeting.greeting).toBe("Dear Parent/Carer,")
+    expect(greeting.greeting).not.toContain("Hello Lucy")
+    expect(greeting.safeName).toBeUndefined()
+  })
+
+  it("falls back when the sign-off is a possessive relationship phrase such as Tom's Mum", () => {
+    const text = "Best regards\nTom's Mum\n"
+    const greeting = resolveGreeting({
+      cleanedOcrText: text,
+      locale: "en",
+      mode: "parent_message",
+      direction: "parent_to_teacher",
+      tone: "professional",
+    })
+
+    expect(greeting.greeting).toBe("Dear Parent/Carer,")
+    expect(greeting.greeting).not.toContain("Hello Tom")
+    expect(greeting.safeName).toBeUndefined()
+  })
+
   it("uses German honorific greetings when salutation data is strong", () => {
     const text = "Mit Nachdruck\nFrau Karen Roberts\n"
     const greeting = resolveGreeting({
@@ -138,5 +168,10 @@ describe("scoreSafeName", () => {
 
   it("rejects UI-looking strings", () => {
     expect(scoreSafeName("Open in Gmail", "en").level).toBe("NONE")
+  })
+
+  it("rejects possessive parent relationship sign-offs", () => {
+    expect(scoreSafeName("Lucy's Dad", "en").level).toBe("NONE")
+    expect(scoreSafeName("Tom's Mum", "en").level).toBe("NONE")
   })
 })

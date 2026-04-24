@@ -15,6 +15,28 @@ describe("classifyGenerationRequest", () => {
     expect(result.metadata.source_type).toBe("typed_text")
   })
 
+  it("routes pasted parent emails with a sign-off to parent_to_teacher in safe draft mode", () => {
+    const result = classifyGenerationRequest({
+      draftMode: "parent_message",
+      locale: "en",
+      situation: [
+        "Subject: Concern about how Lucy was treated in class",
+        "Hello,",
+        "",
+        "Lucy came home quite upset today and told me she was asked to put her phone away during your lesson.",
+        "",
+        "We would expect some flexibility around this rather than her being singled out in front of others.",
+        "",
+        "Kind regards,",
+        "Lucy's Dad",
+      ].join("\n"),
+    })
+
+    expect(result.metadata.mode).toBe("safe_draft")
+    expect(result.metadata.direction).toBe("parent_to_teacher")
+    expect(result.metadata.source_type).toBe("typed_text")
+  })
+
   it("defaults panic scan OCR to parent_to_teacher", () => {
     const result = classifyGenerationRequest({
       draftMode: "parent_message",

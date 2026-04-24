@@ -16,6 +16,7 @@ export type TeacherAuthenticityViolationType =
   | "abstract_next_step"
   | "corporate_tone"
   | "source_fidelity"
+  | "source_parroting"
 
 export interface TeacherAuthenticityViolation {
   type: TeacherAuthenticityViolationType
@@ -134,6 +135,28 @@ function isHighRiskParentComplaint(text: string) {
   )
 }
 
+const PARENT_COMPLAINT_ECHO_PATTERNS = [
+  /\bcame home [a-z\s]{0,20}(?:upset|angry|distressed|in tears)\b/i,
+  /\bfelt [a-z\s]{0,20}(?:embarrassed|uncomfortable|upset|singled out)\b/i,
+  /\bsingled out\b/i,
+  /\bmindfulness(?:\s+(?:purposes?|tools?))?\b/i,
+  /\boverwhelmed\b/i,
+  /\bunderstood and respected\b/i,
+]
+
+function collectParentComplaintEchoPhrases(source: string, output: string) {
+  const phrases: string[] = []
+
+  for (const pattern of PARENT_COMPLAINT_ECHO_PATTERNS) {
+    const match = source.match(pattern)?.[0]?.trim().toLowerCase()
+    if (match && output.includes(match)) {
+      phrases.push(match)
+    }
+  }
+
+  return Array.from(new Set(phrases))
+}
+
 export function detectTeacherAuthenticityViolations(
   text: string | undefined | null,
   options: TeacherAuthenticityOptions,
@@ -176,6 +199,23 @@ export function detectTeacherAuthenticityViolations(
         seen.add(phrase)
         violations.push({
           type: "customer_support",
+          phrase,
+        })
+      }
+    }
+  }
+
+  if (options.mode === "parent_message" && options.direction === "parent_to_teacher") {
+    const source = normalize(options.sourceText ?? "")
+    const echoedPhrases = collectParentComplaintEchoPhrases(source, normalized)
+    if (echoedPhrases.length >= 2) {
+      for (const phrase of echoedPhrases) {
+        if (seen.has(phrase)) {
+          continue
+        }
+        seen.add(phrase)
+        violations.push({
+          type: "source_parroting",
           phrase,
         })
       }

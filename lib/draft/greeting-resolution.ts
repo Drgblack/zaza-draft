@@ -54,6 +54,28 @@ const UI_CHROME_KEYWORDS = [
 
 const ROLE_KEYWORDS_EN = ["School Office", "Administration", "Support", "Customer Service"]
 const ROLE_KEYWORDS_DE = ["Sekretariat", "Schulleitung", "Verwaltung", "Support", "Kundenservice"]
+const FAMILY_ROLE_KEYWORDS_EN = [
+  "dad",
+  "mum",
+  "mom",
+  "mother",
+  "father",
+  "parent",
+  "carer",
+  "guardian",
+  "grandma",
+  "grandmother",
+  "grandad",
+  "grandfather",
+]
+const FAMILY_ROLE_KEYWORDS_DE = [
+  "mama",
+  "mutter",
+  "vater",
+  "eltern",
+  "erziehungsberechtigte",
+  "sorgeberechtigte",
+]
 
 const HONORIFICS = ["Herr", "Frau", "Mr", "Mrs", "Ms", "Dr", "Prof", "Professor"]
 
@@ -101,6 +123,20 @@ function looksLikeUiChrome(candidate: string) {
 
 function cleanCandidate(value: string) {
   return value.trim().replace(/^[^A-Za-zÄÖÜäöüßÉÈéèĆć]+|[^A-Za-zÄÖÜäöüßÉÈéèĆć]+$/g, "").replace(/\s+/g, " ")
+}
+
+function containsRelationshipSignoff(candidate: string, locale: GreetingLocale) {
+  const normalized = cleanCandidate(candidate).toLowerCase()
+  if (!normalized) {
+    return false
+  }
+
+  const familyRoleKeywords = locale === "de" ? FAMILY_ROLE_KEYWORDS_DE : FAMILY_ROLE_KEYWORDS_EN
+  if (familyRoleKeywords.some((keyword) => normalized === keyword || normalized.endsWith(` ${keyword}`))) {
+    return true
+  }
+
+  return /\b[\p{L}]+['’]s\s+[\p{L}]+\b/iu.test(normalized) && familyRoleKeywords.some((keyword) => normalized.includes(keyword))
 }
 
 function isParentFacingMode(mode?: DraftMode, direction?: MessageDirection) {
@@ -237,6 +273,10 @@ export function summarizeRecipientName(
 }
 
 function buildNamedGreeting(fullName: string, input: GreetingPolicyInput): string {
+  if (containsRelationshipSignoff(fullName, input.locale)) {
+    return buildFallbackGreeting(input)
+  }
+
   const parsed = parseNameParts(fullName)
   const formality = resolveGreetingFormality(input.locale, input.tone, input.messageType)
 
@@ -377,6 +417,9 @@ export function scoreSafeName(candidate: string, locale: GreetingLocale): SafeNa
   }
   const roles = locale === "de" ? ROLE_KEYWORDS_DE : ROLE_KEYWORDS_EN
   if (roles.some((role) => cleaned.toLowerCase().includes(role.toLowerCase()))) {
+    return { level: "NONE", score: 0 }
+  }
+  if (containsRelationshipSignoff(cleaned, locale)) {
     return { level: "NONE", score: 0 }
   }
   const tokens = cleaned.split(/\s+/)

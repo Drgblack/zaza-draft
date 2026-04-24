@@ -777,6 +777,21 @@ function detectExtraSignoffName(raw: string, locale: GreetingLocale, policy: Gre
     return normalizeParentFacingGreetingLine(normalized, locale)
   }
 
+function extractNamedGreetingCandidate(greeting: string, locale: GreetingLocale) {
+  const normalized = normalizeGreetingValue(greeting, locale)
+  if (!normalized) {
+    return null
+  }
+
+  if (locale === "en") {
+    return normalized.match(/^(?:hello|hi|dear)\s+(.+),$/i)?.[1]?.trim() ?? null
+  }
+
+  return (
+    normalized.match(/^(?:guten tag|hallo|sehr geehrte|sehr geehrter)\s+(.+),$/i)?.[1]?.trim() ?? null
+  )
+}
+
 function enforceTitledGreetingSafeguard(options: {
   greeting: string
   locale: GreetingLocale
@@ -1121,6 +1136,17 @@ export async function POST(request: Request) {
   }
   let greetingFinal = Boolean(payload.greetingFinal && greetingText)
   const greetingLocale: GreetingLocale = language?.toLowerCase().startsWith("de") ? "de" : "en"
+  const requestGreetingCandidate = greetingName ?? extractNamedGreetingCandidate(greetingText, greetingLocale)
+  const requestGreetingScore = requestGreetingCandidate
+    ? scoreSafeName(requestGreetingCandidate, greetingLocale)
+    : null
+  if (requestGreetingCandidate && (!requestGreetingScore || !["HIGH", "MEDIUM"].includes(requestGreetingScore.level))) {
+    greetingText = ""
+    greetingConfidence = "NONE"
+    greetingSource = "generic-fallback"
+    greetingName = null
+    greetingFinal = false
+  }
   if (greetingName) {
     const recipient = summarizeRecipientName(greetingName, greetingLocale)
     greetingRecipientTitle = greetingRecipientTitle ?? recipient.title

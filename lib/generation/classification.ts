@@ -70,6 +70,10 @@ const PARENT_INCOMING_PATTERNS = [
   /\bmein sohn\b/i,
   /\bwhy did\b/i,
   /\bwarum\b/i,
+  /\bwe would expect\b/i,
+  /\bi would appreciate(?: it)? if\b/i,
+  /\bit is important that\b/i,
+  /\bneeds are understood and respected\b/i,
 ]
 
 const TEACHER_OUTGOING_PATTERNS = [
@@ -122,6 +126,34 @@ function looksLikeIncomingParentMessage(text: string) {
   }
 
   return PARENT_INCOMING_PATTERNS.some((pattern) => pattern.test(normalized))
+}
+
+function looksLikeIncomingParentEmail(text: string) {
+  const normalized = normalizeText(text)
+  if (!normalized) {
+    return false
+  }
+
+  const lines = normalized
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean)
+  if (!lines.length) {
+    return false
+  }
+
+  const firstLine = lines[0] ?? ""
+  const lastLine = lines[lines.length - 1] ?? ""
+  const hasOpening = /^subject:|^betreff:|^hello\b|^hi\b|^dear\b|^guten tag\b|^liebe(?:r|n)?\b/i.test(
+    firstLine,
+  )
+  const hasClosing = CLOSING_PATTERNS.some((pattern) => pattern.test(normalized))
+  const hasParentRelationshipSignoff =
+    /\b(?:dad|mum|mom|mother|father|parent|carer|guardian|grandma|grandmother|grandad|grandfather)\b/i.test(
+      lastLine,
+    ) || /\b[\p{L}]+['’]s\s+(?:dad|mum|mom|mother|father|parent|carer|guardian)\b/iu.test(lastLine)
+
+  return hasOpening && hasClosing && (looksLikeIncomingParentMessage(normalized) || hasParentRelationshipSignoff)
 }
 
 function hasStrongTeacherOutgoingEvidence(text: string) {
@@ -205,6 +237,10 @@ function resolveMessageDirection(
       return "parent_to_teacher"
     }
     return "teacher_internal_notes"
+  }
+
+  if (looksLikeIncomingParentEmail(input.situation)) {
+    return "parent_to_teacher"
   }
 
   if (looksLikeTeacherAuthoredDraft(input.situation)) {

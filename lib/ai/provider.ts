@@ -277,7 +277,8 @@ function buildSafeDraftInstructions(input: ProviderInput) {
       return [
         "This Safe Draft request was unexpectedly classified as parent_to_teacher.",
         "Keep the output teacher-authored and bounded. Do not switch into the parent's voice.",
-        "Acknowledge the specific issue in one sentence, then move to a concrete teacher action, what has been checked, or what boundary applies.",
+        "Acknowledge the concern briefly, then move to a concrete teacher action, what has been checked, or what boundary applies.",
+        "Do not paraphrase the parent's complaint line by line and do not replay their wording back to them sentence by sentence.",
       ]
   }
 }
@@ -557,7 +558,8 @@ export function buildSystemPrompt(input: ProviderInput) {
       )
     } else {
       systemLines.push(
-        "In the first paragraph (after any resolved greeting), restate the parent's stated concern in neutral language before moving toward next steps.",
+        "For typed or pasted parent emails, acknowledge the concern briefly in the first paragraph and then move straight to the teacher's explanation, boundary, or next step.",
+        "Do not restate the parent's complaint in detail, do not mirror the child's reported feelings line by line, and do not recycle distinctive parent-only phrases such as 'came home upset', 'felt embarrassed', or coping-tool explanations unless one brief reference is genuinely necessary.",
         "Unless the parent is explicitly discussing behaviour, avoid generic 'behavior documentation' phrasing and keep the focus on the actual concern being raised.",
       )
     }
