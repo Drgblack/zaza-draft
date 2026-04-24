@@ -208,6 +208,54 @@ describe("fallback drafting signature hygiene", () => {
     expect(text).not.toContain("Thank you for raising this with me.")
   })
 
+  it("keeps the Lucy phone-support fallback useful without parroting the complaint", () => {
+    const context: DraftFallbackContext = {
+      ...baseContext,
+      language: "en",
+      tone: "professional",
+      teacherSignatureName: "Dr Greg Blackburn",
+      studentFirstName: "Lucy",
+      generationMetadata: {
+        mode: "safe_draft",
+        direction: "parent_to_teacher",
+        source_type: "typed_text",
+        locale: "en",
+        prompt_builder: "safe_draft",
+      },
+      sourceSituation: [
+        "Subject: Concern about how Lucy was treated in class",
+        "",
+        "Hello,",
+        "",
+        "Lucy came home quite upset today and told me she was asked to put her phone away during your lesson.",
+        "",
+        "We have previously explained that Lucy uses her phone for mindfulness purposes when she feels overwhelmed, and we would expect some flexibility around this rather than her being singled out in front of others.",
+        "",
+        "She felt embarrassed and said the way it was handled made her uncomfortable. I'm sure that wasn't your intention, but it's important that her needs are understood and respected.",
+        "",
+        "I would appreciate it if you could reconsider how this is approached going forward.",
+        "",
+        "Kind regards,",
+        "Lucy's Dad",
+      ].join("\n"),
+    }
+
+    const text = buildFallbackDraft(context)
+
+    expect(text).toContain("Subject: Follow-up on today's concern")
+    expect(text).toContain("Dear Parent/Carer,")
+    expect(text).toContain("Thank you for getting in touch and for explaining your concerns.")
+    expect(text).toContain("apply the usual classroom expectations around phone use consistently")
+    expect(text).toContain("the school's usual support process")
+    expect(text).toContain("follow up with the appropriate colleague")
+    expect(text).not.toContain("Subject: Update from school")
+    expect(text).not.toContain("Hello Lucy's")
+    expect(text).not.toContain("Hello Lucy,")
+    expect(text).not.toContain("mindfulness purposes")
+    expect(text).not.toContain("felt embarrassed")
+    expect(text).not.toContain("We have previously explained")
+  })
+
   it("removes product-mediated calm-update phrasing from fallback openings", () => {
     const outputs = (["warm", "professional", "direct", "empathetic"] as const).map((tone) =>
       buildFallbackDraft({
