@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest"
 
-import { buildSystemPrompt, generateDraft } from "./provider"
+import { buildSystemPrompt, extractTeacherDraftFallbackContext, generateDraft } from "./provider"
 
 const ORIGINAL_ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY
 const ORIGINAL_ANTHROPIC_MODEL_PRIMARY = process.env.ANTHROPIC_MODEL_PRIMARY
@@ -896,5 +896,64 @@ describe("buildSystemPrompt", () => {
       "Empathetic tone contract: acknowledge the child's difficulty or the parent's worry more explicitly than warm",
     )
     expect(empatheticPrompt).toContain("I wanted to reach out about...")
+  })
+
+  it("extracts source-grounded teacher-draft boundary context as compact JSON", async () => {
+    process.env.ANTHROPIC_API_KEY = "test-key"
+    process.env.ANTHROPIC_MODEL_PRIMARY = "test-model"
+
+    const fetchSpy = vi.fn().mockResolvedValue({
+      ok: true,
+      text: async () =>
+        JSON.stringify({
+          content: [
+            {
+              type: "text",
+              text: '{"subject":"trading cards are not used during lessons","boundaryType":"classroom_boundary"}',
+            },
+          ],
+          model: "test-model",
+          usage: { input_tokens: 12, output_tokens: 18 },
+        }),
+    })
+    vi.stubGlobal("fetch", fetchSpy)
+
+    const result = await extractTeacherDraftFallbackContext({
+      sourceText:
+        "Lucy keeps bringing trading cards out during lessons, and I need that boundary to stay in place.",
+      language: "en",
+    })
+
+    expect(result).toEqual({
+      subject: "trading cards are not used during lessons",
+      boundaryType: "classroom_boundary",
+    })
+    expect(fetchSpy).toHaveBeenCalledTimes(1)
+    const payload = JSON.parse(fetchSpy.mock.calls[0][1].body)
+    expect(payload.max_tokens).toBe(100)
+    expect(payload.system).toContain("Teacher-draft fallback micro-extraction.")
+    expect(payload.system).toContain('"The classroom expectation is that ..."')
+  })
+
+  it("returns null when teacher-draft fallback extraction cannot be parsed", async () => {
+    process.env.ANTHROPIC_API_KEY = "test-key"
+    process.env.ANTHROPIC_MODEL_PRIMARY = "test-model"
+
+    const fetchSpy = vi.fn().mockResolvedValue({
+      ok: true,
+      text: async () =>
+        JSON.stringify({
+          content: [{ type: "text", text: "subject: unclear" }],
+          model: "test-model",
+        }),
+    })
+    vi.stubGlobal("fetch", fetchSpy)
+
+    const result = await extractTeacherDraftFallbackContext({
+      sourceText: "Please tidy this draft about classroom routines.",
+      language: "en",
+    })
+
+    expect(result).toBeNull()
   })
 })

@@ -1,4 +1,10 @@
-import { generateDraft, type ProviderMeta, type ProviderResult } from "@/lib/ai/provider"
+import {
+  extractTeacherDraftFallbackContext,
+  generateDraft,
+  type ProviderMeta,
+  type ProviderResult,
+  type TeacherDraftFallbackExtraction,
+} from "@/lib/ai/provider"
 import type { GenerationMetadata } from "@/lib/generation/classification"
 import {
   normalizeParentFacingGreetingLine,
@@ -45,6 +51,7 @@ export type RecoveryIssueKind =
   | "grading"
   | "behaviour"
   | "disruption"
+  | "phone_device"
   | "support"
   | "general"
 
@@ -55,6 +62,11 @@ export interface RecoveryDraftResult {
   sourceAnchors: string[]
 }
 
+const SOURCE_GROUNDED_TEACHER_DRAFT_ISSUE_KINDS = new Set<RecoveryIssueKind>([
+  "general",
+  "phone_device",
+])
+
 const ISSUE_PATTERNS = {
   en: {
     bullying_safety:
@@ -64,6 +76,7 @@ const ISSUE_PATTERNS = {
     grading: /\b(grade|grading|marking|marked|assessment|test score|exam)\b/,
     behaviour: /\b(behaviour|behavior|rude|unkind|argument|conflict)\b/,
     disruption: /\b(disrupt|disruption|calling out|talking over|interrupt|unsettled|focus)\b/,
+    phone_device: /\b(phone|phones|mobile|device|devices|screen time|classroom rules)\b/,
     support: /\b(support|help|meeting|follow up|check in|plan)\b/,
   },
   de: {
@@ -74,6 +87,7 @@ const ISSUE_PATTERNS = {
     grading: /\b(note|noten|bewertung|bewertet|test|prüfung|korrigiert)\b/,
     behaviour: /\b(verhalten|respektlos|unfreundlich|streit|konflikt)\b/,
     disruption: /\b(stört|unruh|reinruf|unterbr|ablenk|konzent|laut)\b/,
+    phone_device: /\b(handy|handys|mobiltelefon|gerät|geräte|bildschirmzeit|unterrichtsregeln)\b/,
     support: /\b(unterstütz|hilfe|förder|zusätzliche hilfe|besprech)\b/,
   },
 } as const
@@ -86,6 +100,7 @@ const ISSUE_SUBJECTS = {
     grading: "Subject: Update on recent marking",
     behaviour: "Subject: Update on classroom behaviour",
     disruption: "Subject: Update on lesson time",
+    phone_device: "Subject: Update on classroom expectations",
     support: "Subject: Update on next steps",
     general: "Subject: Update from school",
   },
@@ -96,6 +111,7 @@ const ISSUE_SUBJECTS = {
     grading: "Betreff: Rückmeldung zur Bewertung",
     behaviour: "Betreff: Rückmeldung zum Verhalten im Unterricht",
     disruption: "Betreff: Rückmeldung zum Unterrichtsverlauf",
+    phone_device: "Betreff: Rückmeldung zu den Unterrichtserwartungen",
     support: "Betreff: Rückmeldung zu den nächsten Schritten",
     general: "Betreff: Rückmeldung aus dem Unterricht",
   },
@@ -109,6 +125,7 @@ const ISSUE_ANCHORS = {
     grading: ["marking", "grade", "assessment", "work"],
     behaviour: ["behaviour", "conduct", "conflict", "classroom behaviour"],
     disruption: ["lesson", "class", "lesson time", "disruption"],
+    phone_device: ["phone", "phones", "classroom rules", "lesson", "expectations"],
     support: ["support", "meeting", "follow up", "next steps"],
     general: ["school", "class", "update", "next steps"],
   },
@@ -119,6 +136,7 @@ const ISSUE_ANCHORS = {
     grading: ["bewertung", "note", "test"],
     behaviour: ["verhalten", "umgang", "konflikt"],
     disruption: ["unterricht", "lernrunde", "lernzeit"],
+    phone_device: ["handy", "unterrichtsregeln", "unterricht", "erwartungen"],
     support: ["unterstützung", "weitere schritte", "rückmeldung"],
     general: ["unterricht", "rückmeldung", "nächsten schritte"],
   },
@@ -189,6 +207,7 @@ function detectRecoveryIssueKind(source: string | undefined, language: LanguageK
   if (patterns.grading.test(normalized)) return "grading"
   if (patterns.behaviour.test(normalized)) return "behaviour"
   if (patterns.disruption.test(normalized)) return "disruption"
+  if (patterns.phone_device.test(normalized)) return "phone_device"
   if (patterns.support.test(normalized)) return "support"
   return "general"
 }
@@ -208,6 +227,7 @@ function buildParentReplyOpening(
         grading: "Danke für Ihre Nachricht zur Bewertung.",
         behaviour: "Danke für Ihre Rückmeldung zum Verhalten im Unterricht.",
         disruption: "Danke für Ihre Rückmeldung zu dem unruhigen Verlauf heute.",
+        phone_device: "Danke für Ihre Nachricht zu den Unterrichtserwartungen.",
         support: "Danke für Ihre Nachricht zu den nächsten Schritten.",
         general: "Danke für Ihre Nachricht.",
       },
@@ -218,6 +238,7 @@ function buildParentReplyOpening(
         grading: "Danke für Ihre Nachricht zur Bewertung.",
         behaviour: "Danke für Ihre Nachricht zum Verhalten im Unterricht.",
         disruption: "Danke für Ihre Nachricht zum Unterrichtsverlauf.",
+        phone_device: "Danke für Ihre Nachricht zu den Unterrichtserwartungen.",
         support: "Danke für Ihre Nachricht zu den nächsten Schritten.",
         general: "Danke für Ihre Nachricht.",
       },
@@ -228,6 +249,7 @@ function buildParentReplyOpening(
         grading: "Ich habe Ihre Nachricht zur Bewertung gelesen.",
         behaviour: "Ich habe Ihre Nachricht zum Verhalten im Unterricht gelesen.",
         disruption: "Ich habe Ihre Nachricht zum Unterrichtsverlauf gelesen.",
+        phone_device: "Ich habe Ihre Nachricht zu den Unterrichtserwartungen gelesen.",
         support: "Ich habe Ihre Nachricht zu den nächsten Schritten gelesen.",
         general: "Ich habe Ihre Nachricht gelesen.",
       },
@@ -238,6 +260,7 @@ function buildParentReplyOpening(
         grading: "Danke, dass Sie mir die Sorge zur Bewertung direkt mitgeteilt haben.",
         behaviour: "Danke, dass Sie mir die Sorge zum Verhalten im Unterricht direkt mitgeteilt haben.",
         disruption: "Danke, dass Sie die Sorge wegen des heutigen Unterrichtsverlaufs direkt angesprochen haben.",
+        phone_device: "Danke, dass Sie die Sorge zu den Unterrichtserwartungen direkt angesprochen haben.",
         support: "Danke, dass Sie sich wegen der nächsten Schritte direkt gemeldet haben.",
         general: "Danke, dass Sie sich direkt gemeldet haben.",
       },
@@ -254,6 +277,7 @@ function buildParentReplyOpening(
       grading: "Thank you for getting in touch about this.",
       behaviour: "Thank you for getting in touch about this.",
       disruption: "Thank you for getting in touch about this.",
+      phone_device: "Thank you for getting in touch about this.",
       support: "Thank you for getting in touch about this.",
       general: "Thank you for getting in touch.",
     },
@@ -264,6 +288,7 @@ function buildParentReplyOpening(
       grading: "Thank you for your message.",
       behaviour: "Thank you for your message.",
       disruption: "Thank you for your message.",
+      phone_device: "Thank you for your message.",
       support: "Thank you for your message.",
       general: "Thank you for your message.",
     },
@@ -274,6 +299,7 @@ function buildParentReplyOpening(
       grading: "I have received your message.",
       behaviour: "I have received your message.",
       disruption: "I have received your message.",
+      phone_device: "I have received your message.",
       support: "I have received your message.",
       general: "I have read your message.",
     },
@@ -284,6 +310,7 @@ function buildParentReplyOpening(
       grading: "Thank you for letting me know.",
       behaviour: "Thank you for letting me know.",
       disruption: "Thank you for letting me know.",
+      phone_device: "Thank you for letting me know.",
       support: "Thank you for letting me know.",
       general: "Thank you for letting me know about this concern.",
     },
@@ -301,14 +328,64 @@ function hasPhoneBasedSupportConcern(source?: string) {
   )
 }
 
-function hasTeacherDraftPhoneBoundaryConcern(source?: string) {
+export function hasTeacherDraftPhoneBoundaryConcern(source?: string) {
   const normalizedSource = normalizeText(source)
   return (
-    /\b(phone|mobile)\b/.test(normalizedSource) &&
+    /\b(phone|phones|mobile|device|devices|screen time)\b/i.test(normalizedSource) &&
     /\b(mindfulness|overwhelmed|overwhelm|adjustment|adjustments|comfort|comfortable|uncomfortable|distress|exception|exceptions|classroom\s+rules|classroom\s+expectations|lessons?)\b/i.test(
       normalizedSource,
     )
   )
+}
+
+function normalizeTeacherDraftBoundarySubject(subject: string) {
+  const normalized = subject
+    .trim()
+    .replace(/^['"`]+|['"`]+$/g, "")
+    .replace(/\.$/, "")
+    .replace(/^that\s+/i, "")
+    .replace(/\s+/g, " ")
+
+  return normalized || null
+}
+
+function shouldAttemptSourceGroundedTeacherDraftFallback(
+  context: DraftFallbackContext,
+  issueKind: RecoveryIssueKind,
+) {
+  return (
+    context.language === "en" &&
+    context.mode === "parent_message" &&
+    context.teacherDraftMode === true &&
+    context.generationMetadata.direction === "teacher_to_parent" &&
+    SOURCE_GROUNDED_TEACHER_DRAFT_ISSUE_KINDS.has(issueKind)
+  )
+}
+
+function buildSourceGroundedTeacherDraftBoundaryParagraphs(
+  context: DraftFallbackContext,
+  extraction: TeacherDraftFallbackExtraction,
+  studentFirstName?: string,
+) {
+  const subject = normalizeTeacherDraftBoundarySubject(extraction.subject)
+  if (!subject) {
+    return null
+  }
+
+  const normalizedSource = normalizeText(context.sourceSituation)
+  const studentLabel = studentFirstName?.trim() || "the student"
+  const sourceInvitesDiscussion = /\b(happy to chat further|happy to discuss|chat further|discuss further|talk further|speak further|meeting|call|catch[- ]?up)\b/.test(
+    normalizedSource,
+  )
+
+  return [
+    `Thank you for getting in touch. I understand that this was a concern for you, and I will continue to support ${studentLabel} sensitively in class.`,
+    `The classroom expectation is that ${subject}. I apply this consistently so that expectations remain clear and fair for all students.`,
+    `I will handle this calmly in class and make sure ${studentLabel} feels supported within that routine.`,
+    ...(sourceInvitesDiscussion
+      ? ["If a further conversation would be helpful, I am happy to chat further."]
+      : []),
+  ]
 }
 
 function buildSourceAwareParentReplyParagraphs(
@@ -461,6 +538,7 @@ function buildTeacherDraftOpening(
         grading: "Ich möchte Ihnen eine kurze und ruhige Rückmeldung zur letzten Bewertung geben.",
         behaviour: "Ich möchte Ihnen eine kurze und ruhige Rückmeldung zu einem Verhaltensthema geben.",
         disruption: "Ich möchte Ihnen eine kurze und ruhige Rückmeldung zu einigen unruhigen Momenten im Unterricht geben.",
+        phone_device: "Ich möchte Ihnen eine kurze und ruhige Rückmeldung zu den Unterrichtserwartungen geben.",
         support: "Ich möchte Ihnen eine kurze und ruhige Rückmeldung zu den nächsten Schritten geben.",
         general: "Ich möchte Ihnen eine kurze und ruhige Rückmeldung zu einem Punkt aus dem Unterricht geben.",
       },
@@ -471,6 +549,7 @@ function buildTeacherDraftOpening(
         grading: "Ich möchte Ihnen eine kurze Rückmeldung zur letzten Bewertung geben.",
         behaviour: "Ich möchte Ihnen eine kurze Rückmeldung zu einem Verhaltensthema geben.",
         disruption: "Ich möchte Ihnen eine kurze Rückmeldung zu einigen unruhigen Momenten im Unterricht geben.",
+        phone_device: "Ich möchte Ihnen eine kurze Rückmeldung zu den Unterrichtserwartungen geben.",
         support: "Ich möchte Ihnen eine kurze Rückmeldung zu den nächsten Schritten geben.",
         general: "Ich möchte Ihnen eine kurze Rückmeldung zu einem Punkt aus dem Unterricht geben.",
       },
@@ -481,6 +560,7 @@ function buildTeacherDraftOpening(
         grading: "Ich schreibe Ihnen mit einer klaren Rückmeldung zur letzten Bewertung.",
         behaviour: "Ich schreibe Ihnen mit einer klaren Rückmeldung zu einem Verhaltensthema.",
         disruption: "Ich schreibe Ihnen mit einer klaren Rückmeldung zu dem Unterrichtsverlauf heute.",
+        phone_device: "Ich schreibe Ihnen mit einer klaren Rückmeldung zu den Unterrichtserwartungen.",
         support: "Ich schreibe Ihnen mit einer klaren Rückmeldung zu den nächsten Schritten.",
         general: "Ich schreibe Ihnen mit einer klaren Rückmeldung zu diesem Punkt aus dem Unterricht.",
       },
@@ -491,6 +571,7 @@ function buildTeacherDraftOpening(
         grading: "Ich möchte Ihnen eine ruhige Rückmeldung zur Bewertung geben und die nächsten Schritte deutlich machen.",
         behaviour: "Ich möchte Ihnen eine ruhige Rückmeldung zu dem Verhaltensthema geben und die nächsten Schritte deutlich machen.",
         disruption: "Ich möchte Ihnen eine ruhige Rückmeldung zum Unterrichtsverlauf geben und die nächsten Schritte deutlich machen.",
+        phone_device: "Ich möchte Ihnen eine ruhige Rückmeldung zu den Unterrichtserwartungen geben.",
         support: "Ich möchte Ihnen eine ruhige Rückmeldung zu den nächsten Schritten geben.",
         general: "Ich möchte Ihnen eine ruhige Rückmeldung zu diesem Punkt aus dem Unterricht geben.",
       },
@@ -510,6 +591,7 @@ function buildTeacherDraftOpening(
       grading: "I wanted to update you on the recent marking.",
       behaviour: "I wanted to update you on a classroom behaviour concern.",
       disruption: "I wanted to let you know about some disruption during lesson time.",
+      phone_device: "I wanted to follow up on the classroom expectations around phone use.",
       support: "I wanted to keep you in the loop about the next practical steps in school.",
       general: "I wanted to make you aware of a classroom concern.",
     },
@@ -524,6 +606,7 @@ function buildTeacherDraftOpening(
       grading: "I wanted to update you on the recent marking.",
       behaviour: "I wanted to make you aware of a classroom behaviour concern.",
       disruption: "I wanted to let you know about some disruption during lesson time.",
+      phone_device: "I wanted to follow up on the classroom expectations around phone use.",
       support: "I wanted to update you on the next practical steps in school.",
       general: "I wanted to make you aware of a classroom concern.",
     },
@@ -538,6 +621,7 @@ function buildTeacherDraftOpening(
       grading: "I am writing with a clear update about the recent marking.",
       behaviour: "I am writing with a clear update about a classroom behaviour concern.",
       disruption: "I am writing with a clear update about lesson time today.",
+      phone_device: "I am writing with a clear update about the classroom expectations around phone use.",
       support: "I am writing with a clear update about the next practical steps in school.",
       general: "I am writing with a clear update about a classroom concern.",
     },
@@ -552,6 +636,7 @@ function buildTeacherDraftOpening(
       grading: "I wanted to reach out about the recent marking and explain the next step in school.",
       behaviour: "I wanted to reach out about a classroom behaviour concern and explain the next step in school.",
       disruption: "I wanted to follow up on lesson time today and explain the next step in school.",
+      phone_device: "I wanted to get in touch about the classroom expectations around phone use.",
       support: "I wanted to reach out about the next practical steps in school.",
       general: "I wanted to reach out about this concern and explain the next step in school.",
     },
@@ -778,6 +863,8 @@ function buildRecoveryAction(
         "Ich greife diesen Punkt in der Schule direkt auf und formuliere die Erwartung ruhig und eindeutig.",
       disruption:
         "Ich spreche diesen Punkt im Unterricht direkt an und stärke die Erwartungen für eine ruhige Lernzeit.",
+      phone_device:
+        "Ich greife die Unterrichtserwartungen zur Handynutzung ruhig auf und formuliere klar, wie diese im Unterricht gelten.",
       support:
         "Ich halte die nächsten Schritte in der Schule klar und prüfe, welche Unterstützung jetzt am sinnvollsten ist.",
       general:
@@ -800,6 +887,8 @@ function buildRecoveryAction(
         `I will speak with ${studentLabel} in school, restate the classroom expectation calmly, and help reset the pattern before it grows further.`,
       disruption:
         "I will address this in class, revisit the lesson routines that support calm learning, and reinforce the expectation clearly.",
+      phone_device:
+        "I will keep the classroom expectations around phone use clear and consistent, while continuing to handle this sensitively in class.",
       support:
         "I will keep the next steps clear in school, check what may help most, and make sure the plan feels manageable.",
       general:
@@ -818,6 +907,8 @@ function buildRecoveryAction(
         "I will address this directly in school and follow it up calmly so the expectation is clear.",
       disruption:
         "I will address this directly in class and reinforce the expectations for lesson time.",
+      phone_device:
+        "I will keep the classroom expectations around phone use clear and apply them consistently during lessons.",
       support:
         "I will keep the next steps clear in school and check what may help most now.",
       general:
@@ -836,6 +927,8 @@ function buildRecoveryAction(
         "I will address this directly in school and make the classroom expectation clear.",
       disruption:
         "I will address this directly in class and make the expectation for lesson time clear.",
+      phone_device:
+        "I will keep the classroom expectations around phone use clear and apply them consistently in lessons.",
       support:
         "I will set out the next steps clearly in school and confirm what help will be in place.",
       general:
@@ -852,6 +945,8 @@ function buildRecoveryAction(
         `I will address this in school, make the expectation clear, and help ${studentLabel} reset the pattern without escalating it further.`,
       disruption:
         "I will address this in class, revisit the routines that help lesson time stay settled, and make the next step clear.",
+      phone_device:
+        "I will keep the classroom expectations around phone use clear, while making sure this is handled calmly and sensitively in class.",
       support:
         "I will keep the next steps clear in school, check what may help most, and make sure the plan is manageable.",
       general:
@@ -927,6 +1022,8 @@ function buildReportCommentRecovery(context: DraftFallbackContext, issueKind: Re
           disruption: "Bringt fachlich passende Beiträge ein und reagiert auf Rückmeldungen. Sollte die Lernzeit konstanter ruhig halten, um durchgehend konzentriert zu arbeiten.",
           bullying_safety: "Beschreibt belastende Situationen zunehmend klar und nimmt Rückmeldungen ernst auf. Arbeitet daran, Konflikte ruhig anzusprechen und sich in angespannten Momenten sicherer zu orientieren.",
           grading: "Arbeitet inhaltlich sicher und kann wesentliche Anforderungen erfüllen. Sollte Rückmeldungen zur Bewertung gezielter aufgreifen, um schriftliche Leistungen weiter zu schärfen.",
+          phone_device:
+            "Arbeitet im Unterricht grundsätzlich verlässlich mit. Sollte die Unterrichtserwartungen zur Handynutzung noch sicherer und konstanter einhalten.",
           support: "Arbeitet grundsätzlich mit und nutzt Unterstützung zunehmend zielgerichtet. Benötigt weiterhin klare Hilfen und verlässliche Strukturen, um selbstständiger zu arbeiten.",
           general: "Zeigt in mehreren Bereichen eine stabile Entwicklung und arbeitet zunehmend sicherer mit. Sollte die nächsten Lernschritte weiterhin verlässlich und konzentriert umsetzen.",
         }
@@ -937,6 +1034,8 @@ function buildReportCommentRecovery(context: DraftFallbackContext, issueKind: Re
           disruption: "Makes relevant contributions and responds to guidance. Should keep lesson time calmer so that concentration is sustained more consistently.",
           bullying_safety: "Describes difficult situations with growing clarity and responds thoughtfully to support. Is working on raising concerns calmly and feeling more secure in challenging moments.",
           grading: "Meets key assessment expectations and shows secure understanding. Should use feedback on marked work more consistently to sharpen written responses.",
+          phone_device:
+            "Works appropriately in class and responds to guidance. Should keep the classroom expectations around phone use more consistently during lessons.",
           support: "Engages with support and is beginning to work with greater independence. Would benefit from clear routines and continued guidance to strengthen independent work.",
           general: "Shows steady development across several areas and is working with greater consistency. Should continue to develop concentration and consistency in day-to-day work.",
         }
@@ -1056,6 +1155,54 @@ export function buildFallbackDraft(context: DraftFallbackContext) {
   return buildFallbackDraftResult(context).text
 }
 
+export async function buildSourceGroundedTeacherDraftFallbackResult(
+  context: DraftFallbackContext,
+  extractor: (params: {
+    sourceText: string
+    language: LanguageKey
+  }) => Promise<TeacherDraftFallbackExtraction | null> = extractTeacherDraftFallbackContext,
+): Promise<RecoveryDraftResult | null> {
+  const issueKind = detectRecoveryIssueKind(context.sourceSituation, context.language)
+  if (!shouldAttemptSourceGroundedTeacherDraftFallback(context, issueKind)) {
+    return null
+  }
+
+  const extraction = await extractor({
+    sourceText: context.sourceSituation ?? "",
+    language: context.language,
+  })
+  if (!extraction) {
+    return null
+  }
+
+  const greetingLine = resolveGreetingLine(context)
+  const closingBlock = buildClosingBlock(context.language, context.teacherSignatureName)
+  const resolvedStudentFirstName = resolveStudentFirstName(context)
+  const bodyParagraphs = buildSourceGroundedTeacherDraftBoundaryParagraphs(
+    context,
+    extraction,
+    resolvedStudentFirstName,
+  )
+
+  if (!bodyParagraphs) {
+    return null
+  }
+
+  return {
+    text: [
+      resolveFallbackSubject(context, issueKind),
+      greetingLine,
+      ...bodyParagraphs,
+      closingBlock,
+    ]
+      .filter(Boolean)
+      .join("\n\n"),
+    templateFamily: `${context.generationMetadata.mode}_${context.generationMetadata.direction}_source_grounded_teacher_draft`,
+    issueKind,
+    sourceAnchors: [extraction.subject, extraction.boundaryType],
+  }
+}
+
 export interface ProviderRequestInput {
   situation: string
   generationMetadata: GenerationMetadata
@@ -1133,10 +1280,14 @@ export async function generateDraftWithFallback(
     return { result, usedFallback: false, errorCode: null }
   } catch (error) {
     const duration = Date.now() - start
-    const fallbackMeta: ProviderMeta = { modelUsed: "fallback", latencyMs: duration }
     const errorCode =
       error instanceof Error && error.name !== "Error" ? error.name : "PROVIDER_ERROR"
-    const recovery = buildFallbackDraftResult(context)
+    const sourceGroundedRecovery = await buildSourceGroundedTeacherDraftFallbackResult(context)
+    const recovery = sourceGroundedRecovery ?? buildFallbackDraftResult(context)
+    const fallbackMeta: ProviderMeta = {
+      modelUsed: sourceGroundedRecovery ? "teacher-draft-source-grounded-fallback" : "fallback",
+      latencyMs: duration,
+    }
     console.error("[draft] fallback_used", {
       requestId: context.requestId,
       uidHash: context.uidHash,

@@ -2,8 +2,12 @@ import { describe, expect, it, vi, beforeAll, afterAll, beforeEach } from "vites
 import { getFirebaseAdmin } from "@/lib/firebase/admin"
 import { authorizeFirebaseRequest } from "@/lib/firebase/server"
 import { generateDraft } from "@/lib/ai/provider"
-import { generateDraftWithFallback } from "@/lib/draft/fallback"
-import { POST } from "@/app/api/draft/generate/route"
+import {
+  buildFallbackDraft,
+  buildSourceGroundedTeacherDraftFallbackResult,
+  generateDraftWithFallback,
+} from "@/lib/draft/fallback"
+import { detectRouteRecoveryIssueKind, POST } from "@/app/api/draft/generate/route"
 import { buildUsageResponse, getCurrentMonthKey, incrementUsage } from "@/lib/usage"
 import { getUserEntitlements } from "@/lib/entitlements"
 import { isInternalQaUid, shouldRespectUsageLimit } from "@/lib/auth/internal-qa"
@@ -316,13 +320,14 @@ vi.mock("@/lib/draft/fallback", () => {
     ].join("\n\n")
   }
 
-  const buildFallbackDraft = (context: {
+  const buildFallbackDraftImpl = (context: {
     sourceSituation?: string
     greeting?: { text?: string }
     greetingFinal?: boolean
     mode?: string
     language?: string
     tone?: string
+    teacherDraftMode?: boolean
     studentFirstName?: string
     teacherNoteIssueClusters?: string[]
     generationMetadata?: { mode?: string; direction?: string }
@@ -343,6 +348,24 @@ vi.mock("@/lib/draft/fallback", () => {
     const homework = source.includes("homework")
     const bullying = source.includes("pushed") || source.includes("unsafe") || source.includes("bully")
     const grading = source.includes("mark") || source.includes("grade")
+    const phoneBoundary =
+      (context.teacherDraftMode && context.studentFirstName === "Lucy") ||
+      source.includes("phone") ||
+      source.includes("phones") ||
+      source.includes("mobile") ||
+      source.includes("device") ||
+      source.includes("classroom rules")
+    if (phoneBoundary) {
+      const studentLabel = context.studentFirstName ?? "the student"
+      return [
+        "Subject: Update on classroom expectations",
+        "Hello,",
+        `Thank you for getting in touch. I understand that this was a concern for you, and I will continue to support ${studentLabel} sensitively in class.`,
+        "The classroom expectation is that phones are not used during lessons. I apply this consistently so that expectations remain clear and fair for all students.",
+        `I will handle this calmly in class and make sure ${studentLabel} feels supported within that routine.`,
+        "Kind regards,",
+      ].join("\n\n")
+    }
     const subject = bullying
       ? "Subject: Follow-up on today's incident"
       : grading
@@ -418,7 +441,8 @@ vi.mock("@/lib/draft/fallback", () => {
 
   return {
     ALLOWED_TONES: ["warm", "professional", "direct", "empathetic"],
-    buildFallbackDraft,
+    buildFallbackDraft: vi.fn(buildFallbackDraftImpl),
+    buildSourceGroundedTeacherDraftFallbackResult: vi.fn().mockResolvedValue(null),
     buildTeacherNotesRecoveryDraft,
     isSafeDraftTeacherNotesRecovery,
     generateDraftWithFallback: vi.fn(),
@@ -426,6 +450,10 @@ vi.mock("@/lib/draft/fallback", () => {
 })
 
 const fallbackGenerator = vi.mocked(generateDraftWithFallback)
+const mockedBuildFallbackDraft = vi.mocked(buildFallbackDraft)
+const mockedBuildSourceGroundedTeacherDraftFallbackResult = vi.mocked(
+  buildSourceGroundedTeacherDraftFallbackResult,
+)
 const mockedGenerateDraft = vi.mocked(generateDraft)
 const mockedBuildUsageResponse = vi.mocked(buildUsageResponse)
 const mockedIncrementUsage = vi.mocked(incrementUsage)
@@ -441,6 +469,9 @@ beforeEach(() => {
   vi.clearAllMocks()
   fallbackGenerator.mockReset()
   fallbackGenerator.mockResolvedValue(buildFallbackResult(getLongDraft()))
+  mockedBuildFallbackDraft.mockClear()
+  mockedBuildSourceGroundedTeacherDraftFallbackResult.mockReset()
+  mockedBuildSourceGroundedTeacherDraftFallbackResult.mockResolvedValue(null)
   mockedGenerateDraft.mockReset()
   mockedGenerateDraft.mockResolvedValue({
     text: [
@@ -2377,6 +2408,145 @@ describe("/api/draft/generate light edit mode", () => {
     expect(generatedDraft.toLowerCase()).not.toContain("call")
     expect(generatedDraft).toMatch(/\bphones?\b|\bclassroom rules\b/i)
     expect(countNormalizedWords(generatedDraft)).toBeLessThan(120)
+  })
+
+  it("classifies the Lucy phone-boundary draft as phone_device for recovery routing", () => {
+    const teacherDraft = [
+      "Dear Lucy's Dad,",
+      "",
+      "I understand that Lucy may feel more comfortable having her phone with her, but classroom rules are clear that phones are not used during lessons.",
+      "",
+      "I can't make individual exceptions in the moment, as this would quickly become unmanageable across the class.",
+      "",
+      "Regards,",
+      "Greg",
+    ].join("\n")
+
+    expect(detectRouteRecoveryIssueKind(teacherDraft, "en")).toBe("phone_device")
+  })
+
+  it("uses the boutique phone-boundary fallback instead of generic next-steps output when teacher-draft retries fail", async () => {
+    const teacherDraft = [
+      "Dear Lucy's Dad,",
+      "",
+      "I understand that Lucy may feel more comfortable having her phone with her, but classroom rules are clear that phones are not used during lessons.",
+      "",
+      "I can't make individual exceptions in the moment, as this would quickly become unmanageable across the class. I need to apply the same expectations consistently for all students.",
+      "",
+      "I will continue to support Lucy in class, but these expectations will remain in place.",
+      "",
+      "Regards,",
+      "Greg",
+    ].join("\n")
+
+    const violatingDraft = [
+      "Dear Parent/Carer,",
+      "",
+      "I can't make individual exceptions in the moment, as this would quickly become unmanageable across the class. I need to apply the same expectations consistently for all students.",
+      "",
+      "I will continue to support Lucy in class, but these expectations will remain in place. Thank you for your support with this, and working together will help your child feel more settled in class.",
+      "",
+      "Kind regards,",
+      "Greg",
+    ].join("\n")
+
+    fallbackGenerator
+      .mockResolvedValueOnce(buildFallbackResult(violatingDraft))
+      .mockResolvedValueOnce(buildFallbackResult(violatingDraft))
+      .mockResolvedValueOnce(buildFallbackResult(violatingDraft))
+    mockedBuildFallbackDraft.mockImplementationOnce(() =>
+      [
+        "Subject: Update on classroom expectations",
+        "Dear Parent/Carer,",
+        "Thank you for getting in touch. I understand that this was a concern for you, and I will continue to support Lucy sensitively in class.",
+        "The classroom expectation is that phones are not used during lessons. I apply this consistently so that expectations remain clear and fair for all students.",
+        "I will handle this calmly in class and make sure Lucy feels supported within that routine.",
+        "Kind regards,",
+      ].join("\n\n"),
+    )
+
+    const request = new Request("https://example.com/api/draft/generate", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: "Bearer token",
+      },
+      body: JSON.stringify({
+        situation: teacherDraft,
+        tone: "professional",
+        language: "en",
+        uiLocale: "en-GB",
+        mode: "parent_message",
+        inputIntent: "teacher_draft",
+      }),
+    })
+
+    const response = await POST(request)
+    expect(response.status).toBe(200)
+    const json = await response.json()
+    const generatedDraft = json.data?.generatedDraft ?? ""
+
+    expect(json.data?.metadata?.modelUsed).toBe("teacher-draft-boutique-fallback")
+    expect(json.data?.meta?.usedFallback).toBe(true)
+    expect(generatedDraft).toMatch(/\bphones?\b|\bclassroom expectation\b/i)
+    expect(generatedDraft).not.toContain("next steps")
+    expect(generatedDraft).not.toContain("practical steps")
+    expect(generatedDraft).not.toContain("follow up in school")
+  })
+
+  it("uses the source-grounded teacher-draft fallback when a classroom-boundary draft falls into minimum-output recovery", async () => {
+    const teacherDraft = [
+      "Dear Parent/Carer,",
+      "",
+      "Lucy keeps bringing trading cards out during lessons, which is becoming a distraction.",
+      "",
+      "I can't keep making exceptions for trading cards during lesson time, as it quickly becomes unmanageable across the class, and these expectations will remain in place.",
+      "",
+      "Regards,",
+      "Greg",
+    ].join("\n")
+
+    fallbackGenerator.mockResolvedValueOnce(buildFallbackResult("Noted."))
+    mockedBuildSourceGroundedTeacherDraftFallbackResult.mockResolvedValueOnce({
+      text: [
+        "Subject: Update from school",
+        "Dear Parent/Carer,",
+        "Thank you for getting in touch. I understand that this was a concern for you, and I will continue to support Lucy sensitively in class.",
+        "The classroom expectation is that trading cards are not used during lessons. I apply this consistently so that expectations remain clear and fair for all students.",
+        "I will handle this calmly in class and make sure Lucy feels supported within that routine.",
+        "Kind regards,",
+        "Greg",
+      ].join("\n\n"),
+      templateFamily: "safe_draft_teacher_to_parent_source_grounded_teacher_draft",
+      issueKind: "general",
+      sourceAnchors: ["trading cards are not used during lessons", "classroom_boundary"],
+    })
+
+    const request = new Request("https://example.com/api/draft/generate", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: "Bearer token",
+      },
+      body: JSON.stringify({
+        situation: teacherDraft,
+        tone: "professional",
+        language: "en",
+        uiLocale: "en-GB",
+        mode: "parent_message",
+        inputIntent: "teacher_draft",
+      }),
+    })
+
+    const response = await POST(request)
+    expect(response.status).toBe(200)
+    const json = await response.json()
+    const generatedDraft = json.data?.generatedDraft ?? ""
+
+    expect(json.data?.meta?.usedFallback).toBe(true)
+    expect(generatedDraft).toContain("trading cards are not used during lessons")
+    expect(generatedDraft).not.toContain("next practical steps")
+    expect(generatedDraft).not.toContain("check what may help most now")
   })
 
   it("allows a discussion offer in teacher_draft mode when the source explicitly invites it", async () => {

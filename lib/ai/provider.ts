@@ -108,6 +108,11 @@ export interface ProviderResult {
   providerMeta: ProviderMeta
 }
 
+export interface TeacherDraftFallbackExtraction {
+  subject: string
+  boundaryType: "classroom_boundary" | "general"
+}
+
 class ProviderError extends Error {
   constructor(message: string, public status?: number, public providerErrorCode?: string) {
     super(message)
@@ -1197,6 +1202,83 @@ async function callWithFallback(payload: FetchPayload): Promise<GenerationResult
 
   console.info("[provider] falling back to secondary model", { fallbackModel: fallback })
   return callAnthropicModel(fallback, payload)
+}
+
+function parseTeacherDraftFallbackExtraction(raw: string): TeacherDraftFallbackExtraction | null {
+  const cleaned = raw
+    .trim()
+    .replace(/^```(?:json)?\s*/i, "")
+    .replace(/\s*```$/, "")
+    .trim()
+
+  if (!cleaned) {
+    return null
+  }
+
+  try {
+    const parsed = JSON.parse(cleaned) as Partial<TeacherDraftFallbackExtraction>
+    const subject = typeof parsed.subject === "string" ? parsed.subject.trim() : ""
+    const boundaryType = parsed.boundaryType === "classroom_boundary" ? "classroom_boundary" : "general"
+    if (!subject) {
+      return null
+    }
+    return { subject, boundaryType }
+  } catch {
+    const subjectMatch = cleaned.match(/"subject"\s*:\s*"([^"]+)"/i)
+    const boundaryTypeMatch = cleaned.match(
+      /"boundaryType"\s*:\s*"(classroom_boundary|general)"/i,
+    )
+    if (!subjectMatch?.[1]) {
+      return null
+    }
+    return {
+      subject: subjectMatch[1].trim(),
+      boundaryType: boundaryTypeMatch?.[1] === "classroom_boundary" ? "classroom_boundary" : "general",
+    }
+  }
+}
+
+export async function extractTeacherDraftFallbackContext(params: {
+  sourceText: string
+  language: DraftLanguage
+}): Promise<TeacherDraftFallbackExtraction | null> {
+  const sourceText = params.sourceText.trim()
+  if (!sourceText) {
+    return null
+  }
+
+  const languageLabel = params.language === "de" ? "German" : "English"
+  const payload: FetchPayload = {
+    messages: [
+      {
+        role: "system",
+        content: [
+          "Teacher-draft fallback micro-extraction.",
+          `Read the teacher's source draft and return JSON only in ${languageLabel}.`,
+          'Schema: {"subject":"...","boundaryType":"classroom_boundary|general"}.',
+          'subject must be a short source-grounded phrase that can complete: "The classroom expectation is that ...".',
+          "Keep subject under 12 words.",
+          "Use only ideas already present in the source.",
+          "Do not invent meetings, processes, roles, support plans, or next steps.",
+          "Use boundaryType=classroom_boundary for lesson-time rules, routines, or item-use boundaries; otherwise use general.",
+        ].join(" "),
+      },
+      {
+        role: "user",
+        content: sourceText,
+      },
+    ],
+    temperature: 0,
+    top_p: 0.1,
+    max_tokens: 100,
+  }
+
+  try {
+    const result = await callWithFallback(payload)
+    return parseTeacherDraftFallbackExtraction(result.text)
+  } catch {
+    return null
+  }
 }
 
 export async function generateDraft(input: ProviderInput): Promise<ProviderResult> {

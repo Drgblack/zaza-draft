@@ -1,4 +1,10 @@
-import { buildFallbackDraft, type DraftFallbackContext } from "./fallback"
+import {
+  buildFallbackDraft,
+  buildFallbackDraftResult,
+  buildSourceGroundedTeacherDraftFallbackResult,
+  hasTeacherDraftPhoneBoundaryConcern,
+  type DraftFallbackContext,
+} from "./fallback"
 
 const baseContext: Omit<DraftFallbackContext, "language" | "teacherSignatureName"> = {
   mode: "parent_message",
@@ -285,16 +291,95 @@ describe("fallback drafting signature hygiene", () => {
     }
 
     const text = buildFallbackDraft(context)
-    expect(text).toContain("Subject: Update from school")
+    const result = buildFallbackDraftResult(context)
+    expect(result.issueKind).toBe("phone_device")
+    expect(text).toContain("Subject: Update on classroom expectations")
     expect(text).toContain("Thank you for getting in touch. I understand that this was a concern for you")
     expect(text).toContain("The classroom expectation is that phones are not used during lessons.")
     expect(text).toContain("clear and fair for all students")
+    expect(text).not.toContain("next steps")
+    expect(text).not.toContain("practical steps")
+    expect(text).not.toContain("follow up in school")
     expect(text).not.toContain("I can't make individual exceptions")
     expect(text).not.toContain("unmanageable across the class")
     expect(text).not.toContain("support coordinator")
     expect(text).not.toContain("appropriate colleague")
     expect(text).not.toContain("conversation")
     expect(text).toContain("Kind regards,\nGreg")
+  })
+
+  it("detects teacher-draft phone-boundary sources reliably", () => {
+    expect(hasTeacherDraftPhoneBoundaryConcern("phones are not used during lessons")).toBe(true)
+    expect(
+      hasTeacherDraftPhoneBoundaryConcern(
+        "I understand that Lucy may feel more comfortable having her phone with her",
+      ),
+    ).toBe(true)
+    expect(hasTeacherDraftPhoneBoundaryConcern("homework was not submitted")).toBe(false)
+  })
+
+  it("builds a source-grounded teacher-draft fallback for general classroom-boundary items", async () => {
+    const context: DraftFallbackContext = {
+      ...baseContext,
+      language: "en",
+      tone: "professional",
+      teacherDraftMode: true,
+      teacherSignatureName: "Greg",
+      studentFirstName: "Lucy",
+      generationMetadata: {
+        mode: "safe_draft",
+        direction: "teacher_to_parent",
+        source_type: "typed_text",
+        locale: "en",
+        prompt_builder: "safe_draft",
+      },
+      sourceSituation: [
+        "Dear Parent/Carer,",
+        "",
+        "Lucy has been bringing trading cards out during lessons, which is becoming a distraction.",
+        "",
+        "I need to be clear that they are not used in class, even when she says she only has them out briefly.",
+        "",
+        "Kind regards,",
+        "Greg",
+      ].join("\n"),
+    }
+
+    const result = await buildSourceGroundedTeacherDraftFallbackResult(context, async () => ({
+      subject: "trading cards are not used during lessons",
+      boundaryType: "classroom_boundary",
+    }))
+
+    expect(result?.issueKind).toBe("general")
+    expect(result?.text).toContain(
+      "The classroom expectation is that trading cards are not used during lessons.",
+    )
+    expect(result?.text).not.toContain("next steps")
+    expect(result?.text).not.toContain("practical steps")
+    expect(result?.text).toContain("Kind regards,\nGreg")
+  })
+
+  it("falls back to the deterministic teacher-draft templates when source grounding is unavailable", async () => {
+    const context: DraftFallbackContext = {
+      ...baseContext,
+      language: "en",
+      tone: "professional",
+      teacherDraftMode: true,
+      teacherSignatureName: "Greg",
+      generationMetadata: {
+        mode: "safe_draft",
+        direction: "teacher_to_parent",
+        source_type: "typed_text",
+        locale: "en",
+        prompt_builder: "safe_draft",
+      },
+      sourceSituation: "I need to send a calm message about classroom routines tomorrow.",
+    }
+
+    const result = await buildSourceGroundedTeacherDraftFallbackResult(context, async () => null)
+
+    expect(result).toBeNull()
+    expect(buildFallbackDraft(context)).toContain("Subject: Update from school")
   })
 
   it("uses boutique teacher-draft fallback for marking disputes without customer-support filler", () => {

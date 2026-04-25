@@ -30,6 +30,7 @@ import { hasDraftEntitlementAccess, resolveDraftEntitlement } from "@/lib/draft-
 import {
   ALLOWED_TONES,
   buildFallbackDraft,
+  buildSourceGroundedTeacherDraftFallbackResult,
   buildTeacherNotesRecoveryDraft,
   DraftFallbackContext,
   generateDraftWithFallback,
@@ -1087,10 +1088,14 @@ type RouteRecoveryIssueKind =
   | "grading"
   | "behaviour"
   | "disruption"
+  | "phone_device"
   | "support"
   | "general"
 
-function detectRouteRecoveryIssueKind(source: string | undefined, language: string | undefined): RouteRecoveryIssueKind {
+export function detectRouteRecoveryIssueKind(
+  source: string | undefined,
+  language: string | undefined,
+): RouteRecoveryIssueKind {
   const normalized = (source ?? "").toLowerCase()
   const isGerman = language?.toLowerCase().startsWith("de")
   const patterns = isGerman
@@ -1102,6 +1107,7 @@ function detectRouteRecoveryIssueKind(source: string | undefined, language: stri
         grading: /\b(note|noten|bewertung|bewertet|test|prüfung|korrigiert)\b/,
         behaviour: /\b(verhalten|respektlos|unfreundlich|streit|konflikt)\b/,
         disruption: /\b(stört|unruh|reinruf|unterbr|ablenk|konzent|laut)\b/,
+        phone_device: /\b(handy|handys|mobiltelefon|gerät|geräte|bildschirmzeit|unterrichtsregeln)\b/,
         support: /\b(unterstütz|hilfe|förder|zusätzliche hilfe|besprech)\b/,
       }
     : {
@@ -1113,6 +1119,7 @@ function detectRouteRecoveryIssueKind(source: string | undefined, language: stri
         grading: /\b(grade|grading|marking|marked|assessment|test score|exam)\b/,
         behaviour: /\b(behaviour|behavior|rude|unkind|argument|conflict)\b/,
         disruption: /\b(disrupt|disruption|calling out|talking over|interrupt|unsettled|focus)\b/,
+        phone_device: /\b(phone|phones|mobile|device|devices|screen time|classroom rules)\b/,
         support: /\b(support|help|meeting|follow up|check in|plan)\b/,
       }
 
@@ -1122,6 +1129,7 @@ function detectRouteRecoveryIssueKind(source: string | undefined, language: stri
   if (patterns.grading.test(normalized)) return "grading"
   if (patterns.behaviour.test(normalized)) return "behaviour"
   if (patterns.disruption.test(normalized)) return "disruption"
+  if (patterns.phone_device.test(normalized)) return "phone_device"
   if (patterns.support.test(normalized)) return "support"
   return "general"
 }
@@ -1136,6 +1144,7 @@ function getRouteRecoveryAnchors(issueKind: RouteRecoveryIssueKind, language: st
       grading: ["bewertung", "note", "test"],
       behaviour: ["verhalten", "konflikt", "umgang"],
       disruption: ["unterricht", "lernzeit", "unterrichtsverlauf"],
+      phone_device: ["handy", "unterrichtsregeln", "unterricht", "erwartungen"],
       support: ["unterstützung", "nächsten schritte", "rückmeldung"],
       general: ["unterricht", "rückmeldung", "nächsten schritte"],
     }
@@ -1149,6 +1158,7 @@ function getRouteRecoveryAnchors(issueKind: RouteRecoveryIssueKind, language: st
     grading: ["marking", "grade", "assessment", "work"],
     behaviour: ["behaviour", "conflict", "classroom behaviour"],
     disruption: ["lesson", "class", "lesson time", "disruption"],
+    phone_device: ["phone", "phones", "classroom rules", "lesson", "expectations"],
     support: ["support", "meeting", "follow up", "next steps"],
     general: ["school", "class", "update", "next steps"],
   }
@@ -1212,6 +1222,11 @@ function buildDeterministicTemplateBody(
   }
 
   return buildFallbackDraft(templateContext)
+}
+
+async function buildRouteFallbackDraft(fallbackContext: DraftFallbackContext) {
+  const sourceGroundedRecovery = await buildSourceGroundedTeacherDraftFallbackResult(fallbackContext)
+  return sourceGroundedRecovery?.text ?? buildFallbackDraft(fallbackContext)
 }
 
 type TrustGradeViolationType =
@@ -2357,6 +2372,8 @@ export async function POST(request: Request) {
               "Beschreibt belastende Situationen zunehmend klar und nimmt Rückmeldungen ernst auf. Arbeitet daran, Konflikte ruhig anzusprechen und sich in angespannten Momenten sicherer zu orientieren.",
             grading:
               "Arbeitet inhaltlich sicher und kann wesentliche Anforderungen erfüllen. Sollte Rückmeldungen zur Bewertung gezielter aufgreifen, um schriftliche Leistungen weiter zu schärfen.",
+            phone_device:
+              "Arbeitet im Unterricht grundsätzlich verlässlich mit. Sollte die Unterrichtserwartungen zur Handynutzung noch sicherer und konstanter einhalten.",
             support:
               "Arbeitet grundsätzlich mit und nutzt Unterstützung zunehmend zielgerichtet. Benötigt weiterhin klare Hilfen und verlässliche Strukturen, um selbstständiger zu arbeiten.",
             general:
@@ -2375,6 +2392,8 @@ export async function POST(request: Request) {
               "Describes difficult situations with growing clarity and responds thoughtfully to support. Is working on raising concerns calmly and feeling more secure in challenging moments.",
             grading:
               "Meets key assessment expectations and shows secure understanding. Should use feedback on marked work more consistently to sharpen written responses.",
+            phone_device:
+              "Works appropriately in class and responds to guidance. Should keep the classroom expectations around phone use more consistently during lessons.",
             support:
               "Engages with support and is beginning to work with greater independence. Would benefit from clear routines and continued guidance to strengthen independent work.",
             general:
@@ -2753,7 +2772,7 @@ export async function POST(request: Request) {
       }
     }
 
-    generatedDraft = finalizeWithGreeting(buildFallbackDraft(fallbackContext))
+    generatedDraft = finalizeWithGreeting(await buildRouteFallbackDraft(fallbackContext))
     finalizeAndFormatDraft(generatedDraft)
     providerMeta = {
       modelUsed: "minimum-output-fallback",
@@ -2940,7 +2959,7 @@ export async function POST(request: Request) {
   }
 
   if (teacherAuthenticityViolations.length > 0) {
-    const fallbackDraft = finalizeWithGreeting(buildFallbackDraft(fallbackContext))
+    const fallbackDraft = finalizeWithGreeting(await buildRouteFallbackDraft(fallbackContext))
     const fallbackViolations = detectTeacherAuthenticityViolations(fallbackDraft, {
       language,
       mode,
@@ -3179,7 +3198,7 @@ export async function POST(request: Request) {
   }
 
   if (teacherDraftQualityViolations.length > 0) {
-    const fallbackDraft = finalizeWithGreeting(buildFallbackDraft(fallbackContext))
+    const fallbackDraft = finalizeWithGreeting(await buildRouteFallbackDraft(fallbackContext))
     const fallbackViolations = detectTeacherDraftQualityViolations({
       sourceText: currentSituation,
       candidateText: fallbackDraft,
