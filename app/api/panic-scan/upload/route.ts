@@ -2,8 +2,12 @@ import { NextResponse } from "next/server"
 import { randomUUID } from "crypto"
 import { authorizeFirebaseRequest } from "@/lib/firebase/server"
 import { enforcePerUserRateLimit, RateLimitError } from "@/lib/rate-limit"
-import { analyzePanicMessage } from "@/lib/panic-scan/analysis"
-import { OPENAI_BUSY_MESSAGE, isOpenAIBusyError } from "@/lib/ai/openai-retry"
+import { analyzePanicMessage, buildHeuristicPanicAnalysis } from "@/lib/panic-scan/analysis"
+import {
+  OPENAI_BUSY_MESSAGE,
+  OpenAIRequestError,
+  isOpenAIBusyError,
+} from "@/lib/ai/openai-retry"
 import { cleanOcrText } from "@/lib/panic-scan/clean-ocr"
 import { canonicalizeLocaleIdentifier } from "@/lib/draft/language"
 import { resolvePanicScanLocale } from "@/lib/panic-scan/locale"
@@ -136,6 +140,29 @@ function approxTokensFromText(text: string) {
   return Math.ceil(text.length / 4)
 }
 
+function classifyFilePayloadSize(bytes: number | null) {
+  if (bytes == null) {
+    return "unknown"
+  }
+  if (bytes < 128 * 1024) {
+    return "small"
+  }
+  if (bytes < 1024 * 1024) {
+    return "medium"
+  }
+  return "large"
+}
+
+function classifyTextPayloadSize(approxTokens: number) {
+  if (approxTokens < 400) {
+    return "light"
+  }
+  if (approxTokens < 1200) {
+    return "medium"
+  }
+  return "heavy"
+}
+
 function logPanicScanStructured(event: string, data: Record<string, unknown>) {
   console.info(`[panic-scan][${event}]`, data)
 }
@@ -181,6 +208,7 @@ export async function POST(request: Request) {
       fileName,
       fileType,
       fileSizeBytes,
+      fileSizeClass: classifyFilePayloadSize(fileSizeBytes),
     })
 
     if (typeof file === "string" && isSuspiciousClientPath(file)) {
@@ -473,9 +501,12 @@ export async function POST(request: Request) {
 
       const cleanStartedAt = Date.now()
       const cleaned = cleanOcrText(sanitized.cleanText)
+      const analysisInputText = cleaned.cleanText || extractedText
+      const analysisApproxTokens = approxTokensFromText(analysisInputText)
+      const analysisPayloadSizeClass = classifyTextPayloadSize(analysisApproxTokens)
       const analysisLocale = resolvePanicScanLocale({
         uiLocale,
-        sourceText: cleaned.cleanText || extractedText,
+        sourceText: analysisInputText,
         acceptLanguage: request.headers.get("accept-language"),
       })
       logPanicScanStructured("step", {
@@ -486,6 +517,10 @@ export async function POST(request: Request) {
         elapsedMs: Date.now() - cleanStartedAt,
         cleanedChars: cleaned.cleanText.length,
         cleanedApproxTokens: approxTokensFromText(cleaned.cleanText),
+        analysisInputSource: cleaned.cleanText ? "cleaned_text" : "raw_ocr_text",
+        analysisInputChars: analysisInputText.length,
+        analysisApproxTokens,
+        analysisPayloadSizeClass,
         cleanConfidence: cleaned.confidence,
         analysisLanguage: analysisLocale.language,
         analysisLanguageSource: analysisLocale.source,
@@ -524,11 +559,47 @@ export async function POST(request: Request) {
         },
       }
 
-      const analysis = await analyzePanicMessage(
-        extractedText,
-        analysisLocale.language,
-        openAiInstrumentation,
-      )
+      let analysisProvider: "openai" | "heuristic_fallback" = "openai"
+      let analysis
+      try {
+        analysis = await analyzePanicMessage(
+          analysisInputText,
+          analysisLocale.language,
+          openAiInstrumentation,
+        )
+      } catch (error) {
+        const busyError = isOpenAIBusyError(error)
+        logPanicScanStructured("attempt_error", {
+          requestId,
+          uploadAttemptId,
+          sessionId,
+          stage: "analysis.openai",
+          elapsedMs: Date.now() - attemptStartedAt,
+          busyError,
+          openAiCallCount,
+          openAiRetryTriggered,
+          analysisPayloadSizeClass,
+          errorClass: error instanceof Error ? error.name : typeof error,
+          errorMessage: error instanceof Error ? error.message : String(error),
+          openAiRequestId: error instanceof OpenAIRequestError ? error.requestId ?? null : null,
+        })
+        if (!busyError) {
+          throw error
+        }
+
+        analysisProvider = "heuristic_fallback"
+        analysis = buildHeuristicPanicAnalysis(analysisInputText, analysisLocale.language)
+        logPanicScanStructured("analysis_fallback", {
+          requestId,
+          uploadAttemptId,
+          sessionId,
+          reason: "openai_busy",
+          analysisPayloadSizeClass,
+          analysisInputSource: cleaned.cleanText ? "cleaned_text" : "raw_ocr_text",
+          openAiCallCount,
+          openAiRetryTriggered,
+        })
+      }
       diagnostics.analysisSucceeded = true
       logStage(requestId, "analysis", true)
       const processingTimeMs = Date.now() - createdAt.getTime()
@@ -541,6 +612,7 @@ export async function POST(request: Request) {
           cleanConfidence: cleaned.confidence,
           classification: analysis.classification,
           analysis: analysis.analysis,
+          analysisProvider,
           analysisLanguage: analysisLocale.language,
           analysisLanguageSource: analysisLocale.source,
           processingTimeMs,

@@ -229,6 +229,48 @@ function buildForwardSafeRewriteInstructions(input: ProviderInput) {
   ]
 }
 
+function buildPrimaryParentReplyContract() {
+  return [
+    "Parent-message primary reply contract:",
+    "--- ROLE ---",
+    "You are a calm, experienced teacher writing a professional reply to a parent.",
+    "--- OBJECTIVE ---",
+    "Write a reply that:",
+    "- acknowledges the concern briefly",
+    "- maintains professional boundaries",
+    "- avoids escalation",
+    "- sounds natural and human",
+    "- protects the teacher from misinterpretation",
+    "- feels like the message the teacher will not regret tomorrow",
+    "--- HARD RULES (must be enforced) ---",
+    "- Do NOT repeat unusual or specific parent wording verbatim (e.g. 'mindfulness purposes', 'felt embarrassed').",
+    "- Do NOT invent administrative claims (e.g. 'I don't have a record', 'no previous communication').",
+    "- Do NOT sound defensive or argumentative.",
+    "- Do NOT summarise the parent's email.",
+    "- Do NOT use generic customer-service closers (e.g. 'Please feel free to contact me', 'Please feel free to reach out').",
+    "--- STYLE RULES ---",
+    "- Acknowledge the concern in ONE short sentence only.",
+    "- Reframe into teacher perspective immediately.",
+    "- Use calm, neutral language.",
+    "- Keep sentences simple and natural.",
+    "- Avoid over-explaining or justifying.",
+    "- Keep the close brief and plain.",
+    "--- STRUCTURE ---",
+    "1. Greeting (safe fallback rules already handled).",
+    "2. Thank + brief acknowledgement.",
+    "3. Teacher perspective (intent + classroom expectation).",
+    "4. Support framing (student wellbeing without conceding policy).",
+    "5. Next step (process-based, not defensive).",
+    "6. Close.",
+    "--- EXAMPLE TRANSFORMATION ---",
+    "BAD: 'I understand Lucy uses her phone for mindfulness purposes...'",
+    "GOOD: 'I understand Lucy may need support when she feels overwhelmed.'",
+    "BAD: 'I don't have a record of previous communication...'",
+    "GOOD: 'It would be helpful to clarify this through the school's usual support process.'",
+    "Rewrite ideas in your own words. Do not reuse distinctive phrases from the parent's message.",
+  ]
+}
+
 function buildSafeDraftInstructions(input: ProviderInput) {
   switch (input.generationMetadata.direction) {
     case "teacher_to_parent":
@@ -275,9 +317,9 @@ function buildSafeDraftInstructions(input: ProviderInput) {
       ]
     case "parent_to_teacher":
       return [
-        "This Safe Draft request was unexpectedly classified as parent_to_teacher.",
+        "This Safe Draft request is a typed or pasted parent email to the teacher.",
         "Keep the output teacher-authored and bounded. Do not switch into the parent's voice.",
-        "Acknowledge the specific issue in one sentence, then move to a concrete teacher action, what has been checked, or what boundary applies.",
+        ...buildPrimaryParentReplyContract(),
       ]
   }
 }
@@ -557,7 +599,20 @@ export function buildSystemPrompt(input: ProviderInput) {
       )
     } else {
       systemLines.push(
-        "In the first paragraph (after any resolved greeting), restate the parent's stated concern in neutral language before moving toward next steps.",
+        "For typed or pasted parent emails, acknowledge the concern briefly in the first paragraph and then move straight to the teacher's explanation, boundary, or next step.",
+        "Do not restate the parent's complaint in detail, do not mirror the child's reported feelings line by line, and do not recycle distinctive parent-only phrases such as 'came home upset', 'felt embarrassed', or coping-tool explanations unless one brief reference is genuinely necessary.",
+        "Use only one brief, neutral acknowledgement of the child's experience. Prefer plain wording such as 'upset' or 'uncomfortable' and avoid replaying emotionally loaded parent phrasing such as 'embarrassed', 'singled out', or similar unless it is essential.",
+        "Do not repeat unusual parent wording such as 'mindfulness purposes' or similar advocacy phrasing verbatim; restate the core concern in plain teacher-safe language instead.",
+        "Do not invent lines about missing records, prior communication gaps, what has or has not been logged, whether you were or were not previously aware of an arrangement, whether there is anything on file, or whether there is a formal arrangement unless the teacher explicitly provided that fact.",
+        "Avoid administrative rebuttal phrasing such as 'on file', 'formal arrangement', 'I wasn't aware', 'I had not been informed', 'nothing has been shared with me', or similar unless the teacher explicitly gave that information.",
+        "Avoid school-admin wording such as 'properly documented', 'logged', 'recorded', 'evidenced', or 'pastoral process' unless the teacher explicitly referred to that process. Prefer plain phrasing such as 'clarify this through the school's usual support process' or 'follow up with the appropriate colleague'.",
+        "Do not invent extra classroom details such as what other pupils were doing, who witnessed the moment, or what was said beyond the core classroom boundary unless those details are explicit in the source.",
+        "Keep the phone-use or classroom boundary intact where relevant, but frame it calmly and non-defensively.",
+        "Do not promise 'flexibility' or echo the parent's requested accommodation language. Instead, say that any agreed adjustments or support arrangements should be clarified through the school's usual support process.",
+        "If the concern points to a possible support need or adjustment, suggest clarifying that through the school's usual support process or the appropriate colleague so expectations are clear for staff and for the child.",
+        "A strong reply pattern for this kind of parent email is: brief acknowledgement, a calm line that the intention was not to make the child feel uncomfortable, one sentence keeping the classroom expectation or boundary clear, then one sentence about clarifying support arrangements through the school's usual support process, and a final sentence about following up sensitively with the appropriate colleague.",
+        "For classroom-boundary complaints involving phone use or similar support tools, prefer wording such as: the intention was not to make the child feel uncomfortable; the usual classroom expectation still applies; the child may need support when feeling overwhelmed; this should be clarified through the school's usual support process so expectations are clear for staff and for the child; in the meantime the teacher will continue to handle it sensitively and follow up with the appropriate colleague.",
+        "Do not use the absence of prior information as a rebuttal. Avoid lines such as 'I wasn't aware', 'I had not been informed', 'I don't have a record', 'there is nothing on file', or 'there is no formal arrangement' unless those facts were explicitly given by the teacher.",
         "Unless the parent is explicitly discussing behaviour, avoid generic 'behavior documentation' phrasing and keep the focus on the actual concern being raised.",
       )
     }
@@ -753,6 +808,13 @@ export function buildSystemPrompt(input: ProviderInput) {
     systemLines.push(
       `Respond strictly in ${languageName}; avoid mixing other languages and do not include English phrases when German is requested.`,
     )
+  }
+
+  if (
+    input.generationMetadata.direction === "parent_to_teacher" &&
+    input.generationMetadata.mode !== "panic_scan"
+  ) {
+    systemLines.push(...buildPrimaryParentReplyContract())
   }
 
   const providerGreetingDecision: GreetingDecision = {

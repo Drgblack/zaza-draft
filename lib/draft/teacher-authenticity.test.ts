@@ -74,6 +74,27 @@ describe("teacher authenticity benchmark set", () => {
     )
   })
 
+  it("rejects typed parent-email replies that mirror multiple complaint phrases back to the parent", () => {
+    const violations = detectTeacherAuthenticityViolations(
+      "Lucy felt upset after the lesson, she felt embarrassed by how it was handled, and I understand that the phone is used for mindfulness purposes.",
+      {
+        language: "en",
+        mode: "parent_message",
+        direction: "parent_to_teacher",
+        sourceText: [
+          "Lucy came home quite upset today and told me she was asked to put her phone away during your lesson.",
+          "We have previously explained that Lucy uses her phone for mindfulness purposes when she feels overwhelmed.",
+          "She felt embarrassed and said the way it was handled made her uncomfortable.",
+        ].join(" "),
+      },
+    )
+
+    expect(violations.map((violation) => violation.phrase)).toEqual(
+      expect.arrayContaining(["felt embarrassed", "mindfulness purposes"]),
+    )
+    expect(violations.some((violation) => violation.type === "source_parroting")).toBe(true)
+  })
+
   it("rejects banned high-risk panic scan phrasing and generic closers", () => {
     const violations = detectTeacherAuthenticityViolations(
       "I know this will feel serious. I wanted to follow up on what happened today. Please don't hesitate to reach out.",

@@ -6,7 +6,12 @@ import {
   BlockedLanguageTier,
 } from "@/lib/safety"
 import type { DraftLanguage, DraftMode, PronounPreference } from "@/lib/types"
-import { generateDraft, ProviderMeta, ProviderResult } from "@/lib/ai/provider"
+import {
+  generateDraft,
+  getConfiguredModelNames,
+  ProviderMeta,
+  ProviderResult,
+} from "@/lib/ai/provider"
 import { enforcePronouns, inferPronounResolution } from "@/lib/text/pronouns"
 import { enforceDraftRateLimit, RateLimitError } from "@/lib/rate-limit"
 import { createHash, randomUUID } from "crypto"
@@ -772,6 +777,21 @@ function detectExtraSignoffName(raw: string, locale: GreetingLocale, policy: Gre
     return normalizeParentFacingGreetingLine(normalized, locale)
   }
 
+function extractNamedGreetingCandidate(greeting: string, locale: GreetingLocale) {
+  const normalized = normalizeGreetingValue(greeting, locale)
+  if (!normalized) {
+    return null
+  }
+
+  if (locale === "en") {
+    return normalized.match(/^(?:hello|hi|dear)\s+(.+),$/i)?.[1]?.trim() ?? null
+  }
+
+  return (
+    normalized.match(/^(?:guten tag|hallo|sehr geehrte|sehr geehrter)\s+(.+),$/i)?.[1]?.trim() ?? null
+  )
+}
+
 function enforceTitledGreetingSafeguard(options: {
   greeting: string
   locale: GreetingLocale
@@ -912,15 +932,73 @@ async function reRunWithRewrite(
 }
 
 const DEBUG_DRAFT_LOGS = process.env.NODE_ENV !== "production" || process.env.DEBUG_DRAFT_LOGS === "1"
+const DRAFT_GENERATION_UNAVAILABLE_MESSAGE =
+  "Draft generation is temporarily unavailable. Please try again in a few seconds."
 
 export async function POST(request: Request) {
   const requestId = randomUUID()
+  const attemptStartedAt = Date.now()
   let documentationModeRequested = false
+  let sessionId: string | null = null
+  let activeMode: DraftMode | null = null
+  let activeModelName: string | null = null
+
+  const logDraftStructured = (
+    event: string,
+    data: Record<string, unknown>,
+    level: "info" | "error" = "info",
+  ) => {
+    const logger = level === "error" ? console.error : console.info
+    logger(`[draft-generate][${event}]`, data)
+  }
+
+  const baseDraftLog = () => ({
+    requestId,
+    sessionId,
+    activeMode,
+    modelName: activeModelName,
+  })
+
+  const logAttemptError = (
+    stage: string,
+    error: unknown,
+    options: {
+      fatal?: boolean
+      extra?: Record<string, unknown>
+    } = {},
+  ) => {
+    logDraftStructured(
+      "attempt_error",
+      {
+        ...baseDraftLog(),
+        stage,
+        fatal: options.fatal ?? true,
+        elapsedMs: Date.now() - attemptStartedAt,
+        errorClass: error instanceof Error ? error.name : typeof error,
+        errorMessage: error instanceof Error ? error.message : String(error),
+        ...options.extra,
+      },
+      "error",
+    )
+  }
+
   const responseHeaders = {
     "x-request-id": requestId,
   }
-  const ok = (data: unknown, status = 200) =>
-    NextResponse.json({ success: true, requestId, data }, { status, headers: responseHeaders })
+  const ok = (data: unknown, status = 200) => {
+    logDraftStructured("response_send", {
+      ...baseDraftLog(),
+      success: true,
+      status,
+      elapsedMs: Date.now() - attemptStartedAt,
+    })
+    logDraftStructured("attempt_end", {
+      ...baseDraftLog(),
+      status: "ok",
+      elapsedMs: Date.now() - attemptStartedAt,
+    })
+    return NextResponse.json({ success: true, requestId, data }, { status, headers: responseHeaders })
+  }
   const fail = (
     status: number,
     code: string,
@@ -945,6 +1023,27 @@ export async function POST(request: Request) {
       }
       Object.assign(payload, rest)
     }
+    logDraftStructured(
+      "response_send",
+      {
+        ...baseDraftLog(),
+        success: false,
+        status,
+        code,
+        elapsedMs: Date.now() - attemptStartedAt,
+      },
+      status >= 500 ? "error" : "info",
+    )
+    logDraftStructured(
+      "attempt_end",
+      {
+        ...baseDraftLog(),
+        status: "error",
+        code,
+        elapsedMs: Date.now() - attemptStartedAt,
+      },
+      status >= 500 ? "error" : "info",
+    )
     return NextResponse.json(payload, { status, headers: responseHeaders })
   }
 
@@ -960,6 +1059,7 @@ export async function POST(request: Request) {
       return fail(400, "INVALID_JSON", "Payload must be JSON.")
     }
     documentationModeRequested = Boolean(payload?.documentationMode)
+    sessionId = (payload.voiceSessionId ?? "").trim() || null
 
     if (!payload || typeof payload !== "object") {
       return fail(422, "VALIDATION", "Payload must be a JSON object.")
@@ -1002,6 +1102,24 @@ export async function POST(request: Request) {
         hasVoiceSessionId: Boolean(payload.voiceSessionId),
       })
     : null
+  activeMode = mode
+  logDraftStructured("attempt_start", {
+    ...baseDraftLog(),
+    requestedMode: payload.mode ?? null,
+    documentationModeRequested,
+    inputMode: payload.inputMode ?? null,
+    sourceType: payload.sourceType ?? null,
+    scanId: payload.scanId ?? null,
+    situationChars: situation.length,
+  })
+  logDraftStructured("mode_resolution", {
+    ...baseDraftLog(),
+    resolvedMode: mode,
+    generationMode: generationTrace?.metadata.mode ?? null,
+    messageDirection: generationTrace?.metadata.direction ?? null,
+    sourceType: generationTrace?.metadata.source_type ?? null,
+    documentationModeRequested,
+  })
 
   let greetingText = normalizeGreetingValue(
     payload.greeting?.text ?? "",
@@ -1018,6 +1136,17 @@ export async function POST(request: Request) {
   }
   let greetingFinal = Boolean(payload.greetingFinal && greetingText)
   const greetingLocale: GreetingLocale = language?.toLowerCase().startsWith("de") ? "de" : "en"
+  const requestGreetingCandidate = greetingName ?? extractNamedGreetingCandidate(greetingText, greetingLocale)
+  const requestGreetingScore = requestGreetingCandidate
+    ? scoreSafeName(requestGreetingCandidate, greetingLocale)
+    : null
+  if (requestGreetingCandidate && (!requestGreetingScore || !["HIGH", "MEDIUM"].includes(requestGreetingScore.level))) {
+    greetingText = ""
+    greetingConfidence = "NONE"
+    greetingSource = "generic-fallback"
+    greetingName = null
+    greetingFinal = false
+  }
   if (greetingName) {
     const recipient = summarizeRecipientName(greetingName, greetingLocale)
     greetingRecipientTitle = greetingRecipientTitle ?? recipient.title
@@ -1150,11 +1279,23 @@ export async function POST(request: Request) {
     messageLength: countWords(situation),
   })
 
-  const safetyAnalysis = await runSafetyEngine({
-    rawMessage: situation,
-    messageDirection: safetyEngineMessageDirection,
-    inputMode: generationMetadata.mode,
-  })
+  const runSafetyAnalysis = async (
+    rawMessage: string,
+    stage: "input_safety_analysis" | "output_safety_analysis",
+  ) => {
+    try {
+      return await runSafetyEngine({
+        rawMessage,
+        messageDirection: safetyEngineMessageDirection,
+        inputMode: generationMetadata.mode,
+      })
+    } catch (error) {
+      logAttemptError(stage, error, { fatal: false })
+      return null
+    }
+  }
+
+  const safetyAnalysis = await runSafetyAnalysis(situation, "input_safety_analysis")
   console.log("[draft] safety analysis resolved", {
     requestId,
     riskLevel: safetyAnalysis?.riskLevel ?? null,
@@ -1225,6 +1366,13 @@ export async function POST(request: Request) {
     }
 
   const { uid, firestore } = authContext
+  const uidHash = createHash("sha256").update(uid).digest("hex").slice(0, 12)
+  logDraftStructured("auth", {
+    ...baseDraftLog(),
+    uidHash,
+    devBypassActive,
+    firestoreAvailable: Boolean(firestore),
+  })
   const requestedSignatureName = normalizeName(payload.signature?.line1 ?? null) || undefined
   const teacherProfileDisplayName =
     normalizeName(
@@ -1249,8 +1397,15 @@ export async function POST(request: Request) {
       ? true
       : payload.signature?.autoAppendParentMessage,
   })
+  logDraftStructured("profile_lookup", {
+    ...baseDraftLog(),
+    uidHash,
+    profileFound: Boolean(teacherProfileDisplayName),
+    requestedSignatureFound: Boolean(requestedSignatureName),
+    signatureFound: Boolean(teacherSignatureName),
+    signatureSource: teacherSignatureSource,
+  })
   const isDevBypassRequest = devBypassActive
-  const uidHash = createHash("sha256").update(uid).digest("hex").slice(0, 12)
   DEBUG_DRAFT_LOGS && console.info("[draft] routing", {
     uidHash,
     mode: generationMetadata.mode,
@@ -1541,6 +1696,19 @@ export async function POST(request: Request) {
     greetingFinal: hasFinalGreeting,
     sourceSituation: currentSituation,
   }
+  const configuredModels = getConfiguredModelNames()
+  activeModelName = configuredModels.primary
+  logDraftStructured("prompt_prepare", {
+    ...baseDraftLog(),
+    uidHash,
+    documentationModeActive,
+    hasGreeting: Boolean(providerGreeting?.text),
+    hasSignature: resolvedSignature.lines.length > 0,
+    profileFound: Boolean(teacherProfileDisplayName),
+    signatureFound: Boolean(teacherSignatureName),
+    safetyAnalysisAvailable: Boolean(safetyAnalysis),
+    fallbackModelName: configuredModels.fallback,
+  })
   const recoveryTrace: {
     finalSource: RecoveryTraceSource
     templateFamily: string | null
@@ -1684,30 +1852,35 @@ export async function POST(request: Request) {
     documentationModeActive
       ? finalizeDraftWithSignature(text)
       : removeDuplicateGreeting(finalizeDraftWithSignature(text), finalGreetingLine)
-  const runDraft = async (forceLanguage = false, forceContinuation = false) => {
+  const runDraft = async (
+    forceLanguage = false,
+    forceContinuation = false,
+    callReason = "primary",
+  ) => {
+    logDraftStructured("openai_call_start", {
+      ...baseDraftLog(),
+      callReason,
+      documentationMode: documentationModeActive,
+      forceLanguage,
+      forceContinuation,
+      riskLevel: safetyAnalysis?.riskLevel ?? null,
+      professionalRiskFlagCount: safetyAnalysis?.professionalRiskFlags.length ?? 0,
+    })
     if (documentationModeActive) {
       try {
-        console.log("[draft] generation call start", {
-          requestId,
-          documentationMode: true,
-          forceLanguage,
-          forceContinuation,
-          riskLevel: safetyAnalysis?.riskLevel ?? null,
-          professionalRiskFlagCount: safetyAnalysis?.professionalRiskFlags.length ?? 0,
-          inputReframedTier,
-          preview: currentSituation.slice(0, 200),
-        })
         const result = await generateDraft({
           ...providerInput,
           forceLanguage,
           forceContinuation,
         })
-        console.log("[draft] generation call result", {
-          requestId,
+        activeModelName = result.providerMeta.modelUsed
+        logDraftStructured("openai_call_end", {
+          ...baseDraftLog(),
+          callReason,
           documentationMode: true,
-          modelUsed: result.providerMeta.modelUsed,
-          latencyMs: result.providerMeta.latencyMs ?? null,
-          preview: result.text.slice(0, 200),
+          status: "ok",
+          modelName: result.providerMeta.modelUsed,
+          elapsedMs: result.providerMeta.latencyMs ?? null,
         })
 
         return {
@@ -1716,15 +1889,33 @@ export async function POST(request: Request) {
           errorCode: null,
         }
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : String(error)
-        const errorStack = error instanceof Error ? error.stack : undefined
-
-        console.error("[draft] Documentation mode generation failed", {
-          message: errorMessage,
-          stack: errorStack,
-          generationMode: generationMetadata.mode,
-          messageDirection: generationMetadata.direction,
-          documentationTopic,
+        logAttemptError("draft_provider", error, {
+          fatal: false,
+          extra: {
+            callReason,
+            documentationMode: true,
+            generationMode: generationMetadata.mode,
+            messageDirection: generationMetadata.direction,
+            documentationTopic,
+          },
+        })
+        logDraftStructured(
+          "openai_call_end",
+          {
+            ...baseDraftLog(),
+            callReason,
+            documentationMode: true,
+            status: "error",
+            elapsedMs: null,
+            errorClass: error instanceof Error ? error.name : typeof error,
+            errorMessage: error instanceof Error ? error.message : String(error),
+          },
+          "error",
+        )
+        logDraftStructured("openai_retry", {
+          ...baseDraftLog(),
+          callReason,
+          retryType: "documentation_fallback",
         })
 
         return {
@@ -1741,33 +1932,33 @@ export async function POST(request: Request) {
       }
     }
 
-    console.log("[draft] generation call start", {
-      requestId,
-      documentationMode: false,
-      forceLanguage,
-      forceContinuation,
-      riskLevel: safetyAnalysis?.riskLevel ?? null,
-      professionalRiskFlagCount: safetyAnalysis?.professionalRiskFlags.length ?? 0,
-      inputReframedTier,
-      preview: currentSituation.slice(0, 200),
-    })
     const result = await generateDraftWithFallback(
       { ...providerInput, forceLanguage, forceContinuation },
       fallbackContext,
     )
-    console.log("[draft] generation call result", {
-      requestId,
+    activeModelName = result.result.providerMeta.modelUsed
+    if (result.usedFallback) {
+      logDraftStructured("openai_retry", {
+        ...baseDraftLog(),
+        callReason,
+        retryType: "provider_fallback",
+        errorCode: result.errorCode ?? null,
+      })
+    }
+    logDraftStructured("openai_call_end", {
+      ...baseDraftLog(),
+      callReason,
       documentationMode: false,
+      status: "ok",
       usedFallback: result.usedFallback,
       errorCode: result.errorCode ?? null,
-      modelUsed: result.result.providerMeta.modelUsed,
-      latencyMs: result.result.providerMeta.latencyMs ?? null,
-      preview: result.result.text.slice(0, 200),
+      modelName: result.result.providerMeta.modelUsed,
+      elapsedMs: result.result.providerMeta.latencyMs ?? null,
     })
     return result
   }
 
-  let draftAttempt = await runDraft()
+  let draftAttempt = await runDraft(false, false, "primary")
   let providerResult = draftAttempt.result
   let usedFallback = draftAttempt.usedFallback
   let fallbackErrorCode = draftAttempt.errorCode
@@ -1784,7 +1975,7 @@ export async function POST(request: Request) {
   let forcedLanguageAttempted = false
   if (language === "de" && containsStrongEnglishSignals(generatedDraft)) {
     forcedLanguageAttempted = true
-    draftAttempt = await runDraft(true)
+    draftAttempt = await runDraft(true, false, "forced_language_retry")
     providerResult = draftAttempt.result
     usedFallback = draftAttempt.usedFallback
     fallbackErrorCode = draftAttempt.errorCode
@@ -2241,11 +2432,7 @@ export async function POST(request: Request) {
 
   let outputSafetyAnalysis: SafetyEngineOutput | null = null
   if (!documentationModeActive && mode === "parent_message") {
-    outputSafetyAnalysis = await runSafetyEngine({
-      rawMessage: generatedDraft,
-      messageDirection: safetyEngineMessageDirection,
-      inputMode: generationMetadata.mode,
-    })
+    outputSafetyAnalysis = await runSafetyAnalysis(generatedDraft, "output_safety_analysis")
   }
 
   let outputSafetyRewriteAttempts = 0
@@ -2273,17 +2460,22 @@ export async function POST(request: Request) {
     generatedDraft = finalizeDraftWithSignature(rewriteResult.text)
     providerMeta = rewriteResult.providerMeta
     finalizeAndFormatDraft(generatedDraft)
-    outputSafetyAnalysis = await runSafetyEngine({
-      rawMessage: generatedDraft,
-      messageDirection: safetyEngineMessageDirection,
-      inputMode: generationMetadata.mode,
-    })
+    outputSafetyAnalysis = await runSafetyAnalysis(generatedDraft, "output_safety_analysis")
     pushRecoveryEvent("retry_generation", "OUTPUT_SAFETY_REWRITE")
 
     if (generatedDraft.trim() === previousDraft.trim()) {
       break
     }
   }
+
+  logDraftStructured("normalization", {
+    ...baseDraftLog(),
+    bodyParagraphCount,
+    bodyWordCount,
+    documentationModeActive,
+    outputSafetyRewrites: outputSafetyRewriteAttempts,
+    generatedChars: generatedDraft.length,
+  })
 
   let updatedUsage: MonthlyUsageRecord = usageRecord
   if (!isQaUser && !isDevBypassRequest) {
@@ -2506,12 +2698,12 @@ export async function POST(request: Request) {
     documentationModeActive,
   })
   } catch (error) {
-    console.error("[draft] Unexpected error", {
-      message: error instanceof Error ? error.message : String(error),
-      stack: error instanceof Error ? error.stack : undefined,
-      documentationMode: documentationModeRequested,
+    logAttemptError("route_unhandled", error, {
+      extra: {
+        documentationMode: documentationModeRequested,
+      },
     })
-    return fail(500, "INTERNAL", "An unexpected error occurred.")
+    return fail(503, "AI_GENERATION_FAILED", DRAFT_GENERATION_UNAVAILABLE_MESSAGE)
   }
 }
 

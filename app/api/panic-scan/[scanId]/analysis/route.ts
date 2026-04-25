@@ -63,6 +63,7 @@ export async function GET(request: NextRequest) {
         typeof data.cleanConfidence === "number" ? data.cleanConfidence : null,
       classification: data.classification ?? null,
       analysis: data.analysis ?? null,
+      analysisProvider: data.analysisProvider ?? null,
       analysisLanguage: data.analysisLanguage ?? null,
       analysisLanguageSource: data.analysisLanguageSource ?? null,
       uiLocale: data.uiLocale ?? null,

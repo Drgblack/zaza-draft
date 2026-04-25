@@ -486,6 +486,91 @@ describe("buildSystemPrompt", () => {
     expect(prompt).toContain("Make the subject neutral, teacher-authentic, and specific to the issue or update.")
   })
 
+  it("tells typed parent-email replies not to replay the complaint back line by line", () => {
+    const prompt = buildSystemPrompt({
+      situation:
+        "Subject: Concern about how Lucy was treated in class\n\nHello,\n\nLucy came home upset and felt embarrassed after being asked to put her phone away.\n\nKind regards,\nLucy's Dad",
+      generationMetadata: {
+        mode: "safe_draft",
+        direction: "parent_to_teacher",
+        source_type: "typed_text",
+        locale: "en",
+        prompt_builder: "safe_draft",
+      },
+      tone: "professional",
+      language: "en",
+      mode: "parent_message",
+      pronounPreference: "auto",
+    })
+
+    expect(prompt).toContain("For typed or pasted parent emails, acknowledge the concern briefly")
+    expect(prompt).toContain("Do not restate the parent's complaint in detail")
+    expect(prompt).toContain("do not mirror the child's reported feelings line by line")
+    expect(prompt).toContain("move straight to the teacher's explanation, boundary, or next step")
+    expect(prompt).toContain("Parent-message primary reply contract:")
+    expect(prompt).toContain("--- ROLE ---")
+    expect(prompt).toContain("You are a calm, experienced teacher writing a professional reply to a parent.")
+    expect(prompt).toContain("--- OBJECTIVE ---")
+    expect(prompt).toContain("- feels like the message the teacher will not regret tomorrow")
+    expect(prompt).toContain("--- HARD RULES (must be enforced) ---")
+    expect(prompt).toContain("Do NOT use generic customer-service closers")
+    expect(prompt).toContain("Do not repeat unusual parent wording such as 'mindfulness purposes'")
+    expect(prompt).toContain("Do not invent lines about missing records")
+    expect(prompt).toContain("Use only one brief, neutral acknowledgement of the child's experience.")
+    expect(prompt).toContain("Avoid administrative rebuttal phrasing such as 'on file', 'formal arrangement'")
+    expect(prompt).toContain("Avoid school-admin wording such as 'properly documented', 'logged', 'recorded', 'evidenced', or 'pastoral process'")
+    expect(prompt).toContain("Do not invent extra classroom details such as what other pupils were doing")
+    expect(prompt).toContain("Do not promise 'flexibility' or echo the parent's requested accommodation language.")
+    expect(prompt).toContain("suggest clarifying that through the school's usual support process")
+    expect(prompt).toContain("A strong reply pattern for this kind of parent email is")
+    expect(prompt).toContain("the intention was not to make the child feel uncomfortable")
+    expect(prompt).toContain("Do not use the absence of prior information as a rebuttal.")
+    expect(prompt).toContain("Rewrite ideas in your own words. Do not reuse distinctive phrases from the parent's message.")
+    expect(prompt.match(/Parent-message primary reply contract:/g)?.length).toBeGreaterThanOrEqual(2)
+    expect(prompt.trim().endsWith("Rewrite ideas in your own words. Do not reuse distinctive phrases from the parent's message.")).toBe(true)
+  })
+
+  it("adds Lucy-specific guardrails against brittle admin claims and defensive phrasing", () => {
+    const prompt = buildSystemPrompt({
+      situation: [
+        "Subject: Concern about how Lucy was treated in class",
+        "",
+        "Hello,",
+        "",
+        "Lucy came home quite upset today and told me she was asked to put her phone away during your lesson.",
+        "",
+        "We have previously explained that Lucy uses her phone for mindfulness purposes when she feels overwhelmed, and we would expect some flexibility around this rather than her being singled out in front of others.",
+        "",
+        "She felt embarrassed and said the way it was handled made her uncomfortable.",
+        "",
+        "Kind regards,",
+        "Lucy's Dad",
+      ].join("\n"),
+      generationMetadata: {
+        mode: "safe_draft",
+        direction: "parent_to_teacher",
+        source_type: "typed_text",
+        locale: "en",
+        prompt_builder: "safe_draft",
+      },
+      tone: "professional",
+      language: "en",
+      mode: "parent_message",
+      pronounPreference: "auto",
+      studentFirstName: "Lucy",
+    })
+
+    expect(prompt).toContain("This Safe Draft request is a typed or pasted parent email to the teacher.")
+    expect(prompt).toContain("Do NOT repeat unusual or specific parent wording verbatim")
+    expect(prompt).toContain("Do NOT invent administrative claims")
+    expect(prompt).toContain("Do NOT sound defensive or argumentative.")
+    expect(prompt).toContain("3. Teacher perspective (intent + classroom expectation).")
+    expect(prompt).toContain("4. Support framing (student wellbeing without conceding policy).")
+    expect(prompt).toContain("5. Next step (process-based, not defensive).")
+    expect(prompt).toContain("GOOD: 'I understand Lucy may need support when she feels overwhelmed.'")
+    expect(prompt).toContain("GOOD: 'It would be helpful to clarify this through the school's usual support process.'")
+  })
+
   it("adds safety-sensitive opening guidance for panic scan safeguarding concerns", () => {
     const prompt = buildSystemPrompt({
       situation: "My daughter says she was pushed at break and felt unsafe for the rest of the day.",

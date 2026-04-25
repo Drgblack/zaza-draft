@@ -16,6 +16,13 @@ const TONE_MODIFIERS: Record<ToneClass, number> = {
   collaborative: -20,
 }
 
+function buildClinicalFallback(): ToneClassificationResult {
+  return {
+    toneClass: "clinical",
+    toneModifier: TONE_MODIFIERS.clinical,
+  }
+}
+
 function getAnthropicApiKey() {
   return process.env.ANTHROPIC_API_KEY
 }
@@ -61,37 +68,51 @@ export async function classifyTone(rawMessage: string): Promise<ToneClassificati
   const apiKey = getAnthropicApiKey()
 
   if (!apiKey) {
-    throw new Error("Missing Anthropic API key (ANTHROPIC_API_KEY)")
+    console.warn("[safety-engine] tone classification skipped: missing Anthropic API key")
+    return buildClinicalFallback()
   }
 
-  const response = await fetch(ANTHROPIC_API_URL, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "x-api-key": apiKey,
-      "anthropic-version": "2023-06-01",
-    },
-    body: JSON.stringify({
-      model: ANTHROPIC_MODEL,
-      max_tokens: ANTHROPIC_MAX_TOKENS,
-      messages: [
-        {
-          role: "user",
-          content: buildPrompt(rawMessage),
-        },
-      ],
-    }),
-  })
+  try {
+    const response = await fetch(ANTHROPIC_API_URL, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-api-key": apiKey,
+        "anthropic-version": "2023-06-01",
+      },
+      body: JSON.stringify({
+        model: ANTHROPIC_MODEL,
+        max_tokens: ANTHROPIC_MAX_TOKENS,
+        messages: [
+          {
+            role: "user",
+            content: buildPrompt(rawMessage),
+          },
+        ],
+      }),
+    })
 
-  if (!response.ok) {
-    throw new Error(`Anthropic tone classification failed: ${response.status} ${response.statusText}`)
-  }
+    if (!response.ok) {
+      const responseText = await response.text()
+      console.warn("[safety-engine] tone classification failed; using clinical fallback", {
+        status: response.status,
+        statusText: response.statusText,
+        body: responseText.slice(0, 500),
+      })
+      return buildClinicalFallback()
+    }
 
-  const payload = (await response.json()) as unknown
-  const toneClass = normalizeToneClass(extractTextContent(payload))
+    const payload = (await response.json()) as unknown
+    const toneClass = normalizeToneClass(extractTextContent(payload))
 
-  return {
-    toneClass,
-    toneModifier: TONE_MODIFIERS[toneClass],
+    return {
+      toneClass,
+      toneModifier: TONE_MODIFIERS[toneClass],
+    }
+  } catch (error) {
+    console.warn("[safety-engine] tone classification request failed; using clinical fallback", {
+      message: error instanceof Error ? error.message : String(error),
+    })
+    return buildClinicalFallback()
   }
 }

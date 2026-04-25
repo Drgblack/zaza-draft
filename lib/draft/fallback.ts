@@ -290,6 +290,69 @@ function buildParentReplyOpening(
   return byTone[tone][issueKind]
 }
 
+function hasPhoneBasedSupportConcern(source?: string) {
+  const normalizedSource = normalizeText(source)
+  return (
+    /\b(phone|mobile)\b/.test(normalizedSource) &&
+    /\b(mindfulness|overwhelmed|overwhelm|adjustment|adjustments)\b/.test(normalizedSource)
+  )
+}
+
+function buildSourceAwareParentReplyParagraphs(
+  context: DraftFallbackContext,
+  studentFirstName?: string,
+) {
+  if (context.language !== "en") {
+    return null
+  }
+
+  if (!hasPhoneBasedSupportConcern(context.sourceSituation)) {
+    return null
+  }
+
+  const studentLabel = studentFirstName?.trim() || "your child"
+  const byTone: Record<ToneKey, string[]> = {
+    warm: [
+      "Thank you for getting in touch and for explaining your concerns.",
+      `I'm sorry to hear that ${studentLabel} came away from the lesson upset. My intention was not to make ${studentLabel} feel uncomfortable, but to apply the usual classroom expectations around phone use in a fair and consistent way.`,
+      `I understand that ${studentLabel} may need support when feeling overwhelmed. It would help to clarify this through the usual school support process so that any agreed adjustments are clear for everyone working with ${studentLabel}.`,
+      `In the meantime, I will continue to handle this sensitively in class and will follow up with the appropriate colleague so we can support ${studentLabel} well in school.`,
+    ],
+    professional: [
+      "Thank you for getting in touch and for explaining your concerns.",
+      `I'm sorry to hear that ${studentLabel} felt upset after the lesson. My intention was not to make ${studentLabel} feel uncomfortable, but to apply the usual classroom expectations around phone use consistently.`,
+      `I understand that ${studentLabel} may need support when feeling overwhelmed. It would be helpful to clarify this through the school's usual support process so that any agreed adjustments are clear and consistent for ${studentLabel} and for staff.`,
+      `In the meantime, I will continue to handle this sensitively in class and will follow up with the appropriate colleague so we can support ${studentLabel} well in school.`,
+    ],
+    direct: [
+      "Thank you for your message.",
+      `I'm sorry to hear that ${studentLabel} felt upset after the lesson. My intention was not to make ${studentLabel} feel uncomfortable, but to apply the usual classroom expectations around phone use consistently.`,
+      `If ${studentLabel} needs a specific adjustment when feeling overwhelmed, that needs to be clarified through the school's usual support process so that staff can apply it consistently.`,
+      "I will handle this sensitively in class and follow up with the appropriate colleague so the next steps are clear.",
+    ],
+    empathetic: [
+      "Thank you for getting in touch and for explaining your concerns.",
+      `I'm sorry to hear that ${studentLabel} felt upset after the lesson. My intention was not to make ${studentLabel} feel uncomfortable, and I appreciate why this would have been concerning from home.`,
+      `I understand that ${studentLabel} may need support when feeling overwhelmed. It would be helpful to clarify this through the school's usual support process so that any agreed adjustments are clear and consistent for ${studentLabel} and for staff.`,
+      `In the meantime, I will continue to handle this sensitively in class and will follow up with the appropriate colleague so we can support ${studentLabel} well in school.`,
+    ],
+  }
+
+  return byTone[context.tone]
+}
+
+function resolveFallbackSubject(context: DraftFallbackContext, issueKind: RecoveryIssueKind) {
+  if (
+    context.language === "en" &&
+    context.generationMetadata.direction === "parent_to_teacher" &&
+    hasPhoneBasedSupportConcern(context.sourceSituation)
+  ) {
+    return "Subject: Follow-up on today's concern"
+  }
+
+  return ISSUE_SUBJECTS[context.language][issueKind]
+}
+
 function buildTeacherDraftOpening(
   language: LanguageKey,
   tone: ToneKey,
@@ -744,6 +807,23 @@ function buildRecoveryFollowUp(
   return byTone[tone]
 }
 
+function buildParentReplyParagraphs(
+  context: DraftFallbackContext,
+  issueKind: RecoveryIssueKind,
+  studentFirstName?: string,
+) {
+  const sourceAwareParagraphs = buildSourceAwareParentReplyParagraphs(context, studentFirstName)
+  if (sourceAwareParagraphs) {
+    return sourceAwareParagraphs
+  }
+
+  return [
+    buildParentReplyOpening(context.language, context.tone, issueKind, studentFirstName),
+    buildRecoveryAction(context.language, context.tone, issueKind, studentFirstName),
+    buildRecoveryFollowUp(context.language, context.tone, issueKind, studentFirstName),
+  ]
+}
+
 function buildReportCommentRecovery(context: DraftFallbackContext, issueKind: RecoveryIssueKind) {
   const comments =
     context.language === "de"
@@ -840,23 +920,30 @@ export function buildFallbackDraftResult(context: DraftFallbackContext): Recover
     }
   }
 
-  const opening =
+  const bodyParagraphs =
     context.generationMetadata.direction === "parent_to_teacher"
-      ? buildParentReplyOpening(context.language, context.tone, issueKind, resolvedStudentFirstName)
-      : buildTeacherDraftOpening(
-          context.language,
-          context.tone,
-          issueKind,
-          resolvedStudentFirstName,
-        )
+      ? buildParentReplyParagraphs(context, issueKind, resolvedStudentFirstName)
+      : [
+          buildTeacherDraftOpening(
+            context.language,
+            context.tone,
+            issueKind,
+            resolvedStudentFirstName,
+          ),
+          buildRecoveryAction(context.language, context.tone, issueKind, resolvedStudentFirstName),
+          buildRecoveryFollowUp(
+            context.language,
+            context.tone,
+            issueKind,
+            resolvedStudentFirstName,
+          ),
+        ]
 
   return {
     text: [
-      ISSUE_SUBJECTS[context.language][issueKind],
+      resolveFallbackSubject(context, issueKind),
       greetingLine,
-      opening,
-      buildRecoveryAction(context.language, context.tone, issueKind, resolvedStudentFirstName),
-      buildRecoveryFollowUp(context.language, context.tone, issueKind, resolvedStudentFirstName),
+      ...bodyParagraphs,
       closingBlock,
     ]
       .filter(Boolean)

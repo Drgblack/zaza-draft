@@ -76,4 +76,19 @@ describe("runSafetyEngine", () => {
     expect(result).toBeNull()
     expect(mockClassifyTone).not.toHaveBeenCalled()
   })
+
+  it("falls back to deterministic scoring when tone classification fails", async () => {
+    mockClassifyTone.mockRejectedValueOnce(new Error("Anthropic tone classification failed: 400 Bad Request"))
+
+    const result = await runSafetyEngine({
+      rawMessage:
+        "Your child refuses to listen and constantly disrupts the class. I've told you this before.",
+      messageDirection: "teacher_to_parent",
+      inputMode: "safe_draft",
+    })
+
+    expect(result?.riskLevel).toBe("medium")
+    expect(result?.toneClass).toBe("clinical")
+    expect(getTopReactionKey(result?.reactionForecast ?? {})).toBe("defensive")
+  })
 })

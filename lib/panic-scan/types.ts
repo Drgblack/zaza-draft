@@ -52,6 +52,7 @@ export interface PanicScanDocument {
   cleanConfidence?: number
   classification?: MessageClassification
   analysis?: PanicScanAnalysis
+  analysisProvider?: "openai" | "heuristic_fallback"
   analysisLanguage?: "en" | "de"
   analysisLanguageSource?: "ui_locale" | "explicit_language" | "source_text" | "accept_language" | "default"
   uiLocale?: string

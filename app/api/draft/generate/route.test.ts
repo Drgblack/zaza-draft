@@ -77,6 +77,23 @@ const englishDeescalationSituation =
 const germanDeescalationSituation =
   "Die Eltern schreiben, dass ihr Kind lügen verbreitet, dumm wirkt und andere verantwortlich macht, also sollten wir sachlich bleiben und klare nächste Schritte anbieten."
 
+const lucyParentEmail = [
+  "Subject: Concern about how Lucy was treated in class",
+  "",
+  "Hello,",
+  "",
+  "Lucy came home quite upset today and told me she was asked to put her phone away during your lesson.",
+  "",
+  "We have previously explained that Lucy uses her phone for mindfulness purposes when she feels overwhelmed, and we would expect some flexibility around this rather than her being singled out in front of others.",
+  "",
+  "She felt embarrassed and said the way it was handled made her uncomfortable. I'm sure that wasn't your intention, but it's important that her needs are understood and respected.",
+  "",
+  "I would appreciate it if you could reconsider how this is approached going forward.",
+  "",
+  "Kind regards,",
+  "Lucy's Dad",
+].join("\n")
+
 const buildFallbackResult = (text: string) => ({
   result: {
     text,
@@ -1423,6 +1440,163 @@ describe("/api/draft/generate greeting handoff", () => {
     expect(generatedDraft).toContain("\n\nDear Parent/Carer,\n\n")
     expect(generatedDraft).not.toContain("Hello , I")
     expect(generatedDraft).toContain("I wanted to send a clear update about homework.")
+  })
+
+  it.each([
+    {
+      name: "Lucy possessive dad sign-off",
+      situation: lucyParentEmail,
+      badGreeting: "Hello Lucy's,",
+      blocked: [/^Subject:\s+[^\n]+\n\nHello Lucy's,/i, /^Subject:\s+[^\n]+\n\nHello Lucy,/i],
+      expectedDirection: "parent_to_teacher",
+    },
+    {
+      name: "Tom possessive mum sign-off",
+      situation: [
+        "Subject: Concern about how Tom was spoken to in class",
+        "",
+        "Hello,",
+        "",
+        "Tom was upset after the lesson and I would appreciate a calm response.",
+        "",
+        "Kind regards,",
+        "Tom's Mum",
+      ].join("\n"),
+      badGreeting: "Hello Tom's,",
+      blocked: [/^Subject:\s+[^\n]+\n\nHello Tom's,/i, /^Subject:\s+[^\n]+\n\nHello Tom,/i],
+      expectedDirection: "parent_to_teacher",
+    },
+    {
+      name: "no parent name supplied",
+      situation: [
+        "Subject: Follow-up on the lesson today",
+        "",
+        "Hello,",
+        "",
+        "Lucy was upset after the lesson and I would appreciate a response.",
+        "",
+        "Kind regards,",
+      ].join("\n"),
+      badGreeting: "Hello Lucy,",
+      blocked: [/^Subject:\s+[^\n]+\n\nHello Lucy,/i],
+    },
+    {
+      name: "child mentioned repeatedly without a parent sign-off",
+      situation: [
+        "Subject: Concern about the lesson",
+        "",
+        "Hello,",
+        "",
+        "Lucy felt upset after the lesson. Lucy felt embarrassed in front of the class. Lucy found it difficult to regulate afterwards.",
+        "",
+        "Kind regards,",
+      ].join("\n"),
+      badGreeting: "Hello Lucy,",
+      blocked: [/^Subject:\s+[^\n]+\n\nHello Lucy,/i],
+    },
+  ])("uses a neutral greeting fallback for $name", async ({ situation, badGreeting, blocked, expectedDirection }) => {
+    fallbackGenerator.mockResolvedValueOnce(
+      buildFallbackResult(
+        [
+          "Subject: Follow-up on today's concern",
+          badGreeting,
+          "Thank you for your message.",
+          "I will review what happened and follow up with the next steps.",
+          "Kind regards,",
+          "Dr Greg Blackburn",
+        ].join("\n\n"),
+      ),
+    )
+
+    const request = new Request("https://example.com/api/draft/generate", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: "Bearer token",
+      },
+      body: JSON.stringify({
+        situation,
+        tone: "professional",
+        language: "en",
+        uiLocale: "en-GB",
+        mode: "parent_message",
+      }),
+    })
+
+    const response = await POST(request)
+    expect(response.status).toBe(200)
+    const json = await response.json()
+    const generatedDraft = json.data?.generatedDraft ?? ""
+    const providerCall = fallbackGenerator.mock.calls[0]?.[0]
+
+    if (expectedDirection) {
+      expect(providerCall?.generationMetadata.direction).toBe(expectedDirection)
+    }
+    expect(json.data?.greeting?.text).toBe("Dear Parent/Carer,")
+    expect(generatedDraft).toContain("\n\nDear Parent/Carer,\n\n")
+    blocked.forEach((pattern) => {
+      expect(generatedDraft).not.toMatch(pattern)
+    })
+  })
+
+  it("retries a pasted Lucy parent email when the draft parrots the complaint back", async () => {
+    fallbackGenerator
+      .mockResolvedValueOnce(
+        buildFallbackResult(
+          [
+            "Subject: Follow-up on today's concern",
+            "Hello Lucy's,",
+            "Lucy felt upset after the lesson, she felt embarrassed by how it was handled, and I understand that the phone is used for mindfulness purposes.",
+            "I will think about this again.",
+            "Kind regards,",
+            "Dr Greg Blackburn",
+          ].join("\n\n"),
+        ),
+      )
+      .mockResolvedValueOnce(
+        buildFallbackResult(
+          [
+            "Subject: Follow-up on classroom expectations",
+            "Hello,",
+            "Thank you for getting in touch and for explaining your concerns.",
+            "I'm sorry to hear that Lucy felt upset after the lesson. My intention was not to embarrass her, but to apply the usual classroom expectation around phone use consistently.",
+            "I understand that Lucy may need support when she feels overwhelmed. I will follow this up with the appropriate colleague so that any agreed adjustments are clear and consistent for Lucy and for staff.",
+            "Kind regards,",
+            "Dr Greg Blackburn",
+          ].join("\n\n"),
+        ),
+      )
+
+    const request = new Request("https://example.com/api/draft/generate", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: "Bearer token",
+      },
+      body: JSON.stringify({
+        situation: lucyParentEmail,
+        tone: "professional",
+        language: "en",
+        uiLocale: "en-GB",
+        mode: "parent_message",
+      }),
+    })
+
+    const response = await POST(request)
+    expect(response.status).toBe(200)
+    const json = await response.json()
+    const generatedDraft = json.data?.generatedDraft ?? ""
+
+    expect(fallbackGenerator).toHaveBeenCalledTimes(2)
+    expect(fallbackGenerator.mock.calls[0]?.[0]?.generationMetadata.direction).toBe("parent_to_teacher")
+    expect(generatedDraft).toContain("\n\nDear Parent/Carer,\n\n")
+    expect(generatedDraft).toContain("Thank you for getting in touch and for explaining your concerns.")
+    expect(generatedDraft).toContain("apply the usual classroom expectation around phone use consistently")
+    expect(generatedDraft).toContain("follow this up with the appropriate colleague")
+    expect(generatedDraft).not.toContain("mindfulness purposes")
+    expect(generatedDraft).not.toContain("I don't have a record")
+    expect(generatedDraft).not.toContain("Hello Lucy's,")
+    expect(generatedDraft).not.toContain("Hello Lucy,")
   })
 
   it("omits greeting resolution for report comments even when raw text contains a sender name", async () => {
@@ -3592,6 +3766,115 @@ describe("/api/draft/generate documentation mode", () => {
     expect(generatedDraft).not.toContain("deliberately")
     expect(generatedDraft).not.toContain("emotional problems")
     expect(generatedDraft).toContain("This record is for documentation purposes.")
+  })
+})
+
+describe("/api/draft/generate resilience", () => {
+  it("keeps parent-message generation working when the safety engine fails", async () => {
+    mockedRunSafetyEngine.mockImplementationOnce(async () => {
+      throw new Error("Anthropic tone classification failed: 400 Bad Request")
+    })
+
+    const request = new Request("https://example.com/api/draft/generate", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: "Bearer token",
+      },
+      body: JSON.stringify({
+        situation: detailedSituation,
+        tone: "professional",
+        language: "en",
+        mode: "parent_message",
+      }),
+    })
+
+    const response = await POST(request)
+    const json = await response.json()
+
+    expect(response.status).toBe(200)
+    expect(json.success).toBe(true)
+    expect(json.data?.generatedDraft).toContain("Lukas hat beschrieben")
+  })
+
+  it("keeps documentation mode generation working when profile and signature data are missing", async () => {
+    mockedAuthorizeFirebaseRequest.mockResolvedValueOnce({
+      uid: "test-uid",
+      decodedToken: {
+        name: null,
+      },
+      firestore: createFirestoreStub(),
+    })
+    mockedRunSafetyEngine.mockResolvedValueOnce({
+      riskScore: 82,
+      riskLevel: "high",
+      triggeredSignals: [],
+      toneClass: "accusatory",
+      topicSensitivity: "high",
+      reactionForecast: {
+        collaborative: 10,
+        concerned: 15,
+        defensive: 45,
+        hostile: 20,
+        confused: 10,
+      },
+      explanationLines: [],
+      documentationModeAvailable: true,
+      professionalRiskFlags: [],
+      structuralImbalance: false,
+    })
+
+    const request = new Request("https://example.com/api/draft/generate", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: "Bearer token",
+      },
+      body: JSON.stringify({
+        situation:
+          "Your child refuses to listen and constantly disrupts the class. I've told you this before. If this continues we will have to involve the head teacher.",
+        tone: "professional",
+        language: "en",
+        mode: "parent_message",
+        documentationMode: true,
+      }),
+    })
+
+    const response = await POST(request)
+    const json = await response.json()
+
+    expect(response.status).toBe(200)
+    expect(json.success).toBe(true)
+    expect(json.data?.documentationModeActive).toBe(true)
+    expect(json.data?.generatedDraft).toContain("Incident Record")
+  })
+
+  it("returns a safe backend message for unexpected route failures", async () => {
+    mockedIncrementUsage.mockRejectedValueOnce(new Error("firestore write failed"))
+
+    const request = new Request("https://example.com/api/draft/generate", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: "Bearer token",
+      },
+      body: JSON.stringify({
+        situation: detailedSituation,
+        tone: "professional",
+        language: "en",
+        mode: "parent_message",
+      }),
+    })
+
+    const response = await POST(request)
+    const json = await response.json()
+
+    expect(response.status).toBe(503)
+    expect(json.success).toBe(false)
+    expect(json.error?.code).toBe("AI_GENERATION_FAILED")
+    expect(json.error?.message).toBe(
+      "Draft generation is temporarily unavailable. Please try again in a few seconds.",
+    )
   })
 })
 

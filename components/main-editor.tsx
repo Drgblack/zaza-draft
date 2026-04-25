@@ -309,6 +309,11 @@ const ONBOARDING_FEATURE_CARDS: OnboardingFeatureCard[] = [
   },
 ]
 
+const SAFE_GENERATION_ERROR_MESSAGE =
+  "Draft generation is temporarily unavailable. Please try again in a few seconds."
+const SAFE_GENERATION_FALLBACK_MESSAGE =
+  "We could not generate your draft just now. Please try again."
+
 const GENERATION_ERROR_MAP: Record<
   string,
   { message: string; action: string | null }
@@ -330,7 +335,7 @@ const GENERATION_ERROR_MAP: Record<
     action: "Remove private identifiers and regenerate.",
   },
   AI_GENERATION_FAILED: {
-    message: "The AI service is unavailable right now. Please retry in a minute.",
+    message: SAFE_GENERATION_ERROR_MESSAGE,
     action: "Try generating again shortly.",
   },
   BLOCKED_LANGUAGE: {
@@ -1503,7 +1508,15 @@ export function MainEditor({ canExport = true }: MainEditorProps = {}) {
         body: JSON.stringify(payload),
       })
 
-      const data = await response.json()
+      const responseText = await response.text()
+      let data: any = null
+      if (responseText) {
+        try {
+          data = JSON.parse(responseText)
+        } catch {
+          data = null
+        }
+      }
       const responseMeta = data?.data?.meta ?? null
 
       if (response.status === 401) {
@@ -1529,7 +1542,7 @@ export function MainEditor({ canExport = true }: MainEditorProps = {}) {
           blockedLanguagePayload?.title ||
             mapped?.message ||
             data?.error?.message ||
-            "We couldn't generate a draft right now.",
+            SAFE_GENERATION_ERROR_MESSAGE,
         )
         setGenerationAction(
           blockedLanguagePayload?.variant === "diagnostic_speculation"
@@ -1671,8 +1684,8 @@ export function MainEditor({ canExport = true }: MainEditorProps = {}) {
       }
     } catch (error) {
       console.error("[v1] Draft generation failed", error)
-      setGenerationError("Something went wrong; please try again in a moment.")
-      setGenerationAction("Retry the generation in a few minutes.")
+      setGenerationError(SAFE_GENERATION_FALLBACK_MESSAGE)
+      setGenerationAction(null)
     } finally {
       setIsGenerating(false)
     }

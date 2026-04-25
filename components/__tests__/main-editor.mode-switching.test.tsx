@@ -5,9 +5,11 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react"
 import { MainEditor } from "@/components/main-editor"
 
 type Locale = "en-GB" | "de-DE"
+type DraftGenerateScenario = "success" | "json_error" | "non_json_error"
 
 let mockLocale: Locale = "en-GB"
 let mockSearchParams = new URLSearchParams()
+let draftGenerateScenario: DraftGenerateScenario = "success"
 
 const setMockSearchParams = (search = "") => {
   mockSearchParams = new URLSearchParams(search)
@@ -178,6 +180,29 @@ const fetchMock = vi.fn(async (input: RequestInfo, init?: RequestInit) => {
 
   if (full.includes("/api/draft/generate")) {
     const body = init?.body ? JSON.parse(String(init.body)) : {}
+    if (draftGenerateScenario === "json_error") {
+      const errorPayload = {
+        success: false,
+        error: {
+          code: "AI_GENERATION_FAILED",
+          message: "Draft generation is temporarily unavailable. Please try again in a few seconds.",
+        },
+      }
+      return {
+        ok: false,
+        status: 503,
+        text: async () => JSON.stringify(errorPayload),
+      } as Response
+    }
+
+    if (draftGenerateScenario === "non_json_error") {
+      return {
+        ok: false,
+        status: 503,
+        text: async () => "service unavailable",
+      } as Response
+    }
+
     const documentationMode = Boolean(body.documentationMode)
     const renderedBody = documentationMode
       ? `Documentation [${body.mode}]: ${body.situation}`
@@ -193,39 +218,40 @@ const fetchMock = vi.fn(async (input: RequestInfo, init?: RequestInit) => {
     return {
       ok: true,
       status: 200,
-      json: async () => ({
-        success: true,
-        data: {
-          generatedDraft: renderedBody,
-          formattedDraft,
-          metadata: {
-            generationTime: 420,
-            wordCount: renderedBody.split(/\s+/).length,
-            toneUsed: body.tone,
-            modeUsed: body.mode,
-            generatedAt: new Date().toISOString(),
-          },
-          usage: { plan: "pro", currentMonthUsage: 1, limit: null, remaining: null },
-          deescalationSummary: null,
-          greeting: null,
-          safetyAnalysis: {
-            documentationModeAvailable: true,
-            triggeredSignals: [],
-            professionalRiskFlags: [],
-            riskLevel: "low",
-            reactionForecast: {
-              hostile: 5,
-              defensive: 10,
-              confused: 15,
-              concerned: 30,
-              collaborative: 40,
+      text: async () =>
+        JSON.stringify({
+          success: true,
+          data: {
+            generatedDraft: renderedBody,
+            formattedDraft,
+            metadata: {
+              generationTime: 420,
+              wordCount: renderedBody.split(/\s+/).length,
+              toneUsed: body.tone,
+              modeUsed: body.mode,
+              generatedAt: new Date().toISOString(),
             },
+            usage: { plan: "pro", currentMonthUsage: 1, limit: null, remaining: null },
+            deescalationSummary: null,
+            greeting: null,
+            safetyAnalysis: {
+              documentationModeAvailable: true,
+              triggeredSignals: [],
+              professionalRiskFlags: [],
+              riskLevel: "low",
+              reactionForecast: {
+                hostile: 5,
+                defensive: 10,
+                confused: 15,
+                concerned: 30,
+                collaborative: 40,
+              },
+            },
+            outputSafetyAnalysis: null,
+            documentationModeActive: documentationMode,
+            meta: {},
           },
-          outputSafetyAnalysis: null,
-          documentationModeActive: documentationMode,
-          meta: {},
-        },
-      }),
+        }),
     } as Response
   }
 
@@ -240,6 +266,7 @@ beforeEach(() => {
   vi.clearAllMocks()
   vi.stubGlobal("fetch", fetchMock)
   mockLocale = "en-GB"
+  draftGenerateScenario = "success"
   setMockSearchParams("")
   window.sessionStorage.clear()
   window.localStorage.clear()
@@ -368,5 +395,51 @@ describe("MainEditor mode switching", () => {
       "parent_message",
       "parent_message",
     ])
+  })
+
+  it("shows the backend safe message for handled non-200 draft failures", async () => {
+    draftGenerateScenario = "json_error"
+
+    render(<MainEditor />)
+
+    fireEvent.change(getTextarea(), {
+      target: {
+        value:
+          "Parent message: I want to send a calm update about homework expectations, explain the next step clearly, and keep the tone professional for the family.",
+      },
+    })
+
+    fireEvent.click(screen.getByRole("button", { name: "Generate" }))
+
+    expect(
+      await screen.findByText(
+        "Draft generation is temporarily unavailable. Please try again in a few seconds.",
+      ),
+    ).toBeInTheDocument()
+    expect(screen.queryByText("Something went wrong; please try again in a moment.")).toBeNull()
+    expect(screen.queryByText("An unexpected error occurred.")).toBeNull()
+  })
+
+  it("falls back gracefully when the draft failure response is not JSON", async () => {
+    draftGenerateScenario = "non_json_error"
+
+    render(<MainEditor />)
+
+    fireEvent.change(getTextarea(), {
+      target: {
+        value:
+          "Parent message: I want to send a calm update about reading progress, explain tomorrow's check-in, and keep the tone measured and easy to defend.",
+      },
+    })
+
+    fireEvent.click(screen.getByRole("button", { name: "Generate" }))
+
+    expect(
+      await screen.findByText(
+        "Draft generation is temporarily unavailable. Please try again in a few seconds.",
+      ),
+    ).toBeInTheDocument()
+    expect(screen.queryByText("Something went wrong; please try again in a moment.")).toBeNull()
+    expect(screen.queryByText("An unexpected error occurred.")).toBeNull()
   })
 })
