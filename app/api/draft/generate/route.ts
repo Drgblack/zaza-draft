@@ -47,6 +47,7 @@ import { cleanStudentName } from "@/lib/draft/student-name"
 import { normalizeGermanParentMessage } from "@/lib/draft/german-normalizer"
 import { detectHighEmotionPhrases } from "@/lib/deescalation/detect"
 import { rewriteHighEmotionText } from "@/lib/deescalation/rewrite"
+import type { DeescalationSummary } from "@/lib/deescalation/types"
 import { sanitizeEmailText } from "@/lib/text/email-sanitizer"
 import { canonicalizeLocaleIdentifier, resolveOutputLanguage } from "@/lib/draft/language"
 import {
@@ -64,7 +65,14 @@ import { applyEnglishOutputSanity } from "@/lib/draft/english-output-sanity"
 import { detectTeacherNoteIssueClusters } from "@/lib/draft/teacher-note-issues"
 import { isValidDraftRequest, OUT_OF_SCOPE_REDIRECT_MESSAGE } from "./scope-guard"
 import { isDebugEnabled } from "@/lib/debug"
-import { classifyGenerationRequest, type GenerationMetadata, type SourceType } from "@/lib/generation/classification"
+import {
+  buildGenerationTraceFromInputIntent,
+  classifyGenerationRequest,
+  type GenerationMetadata,
+  type InputIntent,
+  type ParentMessageInputType,
+  type SourceType,
+} from "@/lib/generation/classification"
 import { applyFinalGreetingGuard } from "@/lib/draft/final-greeting"
 import { runSafetyEngine, type SafetyEngineOutput } from "@/src/lib/safetyEngine"
 import { detectTopicKeyword } from "@/src/lib/safetyEngine/topicDetector"
@@ -90,12 +98,20 @@ const TONE_DESCRIPTIONS: Record<ToneKey, string> = {
 }
 
 const PRONOUN_PREFERENCE_VALUES: PronounPreference[] = ["auto", "she", "he", "they", "avoid"]
+const INPUT_INTENTS: InputIntent[] = ["parent_message", "teacher_draft"]
 
 function parsePronounPreference(value: unknown): PronounPreference {
   if (typeof value === "string" && PRONOUN_PREFERENCE_VALUES.includes(value as PronounPreference)) {
     return value as PronounPreference
   }
   return "auto"
+}
+
+function parseInputIntent(value: unknown): InputIntent | null {
+  if (typeof value === "string" && INPUT_INTENTS.includes(value as InputIntent)) {
+    return value as InputIntent
+  }
+  return null
 }
 
 const DEV_BYPASS_HEADER = "x-zaza-dev-bypass"
@@ -135,6 +151,8 @@ interface GenerateDraftRequest {
   scanId?: string
   voiceSessionId?: string
   inputMode?: GenerationMetadata["mode"]
+  inputIntent?: InputIntent
+  parentMessageInputType?: ParentMessageInputType
   sourceType?: SourceType
   ocrConfidence?: number
   panicClassificationConfidence?: number
@@ -533,6 +551,209 @@ function getMeaningfulParentBodyWordCount(
     .filter(Boolean).length
 }
 
+const LIGHT_EDIT_RISK_CATEGORIES = new Set([
+  "accusation",
+  "escalation",
+  "frustration",
+  "negative_generalisation",
+  "prescriptive_demand",
+] as const)
+
+const LIGHT_EDIT_INSTITUTIONAL_PHRASES = [
+  { label: "support coordinator", pattern: /\bsupport coordinator\b/i },
+  { label: "SENCO", pattern: /\bsenco\b/i },
+  { label: "pastoral", pattern: /\bpastoral\b/i },
+  { label: "support process", pattern: /\bschool'?s usual support process\b|\bsupport process\b/i },
+  { label: "appropriate colleague", pattern: /\bappropriate colleague\b/i },
+  { label: "formal arrangement", pattern: /\bformal arrangement\b/i },
+  { label: "on file", pattern: /\bon file\b/i },
+] as const
+
+const LIGHT_EDIT_AUTHORITY_SOFTENING_PHRASES = [
+  { label: "would it be helpful", pattern: /\bwould it be helpful\b/i },
+  { label: "please feel free to contact me", pattern: /\bplease feel free to contact me\b/i },
+  { label: "please feel free to reach out", pattern: /\bplease feel free to reach out\b/i },
+  { label: "if you would like to discuss this further", pattern: /\bif you would like to discuss this further\b/i },
+  { label: "it might be helpful to discuss", pattern: /\bit might be helpful to discuss\b/i },
+] as const
+
+function getComparableParentBodyText(
+  text: string,
+  language: DraftLanguage,
+  greetingLine?: string | null,
+) {
+  const structure = formatDraftText(text, language)
+  return getMeaningfulParentBodyParagraphs(structure, greetingLine)
+    .map((paragraph) => paragraph.trim())
+    .filter((paragraph) => paragraph && !/^(?:Subject|Betreff)\s*[:\-–—|]/i.test(paragraph))
+    .join("\n")
+}
+
+function normalizeLightEditComparisonText(text: string) {
+  return text
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}'\s]+/gu, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+}
+
+function tokenizeLightEditComparisonText(text: string) {
+  const normalized = normalizeLightEditComparisonText(text)
+  return normalized ? normalized.split(" ").filter(Boolean) : []
+}
+
+function getLightEditSimilarity(source: string, candidate: string) {
+  const sourceTokens = tokenizeLightEditComparisonText(source)
+  const candidateTokens = tokenizeLightEditComparisonText(candidate)
+
+  if (sourceTokens.length === 0 || candidateTokens.length === 0) {
+    return sourceTokens.length === candidateTokens.length ? 1 : 0
+  }
+
+  const dp = Array(candidateTokens.length + 1).fill(0)
+  for (const sourceToken of sourceTokens) {
+    let previousDiagonal = 0
+    for (let index = 0; index < candidateTokens.length; index += 1) {
+      const nextDiagonal = dp[index + 1]
+      if (sourceToken === candidateTokens[index]) {
+        dp[index + 1] = previousDiagonal + 1
+      } else {
+        dp[index + 1] = Math.max(dp[index + 1], dp[index])
+      }
+      previousDiagonal = nextDiagonal
+    }
+  }
+
+  return dp[candidateTokens.length] / Math.max(sourceTokens.length, candidateTokens.length)
+}
+
+function collectIntroducedLightEditPhrases(
+  source: string,
+  candidate: string,
+  phrases: ReadonlyArray<{ label: string; pattern: RegExp }>,
+) {
+  const normalizedSource = source.toLowerCase().replace(/\s+/g, " ").trim()
+  const normalizedCandidate = candidate.toLowerCase().replace(/\s+/g, " ").trim()
+  return phrases
+    .filter(({ pattern }) => pattern.test(normalizedCandidate) && !pattern.test(normalizedSource))
+    .map(({ label }) => label)
+}
+
+function shouldUseLightEditMode(options: {
+  mode: DraftMode
+  situation: string
+  generationMetadata: GenerationMetadata
+  rewriteRequested: boolean
+  forwardSafeRewrite: boolean
+  previousDraft?: string
+  documentationModeActive: boolean
+  safetyAnalysis: SafetyEngineOutput | null
+}) {
+  const {
+    mode,
+    situation,
+    generationMetadata,
+    rewriteRequested,
+    forwardSafeRewrite,
+    previousDraft,
+    documentationModeActive,
+    safetyAnalysis,
+  } = options
+
+  const firstMeaningfulLine = situation
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .find((line) => line && !/^(?:Subject|Betreff)\s*:/i.test(line))
+
+  const hasGenericGreetingOnly = Boolean(
+    firstMeaningfulLine &&
+      /^(?:hello|hi|dear parent\/carer|dear parent|dear family|dear parents|guten tag|liebe eltern|liebe familie),?$/i.test(
+        firstMeaningfulLine,
+      ),
+  )
+
+  if (
+    mode !== "parent_message" ||
+    documentationModeActive ||
+    rewriteRequested ||
+    forwardSafeRewrite ||
+    Boolean(previousDraft) ||
+    hasGenericGreetingOnly ||
+    generationMetadata.mode !== "safe_draft" ||
+    generationMetadata.direction !== "teacher_to_parent" ||
+    generationMetadata.source_type !== "typed_text" ||
+    !safetyAnalysis
+  ) {
+    return false
+  }
+
+  if (
+    safetyAnalysis.riskLevel !== "low" ||
+    safetyAnalysis.professionalRiskFlags.length > 0 ||
+    safetyAnalysis.structuralImbalance ||
+    (safetyAnalysis.toneClass !== "clinical" && safetyAnalysis.toneClass !== "collaborative")
+  ) {
+    return false
+  }
+
+  return !safetyAnalysis.triggeredSignals.some((signal) =>
+    LIGHT_EDIT_RISK_CATEGORIES.has(
+      signal.category as
+        | "accusation"
+        | "escalation"
+        | "frustration"
+        | "negative_generalisation"
+        | "prescriptive_demand",
+    ),
+  )
+}
+
+function assessLightEditDrift(options: {
+  sourceText: string
+  candidateText: string
+  language: DraftLanguage
+  greetingLine?: string | null
+}) {
+  const comparableSource = getComparableParentBodyText(
+    options.sourceText,
+    options.language,
+    options.greetingLine,
+  )
+  const comparableCandidate = getComparableParentBodyText(
+    options.candidateText,
+    options.language,
+    options.greetingLine,
+  )
+  const sourceWordCount = countWords(comparableSource)
+  const candidateWordCount = countWords(comparableCandidate)
+  const similarity = getLightEditSimilarity(comparableSource, comparableCandidate)
+  const introducedInstitutionalPhrases = collectIntroducedLightEditPhrases(
+    comparableSource,
+    comparableCandidate,
+    LIGHT_EDIT_INSTITUTIONAL_PHRASES,
+  )
+  const introducedAuthoritySoftening = collectIntroducedLightEditPhrases(
+    comparableSource,
+    comparableCandidate,
+    LIGHT_EDIT_AUTHORITY_SOFTENING_PHRASES,
+  )
+  const expansionLimit = Math.max(sourceWordCount + 6, Math.ceil(sourceWordCount * 1.1))
+  const expandsContent = candidateWordCount > expansionLimit
+
+  return {
+    similarity,
+    sourceWordCount,
+    candidateWordCount,
+    introducedInstitutionalPhrases,
+    introducedAuthoritySoftening,
+    shouldPreserveSource:
+      similarity < 0.8 ||
+      expandsContent ||
+      introducedInstitutionalPhrases.length > 0 ||
+      introducedAuthoritySoftening.length > 0,
+  }
+}
+
 type RecoveryTraceSource =
   | "primary_generation"
   | "retry_generation"
@@ -909,6 +1130,7 @@ async function reRunWithRewrite(
   resolvedPronounPreference: PronounPreference,
   mode: DraftMode,
   generationMetadata: GenerationMetadata,
+  lightEditMode: boolean,
   forceLanguage?: boolean,
   safetyAnalysis?: SafetyEngineOutput | null,
 ): Promise<ProviderResult | null> {
@@ -923,6 +1145,7 @@ async function reRunWithRewrite(
       previousDraft,
       pronounPreference: resolvedPronounPreference,
       mode,
+      lightEditMode,
       forceLanguage,
       safetyAnalysis,
     })
@@ -1087,20 +1310,34 @@ export async function POST(request: Request) {
   const canonicalUiLocale = canonicalizeLocaleIdentifier(uiLocale)
   const normalizedUiLocale = canonicalUiLocale ?? uiLocale
   const mode = resolveDraftMode(payload?.mode)
+  const inputIntent = parseInputIntent(payload?.inputIntent ?? payload?.parentMessageInputType)
   const debugEnabled =
     isDebugEnabled(requestUrl.searchParams) || request.headers.get("x-debug") === "1"
   const generationTrace = mode
-    ? classifyGenerationRequest({
-        draftMode: mode,
-        locale: language,
-        situation,
-        requestedInputMode: payload.inputMode,
-        requestedSourceType: payload.sourceType,
-        messageType: payload.messageType ?? null,
-        sourceConfidence: payload.ocrConfidence ?? null,
-        hasScanId: Boolean(payload.scanId),
-        hasVoiceSessionId: Boolean(payload.voiceSessionId),
-      })
+    ? inputIntent && mode === "parent_message"
+      ? buildGenerationTraceFromInputIntent({
+          draftMode: mode,
+          locale: language,
+          inputIntent,
+          requestedInputMode: payload.inputMode,
+          requestedSourceType: payload.sourceType,
+          hasScanId: Boolean(payload.scanId),
+          hasVoiceSessionId: Boolean(payload.voiceSessionId),
+        })
+      : classifyGenerationRequest({
+          draftMode: mode,
+          locale: language,
+          situation,
+          requestedInputMode: payload.inputMode,
+          requestedInputIntent: inputIntent ?? undefined,
+          requestedParentMessageInputType:
+            parseInputIntent(payload?.parentMessageInputType) ?? undefined,
+          requestedSourceType: payload.sourceType,
+          messageType: payload.messageType ?? null,
+          sourceConfidence: payload.ocrConfidence ?? null,
+          hasScanId: Boolean(payload.scanId),
+          hasVoiceSessionId: Boolean(payload.voiceSessionId),
+        })
     : null
   activeMode = mode
   logDraftStructured("attempt_start", {
@@ -1108,6 +1345,8 @@ export async function POST(request: Request) {
     requestedMode: payload.mode ?? null,
     documentationModeRequested,
     inputMode: payload.inputMode ?? null,
+    inputIntent,
+    parentMessageInputType: payload.parentMessageInputType ?? null,
     sourceType: payload.sourceType ?? null,
     scanId: payload.scanId ?? null,
     situationChars: situation.length,
@@ -1117,6 +1356,8 @@ export async function POST(request: Request) {
     resolvedMode: mode,
     generationMode: generationTrace?.metadata.mode ?? null,
     messageDirection: generationTrace?.metadata.direction ?? null,
+    inputIntent,
+    parentMessageInputType: payload.parentMessageInputType ?? null,
     sourceType: generationTrace?.metadata.source_type ?? null,
     documentationModeRequested,
   })
@@ -1628,11 +1869,29 @@ export async function POST(request: Request) {
   }
 
   const preRewriteSituation = currentSituation
-  const deescalationDetection = detectHighEmotionPhrases(preRewriteSituation)
-  const deescalationRewrite = rewriteHighEmotionText(preRewriteSituation, deescalationDetection)
-  currentSituation = deescalationRewrite.cleanedText
-  const deescalationSummary = deescalationRewrite.summary
+  let deescalationSummary: DeescalationSummary | null = null
+  if (!(mode === "parent_message" && inputIntent === "teacher_draft")) {
+    const deescalationDetection = detectHighEmotionPhrases(preRewriteSituation)
+    const deescalationRewrite = rewriteHighEmotionText(preRewriteSituation, deescalationDetection)
+    currentSituation = deescalationRewrite.cleanedText
+    deescalationSummary = deescalationRewrite.summary
+  }
   const originalSituationForPrompt = preRewriteSituation
+  const safeLightEditMode = shouldUseLightEditMode({
+    mode,
+    situation: currentSituation,
+    generationMetadata,
+    rewriteRequested: Boolean(payload.rewrite),
+    forwardSafeRewrite: Boolean(payload.forwardSafeRewrite),
+    previousDraft: payload.previousDraft,
+    documentationModeActive,
+    safetyAnalysis,
+  })
+  const requestedTeacherDraftMode =
+    mode === "parent_message" &&
+    inputIntent === "teacher_draft" &&
+    generationMetadata.direction === "teacher_to_parent"
+  const lightEditMode = requestedTeacherDraftMode || safeLightEditMode
 
   const generationStart = Date.now()
   const providerGreeting =
@@ -1653,6 +1912,7 @@ export async function POST(request: Request) {
     rewrite: Boolean(payload.rewrite),
     forwardSafeRewrite: Boolean(payload.forwardSafeRewrite),
     previousDraft: payload.previousDraft,
+    lightEditMode,
     pronounPreference: resolvedPronounPreference,
     mode,
     studentFirstName: studentNameForPayload || undefined,
@@ -1707,6 +1967,7 @@ export async function POST(request: Request) {
     profileFound: Boolean(teacherProfileDisplayName),
     signatureFound: Boolean(teacherSignatureName),
     safetyAnalysisAvailable: Boolean(safetyAnalysis),
+    lightEditMode,
     fallbackModelName: configuredModels.fallback,
   })
   const recoveryTrace: {
@@ -2369,6 +2630,30 @@ export async function POST(request: Request) {
   await recoverCollapsedParentMessageOutput()
   applyGenericRecoveryGuardIfNeeded()
 
+  const preserveLightEditSourceIfNeeded = () => {
+    if (!lightEditMode || documentationModeActive || mode !== "parent_message") {
+      return
+    }
+
+    const sourceDraft = finalizeWithGreeting(currentSituation)
+    const driftAssessment = assessLightEditDrift({
+      sourceText: sourceDraft,
+      candidateText: generatedDraft,
+      language,
+      greetingLine: finalGreetingLine,
+    })
+
+    if (!driftAssessment.shouldPreserveSource) {
+      return
+    }
+
+    generatedDraft = sourceDraft
+    finalizeAndFormatDraft(generatedDraft)
+    pushRecoveryEvent("deterministic_fallback", "LIGHT_EDIT_SOURCE_PRESERVATION")
+  }
+
+  preserveLightEditSourceIfNeeded()
+
   let rewriteAttempted = false
   const generationTime = providerMeta.latencyMs ?? Date.now() - generationStart
 
@@ -2410,6 +2695,7 @@ export async function POST(request: Request) {
         resolvedPronounPreference,
         mode,
         generationMetadata,
+        lightEditMode,
         forcedLanguageAttempted,
       )
       if (rewriteResult) {
@@ -2449,6 +2735,7 @@ export async function POST(request: Request) {
       resolvedPronounPreference,
       mode,
       generationMetadata,
+      lightEditMode,
       forcedLanguageAttempted,
       outputSafetyAnalysis,
     )
@@ -2467,6 +2754,8 @@ export async function POST(request: Request) {
       break
     }
   }
+
+  preserveLightEditSourceIfNeeded()
 
   logDraftStructured("normalization", {
     ...baseDraftLog(),

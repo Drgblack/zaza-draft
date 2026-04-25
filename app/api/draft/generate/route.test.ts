@@ -106,6 +106,44 @@ const buildFallbackResult = (text: string) => ({
   errorCode: null,
 })
 
+function normalizeSimilarityText(text: string) {
+  return text
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}'\s]+/gu, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+}
+
+function getWordSequenceSimilarity(source: string, candidate: string) {
+  const sourceTokens = normalizeSimilarityText(source).split(" ").filter(Boolean)
+  const candidateTokens = normalizeSimilarityText(candidate).split(" ").filter(Boolean)
+
+  if (sourceTokens.length === 0 || candidateTokens.length === 0) {
+    return sourceTokens.length === candidateTokens.length ? 1 : 0
+  }
+
+  const dp = Array(candidateTokens.length + 1).fill(0)
+  for (const sourceToken of sourceTokens) {
+    let previousDiagonal = 0
+    for (let index = 0; index < candidateTokens.length; index += 1) {
+      const nextDiagonal = dp[index + 1]
+      if (sourceToken === candidateTokens[index]) {
+        dp[index + 1] = previousDiagonal + 1
+      } else {
+        dp[index + 1] = Math.max(dp[index + 1], dp[index])
+      }
+      previousDiagonal = nextDiagonal
+    }
+  }
+
+  return dp[candidateTokens.length] / Math.max(sourceTokens.length, candidateTokens.length)
+}
+
+function countNormalizedWords(text: string) {
+  const normalized = normalizeSimilarityText(text)
+  return normalized ? normalized.split(" ").filter(Boolean).length : 0
+}
+
 const TRUST_GRADE_FAILURE_MESSAGE =
   "Unable to generate a compliant draft. Please rephrase or contact support."
 const MOCK_FREE_TIER_LIMIT = 5
@@ -1688,6 +1726,151 @@ describe("/api/draft/generate routing classification", () => {
     })
   })
 
+  it("treats pasted parent email as a parent message when inputIntent is parent_message and generates a teacher reply", async () => {
+    fallbackGenerator.mockResolvedValueOnce(
+      buildFallbackResult(
+        [
+          "Subject: Lucy's phone use in class",
+          "",
+          "Dear Parent/Carer,",
+          "",
+          "Thank you for your email. My intention was to keep the classroom expectation clear while supporting Lucy calmly.",
+          "",
+          "I will follow this up sensitively and make sure the next step is clear.",
+          "",
+          "Kind regards,",
+          "Dr Greg Blackburn",
+        ].join("\n"),
+      ),
+    )
+
+    const payload = {
+      situation: lucyParentEmail,
+      tone: "professional",
+      language: "en",
+      uiLocale: "en-GB",
+      mode: "parent_message",
+      inputIntent: "parent_message",
+    }
+    const request = new Request("https://example.com/api/draft/generate", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: "Bearer token",
+      },
+      body: JSON.stringify(payload),
+    })
+
+    const response = await POST(request)
+    expect(response.status).toBe(200)
+    const json = await response.json()
+    const providerInput = fallbackGenerator.mock.calls[fallbackGenerator.mock.calls.length - 1]?.[0]
+    expect(providerInput?.generationMetadata.direction).toBe("parent_to_teacher")
+    expect(providerInput?.lightEditMode).toBe(false)
+    expect(json.data?.generatedDraft).toContain("Thank you for your email.")
+    expect(json.data?.generatedDraft).toContain("My intention was to keep the classroom expectation clear")
+  })
+
+  it("honors explicit draft selection even when the text looks like an incoming parent email", async () => {
+    const payload = {
+      situation: [
+        "Subject: Concern about Lucy",
+        "",
+        "Hello,",
+        "",
+        "My child came home upset and I would appreciate an explanation.",
+        "",
+        "Kind regards,",
+        "Lucy's Dad",
+      ].join("\n"),
+      tone: "professional",
+      language: "en",
+      uiLocale: "en-GB",
+      mode: "parent_message",
+      inputIntent: "teacher_draft",
+    }
+    const request = new Request("https://example.com/api/draft/generate", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: "Bearer token",
+      },
+      body: JSON.stringify(payload),
+    })
+
+    const response = await POST(request)
+    expect(response.status).toBe(200)
+    const providerInput = fallbackGenerator.mock.calls[fallbackGenerator.mock.calls.length - 1]?.[0]
+    expect(providerInput?.generationMetadata.direction).toBe("teacher_to_parent")
+    expect(providerInput?.lightEditMode).toBe(true)
+  })
+
+  it("falls back to classifier routing when inputIntent is missing", async () => {
+    const payload = {
+      situation: [
+        "Subject: Update on Lucy",
+        "",
+        "Dear Mr Evans,",
+        "",
+        "I wanted to let you know Lucy settled well after our conversation today.",
+        "",
+        "Kind regards,",
+        "Dr Greg Blackburn",
+      ].join("\n"),
+      tone: "professional",
+      language: "en",
+      uiLocale: "en-GB",
+      mode: "parent_message",
+    }
+    const request = new Request("https://example.com/api/draft/generate", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: "Bearer token",
+      },
+      body: JSON.stringify(payload),
+    })
+
+    const response = await POST(request)
+    expect(response.status).toBe(200)
+    const providerInput = fallbackGenerator.mock.calls[fallbackGenerator.mock.calls.length - 1]?.[0]
+    expect(providerInput?.generationMetadata.direction).toBe("teacher_to_parent")
+  })
+
+  it("falls back to the legacy parent-message input field when inputIntent is missing", async () => {
+    const payload = {
+      situation: [
+        "Subject: Concern about Lucy",
+        "",
+        "Hello,",
+        "",
+        "My child came home upset and I would appreciate an explanation.",
+        "",
+        "Kind regards,",
+        "Lucy's Dad",
+      ].join("\n"),
+      tone: "professional",
+      language: "en",
+      uiLocale: "en-GB",
+      mode: "parent_message",
+      parentMessageInputType: "teacher_draft",
+    }
+    const request = new Request("https://example.com/api/draft/generate", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: "Bearer token",
+      },
+      body: JSON.stringify(payload),
+    })
+
+    const response = await POST(request)
+    expect(response.status).toBe(200)
+    const providerInput = fallbackGenerator.mock.calls[fallbackGenerator.mock.calls.length - 1]?.[0]
+    expect(providerInput?.generationMetadata.direction).toBe("teacher_to_parent")
+    expect(providerInput?.lightEditMode).toBe(true)
+  })
+
   it("keeps panic scan routing on the panic scan prompt path", async () => {
     const payload = {
       situation: detailedSituation,
@@ -1751,6 +1934,148 @@ describe("/api/draft/generate routing classification", () => {
       source_type: "voice_transcript",
       prompt_builder: "voice_to_calm",
     })
+  })
+})
+
+describe("/api/draft/generate light edit mode", () => {
+  it("preserves a strong teacher-authored Lucy reply instead of expanding it into a fuller rewrite", async () => {
+    const strongLucyReply = [
+      "Subject: Follow-up on Lucy's phone use",
+      "",
+      "Dear Mr Evans,",
+      "",
+      "Thank you for your email. My intention was to keep the phone expectation clear in class, not to make Lucy uncomfortable.",
+      "",
+      "Lucy may need support at times, and I will speak with her tomorrow. The expectation remains that phones stay away during lessons.",
+      "",
+      "Kind regards,",
+      "Dr Greg Blackburn",
+    ].join("\n")
+
+    fallbackGenerator.mockResolvedValueOnce(
+      buildFallbackResult(
+        [
+          "Subject: Classroom support for Lucy",
+          "",
+          "Dear Parent/Carer,",
+          "",
+          "Thank you for taking the time to share your concerns regarding Lucy's wellbeing in today's lesson.",
+          "",
+          "I appreciate this feedback and want to reassure you that my intention was to support Lucy appropriately within the classroom environment.",
+          "",
+          "I will liaise with the support coordinator and the relevant pastoral colleagues so that we can clarify the most appropriate process moving forward.",
+          "",
+          "Would it be helpful to arrange a brief meeting next week to discuss how we can best support Lucy together?",
+          "",
+          "Kind regards,",
+          "Dr Greg Blackburn",
+        ].join("\n"),
+      ),
+    )
+
+    const request = new Request("https://example.com/api/draft/generate", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: "Bearer token",
+      },
+      body: JSON.stringify({
+        situation: strongLucyReply,
+        tone: "professional",
+        language: "en",
+        uiLocale: "en-GB",
+        mode: "parent_message",
+        inputIntent: "teacher_draft",
+      }),
+    })
+
+    const response = await POST(request)
+    expect(response.status).toBe(200)
+    const json = await response.json()
+    const generatedDraft = json.data?.generatedDraft ?? ""
+    const providerInput = fallbackGenerator.mock.calls[0]?.[0]
+
+    expect(providerInput?.generationMetadata.direction).toBe("teacher_to_parent")
+    expect(providerInput?.lightEditMode).toBe(true)
+    expect(getWordSequenceSimilarity(strongLucyReply, generatedDraft)).toBeGreaterThanOrEqual(0.8)
+    expect(countNormalizedWords(generatedDraft)).toBeLessThanOrEqual(
+      Math.ceil(countNormalizedWords(strongLucyReply) * 1.1),
+    )
+    expect(generatedDraft).not.toContain("support coordinator")
+    expect(generatedDraft).not.toContain("pastoral")
+    expect(generatedDraft).not.toContain("Would it be helpful to arrange a brief meeting")
+    expect(generatedDraft).toContain("The expectation remains that phones stay away during lessons.")
+  })
+
+  it("keeps a strong pasted teacher draft substantially intact under teacher_draft inputIntent", async () => {
+    const teacherDraft = [
+      "Dear Parent/Carer,",
+      "",
+      "Thank you for getting in touch and for sharing your concerns.",
+      "",
+      "I'm sorry to hear that Lucy felt uncomfortable after the lesson. My intention was not to embarrass her, but to apply the usual classroom expectation around phone use consistently.",
+      "",
+      "I understand that Lucy may need support when she feels overwhelmed. It would be helpful to clarify this through the school's usual support process so that any agreed adjustments are clear for Lucy and for staff.",
+      "",
+      "In the meantime, I'll continue to handle this sensitively in class and will follow up with the appropriate colleague so we can support Lucy well.",
+      "",
+      "Kind regards,",
+      "Greg",
+    ].join("\n")
+
+    fallbackGenerator.mockResolvedValueOnce(
+      buildFallbackResult(
+        [
+          "Dear Parent/Carer,",
+          "",
+          "Thank you for getting in touch and for sharing your concerns.",
+          "",
+          "I'm sorry to hear that Lucy felt uncomfortable after yesterday's lesson. My intention was not to embarrass her, but to apply the usual classroom expectation around phone use consistently.",
+          "",
+          "I understand that Lucy may need support when she feels overwhelmed. I will liaise with the support coordinator so that any agreed adjustments are clear for Lucy and for staff.",
+          "",
+          "In the meantime, I'll continue to handle this sensitively in class and will follow up with the appropriate colleague so we can support Lucy well.",
+          "",
+          "Kind regards,",
+          "Greg",
+        ].join("\n"),
+      ),
+    )
+
+    const request = new Request("https://example.com/api/draft/generate", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: "Bearer token",
+      },
+      body: JSON.stringify({
+        situation: teacherDraft,
+        tone: "professional",
+        language: "en",
+        uiLocale: "en-GB",
+        mode: "parent_message",
+        inputIntent: "teacher_draft",
+      }),
+    })
+
+    const response = await POST(request)
+    expect(response.status).toBe(200)
+    const json = await response.json()
+    const generatedDraft = json.data?.generatedDraft ?? ""
+    const providerInput = fallbackGenerator.mock.calls[fallbackGenerator.mock.calls.length - 1]?.[0]
+
+    expect(providerInput?.generationMetadata.direction).toBe("teacher_to_parent")
+    expect(providerInput?.lightEditMode).toBe(true)
+    expect(getWordSequenceSimilarity(teacherDraft, generatedDraft)).toBeGreaterThanOrEqual(0.8)
+    expect(countNormalizedWords(generatedDraft)).toBeLessThanOrEqual(
+      Math.ceil(countNormalizedWords(teacherDraft) * 1.15),
+    )
+    expect(generatedDraft).not.toContain("support coordinator")
+    expect(generatedDraft).not.toContain("yesterday's lesson")
+    expect(generatedDraft).not.toContain("next week")
+    expect(generatedDraft).toContain("My intention was not to embarrass her")
+    expect(generatedDraft).toContain("the usual classroom expectation around phone use consistently")
+    expect(generatedDraft).toContain("follow up with the appropriate colleague")
   })
 })
 

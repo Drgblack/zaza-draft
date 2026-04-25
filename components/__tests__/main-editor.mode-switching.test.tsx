@@ -1,6 +1,6 @@
 import "@testing-library/jest-dom"
 import { beforeEach, describe, expect, it, vi } from "vitest"
-import { fireEvent, render, screen, waitFor } from "@testing-library/react"
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react"
 
 import { MainEditor } from "@/components/main-editor"
 
@@ -81,6 +81,22 @@ vi.mock("@/hooks/use-locale", () => ({
         "editor.mode.documentationHelper": "Documentation Mode is active for this result.",
         "editor.mode.switchToDocumentation": "Switch to Documentation Mode",
         "editor.mode.switchToMessage": "Switch to Message Mode",
+        "editor.inputMode.heading": "What are you working with?",
+        "editor.inputMode.parentMessage": "Parent message",
+        "editor.inputMode.teacherDraft": "My draft",
+        "editor.inputMode.parentMessageDescription": "I need to reply to this",
+        "editor.inputMode.teacherDraftDescription": "Improve what I’ve written",
+        "editor.inputMode.parentMessagePlaceholder": "Paste the parent’s message here…",
+        "editor.inputMode.teacherDraftPlaceholder":
+          "Paste your draft reply… I’ll make it calmer and safer",
+        "editor.inputMode.parentMessagePromise":
+          "I’ll write a reply that’s calm, professional, and hard to misread.",
+        "editor.inputMode.teacherDraftPromise":
+          "I’ll improve your message without changing what you want to say.",
+        "editor.inputMode.mismatch.parentMessage": "This looks like a parent message.",
+        "editor.inputMode.mismatch.teacherDraft": "This looks like your draft reply.",
+        "editor.inputMode.mismatch.switchToParentMessage": "Switch to Parent message",
+        "editor.inputMode.mismatch.switchToTeacherDraft": "Switch to My draft",
         "draft.generatedTitle": "Draft generated",
         "draft.documentation.badge": "Documentation Mode",
         "draft.documentation.label": "Mode:",
@@ -307,6 +323,14 @@ function getDraftGenerateBodies() {
     .map(([, init]) => JSON.parse(String(init?.body ?? "{}")))
 }
 
+function getModeTablist() {
+  return screen.getByRole("tablist", { name: "Mode" })
+}
+
+function getInputTypeTablist() {
+  return screen.getByRole("tablist", { name: "What are you working with?" })
+}
+
 describe("MainEditor mode switching", () => {
   it("switches from Message Mode to Documentation Mode with consistent visible mode state", async () => {
     render(<MainEditor />)
@@ -326,7 +350,7 @@ describe("MainEditor mode switching", () => {
     })
 
     expect(screen.getByText("Mode: Parent message")).toBeInTheDocument()
-    expect(screen.getByRole("tab", { name: "Parent message" })).toBeInTheDocument()
+    expect(within(getModeTablist()).getByRole("tab", { name: "Parent message" })).toBeInTheDocument()
     expect(screen.getByRole("button", { name: "Switch to Documentation Mode" })).toBeInTheDocument()
     expect(screen.queryByRole("button", { name: "Switch to Message Mode" })).toBeNull()
 
@@ -340,7 +364,7 @@ describe("MainEditor mode switching", () => {
 
     expect(screen.getAllByText("Documentation Mode").length).toBeGreaterThanOrEqual(2)
     expect(screen.getByText("Documentation Mode is active for this result.")).toBeInTheDocument()
-    expect(screen.queryByRole("tab", { name: "Parent message" })).toBeNull()
+    expect(screen.queryByRole("tablist", { name: "Mode" })).toBeNull()
     expect(screen.queryByRole("button", { name: "Switch to Documentation Mode" })).toBeNull()
     expect(screen.getByRole("button", { name: "Switch to Message Mode" })).toBeInTheDocument()
   })
@@ -382,7 +406,7 @@ describe("MainEditor mode switching", () => {
     })
 
     expect(screen.getByText("Mode: Parent message")).toBeInTheDocument()
-    expect(screen.getByRole("tab", { name: "Parent message" })).toBeInTheDocument()
+    expect(within(getModeTablist()).getByRole("tab", { name: "Parent message" })).toBeInTheDocument()
     expect(screen.getByRole("button", { name: "Switch to Documentation Mode" })).toBeInTheDocument()
     expect(screen.queryByRole("button", { name: "Switch to Message Mode" })).toBeNull()
     expect(getTextarea().value).toBe(sourceText)
@@ -395,6 +419,136 @@ describe("MainEditor mode switching", () => {
       "parent_message",
       "parent_message",
     ])
+  })
+
+  it("passes the explicit parent-message input selection and lets the user switch to my draft", async () => {
+    render(<MainEditor />)
+
+    expect(screen.getByText("What are you working with?")).toBeInTheDocument()
+    expect(screen.getByText("I need to reply to this")).toBeInTheDocument()
+    expect(screen.getByText("Improve what I’ve written")).toBeInTheDocument()
+    expect(getTextarea()).toHaveAttribute("placeholder", "Paste the parent’s message here…")
+    expect(
+      screen.getByText("I’ll write a reply that’s calm, professional, and hard to misread."),
+    ).toBeInTheDocument()
+    expect(within(getInputTypeTablist()).getByRole("tab", { name: "Parent message" })).toHaveAttribute(
+      "aria-selected",
+      "true",
+    )
+
+    fireEvent.change(getTextarea(), {
+      target: {
+        value:
+          "Parent message: I want to send a calm update about homework expectations and tomorrow's follow-up.",
+      },
+    })
+
+    fireEvent.click(screen.getByRole("button", { name: "Generate" }))
+
+    await waitFor(() => {
+      expect(getDraftGenerateBodies()).toHaveLength(1)
+    })
+
+    expect(getDraftGenerateBodies()[0]?.inputIntent).toBe("parent_message")
+    expect(getDraftGenerateBodies()[0]?.parentMessageInputType).toBeUndefined()
+
+    fireEvent.click(within(getInputTypeTablist()).getByRole("tab", { name: "My draft" }))
+
+    expect(getTextarea()).toHaveAttribute(
+      "placeholder",
+      "Paste your draft reply… I’ll make it calmer and safer",
+    )
+    expect(
+      screen.getByText("I’ll improve your message without changing what you want to say."),
+    ).toBeInTheDocument()
+    expect(window.localStorage.getItem("zaza:parent-input-mode")).toBe("teacher_draft")
+
+    fireEvent.click(screen.getByRole("button", { name: "Generate" }))
+
+    await waitFor(() => {
+      expect(getDraftGenerateBodies()).toHaveLength(2)
+    })
+
+    expect(getDraftGenerateBodies()[1]?.inputIntent).toBe("teacher_draft")
+    expect(getDraftGenerateBodies()[1]?.parentMessageInputType).toBeUndefined()
+  })
+
+  it("restores the last selected parent-message input mode from localStorage", async () => {
+    window.localStorage.setItem("zaza:parent-input-mode", "teacher_draft")
+
+    render(<MainEditor />)
+
+    await waitFor(() => {
+      expect(within(getInputTypeTablist()).getByRole("tab", { name: "My draft" })).toHaveAttribute(
+        "aria-selected",
+        "true",
+      )
+    })
+
+    expect(getTextarea()).toHaveAttribute(
+      "placeholder",
+      "Paste your draft reply… I’ll make it calmer and safer",
+    )
+    expect(
+      screen.getByText("I’ll improve your message without changing what you want to say."),
+    ).toBeInTheDocument()
+  })
+
+  it("shows a gentle suggestion when my draft is selected but the text looks like a parent email", async () => {
+    render(<MainEditor />)
+
+    fireEvent.click(within(getInputTypeTablist()).getByRole("tab", { name: "My draft" }))
+    fireEvent.change(getTextarea(), {
+      target: {
+        value: [
+          "Subject: Concern about Lucy",
+          "",
+          "Hello,",
+          "",
+          "My child came home upset and I would appreciate an explanation.",
+          "",
+          "Kind regards,",
+          "Lucy's Dad",
+        ].join("\n"),
+      },
+    })
+
+    expect(screen.getByText("This looks like a parent message.")).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole("button", { name: "Switch to Parent message" }))
+
+    expect(within(getInputTypeTablist()).getByRole("tab", { name: "Parent message" })).toHaveAttribute(
+      "aria-selected",
+      "true",
+    )
+  })
+
+  it("shows a gentle suggestion when parent message is selected but the text looks like a teacher draft", async () => {
+    render(<MainEditor />)
+
+    fireEvent.change(getTextarea(), {
+      target: {
+        value: [
+          "Subject: Follow-up on Lucy",
+          "",
+          "Dear Parent/Carer,",
+          "",
+          "Thank you for your email. My intention was to keep the classroom expectation clear.",
+          "",
+          "Kind regards,",
+          "Greg",
+        ].join("\n"),
+      },
+    })
+
+    expect(screen.getByText("This looks like your draft reply.")).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole("button", { name: "Switch to My draft" }))
+
+    expect(within(getInputTypeTablist()).getByRole("tab", { name: "My draft" })).toHaveAttribute(
+      "aria-selected",
+      "true",
+    )
   })
 
   it("shows the backend safe message for handled non-200 draft failures", async () => {

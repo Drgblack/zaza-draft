@@ -37,6 +37,63 @@ describe("classifyGenerationRequest", () => {
     expect(result.metadata.source_type).toBe("typed_text")
   })
 
+  it("honors explicit parent-message selection even when the text looks like a teacher draft", () => {
+    const result = classifyGenerationRequest({
+      draftMode: "parent_message",
+      locale: "en",
+      situation: [
+        "Subject: Update on Lucy",
+        "Dear Mr Evans,",
+        "",
+        "I wanted to let you know Lucy settled well after our conversation today.",
+        "",
+        "Kind regards,",
+        "Dr Greg Blackburn",
+      ].join("\n"),
+      requestedInputIntent: "parent_message",
+    })
+
+    expect(result.metadata.direction).toBe("parent_to_teacher")
+  })
+
+  it("honors explicit teacher-draft selection even when the text looks like an incoming parent email", () => {
+    const result = classifyGenerationRequest({
+      draftMode: "parent_message",
+      locale: "en",
+      situation: [
+        "Subject: Concern about Lucy",
+        "Hello,",
+        "",
+        "My child came home upset and I would appreciate an explanation.",
+        "",
+        "Kind regards,",
+        "Lucy's Dad",
+      ].join("\n"),
+      requestedInputIntent: "teacher_draft",
+    })
+
+    expect(result.metadata.direction).toBe("teacher_to_parent")
+  })
+
+  it("falls back to the legacy parent-message input field when inputIntent is missing", () => {
+    const result = classifyGenerationRequest({
+      draftMode: "parent_message",
+      locale: "en",
+      situation: [
+        "Subject: Concern about Lucy",
+        "Hello,",
+        "",
+        "My child came home upset and I would appreciate an explanation.",
+        "",
+        "Kind regards,",
+        "Lucy's Dad",
+      ].join("\n"),
+      requestedParentMessageInputType: "teacher_draft",
+    })
+
+    expect(result.metadata.direction).toBe("teacher_to_parent")
+  })
+
   it("defaults panic scan OCR to parent_to_teacher", () => {
     const result = classifyGenerationRequest({
       draftMode: "parent_message",

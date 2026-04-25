@@ -424,6 +424,46 @@ describe("buildSystemPrompt", () => {
     expect(prompt).toContain("Preserve the underlying facts, documentation accuracy, safeguarding clarity")
   })
 
+  it("switches teacher-authored parent drafts into light edit mode when they are already safe", () => {
+    const prompt = buildSystemPrompt({
+      situation: [
+        "Subject: Follow-up on today's lesson",
+        "",
+        "Dear Mr Evans,",
+        "",
+        "Thank you for your email. My intention was to keep the phone expectation clear in class, not to make Lucy uncomfortable.",
+        "",
+        "Lucy may need support at times, and I will speak with her tomorrow. The expectation remains that phones stay away during lessons.",
+        "",
+        "Kind regards,",
+        "Dr Greg Blackburn",
+      ].join("\n"),
+      generationMetadata: {
+        mode: "safe_draft",
+        direction: "teacher_to_parent",
+        source_type: "typed_text",
+        locale: "en",
+        prompt_builder: "safe_draft",
+      },
+      tone: "professional",
+      language: "en",
+      mode: "parent_message",
+      pronounPreference: "auto",
+      lightEditMode: true,
+    })
+
+    expect(prompt).toContain("Light edit mode is enabled.")
+    expect(prompt).toContain("Prefer minimal edits over full rewrites when the draft is already safe.")
+    expect(prompt).toContain("Teacher-draft edit contract:")
+    expect(prompt).toContain("Improve the teacher's draft without rewriting it from scratch.")
+    expect(prompt).toContain("Preserve the original structure, paragraph order, and sentence order where possible.")
+    expect(prompt).toContain("Do not expand content.")
+    expect(prompt).toContain("Do not introduce new information.")
+    expect(prompt).toContain("Do not add institutional or process language unless it already appears in the source.")
+    expect(prompt).toContain("Do NOT introduce new facts, roles, meetings, policies, or staff members.")
+    expect(prompt).toContain("Do not turn a good draft into a longer AI-sounding message.")
+  })
+
   it("tells safe draft teacher notes to preserve names and multi-issue clusters", () => {
     const prompt = buildSystemPrompt({
       situation:

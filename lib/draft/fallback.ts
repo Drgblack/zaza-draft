@@ -973,6 +973,7 @@ export interface ProviderRequestInput {
   rewrite?: boolean
   forwardSafeRewrite?: boolean
   previousDraft?: string
+  lightEditMode?: boolean
   pronounPreference: PronounPreference
   mode: DraftMode
   studentFirstName?: string

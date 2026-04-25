@@ -1,6 +1,8 @@
 import type { DraftLanguage, DraftMode } from "@/lib/types"
 
 export type GenerationInputMode = "safe_draft" | "panic_scan" | "voice_to_calm"
+export type InputIntent = "parent_message" | "teacher_draft"
+export type ParentMessageInputType = InputIntent
 export type MessageDirection =
   | "parent_to_teacher"
   | "teacher_to_parent"
@@ -23,11 +25,22 @@ export interface GenerationTrace {
   transcriptUsed: boolean
 }
 
+interface BaseGenerationInput {
+  draftMode: DraftMode
+  locale: DraftLanguage
+  requestedInputMode?: GenerationInputMode
+  requestedSourceType?: SourceType
+  hasScanId?: boolean
+  hasVoiceSessionId?: boolean
+}
+
 interface ClassificationInput {
   draftMode: DraftMode
   locale: DraftLanguage
   situation: string
   requestedInputMode?: GenerationInputMode
+  requestedInputIntent?: InputIntent
+  requestedParentMessageInputType?: ParentMessageInputType
   requestedSourceType?: SourceType
   messageType?: string | null
   sourceConfidence?: number | null
@@ -35,7 +48,12 @@ interface ClassificationInput {
   hasVoiceSessionId?: boolean
 }
 
+interface ExplicitInputIntentTraceInput extends BaseGenerationInput {
+  inputIntent: InputIntent
+}
+
 const INPUT_MODES: GenerationInputMode[] = ["safe_draft", "panic_scan", "voice_to_calm"]
+const INPUT_INTENTS: InputIntent[] = ["parent_message", "teacher_draft"]
 const SOURCE_TYPES: SourceType[] = ["typed_text", "ocr_text", "voice_transcript"]
 
 const TEACHER_GREETING_PATTERNS = [
@@ -98,6 +116,22 @@ function isKnownInputMode(value: unknown): value is GenerationInputMode {
   return typeof value === "string" && INPUT_MODES.includes(value as GenerationInputMode)
 }
 
+function isKnownInputIntent(value: unknown): value is InputIntent {
+  return typeof value === "string" && INPUT_INTENTS.includes(value as InputIntent)
+}
+
+function resolveExplicitInputIntent(input: ClassificationInput): InputIntent | null {
+  if (isKnownInputIntent(input.requestedInputIntent)) {
+    return input.requestedInputIntent
+  }
+
+  if (isKnownInputIntent(input.requestedParentMessageInputType)) {
+    return input.requestedParentMessageInputType
+  }
+
+  return null
+}
+
 function isKnownSourceType(value: unknown): value is SourceType {
   return typeof value === "string" && SOURCE_TYPES.includes(value as SourceType)
 }
@@ -106,7 +140,7 @@ function normalizeText(text: string) {
   return text.replace(/\r/g, "").trim()
 }
 
-function looksLikeTeacherAuthoredDraft(text: string) {
+export function looksLikeTeacherAuthoredDraft(text: string) {
   const normalized = normalizeText(text)
   if (!normalized) {
     return false
@@ -119,7 +153,7 @@ function looksLikeTeacherAuthoredDraft(text: string) {
   )
 }
 
-function looksLikeIncomingParentMessage(text: string) {
+export function looksLikeIncomingParentMessage(text: string) {
   const normalized = normalizeText(text)
   if (!normalized) {
     return false
@@ -128,7 +162,7 @@ function looksLikeIncomingParentMessage(text: string) {
   return PARENT_INCOMING_PATTERNS.some((pattern) => pattern.test(normalized))
 }
 
-function looksLikeIncomingParentEmail(text: string) {
+export function looksLikeIncomingParentEmail(text: string) {
   const normalized = normalizeText(text)
   if (!normalized) {
     return false
@@ -172,7 +206,7 @@ function hasStrongTeacherOutgoingEvidence(text: string) {
   return score >= 2
 }
 
-function resolveInputMode(input: ClassificationInput): GenerationInputMode {
+function resolveInputMode(input: BaseGenerationInput): GenerationInputMode {
   if (isKnownInputMode(input.requestedInputMode)) {
     return input.requestedInputMode
   }
@@ -213,6 +247,38 @@ function resolveSourceType(
   return "typed_text"
 }
 
+function buildGenerationTrace(
+  draftMode: DraftMode,
+  locale: DraftLanguage,
+  inputMode: GenerationInputMode,
+  sourceType: SourceType,
+  direction: MessageDirection,
+): GenerationTrace {
+  const resolvedDirection = draftMode === "report_comment" ? "report_comment" : direction
+
+  return {
+    metadata: {
+      mode: inputMode,
+      direction: resolvedDirection,
+      source_type: sourceType,
+      locale,
+      prompt_builder: inputMode,
+    },
+    ocrUsed: sourceType === "ocr_text",
+    transcriptUsed: sourceType === "voice_transcript",
+  }
+}
+
+export function buildGenerationTraceFromInputIntent(
+  input: ExplicitInputIntentTraceInput,
+): GenerationTrace {
+  const inputMode = resolveInputMode(input)
+  const sourceType = resolveSourceType(input.requestedSourceType, inputMode)
+  const direction = input.inputIntent === "teacher_draft" ? "teacher_to_parent" : "parent_to_teacher"
+
+  return buildGenerationTrace(input.draftMode, input.locale, inputMode, sourceType, direction)
+}
+
 function resolveMessageDirection(
   input: ClassificationInput,
   inputMode: GenerationInputMode,
@@ -239,6 +305,11 @@ function resolveMessageDirection(
     return "teacher_internal_notes"
   }
 
+  const explicitInputIntent = resolveExplicitInputIntent(input)
+  if (input.draftMode === "parent_message" && inputMode === "safe_draft" && explicitInputIntent) {
+    return explicitInputIntent === "teacher_draft" ? "teacher_to_parent" : "parent_to_teacher"
+  }
+
   if (looksLikeIncomingParentEmail(input.situation)) {
     return "parent_to_teacher"
   }
@@ -255,15 +326,5 @@ export function classifyGenerationRequest(input: ClassificationInput): Generatio
   const sourceType = resolveSourceType(input.requestedSourceType, inputMode)
   const direction = resolveMessageDirection(input, inputMode)
 
-  return {
-    metadata: {
-      mode: inputMode,
-      direction,
-      source_type: sourceType,
-      locale: input.locale,
-      prompt_builder: inputMode,
-    },
-    ocrUsed: sourceType === "ocr_text",
-    transcriptUsed: sourceType === "voice_transcript",
-  }
+  return buildGenerationTrace(input.draftMode, input.locale, inputMode, sourceType, direction)
 }

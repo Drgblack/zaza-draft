@@ -1,6 +1,14 @@
 ﻿"use client"
 
-import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent } from "react"
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ChangeEvent,
+  type KeyboardEvent,
+} from "react"
 import { Button } from "@/components/ui/button"
 import { SegmentedControl } from "@/components/ui/segmented-control"
 import { useTeacherPrefs } from "@/hooks/use-teacher-prefs"
@@ -83,6 +91,12 @@ import {
   type DraftInteractionTeacherIntent,
   type DraftInteractionWorkflowType,
 } from "@/lib/draft-interaction-events"
+import {
+  looksLikeIncomingParentEmail,
+  looksLikeTeacherAuthoredDraft,
+  type ParentMessageInputType,
+} from "@/lib/generation/classification"
+import { cn } from "@/lib/utils"
 
 const TONE_OPTIONS = [
   { id: "warm", key: "tone.warm" },
@@ -100,6 +114,7 @@ const PRONOUN_OPTIONS: { id: PronounPreference; label: string }[] = [
 ]
 
 type ModeKey = DraftMode
+type ParentInputMode = ParentMessageInputType
 
 const MODE_SEGMENT_OPTIONS = [
   {
@@ -170,6 +185,7 @@ const LOADING_MESSAGES = [
 const PREFILL_STORAGE_KEY = "zazaDraftPrefill"
 const FIRST_VALUE_SAMPLE_STORAGE_KEY = "zaza:first-value-sample"
 const FIRST_VALUE_SAMPLE_SEEN_STORAGE_KEY = "zaza:first-value-sample-seen"
+const PARENT_INPUT_MODE_STORAGE_KEY = "zaza:parent-input-mode"
 
 type FirstValueSample = {
   subject: string
@@ -285,6 +301,21 @@ const INPUT_MODE_CARD_DEFINITIONS: InputModeCardDefinition[] = [
     descriptionKey: "voiceDescription",
     icon: Mic,
     action: { type: "link", href: "/voice", labelKey: "homeVoiceAction" },
+  },
+]
+
+const PARENT_INPUT_SEGMENT_OPTIONS = [
+  {
+    id: "parent_message" as ParentInputMode,
+    labelKey: "editor.inputMode.parentMessage",
+    descriptionKey: "editor.inputMode.parentMessageDescription",
+    icon: Mail,
+  },
+  {
+    id: "teacher_draft" as ParentInputMode,
+    labelKey: "editor.inputMode.teacherDraft",
+    descriptionKey: "editor.inputMode.teacherDraftDescription",
+    icon: FileText,
   },
 ]
 
@@ -440,7 +471,6 @@ export function MainEditor({ canExport = true }: MainEditorProps = {}) {
       }),
     [t],
   )
-
   const [greeting, setGreeting] = useState("Good morning")
   const [userName, setUserName] = useState("")
   const [generatedDraft, setGeneratedDraft] = useState<string | null>(null)
@@ -480,6 +510,8 @@ export function MainEditor({ canExport = true }: MainEditorProps = {}) {
   }
   const [pronounPreference, setPronounPreference] = useState<PronounPreference>("auto")
   const [mode, setMode] = useState<ModeKey>("parent_message")
+  const [parentInputMode, setParentInputMode] = useState<ParentInputMode>("parent_message")
+  const [parentInputModeReady, setParentInputModeReady] = useState(false)
   const [rewriteMode, setRewriteMode] = useState<RewriteMode>("standard")
   const [inputReframeTier, setInputReframeTier] = useState<"tier1" | "tier2" | null>(null)
   const [inputWasReframed, setInputWasReframed] = useState(false)
@@ -579,6 +611,7 @@ export function MainEditor({ canExport = true }: MainEditorProps = {}) {
     return getDraftAttributionLine(languageChoice)
   }, [documentationModeActive, includeDraftSignature, languageChoice, mode])
   const textareaRef = useRef<HTMLTextAreaElement | null>(null)
+  const parentInputModeButtonRefs = useRef<Array<HTMLButtonElement | null>>([])
   const draftEditDepthRef = useRef(0)
   const draftModificationLoggedRef = useRef(false)
   const rewriteSuggestionPendingRef = useRef(false)
@@ -738,6 +771,68 @@ export function MainEditor({ canExport = true }: MainEditorProps = {}) {
     () => t(mode === "report_comment" ? MODE_LABEL_KEYS.report_comment : MODE_LABEL_KEYS.parent_message),
     [mode, t],
   )
+  const parentInputPromise = useMemo(() => {
+    if (mode !== "parent_message") {
+      return null
+    }
+    return parentInputMode === "teacher_draft"
+      ? t("editor.inputMode.teacherDraftPromise")
+      : t("editor.inputMode.parentMessagePromise")
+  }, [mode, parentInputMode, t])
+  const inputModeMismatchSuggestion = useMemo(() => {
+    if (mode !== "parent_message") {
+      return null
+    }
+
+    const trimmedContent = content.trim()
+    if (trimmedContent.length < 40) {
+      return null
+    }
+
+    if (
+      parentInputMode === "teacher_draft" &&
+      looksLikeIncomingParentEmail(trimmedContent)
+    ) {
+      return {
+        message: t("editor.inputMode.mismatch.parentMessage"),
+        action: t("editor.inputMode.mismatch.switchToParentMessage"),
+        nextMode: "parent_message" as ParentInputMode,
+      }
+    }
+
+    if (
+      parentInputMode === "parent_message" &&
+      looksLikeTeacherAuthoredDraft(trimmedContent)
+    ) {
+      return {
+        message: t("editor.inputMode.mismatch.teacherDraft"),
+        action: t("editor.inputMode.mismatch.switchToTeacherDraft"),
+        nextMode: "teacher_draft" as ParentInputMode,
+      }
+    }
+
+    return null
+  }, [content, mode, parentInputMode, t])
+  const editorPlaceholder = useMemo(() => {
+    if (mode === "parent_message") {
+      return parentInputMode === "teacher_draft"
+        ? t("editor.inputMode.teacherDraftPlaceholder")
+        : t("editor.inputMode.parentMessagePlaceholder")
+    }
+    return locale === "de-DE"
+      ? `Beschreiben Sie die Situation...
+
+Beispiele:
+- Schüler der 6. Klasse mit Schwierigkeiten bei Brüchen, braucht ermutigendes Feedback
+- Eltern-E-Mail zu Hausaufgaben, professioneller und einfühlsamer Ton
+- Zeugniskommentar für hervorragende Fortschritte beim Leseverständnis`
+      : `Describe the situation...
+
+Examples:
+- Year 6 student struggling with fractions, needs encouraging feedback
+- Parent email about homework concerns, professional and empathetic tone
+- Report card comment for excellent progress in reading comprehension`
+  }, [locale, mode, parentInputMode, t])
   const greetingHeading = useMemo(() => {
     if (looksLikeHumanDisplayName(userName, user?.email)) {
       return formatGreetingDisplay(greeting, userName)
@@ -764,6 +859,12 @@ export function MainEditor({ canExport = true }: MainEditorProps = {}) {
       return
     }
 
+    const storedParentInputMode = window.localStorage.getItem(PARENT_INPUT_MODE_STORAGE_KEY)
+    if (storedParentInputMode === "parent_message" || storedParentInputMode === "teacher_draft") {
+      setParentInputMode(storedParentInputMode)
+    }
+    setParentInputModeReady(true)
+
     if (window.sessionStorage.getItem(FIRST_VALUE_SAMPLE_STORAGE_KEY) === "1") {
       setFirstValueSampleLoaded(true)
     }
@@ -771,6 +872,14 @@ export function MainEditor({ canExport = true }: MainEditorProps = {}) {
       setFirstValueSampleSeen(true)
     }
   }, [])
+
+  useEffect(() => {
+    if (typeof window === "undefined" || !parentInputModeReady) {
+      return
+    }
+
+    window.localStorage.setItem(PARENT_INPUT_MODE_STORAGE_KEY, parentInputMode)
+  }, [parentInputMode, parentInputModeReady])
 
   useEffect(() => {
     if (prefillApplied) {
@@ -809,6 +918,7 @@ export function MainEditor({ canExport = true }: MainEditorProps = {}) {
           })
           setSourceFlow("panic_scan")
           setMode("parent_message")
+          setParentInputMode("parent_message")
         } else {
           setContent(stored)
         }
@@ -830,6 +940,7 @@ export function MainEditor({ canExport = true }: MainEditorProps = {}) {
       setContent(firstValueSample.content)
       setSelectedTone("professional")
       setMode("parent_message")
+      setParentInputMode("parent_message")
       setFirstValueSampleLoaded(true)
       setFirstValueSampleSeen(true)
       if (typeof window !== "undefined") {
@@ -952,6 +1063,47 @@ export function MainEditor({ canExport = true }: MainEditorProps = {}) {
     }
 
     setMode(nextMode)
+  }
+
+  const handleParentInputModeChange = (nextInputMode: ParentInputMode) => {
+    if (nextInputMode === parentInputMode) {
+      return
+    }
+
+    if (lastGenerationSignature) {
+      resetGeneratedOutput()
+      setGenerationError(null)
+      setGenerationAction(null)
+      setSensitivePreview(null)
+      setBlockedLanguageContext(null)
+      setOutOfScopeNotice(false)
+      setOutOfScopeMessage("")
+    }
+
+    setParentInputMode(nextInputMode)
+  }
+
+  const handleParentInputModeKeyDown = (event: KeyboardEvent<HTMLButtonElement>, currentIndex: number) => {
+    const lastIndex = PARENT_INPUT_SEGMENT_OPTIONS.length - 1
+    let nextIndex = currentIndex
+
+    if (event.key === "ArrowRight" || event.key === "ArrowDown") {
+      event.preventDefault()
+      nextIndex = currentIndex === lastIndex ? 0 : currentIndex + 1
+    } else if (event.key === "ArrowLeft" || event.key === "ArrowUp") {
+      event.preventDefault()
+      nextIndex = currentIndex === 0 ? lastIndex : currentIndex - 1
+    } else {
+      return
+    }
+
+    const nextMode = PARENT_INPUT_SEGMENT_OPTIONS[nextIndex]?.id
+    if (!nextMode) {
+      return
+    }
+
+    handleParentInputModeChange(nextMode)
+    parentInputModeButtonRefs.current[nextIndex]?.focus()
   }
 
   const dismissPanicScanBanner = () => {
@@ -1188,6 +1340,7 @@ export function MainEditor({ canExport = true }: MainEditorProps = {}) {
       setMode("report_comment")
     } else if (profile.mainUseCase === "parent_messages") {
       setMode("parent_message")
+      setParentInputMode("parent_message")
     }
 
     if (profile.tonePreference) {
@@ -1233,7 +1386,13 @@ export function MainEditor({ canExport = true }: MainEditorProps = {}) {
       setOnboardingVisible(false)
       setOnboardingError(null)
     },
-    [applyOnboardingPersonalization, onboardingAnsweredCount, onboardingForm, user?.uid],
+    [
+      applyOnboardingPersonalization,
+      onboardingAnsweredCount,
+      onboardingForm,
+      shouldLogOnboardingPersistence,
+      user?.uid,
+    ],
   )
 
   const completeOnboarding = async (action: "complete" | "skip") => {
@@ -1445,6 +1604,9 @@ export function MainEditor({ canExport = true }: MainEditorProps = {}) {
 
     payload.pronounPreference = pronounPreference
     payload.mode = mode
+    if (mode === "parent_message") {
+      payload.inputIntent = parentInputMode
+    }
 
     payload.signature = signaturePayload
 
@@ -1478,6 +1640,7 @@ export function MainEditor({ canExport = true }: MainEditorProps = {}) {
       language: languageChoice,
       pronounPreference,
       mode,
+      inputIntent: mode === "parent_message" ? parentInputMode : null,
       sourceFlow,
       studentFirstNameProvided: Boolean(sanitizedStudentFirstName),
     })
@@ -1757,7 +1920,9 @@ export function MainEditor({ canExport = true }: MainEditorProps = {}) {
     setGradeLevel(snippet.contextUsed?.gradeLevel ?? "")
     setStudentFirstNameInput("")
     setPronounPreference(snippet.pronounPreference ?? "auto")
-    setMode(snippet.mode ?? "parent_message")
+    const nextMode = snippet.mode ?? "parent_message"
+    setMode(nextMode)
+    setParentInputMode(nextMode === "parent_message" ? "teacher_draft" : "parent_message")
   }
 
   const deleteSnippet = async (snippetId: string) => {
@@ -1817,6 +1982,9 @@ export function MainEditor({ canExport = true }: MainEditorProps = {}) {
     const nextEditorContent = appendDraftAttribution(generatedDraft, draftAttributionLine)
     resetGeneratedOutput()
     setContent(nextEditorContent)
+    if (mode === "parent_message") {
+      setParentInputMode("teacher_draft")
+    }
     focusEditor()
   }
 
@@ -1973,39 +2141,119 @@ export function MainEditor({ canExport = true }: MainEditorProps = {}) {
                   </Button>
                 </div>
               )}
+              {mode === "parent_message" && (
+                <div className="mb-5 space-y-3">
+                  <h2 className="text-sm font-semibold text-slate-900 dark:text-white">
+                    {t("editor.inputMode.heading")}
+                  </h2>
+                  <div
+                    role="tablist"
+                    aria-label={t("editor.inputMode.heading")}
+                    className="grid gap-3 sm:grid-cols-2"
+                  >
+                    {PARENT_INPUT_SEGMENT_OPTIONS.map((option, index) => {
+                      const Icon = option.icon
+                      const selected = option.id === parentInputMode
+
+                      return (
+                        <button
+                          key={option.id}
+                          ref={(element) => {
+                            parentInputModeButtonRefs.current[index] = element
+                          }}
+                          type="button"
+                          role="tab"
+                          aria-selected={selected}
+                          aria-label={t(option.labelKey)}
+                          tabIndex={selected ? 0 : -1}
+                          onClick={() => handleParentInputModeChange(option.id)}
+                          onKeyDown={(event) => handleParentInputModeKeyDown(event, index)}
+                          className={cn(
+                            "rounded-2xl border p-4 text-left transition-all duration-200 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-sky-300/70 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-slate-950",
+                            selected
+                              ? "border-slate-900/70 bg-slate-950 text-white shadow-[0_18px_40px_rgba(15,23,42,0.22)] dark:border-white/40 dark:bg-white/14"
+                              : "border-white/55 bg-white/72 text-slate-900 shadow-[0_10px_30px_rgba(15,23,42,0.08)] hover:border-white/80 hover:bg-white/88 dark:border-white/12 dark:bg-white/6 dark:text-white dark:hover:border-white/20 dark:hover:bg-white/10",
+                          )}
+                        >
+                          <span className="flex items-start gap-3">
+                            <span
+                              className={cn(
+                                "mt-0.5 inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border",
+                                selected
+                                  ? "border-white/20 bg-white/12 text-white"
+                                  : "border-slate-200/80 bg-white/80 text-slate-700 dark:border-white/12 dark:bg-white/8 dark:text-white/80",
+                              )}
+                            >
+                              <Icon size={18} aria-hidden="true" />
+                            </span>
+                            <span className="min-w-0">
+                              <span className="block text-sm font-semibold">{t(option.labelKey)}</span>
+                              <span
+                                className={cn(
+                                  "mt-1 block text-sm leading-5",
+                                  selected ? "text-white/80" : "text-slate-600 dark:text-white/65",
+                                )}
+                              >
+                                {t(option.descriptionKey)}
+                              </span>
+                            </span>
+                          </span>
+                        </button>
+                      )
+                    })}
+                  </div>
+                  {inputModeMismatchSuggestion ? (
+                    <div className="rounded-2xl border border-amber-300/55 bg-amber-50/85 px-4 py-3 text-sm text-amber-950 shadow-[0_10px_30px_rgba(120,53,15,0.08)] dark:border-amber-200/20 dark:bg-amber-300/10 dark:text-amber-50">
+                      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                        <p className="font-medium">{inputModeMismatchSuggestion.message}</p>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleParentInputModeChange(inputModeMismatchSuggestion.nextMode)}
+                          className="h-9 rounded-full border border-amber-400/40 bg-white/70 px-4 text-amber-950 hover:bg-white dark:border-amber-100/15 dark:bg-white/10 dark:text-amber-50 dark:hover:bg-white/15"
+                        >
+                          {inputModeMismatchSuggestion.action}
+                        </Button>
+                      </div>
+                    </div>
+                  ) : null}
+                </div>
+              )}
               <textarea
                 ref={textareaRef}
                 value={content}
                 onChange={(e) => handleContentChange(e.target.value)}
                 onInput={adjustTextareaHeight}
-                placeholder={
-                  locale === "de-DE"
-                    ? `Beschreiben Sie die Situation...
-
-Beispiele:
-- Schüler der 6. Klasse mit Schwierigkeiten bei Brüchen, braucht ermutigendes Feedback
-- Eltern-E-Mail zu Hausaufgaben, professioneller und einfühlsamer Ton
-- Zeugniskommentar für hervorragende Fortschritte beim Leseverständnis`
-                    : `Describe the situation...
-
-Examples:
-- Year 6 student struggling with fractions, needs encouraging feedback
-- Parent email about homework concerns, professional and empathetic tone
-- Report card comment for excellent progress in reading comprehension`
-                }
+                placeholder={editorPlaceholder}
                 className="w-full min-h-[80px] max-h-[320px] text-base sm:text-lg text-gray-900 dark:text-white bg-transparent border-0 focus:outline-none focus:ring-0 resize-none placeholder:text-gray-600 dark:placeholder:text-white/60 leading-relaxed font-medium"
                 style={{
                   color: isDocumentDark ? "#ffffff" : undefined,
                 }}
                 aria-label={
-                  locale === "de-DE" ? "Beschreiben Sie die Situation" : "Describe the situation you need help with"
+                  mode === "parent_message"
+                    ? parentInputMode === "teacher_draft"
+                      ? locale === "de-DE"
+                        ? "Fügen Sie Ihren Antwortentwurf ein"
+                        : "Paste your draft reply"
+                      : locale === "de-DE"
+                        ? "Fügen Sie die Nachricht der Eltern ein"
+                        : "Paste the parent’s message here"
+                    : locale === "de-DE"
+                      ? "Beschreiben Sie die Situation"
+                      : "Describe the situation you need help with"
                 }
               />
-              <p className="mt-3 text-xs text-white/80">
-                {locale === "de-DE"
-                  ? "Geben Sie keine vollständigen Namen, E-Mails, Telefonnummern oder Adressen ein."
-                  : "Do not include student full names, email addresses, phone numbers, or street addresses."}
-              </p>
+              <div className="mt-3 space-y-1">
+                {parentInputPromise ? (
+                  <p className="text-sm text-slate-700 dark:text-white/80">{parentInputPromise}</p>
+                ) : null}
+                <p className="text-xs text-white/80">
+                  {locale === "de-DE"
+                    ? "Geben Sie keine vollständigen Namen, E-Mails, Telefonnummern oder Adressen ein."
+                    : "Do not include student full names, email addresses, phone numbers, or street addresses."}
+                </p>
+              </div>
             </section>
             {safetyAnalysis && (
               <TriggerList

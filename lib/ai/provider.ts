@@ -57,6 +57,7 @@ interface ProviderInput {
   rewrite?: boolean
   forwardSafeRewrite?: boolean
   previousDraft?: string
+  lightEditMode?: boolean
   pronounPreference: PronounPreference
   mode: DraftMode
   studentFirstName?: string
@@ -226,6 +227,57 @@ function buildForwardSafeRewriteInstructions(input: ProviderInput) {
     "Keep the message calm and teacher-authentic; do not make it sound legalistic, robotic, or corporate.",
     "Preserve the underlying facts, documentation accuracy, safeguarding clarity, and the teacher's intended next step.",
     "Where the source is sensitive, use observation-based language that can stand alone if read by school leadership or another adult later.",
+  ]
+}
+
+function buildLightEditInstructions(input: ProviderInput) {
+  if (!input.lightEditMode) {
+    return []
+  }
+
+  const baseInstructions = [
+    "Light edit mode is enabled.",
+    "The source draft is already calm, professional, and safe.",
+    "Prefer minimal edits over full rewrites when the draft is already safe.",
+    "Preserve the original structure, paragraph order, and sentence order where possible.",
+    "Only adjust small tone risks or minor phrasing.",
+    "Do not expand content.",
+    "Do not introduce new information.",
+    "Do not add institutional or process language unless it already appears in the source.",
+    "Keep the result close to the original wording and length.",
+  ]
+
+  if (input.mode === "parent_message" && input.generationMetadata.direction === "teacher_to_parent") {
+    return [...baseInstructions, ...buildTeacherDraftEditContract()]
+  }
+
+  return baseInstructions
+}
+
+function buildTeacherDraftEditContract() {
+  return [
+    "Teacher-draft edit contract:",
+    "--- ROLE ---",
+    "You are a calm, experienced teacher lightly improving another teacher's existing parent reply.",
+    "--- OBJECTIVE ---",
+    "Improve the teacher's draft without rewriting it from scratch.",
+    "--- HARD RULES (must be enforced) ---",
+    "- Preserve the teacher's intent.",
+    "- Preserve structure where possible.",
+    "- Do NOT expand unnecessarily.",
+    "- Do NOT introduce new facts, roles, meetings, policies, or staff members.",
+    "- Do NOT add institutional language unless it is already implied by the draft.",
+    "- Do NOT weaken appropriate teacher authority.",
+    "- Keep the message calm, professional, and safe.",
+    "- Prefer minimal edits when the draft is already strong.",
+    "- If the draft is already safe, make only small wording improvements.",
+    "- Do not turn a good draft into a longer AI-sounding message.",
+    "--- EDITING APPROACH ---",
+    "1. Keep the original paragraph flow and sentence order unless a small adjustment clearly improves safety or clarity.",
+    "2. Tighten wording only where it becomes calmer, clearer, or easier to defend.",
+    "3. Preserve concrete boundaries, expectations, and teacher-owned next steps that are already appropriate.",
+    "4. Do not add new support roles, new meetings, new timelines, or new administrative process unless the draft already says them.",
+    "5. Do not add new factual framing such as when something happened, who was involved, or what was previously agreed unless that appears in the draft.",
   ]
 }
 
@@ -589,6 +641,7 @@ export function buildSystemPrompt(input: ProviderInput) {
     ...PROMPT_BUILDERS[input.generationMetadata.prompt_builder](input),
     ...buildSafetyAnalysisInstructions(input),
     ...buildForwardSafeRewriteInstructions(input),
+    ...buildLightEditInstructions(input),
   ]
 
   if (input.generationMetadata.direction === "parent_to_teacher") {
