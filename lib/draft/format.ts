@@ -8,9 +8,9 @@ export interface DraftStructure {
 const GREETING_REGEX =
   /^\s*(Dear|Hi|Hello|Parents|Family|Team|Good (?:morning|afternoon|evening)|Liebe|Guten Tag|Hallo|Sehr geehrte)/i
 export const CLOSING_REGEX =
-  /\b(?:Kind|Warm|Best|Many)\s+regards,|Sincerely,|Yours sincerely,|Best wishes,|With thanks,|Thanks,|Mit freundlichen Grüßen,|Mit freundlichen Gruessen,|Herzliche Grüße,|Herzliche Gruesse,/i
+  /\b(?:Kind|Warm|Best|Many)\s+regards,|Regards,|Sincerely,|Yours sincerely,|Best wishes,|With thanks,|Thanks,|Mit freundlichen Grüßen,|Mit freundlichen Gruessen,|Herzliche Grüße,|Herzliche Gruesse,/i
 const CLOSING_LINE_REGEX =
-  /^(?:Kind|Warm|Best|Many)\s+regards,|^Sincerely,|^Yours sincerely,|^Best wishes,|^With thanks,|^Thanks,|^Mit freundlichen Grüßen,|^Mit freundlichen Gruessen,|^Herzliche Grüße,|^Herzliche Gruesse,/i
+  /^(?:Kind|Warm|Best|Many)\s+regards,|^Regards,|^Sincerely,|^Yours sincerely,|^Best wishes,|^With thanks,|^Thanks,|^Mit freundlichen Grüßen,|^Mit freundlichen Gruessen,|^Herzliche Grüße,|^Herzliche Gruesse,/i
 const SUBJECT_LABELS = ["Subject", "Betreff"] as const
 const SUBJECT_SEPARATOR_REGEX = "[:\\-–—|]+"
 const SUBJECT_REGEX = new RegExp(

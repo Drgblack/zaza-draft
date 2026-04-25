@@ -1800,9 +1800,11 @@ describe("/api/draft/generate routing classification", () => {
 
     const response = await POST(request)
     expect(response.status).toBe(200)
+    const json = await response.json()
     const providerInput = fallbackGenerator.mock.calls[fallbackGenerator.mock.calls.length - 1]?.[0]
     expect(providerInput?.generationMetadata.direction).toBe("teacher_to_parent")
     expect(providerInput?.lightEditMode).toBe(true)
+    expect(json.data?.generatedDraft).not.toContain("Lucy's Dad")
   })
 
   it("falls back to classifier routing when inputIntent is missing", async () => {
@@ -1895,7 +1897,7 @@ describe("/api/draft/generate routing classification", () => {
 
     const response = await POST(request)
     expect(response.status).toBe(200)
-    const providerInput = fallbackGenerator.mock.calls[fallbackGenerator.mock.calls.length - 1]?.[0]
+    const providerInput = fallbackGenerator.mock.calls[0]?.[0]
     expect(providerInput?.generationMetadata).toMatchObject({
       mode: "panic_scan",
       direction: "parent_to_teacher",
@@ -2045,6 +2047,134 @@ describe("/api/draft/generate light edit mode", () => {
         ].join("\n"),
       ),
     )
+    fallbackGenerator.mockResolvedValueOnce(
+      buildFallbackResult(
+        [
+          "Dear Parent/Carer,",
+          "",
+          "Thank you for getting in touch about this.",
+          "",
+          "I want to keep the expectations around homework clear and consistent, while also making sure the message stays constructive.",
+          "",
+          "I will go through what is missing in class and make the next step clear so the work can be completed more steadily.",
+          "",
+          "Kind regards,",
+          "Greg",
+        ].join("\n"),
+      ),
+    )
+    fallbackGenerator.mockResolvedValueOnce(
+      buildFallbackResult(
+        [
+          "Dear Parent/Carer,",
+          "",
+          "Thank you for getting in touch about this.",
+          "",
+          "I want to keep the expectations around homework clear and consistent, while also making sure the message stays constructive.",
+          "",
+          "I will go through what is missing in class and make the next step clear so the work can be completed more steadily.",
+          "",
+          "Kind regards,",
+          "Greg",
+        ].join("\n"),
+      ),
+    )
+    fallbackGenerator.mockResolvedValueOnce(
+      buildFallbackResult(
+        [
+          "Dear Parent/Carer,",
+          "",
+          "Thank you for getting in touch about this.",
+          "",
+          "I want to keep the expectations around homework clear and consistent, while also making sure the message stays constructive.",
+          "",
+          "I will go through what is missing in class and make the next step clear so the work can be completed more steadily.",
+          "",
+          "Kind regards,",
+          "Greg",
+        ].join("\n"),
+      ),
+    )
+    fallbackGenerator.mockResolvedValueOnce(
+      buildFallbackResult(
+        [
+          "Dear Parent/Carer,",
+          "",
+          "Thank you for getting in touch about this.",
+          "",
+          "I want to keep the expectations around homework clear and consistent, while also making sure the message stays constructive.",
+          "",
+          "I will go through what is missing in class and make the next step clear so the work can be completed more steadily.",
+          "",
+          "Kind regards,",
+          "Greg",
+        ].join("\n"),
+      ),
+    )
+    fallbackGenerator.mockResolvedValueOnce(
+      buildFallbackResult(
+        [
+          "Dear Parent/Carer,",
+          "",
+          "Thank you for getting in touch about this.",
+          "",
+          "I want to keep the expectations around homework clear and consistent, while also making sure the message stays constructive.",
+          "",
+          "I will go through what is missing in class and make the next step clear so the work can be completed more steadily.",
+          "",
+          "Kind regards,",
+          "Greg",
+        ].join("\n"),
+      ),
+    )
+    fallbackGenerator.mockResolvedValueOnce(
+      buildFallbackResult(
+        [
+          "Dear Parent/Carer,",
+          "",
+          "Thank you for getting in touch about this.",
+          "",
+          "I want to keep the expectations around homework clear and consistent, while also making sure the message stays constructive.",
+          "",
+          "I will go through what is missing in class and make the next step clear so the work can be completed more steadily.",
+          "",
+          "Kind regards,",
+          "Greg",
+        ].join("\n"),
+      ),
+    )
+    fallbackGenerator.mockResolvedValueOnce(
+      buildFallbackResult(
+        [
+          "Dear Parent/Carer,",
+          "",
+          "Thank you for getting in touch about this.",
+          "",
+          "I want to keep the expectations around homework clear and consistent, while also making sure the message stays constructive.",
+          "",
+          "I will go through what is missing in class and make the next step clear so the work can be completed more steadily.",
+          "",
+          "Kind regards,",
+          "Greg",
+        ].join("\n"),
+      ),
+    )
+    fallbackGenerator.mockResolvedValueOnce(
+      buildFallbackResult(
+        [
+          "Dear Parent/Carer,",
+          "",
+          "Thank you for getting in touch about this.",
+          "",
+          "I want to keep the expectations around homework clear and consistent, while also making sure the message stays constructive.",
+          "",
+          "I will go through what is missing in class and make the next step clear so the work can be completed more steadily.",
+          "",
+          "Kind regards,",
+          "Greg",
+        ].join("\n"),
+      ),
+    )
 
     const request = new Request("https://example.com/api/draft/generate", {
       method: "POST",
@@ -2084,6 +2214,332 @@ describe("/api/draft/generate light edit mode", () => {
     expect(generatedDraft).toContain("My intention was not to embarrass her")
     expect(generatedDraft).toContain("the usual classroom expectation around phone use consistently")
     expect(generatedDraft).toContain("follow up with the appropriate colleague")
+  })
+
+  it("rewrites a blunt Lucy phone-exception draft with stronger teacher judgement instead of surface editing", async () => {
+    const teacherDraft = [
+      "Dear Lucy's Dad,",
+      "",
+      "I understand that Lucy may feel more comfortable having her phone with her, but classroom rules are clear that phones are not used during lessons.",
+      "",
+      "I can't make individual exceptions in the moment, as this would quickly become unmanageable across the class. I need to apply the same expectations consistently for all students.",
+      "",
+      "I will continue to support Lucy in class, but these expectations will remain in place.",
+      "",
+      "Regards,",
+      "Greg",
+    ].join("\n")
+
+    fallbackGenerator.mockResolvedValueOnce(
+      buildFallbackResult(
+        [
+          "Dear Parent/Carer,",
+          "",
+          "I can't make individual exceptions in the moment, as this would quickly become unmanageable across the class. I need to apply the same expectations consistently for all students.",
+          "",
+          "I will continue to support Lucy in class, but these expectations will remain in place. Thank you for your support with this, and working together will help your child feel more settled in class.",
+          "",
+          "Kind regards,",
+          "Dr Greg Blackburn",
+        ].join("\n"),
+      ),
+    )
+    fallbackGenerator.mockResolvedValueOnce(
+      buildFallbackResult(
+        [
+          "Dear Parent/Carer,",
+          "",
+          "Thank you for getting in touch and for sharing your concerns.",
+          "",
+          "I'm sorry to hear that Lucy felt uncomfortable during the lesson. My intention was not to cause distress, but to apply the usual classroom expectations around phone use consistently.",
+          "",
+          "I understand that Lucy may need support when she feels overwhelmed. At the same time, keeping clear and consistent expectations in the classroom is important for all students.",
+          "",
+          "I will continue to handle this sensitively in class and make sure Lucy feels supported within those expectations.",
+          "",
+          "Kind regards,",
+          "Greg",
+        ].join("\n"),
+      ),
+    )
+
+    const request = new Request("https://example.com/api/draft/generate", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: "Bearer token",
+      },
+      body: JSON.stringify({
+        situation: teacherDraft,
+        tone: "professional",
+        language: "en",
+        uiLocale: "en-GB",
+        mode: "parent_message",
+        inputIntent: "teacher_draft",
+      }),
+    })
+
+    const response = await POST(request)
+    expect(response.status).toBe(200)
+    const json = await response.json()
+    const generatedDraft = json.data?.generatedDraft ?? ""
+    const providerInput = fallbackGenerator.mock.calls[0]?.[0]
+    const regenInput = fallbackGenerator.mock.calls[1]?.[0]
+
+    expect(providerInput?.lightEditMode).toBe(false)
+    expect(regenInput?.teacherDraftQualityViolations?.types).toEqual(
+      expect.arrayContaining(["DEFENSIVE_PHRASE", "GENERIC_FILLER"]),
+    )
+    expect(generatedDraft).toContain("Lucy felt uncomfortable during the lesson")
+    expect(generatedDraft).toContain("phone use consistently")
+    expect(generatedDraft).not.toContain("I can't make individual exceptions")
+    expect(generatedDraft).not.toContain("unmanageable across the class")
+    expect(generatedDraft).not.toContain("these expectations will remain in place")
+    expect(generatedDraft).not.toContain("support coordinator")
+    expect(generatedDraft).not.toContain("meeting")
+    expect(generatedDraft).not.toContain("Kind regards,\nDr Greg Blackburn")
+    expect(generatedDraft).toContain("Kind regards,\nGreg")
+  })
+
+  it("reduces defensiveness in a grading dispute while keeping the marking boundary", async () => {
+    const teacherDraft = [
+      "Dear Parent/Carer,",
+      "",
+      "The marking was fair and consistent, and I applied the criteria correctly.",
+      "",
+      "I do not think it is helpful to keep challenging this when the grade reflects the standard of the work.",
+      "",
+      "Regards,",
+      "Greg",
+    ].join("\n")
+
+    fallbackGenerator.mockResolvedValueOnce(
+      buildFallbackResult(
+        [
+          "Dear Parent/Carer,",
+          "",
+          "The marking was fair and consistent, and I applied the criteria correctly.",
+          "",
+          "There is nothing more to discuss here.",
+          "",
+          "Kind regards,",
+          "Greg",
+        ].join("\n"),
+      ),
+    )
+    fallbackGenerator.mockResolvedValueOnce(
+      buildFallbackResult(
+        [
+          "Dear Parent/Carer,",
+          "",
+          "Thank you for raising your concerns about the recent marking.",
+          "",
+          "I understand why you wanted clarification. My aim is to apply the marking criteria consistently and fairly across the class.",
+          "",
+          "I will review the work again carefully and come back to you with a clear explanation if anything further needs clarifying.",
+          "",
+          "Kind regards,",
+          "Greg",
+        ].join("\n"),
+      ),
+    )
+
+    const request = new Request("https://example.com/api/draft/generate", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: "Bearer token",
+      },
+      body: JSON.stringify({
+        situation: teacherDraft,
+        tone: "professional",
+        language: "en",
+        uiLocale: "en-GB",
+        mode: "parent_message",
+        inputIntent: "teacher_draft",
+      }),
+    })
+
+    const response = await POST(request)
+    expect(response.status).toBe(200)
+    const json = await response.json()
+    const generatedDraft = json.data?.generatedDraft ?? ""
+
+    expect(generatedDraft).toContain("marking criteria consistently and fairly")
+    expect(generatedDraft).not.toContain("There is nothing more to discuss")
+    expect(generatedDraft).not.toContain("I applied the criteria correctly")
+    expect(generatedDraft).not.toContain("support coordinator")
+  })
+
+  it("keeps the boundary but removes 'unreasonable' framing for special-treatment requests", async () => {
+    const teacherDraft = [
+      "Dear Parent/Carer,",
+      "",
+      "I think this request is unreasonable and I cannot offer special treatment here.",
+      "",
+      "The expectation is the same for everyone.",
+      "",
+      "Regards,",
+      "Greg",
+    ].join("\n")
+
+    fallbackGenerator.mockResolvedValueOnce(
+      buildFallbackResult(
+        [
+          "Dear Parent/Carer,",
+          "",
+          "This request is unreasonable and I cannot offer special treatment here.",
+          "",
+          "These expectations will remain in place.",
+          "",
+          "Kind regards,",
+          "Greg",
+        ].join("\n"),
+      ),
+    )
+    fallbackGenerator.mockResolvedValueOnce(
+      buildFallbackResult(
+        [
+          "Dear Parent/Carer,",
+          "",
+          "Thank you for getting in touch and for setting out your concerns.",
+          "",
+          "I understand why you are asking for flexibility here. At the same time, I need to keep expectations clear and consistent across the class.",
+          "",
+          "I will continue to approach this sensitively and keep your child supported within those expectations.",
+          "",
+          "Kind regards,",
+          "Greg",
+        ].join("\n"),
+      ),
+    )
+
+    const request = new Request("https://example.com/api/draft/generate", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: "Bearer token",
+      },
+      body: JSON.stringify({
+        situation: teacherDraft,
+        tone: "professional",
+        language: "en",
+        uiLocale: "en-GB",
+        mode: "parent_message",
+        inputIntent: "teacher_draft",
+      }),
+    })
+
+    const response = await POST(request)
+    expect(response.status).toBe(200)
+    const json = await response.json()
+    const generatedDraft = json.data?.generatedDraft ?? ""
+
+    expect(generatedDraft).toContain("keep expectations clear and consistent across the class")
+    expect(generatedDraft).not.toContain("unreasonable")
+    expect(generatedDraft).not.toContain("special treatment")
+  })
+
+  it("turns a tired late-night draft into calmer professional language without losing the point", async () => {
+    const teacherDraft = [
+      "Dear Parent/Carer,",
+      "",
+      "I am tired of repeating this and I can't keep chasing homework every week.",
+      "",
+      "Your child needs to take this seriously because this is getting frustrating.",
+      "",
+      "Regards,",
+      "Greg",
+    ].join("\n")
+
+    fallbackGenerator.mockResolvedValueOnce(
+      buildFallbackResult(
+        [
+          "Dear Parent/Carer,",
+          "",
+          "I am tired of repeating this and I can't keep chasing homework every week.",
+          "",
+          "Please feel free to reach out if you need anything further.",
+          "",
+          "Kind regards,",
+          "Greg",
+        ].join("\n"),
+      ),
+    )
+    fallbackGenerator.mockResolvedValueOnce(
+      buildFallbackResult(
+        [
+          "Dear Parent/Carer,",
+          "",
+          "Thank you for getting in touch about this.",
+          "",
+          "I want to keep the expectations around homework clear and consistent, while also making sure the message stays constructive.",
+          "",
+          "I will go through what is missing in class and make the next step clear so the work can be completed more steadily.",
+          "",
+          "Kind regards,",
+          "Greg",
+        ].join("\n"),
+      ),
+    )
+    fallbackGenerator.mockResolvedValueOnce(
+      buildFallbackResult(
+        [
+          "Dear Parent/Carer,",
+          "",
+          "Thank you for getting in touch about this.",
+          "",
+          "I want to keep the expectations around homework clear and consistent, while also making sure the message stays constructive.",
+          "",
+          "I will go through what is missing in class and make the next step clear so the work can be completed more steadily.",
+          "",
+          "Kind regards,",
+          "Greg",
+        ].join("\n"),
+      ),
+    )
+    fallbackGenerator.mockResolvedValueOnce(
+      buildFallbackResult(
+        [
+          "Dear Parent/Carer,",
+          "",
+          "Thank you for getting in touch about this.",
+          "",
+          "I want to keep the expectations around homework clear and consistent, while also making sure the message stays constructive.",
+          "",
+          "I will go through what is missing in class and make the next step clear so the work can be completed more steadily.",
+          "",
+          "Kind regards,",
+          "Greg",
+        ].join("\n"),
+      ),
+    )
+
+    const request = new Request("https://example.com/api/draft/generate", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: "Bearer token",
+      },
+      body: JSON.stringify({
+        situation: teacherDraft,
+        tone: "professional",
+        language: "en",
+        uiLocale: "en-GB",
+        mode: "parent_message",
+        inputIntent: "teacher_draft",
+      }),
+    })
+
+    const response = await POST(request)
+    expect(response.status).toBe(200)
+    const json = await response.json()
+    const generatedDraft = json.data?.generatedDraft ?? ""
+
+    expect(generatedDraft).toContain("expectations around homework clear and consistent")
+    expect(generatedDraft).not.toContain("I am tired of repeating this")
+    expect(generatedDraft).not.toContain("frustrating")
+    expect(generatedDraft).not.toContain("Please feel free to reach out")
   })
 
   it("preserves the teacher's existing sign-off in My draft mode when no explicit profile signature was supplied", async () => {

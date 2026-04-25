@@ -25,6 +25,7 @@ export interface DraftFallbackContext {
   requestId: string
   uidHash: string
   generationMetadata: GenerationMetadata
+  teacherDraftMode?: boolean
   studentFirstName?: string
   studentPronounPreference: PronounPreference
   teacherSignatureName?: string
@@ -167,7 +168,7 @@ function buildClosingBlock(language: LanguageKey, teacherSignatureName?: string)
     const closing = "Mit freundlichen Grüßen"
     return teacherSignatureName ? `${closing}\n${teacherSignatureName}` : closing
   }
-  const closing = teacherSignatureName ? "Best regards," : "Kind regards,"
+  const closing = "Kind regards,"
   return teacherSignatureName ? `${closing}\n${teacherSignatureName}` : closing
 }
 
@@ -294,7 +295,19 @@ function hasPhoneBasedSupportConcern(source?: string) {
   const normalizedSource = normalizeText(source)
   return (
     /\b(phone|mobile)\b/.test(normalizedSource) &&
-    /\b(mindfulness|overwhelmed|overwhelm|adjustment|adjustments)\b/.test(normalizedSource)
+    /\b(mindfulness|overwhelmed|overwhelm|adjustment|adjustments|comfort|comfortable|uncomfortable|distress)\b/.test(
+      normalizedSource,
+    )
+  )
+}
+
+function hasTeacherDraftPhoneBoundaryConcern(source?: string) {
+  const normalizedSource = normalizeText(source)
+  return (
+    /\b(phone|mobile)\b/.test(normalizedSource) &&
+    /\b(mindfulness|overwhelmed|overwhelm|adjustment|adjustments|comfort|comfortable|uncomfortable|distress|exception|exceptions|classroom\s+rules|classroom\s+expectations|lessons?)\b/i.test(
+      normalizedSource,
+    )
   )
 }
 
@@ -339,6 +352,81 @@ function buildSourceAwareParentReplyParagraphs(
   }
 
   return byTone[context.tone]
+}
+
+function buildSourceAwareTeacherDraftParagraphs(
+  context: DraftFallbackContext,
+  issueKind: RecoveryIssueKind,
+  studentFirstName?: string,
+) {
+  if (context.language !== "en" || !context.teacherDraftMode) {
+    return null
+  }
+
+  const normalizedSource = normalizeText(context.sourceSituation)
+  const studentLabel = studentFirstName?.trim() || "the student"
+  const needsAcknowledgement = /\b(concern|concerns|upset|uncomfortable|worried|worrying|overwhelmed|distress)\b/.test(
+    normalizedSource,
+  )
+
+  if (hasTeacherDraftPhoneBoundaryConcern(context.sourceSituation)) {
+    return [
+      "Thank you for getting in touch and for sharing your concerns.",
+      `I'm sorry to hear that ${studentLabel} felt uncomfortable during the lesson. My intention was not to cause distress, but to apply the usual classroom expectations around phone use consistently.`,
+      `I understand that ${studentLabel} may need support when feeling overwhelmed. At the same time, keeping clear and consistent expectations in the classroom is important for all students.`,
+      `I will continue to handle this sensitively in class and make sure ${studentLabel} feels supported within those expectations.`,
+    ]
+  }
+
+  if (issueKind === "grading") {
+    return [
+      "Thank you for raising your concerns about the recent marking.",
+      "My aim is to apply the marking criteria consistently and fairly across the class.",
+      "I will review the work again carefully and come back to you with a clear explanation if anything further needs clarifying.",
+    ]
+  }
+
+  if (/\bunreasonable\b|\bexception\b|\bspecial treatment\b/.test(normalizedSource)) {
+    return [
+      needsAcknowledgement
+        ? "Thank you for getting in touch and for setting out your concerns."
+        : "I understand why you are asking for flexibility here.",
+      "At the same time, I need to keep expectations clear and consistent across the class.",
+      `I will continue to approach this sensitively and keep ${studentLabel} supported within those expectations.`,
+    ]
+  }
+
+  if (/\bfrustrat|\bexhaust|\blate[- ]?night|\btired|\bangry|\bannoyed|\bcan'?t keep\b/.test(normalizedSource)) {
+    if (issueKind === "homework") {
+      return [
+        needsAcknowledgement
+          ? "Thank you for getting in touch about this."
+          : "I want to respond clearly and calmly to the concern you raised.",
+        "I want to keep the expectations around homework clear and consistent, while also making sure the message stays constructive.",
+        "I will go through what is missing in class and make the next step clear so the work can be completed more steadily.",
+      ]
+    }
+
+    if (issueKind === "lateness") {
+      return [
+        needsAcknowledgement
+          ? "Thank you for getting in touch about this."
+          : "I want to respond clearly and calmly to the concern you raised.",
+        "I want to keep the expectations around arriving on time clear and consistent, while making sure the message stays constructive.",
+        `I will follow this up with ${studentLabel} in school and make the next step around the start of lessons clear.`,
+      ]
+    }
+
+    return [
+      needsAcknowledgement
+        ? "Thank you for getting in touch and for explaining your concerns."
+        : "I wanted to respond clearly and calmly to the concern you raised.",
+      "My intention is to keep the message clear, professional, and fair without losing the key point that needs addressing.",
+      "I will continue to handle this calmly and keep the next step clear from school.",
+    ]
+  }
+
+  return null
 }
 
 function resolveFallbackSubject(context: DraftFallbackContext, issueKind: RecoveryIssueKind) {
@@ -920,10 +1008,15 @@ export function buildFallbackDraftResult(context: DraftFallbackContext): Recover
     }
   }
 
+  const sourceAwareTeacherDraftParagraphs = buildSourceAwareTeacherDraftParagraphs(
+    context,
+    issueKind,
+    resolvedStudentFirstName,
+  )
   const bodyParagraphs =
     context.generationMetadata.direction === "parent_to_teacher"
       ? buildParentReplyParagraphs(context, issueKind, resolvedStudentFirstName)
-      : [
+      : sourceAwareTeacherDraftParagraphs ?? [
           buildTeacherDraftOpening(
             context.language,
             context.tone,
@@ -974,6 +1067,7 @@ export interface ProviderRequestInput {
   forwardSafeRewrite?: boolean
   previousDraft?: string
   lightEditMode?: boolean
+  teacherDraftMode?: boolean
   pronounPreference: PronounPreference
   mode: DraftMode
   studentFirstName?: string
@@ -999,6 +1093,10 @@ export interface ProviderRequestInput {
     phrases: string[]
   }
   teacherAuthenticityViolations?: {
+    types: string[]
+    phrases: string[]
+  }
+  teacherDraftQualityViolations?: {
     types: string[]
     phrases: string[]
   }

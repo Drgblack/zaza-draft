@@ -357,9 +357,111 @@ function normalizeSignatureBlockForComparison(value: string | null | undefined) 
   return value?.replace(/\s+/g, " ").trim().toLowerCase() ?? ""
 }
 
-function preserveTeacherDraftSignature(sourceDraft: string, candidateDraft: string) {
+const TEACHER_SIGNATURE_ROLE_ONLY_TOKENS = new Set([
+  "dad",
+  "mum",
+  "mom",
+  "mother",
+  "father",
+  "parent",
+  "carer",
+  "guardian",
+  "family",
+  "teacher",
+  "staff",
+])
+
+function isTeacherDraftSignatureNameCandidate(value: string, language: DraftLanguage) {
+  const normalized = normalizeName(value)
+  if (!normalized) {
+    return false
+  }
+
+  if (normalized.includes("'s") || normalized.includes("’s")) {
+    return false
+  }
+
+  if (/\b(dad|mum|mom|mother|father|parent|carer|guardian|family)\b/i.test(normalized)) {
+    return false
+  }
+
+  if (scoreSafeName(normalized, language).level !== "NONE") {
+    return true
+  }
+
+  const tokens = normalized.split(/\s+/).filter(Boolean)
+  if (tokens.length !== 1) {
+    return false
+  }
+
+  const token = tokens[0]
+  if (!/^[A-ZÄÖÜ][\p{L}'’-]+$/u.test(token)) {
+    return false
+  }
+
+  return !TEACHER_SIGNATURE_ROLE_ONLY_TOKENS.has(token.toLowerCase())
+}
+
+function extractTeacherDraftSignatureLines(sourceDraft: string, language: DraftLanguage) {
+  const closingBlock = extractTrailingClosingBlock(sourceDraft).closingBlock
+  if (!closingBlock) {
+    return []
+  }
+
+  const lines = closingBlock
+    .split("\n")
+    .map((line) => normalizeName(line))
+    .filter(Boolean)
+
+  if (lines.length < 2) {
+    return []
+  }
+
+  const signatureLines = lines.slice(1)
+  const signatureName = signatureLines.at(-1)
+  if (!signatureName || !isTeacherDraftSignatureNameCandidate(signatureName, language)) {
+    return []
+  }
+
+  return signatureLines
+}
+
+function extractTeacherDraftSignatureName(sourceDraft: string, language: DraftLanguage) {
+  return extractTeacherDraftSignatureLines(sourceDraft, language).at(-1)
+}
+
+function extractSignatureLinesForComparison(text: string) {
+  const closingBlock = extractTrailingClosingBlock(text).closingBlock
+  if (!closingBlock) {
+    return []
+  }
+
+  return closingBlock
+    .split("\n")
+    .slice(1)
+    .map((line) => normalizeName(line))
+    .filter(Boolean)
+}
+
+function normalizeSignatureLinesForComparison(lines: string[]) {
+  return lines
+    .map((line) => line.replace(/\s+/g, " ").trim().toLowerCase())
+    .filter(Boolean)
+    .join("\n")
+}
+
+function preserveTeacherDraftSignature(
+  sourceDraft: string,
+  candidateDraft: string,
+  language: DraftLanguage,
+) {
   const sourceClosing = extractTrailingClosingBlock(sourceDraft)
   if (!sourceClosing.closingBlock) {
+    return candidateDraft
+  }
+
+  const signatureLines = extractTeacherDraftSignatureLines(sourceDraft, language)
+  if (signatureLines.length === 0) {
     return candidateDraft
   }
 
@@ -373,10 +475,120 @@ function preserveTeacherDraftSignature(sourceDraft: string, candidateDraft: stri
 
   const nextBody = candidateClosing.body.trimEnd()
   if (!nextBody) {
-    return sourceClosing.closingBlock
+    return normalizeClosingBlock(sourceClosing.closingBlock, {
+      locale: language,
+      omit: false,
+      signatureLines,
+      fallbackName: language === "de" ? "Ihre Klassenlehrkraft" : "Your child's teacher",
+    })
   }
 
-  return `${nextBody}\n\n${sourceClosing.closingBlock}`
+  return normalizeClosingBlock(`${nextBody}\n\n${sourceClosing.closingBlock}`, {
+    locale: language,
+    omit: false,
+    signatureLines,
+    fallbackName: language === "de" ? "Ihre Klassenlehrkraft" : "Your child's teacher",
+  })
+}
+
+type TeacherDraftQualityViolationType =
+  | "DEFENSIVE_PHRASE"
+  | "GENERIC_FILLER"
+  | "INVENTED_PROCESS"
+  | "SIGNOFF_CHANGE"
+  | "MISSING_ACKNOWLEDGEMENT"
+
+type TeacherDraftQualityViolation = {
+  type: TeacherDraftQualityViolationType
+  phrase: string
+}
+
+function hasTeacherDraftAcknowledgementNeed(text: string) {
+  return /\b(concern|concerns|upset|uncomfortable|worried|worrying|overwhelmed|distress|concerned)\b/i.test(
+    text,
+  )
+}
+
+function hasTeacherDraftAcknowledgement(text: string, language: DraftLanguage) {
+  const structure = formatDraftText(text, language)
+  const opening = (structure.paragraphs ?? [])
+    .slice(0, 2)
+    .join(" ")
+    .trim()
+
+  return /\b(thank you for|get in touch|sharing your concerns|sorry to hear|i understand|i appreciate you letting me know|letting me know)\b/i.test(
+    opening,
+  )
+}
+
+function collectIntroducedTeacherDraftPhrases(
+  source: string,
+  candidate: string,
+  phrases: ReadonlyArray<{ label: string; pattern: RegExp }>,
+) {
+  return collectIntroducedLightEditPhrases(source, candidate, phrases)
+}
+
+function detectTeacherDraftQualityViolations(options: {
+  sourceText: string
+  candidateText: string
+  language: DraftLanguage
+  teacherDraftMode: boolean
+  requestedSignatureName?: string
+}) {
+  if (!options.teacherDraftMode) {
+    return []
+  }
+
+  const violations: TeacherDraftQualityViolation[] = []
+  const candidate = options.candidateText
+
+  TEACHER_DRAFT_DEFENSIVE_PATTERNS.forEach(({ label, pattern }) => {
+    if (pattern.test(candidate)) {
+      violations.push({ type: "DEFENSIVE_PHRASE", phrase: label })
+    }
+  })
+
+  TEACHER_DRAFT_GENERIC_FILLER_PATTERNS.forEach(({ label, pattern }) => {
+    if (pattern.test(candidate)) {
+      violations.push({ type: "GENERIC_FILLER", phrase: label })
+    }
+  })
+
+  collectIntroducedTeacherDraftPhrases(
+    options.sourceText,
+    candidate,
+    TEACHER_DRAFT_INVENTED_PROCESS_PHRASES,
+  ).forEach((phrase) => {
+    violations.push({ type: "INVENTED_PROCESS", phrase })
+  })
+
+  if (
+    !options.requestedSignatureName &&
+    normalizeSignatureLinesForComparison(
+      extractTeacherDraftSignatureLines(options.sourceText, options.language),
+    ) &&
+    normalizeSignatureLinesForComparison(
+      extractTeacherDraftSignatureLines(options.sourceText, options.language),
+    ) !==
+      normalizeSignatureLinesForComparison(extractSignatureLinesForComparison(candidate))
+  ) {
+    violations.push({ type: "SIGNOFF_CHANGE", phrase: "sign-off changed" })
+  }
+
+  if (
+    hasTeacherDraftAcknowledgementNeed(options.sourceText) &&
+    !hasTeacherDraftAcknowledgement(candidate, options.language)
+  ) {
+    violations.push({ type: "MISSING_ACKNOWLEDGEMENT", phrase: "brief acknowledgement missing" })
+  }
+
+  return violations.filter(
+    (violation, index, collection) =>
+      collection.findIndex(
+        (entry) => entry.type === violation.type && entry.phrase === violation.phrase,
+      ) === index,
+  )
 }
 
 function splitDocumentationSentences(rawMessage: string): string[] {
@@ -609,6 +821,40 @@ const LIGHT_EDIT_AUTHORITY_SOFTENING_PHRASES = [
   { label: "it might be helpful to discuss", pattern: /\bit might be helpful to discuss\b/i },
 ] as const
 
+const TEACHER_DRAFT_DEFENSIVE_PATTERNS = [
+  { label: "can't make individual exceptions", pattern: /\bi can(?:no|')t make individual exceptions?\b/i },
+  { label: "unmanageable across the class", pattern: /\bunmanageable across the class\b/i },
+  { label: "these expectations will remain in place", pattern: /\bthese expectations will remain in place\b/i },
+  { label: "rules are clear", pattern: /\b(?:classroom )?rules are clear(?: that)?\b/i },
+  { label: "same expectations consistently for all students", pattern: /\b(?:i need to )?apply the same expectations consistently for all students\b/i },
+  { label: "request is unreasonable", pattern: /\bunreasonable\b/i },
+  { label: "special treatment", pattern: /\bspecial treatment\b/i },
+  { label: "nothing more to discuss", pattern: /\bnothing more to discuss\b/i },
+  { label: "marking was fair and consistent", pattern: /\b(?:the )?marking (?:was|is) (?:consistent|fair)(?: and (?:consistent|fair))?\b/i },
+  { label: "applied the criteria correctly", pattern: /\bi applied the criteria correctly\b/i },
+  { label: "keep challenging this", pattern: /\b(?:it is|it's|i do not think it is) helpful to keep challenging this\b/i },
+  { label: "tired of repeating this", pattern: /\bi am tired of repeating this\b/i },
+  { label: "can't keep chasing", pattern: /\bi can(?:no|')t keep chasing\b/i },
+  { label: "getting frustrating", pattern: /\bgetting frustrating\b/i },
+] as const
+
+const TEACHER_DRAFT_GENERIC_FILLER_PATTERNS = [
+  { label: "thank you for your support with this", pattern: /\bthank you for your support with this\b/i },
+  { label: "working together will help", pattern: /\bworking together will help\b/i },
+  { label: "i appreciate your understanding", pattern: /\bi appreciate your understanding\b/i },
+  { label: "please feel free to reach out", pattern: /\bplease feel free to reach out\b/i },
+  { label: "please feel free to contact me", pattern: /\bplease feel free to contact me\b/i },
+] as const
+
+const TEACHER_DRAFT_INVENTED_PROCESS_PHRASES = [
+  ...LIGHT_EDIT_INSTITUTIONAL_PHRASES,
+  { label: "meeting", pattern: /\bmeeting\b/i },
+  { label: "phone call", pattern: /\bphone call\b/i },
+  { label: "policy", pattern: /\bpolicy\b/i },
+  { label: "record", pattern: /\brecord\b/i },
+  { label: "next week", pattern: /\bnext week\b/i },
+] as const
+
 function getComparableParentBodyText(
   text: string,
   language: DraftLanguage,
@@ -632,6 +878,17 @@ function normalizeLightEditComparisonText(text: string) {
 function tokenizeLightEditComparisonText(text: string) {
   const normalized = normalizeLightEditComparisonText(text)
   return normalized ? normalized.split(" ").filter(Boolean) : []
+}
+
+function hasTeacherDraftBoutiqueRewriteRisk(text: string) {
+  const normalized = text.trim()
+  if (!normalized) {
+    return false
+  }
+
+  return [...TEACHER_DRAFT_DEFENSIVE_PATTERNS, ...TEACHER_DRAFT_GENERIC_FILLER_PATTERNS].some(
+    ({ pattern }) => pattern.test(normalized),
+  )
 }
 
 function getLightEditSimilarity(source: string, candidate: string) {
@@ -675,6 +932,7 @@ function shouldUseLightEditMode(options: {
   mode: DraftMode
   situation: string
   generationMetadata: GenerationMetadata
+  teacherDraftMode?: boolean
   rewriteRequested: boolean
   forwardSafeRewrite: boolean
   previousDraft?: string
@@ -685,6 +943,7 @@ function shouldUseLightEditMode(options: {
     mode,
     situation,
     generationMetadata,
+    teacherDraftMode,
     rewriteRequested,
     forwardSafeRewrite,
     previousDraft,
@@ -710,12 +969,16 @@ function shouldUseLightEditMode(options: {
     rewriteRequested ||
     forwardSafeRewrite ||
     Boolean(previousDraft) ||
-    hasGenericGreetingOnly ||
+    (hasGenericGreetingOnly && !teacherDraftMode) ||
     generationMetadata.mode !== "safe_draft" ||
     generationMetadata.direction !== "teacher_to_parent" ||
     generationMetadata.source_type !== "typed_text" ||
     !safetyAnalysis
   ) {
+    return false
+  }
+
+  if (teacherDraftMode && hasTeacherDraftBoutiqueRewriteRisk(situation)) {
     return false
   }
 
@@ -1163,6 +1426,7 @@ async function reRunWithRewrite(
   resolvedPronounPreference: PronounPreference,
   mode: DraftMode,
   generationMetadata: GenerationMetadata,
+  teacherDraftMode: boolean,
   lightEditMode: boolean,
   forceLanguage?: boolean,
   safetyAnalysis?: SafetyEngineOutput | null,
@@ -1178,6 +1442,7 @@ async function reRunWithRewrite(
       previousDraft,
       pronounPreference: resolvedPronounPreference,
       mode,
+      teacherDraftMode,
       lightEditMode,
       forceLanguage,
       safetyAnalysis,
@@ -1648,18 +1913,27 @@ export async function POST(request: Request) {
     firestoreAvailable: Boolean(firestore),
   })
   const requestedSignatureName = normalizeName(payload.signature?.line1 ?? null) || undefined
+  const teacherDraftSourceText =
+    typeof payload.situation === "string" && payload.situation.trim()
+      ? payload.situation
+      : cleanedSituationText
   const teacherProfileDisplayName =
     normalizeName(
       (authContext as { decodedToken?: { name?: string | null } })?.decodedToken?.name ?? null,
     ) || undefined
   const preserveDraftSignatureFromInput =
     mode === "parent_message" && inputIntent === "teacher_draft" && !requestedSignatureName
+  const teacherDraftSignatureName = preserveDraftSignatureFromInput
+    ? extractTeacherDraftSignatureName(teacherDraftSourceText, language)
+    : undefined
   const teacherSignatureName = preserveDraftSignatureFromInput
-    ? requestedSignatureName
+    ? teacherDraftSignatureName
     : resolveTeacherSignatureName(teacherProfileDisplayName, requestedSignatureName)
   const teacherSignatureSource =
     requestedSignatureName && teacherSignatureName === requestedSignatureName
       ? "request_signature_line1"
+      : teacherDraftSignatureName && teacherSignatureName === teacherDraftSignatureName
+        ? "source_draft_signature"
       : teacherProfileDisplayName && teacherSignatureName === teacherProfileDisplayName
         ? "auth_display_name"
         : "fallback_placeholder"
@@ -1849,6 +2123,9 @@ export async function POST(request: Request) {
   }
 
   let currentSituation = sanitizedSituation
+  const sourceTeacherDraftSignatureLines = preserveDraftSignatureFromInput
+    ? extractTeacherDraftSignatureLines(teacherDraftSourceText, language)
+    : []
   if (!isValidDraftRequest(currentSituation, mode)) {
     return fail(422, "OUT_OF_SCOPE", OUT_OF_SCOPE_REDIRECT_MESSAGE)
   }
@@ -1911,21 +2188,22 @@ export async function POST(request: Request) {
     deescalationSummary = deescalationRewrite.summary
   }
   const originalSituationForPrompt = preRewriteSituation
+  const requestedTeacherDraftMode =
+    mode === "parent_message" &&
+    inputIntent === "teacher_draft" &&
+    generationMetadata.direction === "teacher_to_parent"
   const safeLightEditMode = shouldUseLightEditMode({
     mode,
     situation: currentSituation,
     generationMetadata,
+    teacherDraftMode: requestedTeacherDraftMode,
     rewriteRequested: Boolean(payload.rewrite),
     forwardSafeRewrite: Boolean(payload.forwardSafeRewrite),
     previousDraft: payload.previousDraft,
     documentationModeActive,
     safetyAnalysis,
   })
-  const requestedTeacherDraftMode =
-    mode === "parent_message" &&
-    inputIntent === "teacher_draft" &&
-    generationMetadata.direction === "teacher_to_parent"
-  const lightEditMode = requestedTeacherDraftMode || safeLightEditMode
+  const lightEditMode = safeLightEditMode
 
   const generationStart = Date.now()
   const providerGreeting =
@@ -1946,6 +2224,7 @@ export async function POST(request: Request) {
     rewrite: Boolean(payload.rewrite),
     forwardSafeRewrite: Boolean(payload.forwardSafeRewrite),
     previousDraft: payload.previousDraft,
+    teacherDraftMode: requestedTeacherDraftMode,
     lightEditMode,
     pronounPreference: resolvedPronounPreference,
     mode,
@@ -1985,6 +2264,7 @@ export async function POST(request: Request) {
         ? detectTeacherNoteIssueClusters(currentSituation, language)
         : undefined,
     studentPronounPreference: resolvedPronounPreference,
+    teacherDraftMode: requestedTeacherDraftMode,
     teacherSignatureName,
     greeting: providerGreeting,
     greetingFinal: hasFinalGreeting,
@@ -2134,7 +2414,10 @@ export async function POST(request: Request) {
     normalizeClosingBlock(text, {
       locale: language,
       omit: mode === "report_comment" || !resolvedSignature.appendForMode[mode],
-      signatureLines: resolvedSignature.lines,
+      signatureLines:
+        sourceTeacherDraftSignatureLines.length > 0
+          ? sourceTeacherDraftSignatureLines
+          : resolvedSignature.lines,
       fallbackName: language?.toLowerCase().startsWith("de")
         ? FALLBACK_SIGNATURES.de
         : FALLBACK_SIGNATURES.en,
@@ -2696,7 +2979,11 @@ export async function POST(request: Request) {
       return
     }
 
-    const preservedDraft = preserveTeacherDraftSignature(currentSituation, generatedDraft)
+    const preservedDraft = preserveTeacherDraftSignature(
+      teacherDraftSourceText,
+      generatedDraft,
+      language,
+    )
     if (preservedDraft === generatedDraft) {
       return
     }
@@ -2751,6 +3038,7 @@ export async function POST(request: Request) {
         resolvedPronounPreference,
         mode,
         generationMetadata,
+        requestedTeacherDraftMode,
         lightEditMode,
         forcedLanguageAttempted,
       )
@@ -2791,6 +3079,7 @@ export async function POST(request: Request) {
       resolvedPronounPreference,
       mode,
       generationMetadata,
+      requestedTeacherDraftMode,
       lightEditMode,
       forcedLanguageAttempted,
       outputSafetyAnalysis,
@@ -2813,6 +3102,86 @@ export async function POST(request: Request) {
 
   preserveLightEditSourceIfNeeded()
   preserveTeacherDraftSignatureIfNeeded()
+
+  let teacherDraftQualityViolations = detectTeacherDraftQualityViolations({
+    sourceText: currentSituation,
+    candidateText: generatedDraft,
+    language,
+    teacherDraftMode: requestedTeacherDraftMode,
+    requestedSignatureName,
+  })
+  let teacherDraftQualityRegenerationAttempted = false
+
+  const attemptTeacherDraftQualityRegeneration = async (
+    currentViolations: TeacherDraftQualityViolation[],
+  ) => {
+    if (teacherDraftQualityRegenerationAttempted || currentViolations.length === 0) {
+      return currentViolations
+    }
+
+    teacherDraftQualityRegenerationAttempted = true
+    providerInput.teacherDraftQualityViolations = {
+      types: Array.from(new Set(currentViolations.map((violation) => violation.type))),
+      phrases: currentViolations.map((violation) => violation.phrase),
+    }
+    const regenerationAttempt = await runDraft(forcedLanguageAttempted)
+    providerResult = regenerationAttempt.result
+    usedFallback = regenerationAttempt.usedFallback
+    fallbackErrorCode = regenerationAttempt.errorCode
+    generatedDraft = finalizeWithGreeting(providerResult.text)
+    providerMeta = providerResult.providerMeta
+    finalizeAndFormatDraft(generatedDraft)
+    preserveTeacherDraftSignatureIfNeeded()
+    providerInput.teacherDraftQualityViolations = undefined
+    pushRecoveryEvent(
+      usedFallback ? "deterministic_fallback" : "retry_generation",
+      "TEACHER_DRAFT_QUALITY_RETRY",
+      regenerationAttempt.recoveryMeta?.templateFamily ?? null,
+    )
+
+    return detectTeacherDraftQualityViolations({
+      sourceText: currentSituation,
+      candidateText: generatedDraft,
+      language,
+      teacherDraftMode: requestedTeacherDraftMode,
+      requestedSignatureName,
+    })
+  }
+
+  if (teacherDraftQualityViolations.length > 0) {
+    teacherDraftQualityViolations = await attemptTeacherDraftQualityRegeneration(
+      teacherDraftQualityViolations,
+    )
+  }
+
+  if (teacherDraftQualityViolations.length > 0) {
+    const fallbackDraft = finalizeWithGreeting(buildFallbackDraft(fallbackContext))
+    const fallbackViolations = detectTeacherDraftQualityViolations({
+      sourceText: currentSituation,
+      candidateText: fallbackDraft,
+      language,
+      teacherDraftMode: requestedTeacherDraftMode,
+      requestedSignatureName,
+    })
+
+    if (fallbackViolations.length === 0) {
+      generatedDraft = fallbackDraft
+      finalizeAndFormatDraft(generatedDraft)
+      preserveTeacherDraftSignatureIfNeeded()
+      providerMeta = {
+        modelUsed: "teacher-draft-boutique-fallback",
+        latencyMs: providerMeta.latencyMs,
+      }
+      usedFallback = true
+      fallbackErrorCode = fallbackErrorCode ?? "TEACHER_DRAFT_QUALITY_FALLBACK"
+      teacherDraftQualityViolations = []
+      pushRecoveryEvent("deterministic_fallback", "TEACHER_DRAFT_QUALITY_FALLBACK")
+    }
+  }
+
+  if (!documentationModeActive && mode === "parent_message") {
+    outputSafetyAnalysis = await runSafetyAnalysis(generatedDraft, "output_safety_analysis")
+  }
 
   const teacherDraftFeedback =
     requestedTeacherDraftMode && outputSafetyAnalysis

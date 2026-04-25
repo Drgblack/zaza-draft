@@ -58,6 +58,7 @@ interface ProviderInput {
   forwardSafeRewrite?: boolean
   previousDraft?: string
   lightEditMode?: boolean
+  teacherDraftMode?: boolean
   pronounPreference: PronounPreference
   mode: DraftMode
   studentFirstName?: string
@@ -84,6 +85,10 @@ interface ProviderInput {
     phrases: string[]
   }
   teacherAuthenticityViolations?: {
+    types: string[]
+    phrases: string[]
+  }
+  teacherDraftQualityViolations?: {
     types: string[]
     phrases: string[]
   }
@@ -172,7 +177,7 @@ function buildParentFacingToneInstructions(input: ProviderInput) {
       return [
         "Warm tone contract: sound gently relational and collaborative, as a teacher who wants to work with the parent rather than simply notify them.",
         `Warm wording should use natural teacher openings such as ${formatEnglishPhraseExamples("warm", "teacherUpdateOpenings")}, while still naming the issue early.`,
-        "Warm drafts should usually include one brief partnership sentence near the end, such as thanking the parent for their support or noting that working together will help the child feel more settled in class.",
+        "Warm drafts may include one brief partnership sentence near the end, but only when it genuinely fits the source and does not sound like generic reassurance.",
         "Do not turn warm into vague reassurance, therapy language, or support-bot empathy.",
       ]
     case "professional":
@@ -235,49 +240,68 @@ function buildLightEditInstructions(input: ProviderInput) {
     return []
   }
 
-  const baseInstructions = [
+  return [
     "Light edit mode is enabled.",
     "The source draft is already calm, professional, and safe.",
     "Prefer minimal edits over full rewrites when the draft is already safe.",
-    "Preserve the original structure, paragraph order, and sentence order where possible.",
+    "Stay close to the original structure and length unless a small change clearly improves safety or clarity.",
     "Only adjust small tone risks or minor phrasing.",
     "Do not expand content.",
     "Do not introduce new information.",
     "Do not add institutional or process language unless it already appears in the source.",
     "Keep the result close to the original wording and length.",
   ]
-
-  if (input.mode === "parent_message" && input.generationMetadata.direction === "teacher_to_parent") {
-    return [...baseInstructions, ...buildTeacherDraftEditContract()]
-  }
-
-  return baseInstructions
 }
 
-function buildTeacherDraftEditContract() {
+function buildTeacherDraftEditContract(input: ProviderInput) {
+  if (
+    !input.teacherDraftMode ||
+    input.mode !== "parent_message" ||
+    input.generationMetadata.direction !== "teacher_to_parent"
+  ) {
+    return []
+  }
+
   return [
-    "Teacher-draft edit contract:",
+    "Boutique teacher-draft judgement contract:",
     "--- ROLE ---",
-    "You are a calm, experienced teacher lightly improving another teacher's existing parent reply.",
+    "You are a calm, experienced teacher improving another teacher's draft so it feels safer, clearer, and more sendable.",
     "--- OBJECTIVE ---",
-    "Improve the teacher's draft without rewriting it from scratch.",
+    "Preserve the teacher's real intent, but rewrite with stronger professional judgement where the current wording could cause friction, defensiveness, or escalation.",
     "--- HARD RULES (must be enforced) ---",
     "- Preserve the teacher's intent.",
-    "- Preserve structure where possible.",
-    "- Do NOT expand unnecessarily.",
+    "- Preserve the teacher's authority and boundary when it is appropriate.",
+    "- Preserve wording only when it is already helping; preserve intent even when wording needs to change.",
+    "- Do NOT pad the message with filler or generic reassurance.",
     "- Do NOT introduce new facts, roles, meetings, policies, or staff members.",
-    "- Do NOT add institutional language unless it is already implied by the draft.",
-    "- Do NOT weaken appropriate teacher authority.",
-    "- Keep the message calm, professional, and safe.",
-    "- Prefer minimal edits when the draft is already strong.",
-    "- If the draft is already safe, make only small wording improvements.",
-    "- Do not turn a good draft into a longer AI-sounding message.",
+    "- Do NOT invent support coordinators, pastoral teams, meetings, phone calls, timelines, records, or administrative processes unless the teacher already gave them.",
+    "- Do NOT add generic customer-service phrases such as 'thank you for your support', 'I appreciate your understanding', or 'working together will help'.",
+    "- Do NOT over-apologise, over-explain, or argue with the parent.",
+    "- Do NOT change the teacher's sign-off identity unless teacherSignatureName is explicitly provided elsewhere.",
+    "- Keep the message calm, confident, human, and school-appropriate.",
+    "--- JUDGEMENT TRIAGE ---",
+    "1. Identify the teacher's real intent before rewriting.",
+    "2. Check the draft for defensiveness, rigid wording, implied blame, conversation-closing phrasing, escalation triggers, overly blunt boundaries, unnecessary justification, and filler.",
+    "3. If the draft is already excellent, keep edits minimal and avoid expansion.",
+    "4. If the draft is safe but blunt, defensive, or low-value, improve it meaningfully rather than just tidying grammar.",
+    "5. If the structure itself creates risk, improve the structure rather than preserving it mechanically.",
     "--- EDITING APPROACH ---",
-    "1. Keep the original paragraph flow and sentence order unless a small adjustment clearly improves safety or clarity.",
-    "2. Tighten wording only where it becomes calmer, clearer, or easier to defend.",
-    "3. Preserve concrete boundaries, expectations, and teacher-owned next steps that are already appropriate.",
-    "4. Do not add new support roles, new meetings, new timelines, or new administrative process unless the draft already says them.",
-    "5. Do not add new factual framing such as when something happened, who was involved, or what was previously agreed unless that appears in the draft.",
+    "1. Keep the teacher's boundary clear without sounding like they are arguing.",
+    "2. Briefly acknowledge the parent or student's concern where relevant.",
+    "3. Remove unnecessary justification and defensive framing.",
+    "4. Keep or restore the most useful acknowledgement if it helps the message land well.",
+    "5. Do not add new factual claims, new staff actions, or empty reassurance.",
+    "6. Ask yourself before finalising: would a tired teacher feel safer sending this tomorrow?",
+    "7. If not, rewrite more decisively rather than polishing the same risky structure.",
+    ...(input.lightEditMode
+      ? [
+          "--- CURRENT DRAFT SIGNAL ---",
+          "This specific draft already appears strong overall, so stay close unless a phrase clearly increases risk.",
+        ]
+      : [
+          "--- CURRENT DRAFT SIGNAL ---",
+          "This draft may need more than surface editing. Rewrite meaningfully if the current wording is blunt, defensive, or argument-closing.",
+        ]),
   ]
 }
 
@@ -632,13 +656,14 @@ export function buildSystemPrompt(input: ProviderInput) {
     "If the source mentions escalation, complaints about policy, or threats such as 'Schulträger einschalten', keep the tone calm and bounded and suggest a practical next step.",
     "Use the student's first name sparingly (once or twice) and then switch to 'your child' or explicit pronouns when they are known; avoid repeating 'your child' in adjacent sentences.",
     "Describe engagement challenges as calm observations (has found it difficult to stay focused, has had a few moments where...) rather than writing 'instances of disruption' or accusatory language.",
-    "For parent-facing teacher messages, close with a short reassuring line about working together and helping the child feel settled and make steady progress in class.",
+    "For parent-facing teacher messages, close plainly. Only add a brief partnership or reassurance line when it genuinely fits the source and does not read like filler.",
     "Prefer the student's first name once or twice, then use 'your child' or the provided pronouns naturally; never use 'the student' in a parent-facing message.",
     PRONOUN_INSTRUCTIONS[input.pronounPreference],
     ...buildParentFacingToneInstructions(input),
     buildDirectionInstruction(input.generationMetadata.direction),
     MODE_PROMPT_INSTRUCTIONS[input.mode],
     ...PROMPT_BUILDERS[input.generationMetadata.prompt_builder](input),
+    ...buildTeacherDraftEditContract(input),
     ...buildSafetyAnalysisInstructions(input),
     ...buildForwardSafeRewriteInstructions(input),
     ...buildLightEditInstructions(input),
@@ -757,6 +782,16 @@ export function buildSystemPrompt(input: ProviderInput) {
         "Keep the recovery strictly in teacher-note-to-parent framing. Do not write as if the parent contacted the teacher first, and do not introduce phrases such as 'thank you for bringing this to my attention' or 'your child came home upset' unless those facts appear in the notes.",
       )
     }
+  }
+  if (input.teacherDraftQualityViolations && input.teacherDraftQualityViolations.types.length > 0) {
+    const dedupedPhrases = Array.from(new Set(input.teacherDraftQualityViolations.phrases))
+    systemLines.push(
+      "Your previous rewrite still felt too surface-level or professionally risky for teacher-draft mode.",
+      `Resolve these teacher-draft quality issues: ${input.teacherDraftQualityViolations.types.join(", ")}.`,
+      `Avoid or rewrite these phrases and ideas: ${dedupedPhrases.join(", ")}.`,
+      "Preserve the teacher's intent, but do not preserve wording that still sounds defensive, rigid, filler-heavy, or difficult to send.",
+      "If needed, restructure the message so the acknowledgement, boundary, and next step land more calmly.",
+    )
   }
   systemLines.push(
     "Treat the cleaned notes that follow as your primary source and use the original notes only for background; do not repeat the original wording.",
