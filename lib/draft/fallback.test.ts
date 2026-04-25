@@ -252,6 +252,7 @@ describe("fallback drafting signature hygiene", () => {
     expect(text).not.toContain("Hello Lucy's")
     expect(text).not.toContain("Hello Lucy,")
     expect(text).not.toContain("mindfulness purposes")
+    expect(text).not.toContain("I don't have a record")
     expect(text).not.toContain("felt embarrassed")
     expect(text).not.toContain("We have previously explained")
   })

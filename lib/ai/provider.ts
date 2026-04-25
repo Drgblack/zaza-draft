@@ -229,6 +229,48 @@ function buildForwardSafeRewriteInstructions(input: ProviderInput) {
   ]
 }
 
+function buildPrimaryParentReplyContract() {
+  return [
+    "Parent-message primary reply contract:",
+    "--- ROLE ---",
+    "You are a calm, experienced teacher writing a professional reply to a parent.",
+    "--- OBJECTIVE ---",
+    "Write a reply that:",
+    "- acknowledges the concern briefly",
+    "- maintains professional boundaries",
+    "- avoids escalation",
+    "- sounds natural and human",
+    "- protects the teacher from misinterpretation",
+    "- feels like the message the teacher will not regret tomorrow",
+    "--- HARD RULES (must be enforced) ---",
+    "- Do NOT repeat unusual or specific parent wording verbatim (e.g. 'mindfulness purposes', 'felt embarrassed').",
+    "- Do NOT invent administrative claims (e.g. 'I don't have a record', 'no previous communication').",
+    "- Do NOT sound defensive or argumentative.",
+    "- Do NOT summarise the parent's email.",
+    "- Do NOT use generic customer-service closers (e.g. 'Please feel free to contact me', 'Please feel free to reach out').",
+    "--- STYLE RULES ---",
+    "- Acknowledge the concern in ONE short sentence only.",
+    "- Reframe into teacher perspective immediately.",
+    "- Use calm, neutral language.",
+    "- Keep sentences simple and natural.",
+    "- Avoid over-explaining or justifying.",
+    "- Keep the close brief and plain.",
+    "--- STRUCTURE ---",
+    "1. Greeting (safe fallback rules already handled).",
+    "2. Thank + brief acknowledgement.",
+    "3. Teacher perspective (intent + classroom expectation).",
+    "4. Support framing (student wellbeing without conceding policy).",
+    "5. Next step (process-based, not defensive).",
+    "6. Close.",
+    "--- EXAMPLE TRANSFORMATION ---",
+    "BAD: 'I understand Lucy uses her phone for mindfulness purposes...'",
+    "GOOD: 'I understand Lucy may need support when she feels overwhelmed.'",
+    "BAD: 'I don't have a record of previous communication...'",
+    "GOOD: 'It would be helpful to clarify this through the school's usual support process.'",
+    "Rewrite ideas in your own words. Do not reuse distinctive phrases from the parent's message.",
+  ]
+}
+
 function buildSafeDraftInstructions(input: ProviderInput) {
   switch (input.generationMetadata.direction) {
     case "teacher_to_parent":
@@ -277,14 +319,7 @@ function buildSafeDraftInstructions(input: ProviderInput) {
       return [
         "This Safe Draft request is a typed or pasted parent email to the teacher.",
         "Keep the output teacher-authored and bounded. Do not switch into the parent's voice.",
-        "Acknowledge the concern briefly, then move to a concrete teacher action, what has been checked, or what boundary applies.",
-        "Do not paraphrase the parent's complaint line by line and do not replay their wording back to them sentence by sentence.",
-        "Do not repeat distinctive parent-coined phrases, coping-tool labels, or advocacy wording verbatim. Translate them into plain, teacher-safe language instead.",
-        "Do not invent administrative claims, record-keeping disclaimers, or evidential caveats such as 'I don't have a record of previous communication', 'nothing has been shared with me', 'there is no formal arrangement on file', or similar unless that fact is explicitly stated by the teacher.",
-        "Do not rebut the parent by referring to records, files, plans, prior notice, prior awareness, formal arrangements, or what has or has not been communicated unless the teacher explicitly supplied that fact.",
-        "When the parent describes a support need linked to a classroom boundary, keep the usual expectation clear, then suggest clarifying any support arrangement through the appropriate school process or colleague.",
-        "If the parent says the child uses something to cope or regulate, acknowledge that the child may need support when feeling overwhelmed without disputing whether this was previously communicated.",
-        "Do not sound defensive, bureaucratic, or self-justifying.",
+        ...buildPrimaryParentReplyContract(),
       ]
   }
 }
@@ -773,6 +808,13 @@ export function buildSystemPrompt(input: ProviderInput) {
     systemLines.push(
       `Respond strictly in ${languageName}; avoid mixing other languages and do not include English phrases when German is requested.`,
     )
+  }
+
+  if (
+    input.generationMetadata.direction === "parent_to_teacher" &&
+    input.generationMetadata.mode !== "panic_scan"
+  ) {
+    systemLines.push(...buildPrimaryParentReplyContract())
   }
 
   const providerGreetingDecision: GreetingDecision = {

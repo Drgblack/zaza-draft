@@ -1594,6 +1594,7 @@ describe("/api/draft/generate greeting handoff", () => {
     expect(generatedDraft).toContain("apply the usual classroom expectation around phone use consistently")
     expect(generatedDraft).toContain("follow this up with the appropriate colleague")
     expect(generatedDraft).not.toContain("mindfulness purposes")
+    expect(generatedDraft).not.toContain("I don't have a record")
     expect(generatedDraft).not.toContain("Hello Lucy's,")
     expect(generatedDraft).not.toContain("Hello Lucy,")
   })

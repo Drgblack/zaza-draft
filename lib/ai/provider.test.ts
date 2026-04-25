@@ -505,8 +505,15 @@ describe("buildSystemPrompt", () => {
 
     expect(prompt).toContain("For typed or pasted parent emails, acknowledge the concern briefly")
     expect(prompt).toContain("Do not restate the parent's complaint in detail")
-    expect(prompt).toContain("do not replay their wording back to them sentence by sentence")
+    expect(prompt).toContain("do not mirror the child's reported feelings line by line")
     expect(prompt).toContain("move straight to the teacher's explanation, boundary, or next step")
+    expect(prompt).toContain("Parent-message primary reply contract:")
+    expect(prompt).toContain("--- ROLE ---")
+    expect(prompt).toContain("You are a calm, experienced teacher writing a professional reply to a parent.")
+    expect(prompt).toContain("--- OBJECTIVE ---")
+    expect(prompt).toContain("- feels like the message the teacher will not regret tomorrow")
+    expect(prompt).toContain("--- HARD RULES (must be enforced) ---")
+    expect(prompt).toContain("Do NOT use generic customer-service closers")
     expect(prompt).toContain("Do not repeat unusual parent wording such as 'mindfulness purposes'")
     expect(prompt).toContain("Do not invent lines about missing records")
     expect(prompt).toContain("Use only one brief, neutral acknowledgement of the child's experience.")
@@ -518,6 +525,9 @@ describe("buildSystemPrompt", () => {
     expect(prompt).toContain("A strong reply pattern for this kind of parent email is")
     expect(prompt).toContain("the intention was not to make the child feel uncomfortable")
     expect(prompt).toContain("Do not use the absence of prior information as a rebuttal.")
+    expect(prompt).toContain("Rewrite ideas in your own words. Do not reuse distinctive phrases from the parent's message.")
+    expect(prompt.match(/Parent-message primary reply contract:/g)?.length).toBeGreaterThanOrEqual(2)
+    expect(prompt.trim().endsWith("Rewrite ideas in your own words. Do not reuse distinctive phrases from the parent's message.")).toBe(true)
   })
 
   it("adds Lucy-specific guardrails against brittle admin claims and defensive phrasing", () => {
@@ -551,12 +561,14 @@ describe("buildSystemPrompt", () => {
     })
 
     expect(prompt).toContain("This Safe Draft request is a typed or pasted parent email to the teacher.")
-    expect(prompt).toContain("Do not repeat distinctive parent-coined phrases, coping-tool labels, or advocacy wording verbatim.")
-    expect(prompt).toContain("Do not invent administrative claims, record-keeping disclaimers")
-    expect(prompt).toContain("Do not rebut the parent by referring to records, files, plans, prior notice, prior awareness, formal arrangements")
-    expect(prompt).toContain("keep the usual expectation clear, then suggest clarifying any support arrangement through the appropriate school process or colleague")
-    expect(prompt).toContain("acknowledge that the child may need support when feeling overwhelmed without disputing whether this was previously communicated")
-    expect(prompt).toContain("Do not sound defensive, bureaucratic, or self-justifying.")
+    expect(prompt).toContain("Do NOT repeat unusual or specific parent wording verbatim")
+    expect(prompt).toContain("Do NOT invent administrative claims")
+    expect(prompt).toContain("Do NOT sound defensive or argumentative.")
+    expect(prompt).toContain("3. Teacher perspective (intent + classroom expectation).")
+    expect(prompt).toContain("4. Support framing (student wellbeing without conceding policy).")
+    expect(prompt).toContain("5. Next step (process-based, not defensive).")
+    expect(prompt).toContain("GOOD: 'I understand Lucy may need support when she feels overwhelmed.'")
+    expect(prompt).toContain("GOOD: 'It would be helpful to clarify this through the school's usual support process.'")
   })
 
   it("adds safety-sensitive opening guidance for panic scan safeguarding concerns", () => {
