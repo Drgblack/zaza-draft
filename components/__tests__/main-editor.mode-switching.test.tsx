@@ -425,8 +425,6 @@ describe("MainEditor mode switching", () => {
     render(<MainEditor />)
 
     expect(screen.getByText("What are you working with?")).toBeInTheDocument()
-    expect(screen.getByText("I need to reply to this")).toBeInTheDocument()
-    expect(screen.getByText("Improve what I’ve written")).toBeInTheDocument()
     expect(getTextarea()).toHaveAttribute("placeholder", "Paste the parent’s message here…")
     expect(
       screen.getByText("I’ll write a reply that’s calm, professional, and hard to misread."),
@@ -458,9 +456,6 @@ describe("MainEditor mode switching", () => {
       "placeholder",
       "Paste your draft reply… I’ll make it calmer and safer",
     )
-    expect(
-      screen.getByText("I’ll improve your message without changing what you want to say."),
-    ).toBeInTheDocument()
     expect(window.localStorage.getItem("zaza:parent-input-mode")).toBe("teacher_draft")
 
     fireEvent.click(screen.getByRole("button", { name: "Generate" }))
@@ -489,9 +484,6 @@ describe("MainEditor mode switching", () => {
       "placeholder",
       "Paste your draft reply… I’ll make it calmer and safer",
     )
-    expect(
-      screen.getByText("I’ll improve your message without changing what you want to say."),
-    ).toBeInTheDocument()
   })
 
   it("shows a gentle suggestion when my draft is selected but the text looks like a parent email", async () => {

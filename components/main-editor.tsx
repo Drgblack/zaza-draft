@@ -2142,17 +2142,16 @@ Examples:
                 </div>
               )}
               {mode === "parent_message" && (
-                <div className="mb-5 space-y-3">
-                  <h2 className="text-sm font-semibold text-slate-900 dark:text-white">
+                <div className="mb-5 flex flex-wrap items-center gap-2 sm:gap-3">
+                  <span className="text-sm font-medium text-slate-700 dark:text-white/75">
                     {t("editor.inputMode.heading")}
-                  </h2>
+                  </span>
                   <div
                     role="tablist"
                     aria-label={t("editor.inputMode.heading")}
-                    className="grid gap-3 sm:grid-cols-2"
+                    className="inline-flex items-center gap-1 rounded-full border border-slate-200/80 bg-white/55 p-1 dark:border-white/12 dark:bg-white/6"
                   >
                     {PARENT_INPUT_SEGMENT_OPTIONS.map((option, index) => {
-                      const Icon = option.icon
                       const selected = option.id === parentInputMode
 
                       return (
@@ -2169,35 +2168,13 @@ Examples:
                           onClick={() => handleParentInputModeChange(option.id)}
                           onKeyDown={(event) => handleParentInputModeKeyDown(event, index)}
                           className={cn(
-                            "rounded-2xl border p-4 text-left transition-all duration-200 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-sky-300/70 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-slate-950",
+                            "inline-flex min-h-[36px] items-center justify-center rounded-full border px-3 py-1.5 text-sm font-medium transition-colors duration-200 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-sky-300/60 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-slate-950",
                             selected
-                              ? "border-slate-900/70 bg-slate-950 text-white shadow-[0_18px_40px_rgba(15,23,42,0.22)] dark:border-white/40 dark:bg-white/14"
-                              : "border-white/55 bg-white/72 text-slate-900 shadow-[0_10px_30px_rgba(15,23,42,0.08)] hover:border-white/80 hover:bg-white/88 dark:border-white/12 dark:bg-white/6 dark:text-white dark:hover:border-white/20 dark:hover:bg-white/10",
+                              ? "border-sky-300/70 bg-sky-500/10 text-slate-900 dark:border-sky-300/25 dark:bg-sky-400/10 dark:text-white"
+                              : "border-transparent bg-transparent text-slate-500 hover:border-slate-200/80 hover:text-slate-800 dark:text-white/55 dark:hover:border-white/12 dark:hover:text-white/85",
                           )}
                         >
-                          <span className="flex items-start gap-3">
-                            <span
-                              className={cn(
-                                "mt-0.5 inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border",
-                                selected
-                                  ? "border-white/20 bg-white/12 text-white"
-                                  : "border-slate-200/80 bg-white/80 text-slate-700 dark:border-white/12 dark:bg-white/8 dark:text-white/80",
-                              )}
-                            >
-                              <Icon size={18} aria-hidden="true" />
-                            </span>
-                            <span className="min-w-0">
-                              <span className="block text-sm font-semibold">{t(option.labelKey)}</span>
-                              <span
-                                className={cn(
-                                  "mt-1 block text-sm leading-5",
-                                  selected ? "text-white/80" : "text-slate-600 dark:text-white/65",
-                                )}
-                              >
-                                {t(option.descriptionKey)}
-                              </span>
-                            </span>
-                          </span>
+                          <span>{t(option.labelKey)}</span>
                         </button>
                       )
                     })}
