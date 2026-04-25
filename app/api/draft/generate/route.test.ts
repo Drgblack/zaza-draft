@@ -2301,6 +2301,143 @@ describe("/api/draft/generate light edit mode", () => {
     expect(generatedDraft).toContain("Kind regards,\nGreg")
   })
 
+  it("retries fabricated teacher-draft context and returns a concise boundary-preserving rewrite", async () => {
+    const teacherDraft = [
+      "Dear Lucy's Dad,",
+      "",
+      "I understand that Lucy may feel more comfortable having her phone with her, but classroom rules are clear that phones are not used during lessons.",
+      "",
+      "I can't make individual exceptions in the moment, as this would quickly become unmanageable across the class. I need to apply the same expectations consistently for all students.",
+      "",
+      "I will continue to support Lucy in class, but these expectations will remain in place.",
+      "",
+      "Regards,",
+      "Greg",
+    ].join("\n")
+
+    fallbackGenerator.mockResolvedValueOnce(
+      buildFallbackResult(
+        [
+          "Dear Parent/Carer,",
+          "",
+          "I wanted to follow up on our recent conversation about Lucy's needs in class.",
+          "",
+          "While I need to maintain consistent expectations, I am happy to arrange a brief meeting to discuss specific approaches that might help her.",
+          "",
+          "Kind regards,",
+          "Greg",
+        ].join("\n"),
+      ),
+    )
+    fallbackGenerator.mockResolvedValueOnce(
+      buildFallbackResult(
+        [
+          "Dear Parent/Carer,",
+          "",
+          "Thank you for getting in touch. I understand that Lucy may feel more comfortable having her phone with her, and I will continue to support her sensitively in class.",
+          "",
+          "The classroom expectation is that phones are not used during lessons. I apply this consistently so that expectations remain clear and fair for all students.",
+          "",
+          "I will handle this calmly in class and make sure Lucy feels supported within that routine.",
+          "",
+          "Kind regards,",
+          "Greg",
+        ].join("\n"),
+      ),
+    )
+
+    const request = new Request("https://example.com/api/draft/generate", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: "Bearer token",
+      },
+      body: JSON.stringify({
+        situation: teacherDraft,
+        tone: "professional",
+        language: "en",
+        uiLocale: "en-GB",
+        mode: "parent_message",
+        inputIntent: "teacher_draft",
+      }),
+    })
+
+    const response = await POST(request)
+    expect(response.status).toBe(200)
+    const json = await response.json()
+    const generatedDraft = json.data?.generatedDraft ?? ""
+    const regenInput = fallbackGenerator.mock.calls[1]?.[0]
+
+    expect(regenInput?.teacherDraftQualityViolations?.types).toEqual(
+      expect.arrayContaining(["FABRICATION"]),
+    )
+    expect(generatedDraft.toLowerCase()).not.toContain("conversation")
+    expect(generatedDraft.toLowerCase()).not.toContain("arrange")
+    expect(generatedDraft.toLowerCase()).not.toContain("meeting")
+    expect(generatedDraft.toLowerCase()).not.toContain("call")
+    expect(generatedDraft).toMatch(/\bphones?\b|\bclassroom rules\b/i)
+    expect(countNormalizedWords(generatedDraft)).toBeLessThan(120)
+  })
+
+  it("allows a discussion offer in teacher_draft mode when the source explicitly invites it", async () => {
+    const teacherDraft = [
+      "Dear Lucy's Dad,",
+      "",
+      "I understand that Lucy may feel more comfortable having her phone with her, but classroom rules are clear that phones are not used during lessons.",
+      "",
+      "I can't make individual exceptions in the moment, as this would quickly become unmanageable across the class. I need to apply the same expectations consistently for all students.",
+      "",
+      "I will continue to support Lucy in class, but these expectations will remain in place.",
+      "",
+      "I'd be happy to chat further if helpful.",
+      "",
+      "Regards,",
+      "Greg",
+    ].join("\n")
+
+    fallbackGenerator.mockResolvedValueOnce(
+      buildFallbackResult(
+        [
+          "Dear Parent/Carer,",
+          "",
+          "Thank you for getting in touch. I understand that Lucy may feel more comfortable having her phone with her, and I will continue to support her sensitively in class.",
+          "",
+          "The classroom expectation is that phones are not used during lessons. I apply this consistently so that expectations remain clear and fair for all students.",
+          "",
+          "If a further conversation would be helpful, I am happy to chat further.",
+          "",
+          "Kind regards,",
+          "Greg",
+        ].join("\n"),
+      ),
+    )
+
+    const request = new Request("https://example.com/api/draft/generate", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: "Bearer token",
+      },
+      body: JSON.stringify({
+        situation: teacherDraft,
+        tone: "professional",
+        language: "en",
+        uiLocale: "en-GB",
+        mode: "parent_message",
+        inputIntent: "teacher_draft",
+      }),
+    })
+
+    const response = await POST(request)
+    expect(response.status).toBe(200)
+    const json = await response.json()
+    const generatedDraft = json.data?.generatedDraft ?? ""
+
+    expect(generatedDraft.toLowerCase()).toContain("chat further")
+    expect(generatedDraft).not.toContain("support coordinator")
+    expect(generatedDraft).not.toContain("usual support process")
+  })
+
   it("reduces defensiveness in a grading dispute while keeping the marking boundary", async () => {
     const teacherDraft = [
       "Dear Parent/Carer,",

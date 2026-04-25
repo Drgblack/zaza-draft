@@ -368,13 +368,18 @@ function buildSourceAwareTeacherDraftParagraphs(
   const needsAcknowledgement = /\b(concern|concerns|upset|uncomfortable|worried|worrying|overwhelmed|distress)\b/.test(
     normalizedSource,
   )
+  const sourceInvitesDiscussion = /\b(happy to chat further|happy to discuss|chat further|discuss further|talk further|speak further|meeting|call|catch[- ]?up)\b/.test(
+    normalizedSource,
+  )
 
   if (hasTeacherDraftPhoneBoundaryConcern(context.sourceSituation)) {
     return [
-      "Thank you for getting in touch and for sharing your concerns.",
-      `I'm sorry to hear that ${studentLabel} felt uncomfortable during the lesson. My intention was not to cause distress, but to apply the usual classroom expectations around phone use consistently.`,
-      `I understand that ${studentLabel} may need support when feeling overwhelmed. At the same time, keeping clear and consistent expectations in the classroom is important for all students.`,
-      `I will continue to handle this sensitively in class and make sure ${studentLabel} feels supported within those expectations.`,
+      `Thank you for getting in touch. I understand that this was a concern for you, and I will continue to support ${studentLabel} sensitively in class.`,
+      "The classroom expectation is that phones are not used during lessons. I apply this consistently so that expectations remain clear and fair for all students.",
+      `I will handle this calmly in class and make sure ${studentLabel} feels supported within that routine.`,
+      ...(sourceInvitesDiscussion
+        ? ["If a further conversation would be helpful, I am happy to chat further."]
+        : []),
     ]
   }
 
@@ -382,7 +387,7 @@ function buildSourceAwareTeacherDraftParagraphs(
     return [
       "Thank you for raising your concerns about the recent marking.",
       "My aim is to apply the marking criteria consistently and fairly across the class.",
-      "I will review the work again carefully and come back to you with a clear explanation if anything further needs clarifying.",
+      "I hope this helps to clarify the basis of the mark.",
     ]
   }
 
@@ -403,7 +408,7 @@ function buildSourceAwareTeacherDraftParagraphs(
           ? "Thank you for getting in touch about this."
           : "I want to respond clearly and calmly to the concern you raised.",
         "I want to keep the expectations around homework clear and consistent, while also making sure the message stays constructive.",
-        "I will go through what is missing in class and make the next step clear so the work can be completed more steadily.",
+        "I am raising it calmly so the expectation is clear without making the message more confrontational than it needs to be.",
       ]
     }
 
@@ -413,7 +418,7 @@ function buildSourceAwareTeacherDraftParagraphs(
           ? "Thank you for getting in touch about this."
           : "I want to respond clearly and calmly to the concern you raised.",
         "I want to keep the expectations around arriving on time clear and consistent, while making sure the message stays constructive.",
-        `I will follow this up with ${studentLabel} in school and make the next step around the start of lessons clear.`,
+        "I am raising it calmly so the expectation is clear without making the message more confrontational than it needs to be.",
       ]
     }
 
@@ -422,7 +427,7 @@ function buildSourceAwareTeacherDraftParagraphs(
         ? "Thank you for getting in touch and for explaining your concerns."
         : "I wanted to respond clearly and calmly to the concern you raised.",
       "My intention is to keep the message clear, professional, and fair without losing the key point that needs addressing.",
-      "I will continue to handle this calmly and keep the next step clear from school.",
+      "I want the message to stay measured while keeping the key point clear.",
     ]
   }
 

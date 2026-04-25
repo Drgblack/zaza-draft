@@ -495,6 +495,7 @@ type TeacherDraftQualityViolationType =
   | "DEFENSIVE_PHRASE"
   | "GENERIC_FILLER"
   | "INVENTED_PROCESS"
+  | "FABRICATION"
   | "SIGNOFF_CHANGE"
   | "MISSING_ACKNOWLEDGEMENT"
 
@@ -561,6 +562,14 @@ function detectTeacherDraftQualityViolations(options: {
     TEACHER_DRAFT_INVENTED_PROCESS_PHRASES,
   ).forEach((phrase) => {
     violations.push({ type: "INVENTED_PROCESS", phrase })
+  })
+
+  collectIntroducedTeacherDraftPhrases(
+    options.sourceText,
+    candidate,
+    TEACHER_DRAFT_FABRICATION_PHRASES,
+  ).forEach((phrase) => {
+    violations.push({ type: "FABRICATION", phrase })
   })
 
   if (
@@ -849,10 +858,25 @@ const TEACHER_DRAFT_GENERIC_FILLER_PATTERNS = [
 const TEACHER_DRAFT_INVENTED_PROCESS_PHRASES = [
   ...LIGHT_EDIT_INSTITUTIONAL_PHRASES,
   { label: "meeting", pattern: /\bmeeting\b/i },
+  { label: "call", pattern: /\bcall\b/i },
   { label: "phone call", pattern: /\bphone call\b/i },
   { label: "policy", pattern: /\bpolicy\b/i },
   { label: "record", pattern: /\brecord\b/i },
   { label: "next week", pattern: /\bnext week\b/i },
+] as const
+
+const TEACHER_DRAFT_FABRICATION_PHRASES = [
+  { label: "recent conversation", pattern: /\brecent conversation\b/i },
+  { label: "previous conversation", pattern: /\bprevious conversation\b/i },
+  { label: "our conversation", pattern: /\bour conversation\b/i },
+  { label: "arrange a", pattern: /\barrange a\b/i },
+  { label: "brief meeting", pattern: /\bbrief meeting\b/i },
+  { label: "quick call", pattern: /\bquick call\b/i },
+  { label: "support coordinator", pattern: /\bsupport coordinator\b/i },
+  { label: "specific approaches", pattern: /\bspecific approaches\b/i },
+  { label: "discuss approaches", pattern: /\bdiscuss approaches\b/i },
+  { label: "explore what", pattern: /\bexplore what\b/i },
+  { label: "what might work", pattern: /\bwhat might work\b/i },
 ] as const
 
 function getComparableParentBodyText(
@@ -3110,16 +3134,16 @@ export async function POST(request: Request) {
     teacherDraftMode: requestedTeacherDraftMode,
     requestedSignatureName,
   })
-  let teacherDraftQualityRegenerationAttempted = false
+  let teacherDraftQualityRegenerationAttempts = 0
 
   const attemptTeacherDraftQualityRegeneration = async (
     currentViolations: TeacherDraftQualityViolation[],
   ) => {
-    if (teacherDraftQualityRegenerationAttempted || currentViolations.length === 0) {
+    if (currentViolations.length === 0 || teacherDraftQualityRegenerationAttempts >= 2) {
       return currentViolations
     }
 
-    teacherDraftQualityRegenerationAttempted = true
+    teacherDraftQualityRegenerationAttempts += 1
     providerInput.teacherDraftQualityViolations = {
       types: Array.from(new Set(currentViolations.map((violation) => violation.type))),
       phrases: currentViolations.map((violation) => violation.phrase),
@@ -3148,7 +3172,7 @@ export async function POST(request: Request) {
     })
   }
 
-  if (teacherDraftQualityViolations.length > 0) {
+  while (teacherDraftQualityViolations.length > 0 && teacherDraftQualityRegenerationAttempts < 2) {
     teacherDraftQualityViolations = await attemptTeacherDraftQualityRegeneration(
       teacherDraftQualityViolations,
     )

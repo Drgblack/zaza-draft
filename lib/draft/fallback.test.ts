@@ -285,13 +285,15 @@ describe("fallback drafting signature hygiene", () => {
     }
 
     const text = buildFallbackDraft(context)
-    expect(text).toContain("Thank you for getting in touch and for sharing your concerns.")
-    expect(text).toContain("Lucy felt uncomfortable during the lesson")
-    expect(text).toContain("phone use consistently")
+    expect(text).toContain("Subject: Update from school")
+    expect(text).toContain("Thank you for getting in touch. I understand that this was a concern for you")
+    expect(text).toContain("The classroom expectation is that phones are not used during lessons.")
+    expect(text).toContain("clear and fair for all students")
     expect(text).not.toContain("I can't make individual exceptions")
     expect(text).not.toContain("unmanageable across the class")
     expect(text).not.toContain("support coordinator")
     expect(text).not.toContain("appropriate colleague")
+    expect(text).not.toContain("conversation")
     expect(text).toContain("Kind regards,\nGreg")
   })
 
@@ -324,6 +326,7 @@ describe("fallback drafting signature hygiene", () => {
     const text = buildFallbackDraft(context)
     expect(text).toContain("raising your concerns about the recent marking")
     expect(text).toContain("marking criteria consistently and fairly")
+    expect(text).toContain("clarify the basis of the mark")
     expect(text).not.toContain("There is nothing more to discuss")
     expect(text).not.toContain("please feel free")
     expect(text).toContain("Kind regards,\nGreg")
@@ -390,9 +393,10 @@ describe("fallback drafting signature hygiene", () => {
 
     const text = buildFallbackDraft(context)
     expect(text).toContain("expectations around homework clear and consistent")
-    expect(text).toContain("go through what is missing in class")
+    expect(text).toContain("I am raising it calmly so the expectation is clear")
     expect(text).not.toContain("tired of repeating this")
     expect(text).not.toContain("frustrating")
+    expect(text).not.toContain("meeting")
     expect(text).toContain("Kind regards,\nGreg")
   })
 

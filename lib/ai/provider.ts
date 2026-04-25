@@ -279,6 +279,13 @@ function buildTeacherDraftEditContract(input: ProviderInput) {
     "- Do NOT over-apologise, over-explain, or argue with the parent.",
     "- Do NOT change the teacher's sign-off identity unless teacherSignatureName is explicitly provided elsewhere.",
     "- Keep the message calm, confident, human, and school-appropriate.",
+    "--- FABRICATION BAN (teacher_draft mode) ---",
+    "- Never reference a prior conversation, call, or exchange unless the teacher's source text explicitly mentions one.",
+    "- Never offer to arrange a meeting, call, or catch-up unless the teacher's source text explicitly requests discussion.",
+    "- Never name a school role (support coordinator, SENCO, head of year, etc.) unless it appears in the source text.",
+    "- Never add vague collaborative offers such as 'explore what works', 'discuss approaches', or 'what might work' unless the teacher explicitly invites discussion.",
+    "- If the source text does not mention a next step, do not invent one.",
+    "- Every sentence in the output must be traceable to something the teacher actually wrote.",
     "--- JUDGEMENT TRIAGE ---",
     "1. Identify the teacher's real intent before rewriting.",
     "2. Check the draft for defensiveness, rigid wording, implied blame, conversation-closing phrasing, escalation triggers, overly blunt boundaries, unnecessary justification, and filler.",
@@ -291,8 +298,9 @@ function buildTeacherDraftEditContract(input: ProviderInput) {
     "3. Remove unnecessary justification and defensive framing.",
     "4. Keep or restore the most useful acknowledgement if it helps the message land well.",
     "5. Do not add new factual claims, new staff actions, or empty reassurance.",
-    "6. Ask yourself before finalising: would a tired teacher feel safer sending this tomorrow?",
-    "7. If not, rewrite more decisively rather than polishing the same risky structure.",
+    "6. Keep it concise. Use no more than four short paragraphs unless the source clearly requires more.",
+    "7. Ask yourself before finalising: would a tired teacher feel safer sending this tomorrow?",
+    "8. If not, rewrite more decisively rather than polishing the same risky structure.",
     ...(input.lightEditMode
       ? [
           "--- CURRENT DRAFT SIGNAL ---",
@@ -790,7 +798,9 @@ export function buildSystemPrompt(input: ProviderInput) {
       `Resolve these teacher-draft quality issues: ${input.teacherDraftQualityViolations.types.join(", ")}.`,
       `Avoid or rewrite these phrases and ideas: ${dedupedPhrases.join(", ")}.`,
       "Preserve the teacher's intent, but do not preserve wording that still sounds defensive, rigid, filler-heavy, or difficult to send.",
-      "If needed, restructure the message so the acknowledgement, boundary, and next step land more calmly.",
+      "If needed, restructure the message so the acknowledgement, boundary, and close land more calmly.",
+      "Do not invent context, follow-up channels, school processes, or collaboration offers that are absent from the source draft.",
+      "Every sentence must stay traceable to the teacher's source text.",
     )
   }
   systemLines.push(
