@@ -8,6 +8,7 @@ export type TeacherDraftFeedbackReason =
   | "risk_checked"
 
 export interface TeacherDraftFeedback {
+  verdict: TeacherDraftFeedbackLevel
   level: TeacherDraftFeedbackLevel
   reasons: TeacherDraftFeedbackReason[]
 }
@@ -86,6 +87,7 @@ export function resolveTeacherDraftFeedback(options: {
 
   if (similarity >= 0.9 && wordDelta <= 6) {
     return {
+      verdict: "already_strong",
       level: "already_strong",
       reasons,
     } satisfies TeacherDraftFeedback
@@ -93,6 +95,7 @@ export function resolveTeacherDraftFeedback(options: {
 
   if (similarity >= 0.8 && candidateWordCount <= Math.ceil(sourceWordCount * 1.12)) {
     return {
+      verdict: "light_touch",
       level: "light_touch",
       reasons,
     } satisfies TeacherDraftFeedback

@@ -46,7 +46,8 @@ const localeMessages: Record<LocaleKey, Record<string, string>> = {
     "draft.teacherControl.reassurance":
       "You stay in control. Review before sending.",
     "draft.teacherDraftFeedback.heading": "What changed (and why):",
-    "draft.teacherDraftFeedback.alreadyStrong": "Your draft is already strong.",
+    "draft.teacherDraftFeedback.alreadyStrong":
+      "Your draft reads well. We made minor copy edits only.",
     "draft.teacherDraftFeedback.already_strong.preservedTone":
       "We kept your calm, professional tone because it was already working.",
     "draft.teacherDraftFeedback.light_touch.preservedTone":
@@ -95,7 +96,8 @@ const localeMessages: Record<LocaleKey, Record<string, string>> = {
     "draft.teacherControl.reassurance":
       "Sie behalten die Kontrolle. Vor dem Senden bitte kurz prüfen.",
     "draft.teacherDraftFeedback.heading": "Was geändert wurde (und warum):",
-    "draft.teacherDraftFeedback.alreadyStrong": "Ihr Entwurf ist bereits stark.",
+    "draft.teacherDraftFeedback.alreadyStrong":
+      "Ihr Entwurf liest sich bereits gut. Wir haben nur kleine sprachliche Anpassungen vorgenommen.",
     "draft.teacherDraftFeedback.already_strong.preservedTone":
       "Wir haben Ihren ruhigen, professionellen Ton beibehalten, weil er bereits gut funktioniert hat.",
     "draft.teacherDraftFeedback.light_touch.preservedTone":
@@ -556,25 +558,17 @@ Frau Mueller`
       <DraftOutput
         {...baseProps}
         teacherDraftFeedback={{
+          verdict: "already_strong",
           level: "already_strong",
           reasons: ["preserved_tone", "maintained_boundaries", "risk_checked"],
         }}
       />,
     )
 
-    expect(screen.getByText("Your draft is already strong.")).toBeInTheDocument()
-    expect(screen.getByText("What changed (and why):")).toBeInTheDocument()
     expect(
-      screen.getByText("We kept your calm, professional tone because it was already working."),
+      screen.getByText("Your draft reads well. We made minor copy edits only."),
     ).toBeInTheDocument()
-    expect(
-      screen.getByText("We kept your boundary and next step intact so the message still sounds like you."),
-    ).toBeInTheDocument()
-    expect(
-      screen.getByText(
-        "We checked for escalation or professional-risk wording and avoided unnecessary edits.",
-      ),
-    ).toBeInTheDocument()
+    expect(screen.queryByText("What changed (and why):")).toBeNull()
   })
 
   it("renders clearer sensitive-topic guidance copy", () => {

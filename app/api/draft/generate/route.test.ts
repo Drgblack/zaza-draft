@@ -7,7 +7,8 @@ import {
   buildSourceGroundedTeacherDraftFallbackResult,
   generateDraftWithFallback,
 } from "@/lib/draft/fallback"
-import { detectRouteRecoveryIssueKind, POST } from "@/app/api/draft/generate/route"
+import { POST } from "@/app/api/draft/generate/route"
+import { detectRouteRecoveryIssueKind } from "@/lib/draft/route-recovery"
 import { buildUsageResponse, getCurrentMonthKey, incrementUsage } from "@/lib/usage"
 import { getUserEntitlements } from "@/lib/entitlements"
 import { isInternalQaUid, shouldRespectUsageLimit } from "@/lib/auth/internal-qa"
@@ -2026,15 +2027,15 @@ describe("/api/draft/generate light edit mode", () => {
     expect(response.status).toBe(200)
     const json = await response.json()
     const generatedDraft = json.data?.generatedDraft ?? ""
-    const providerInput = fallbackGenerator.mock.calls[0]?.[0]
 
-    expect(providerInput?.generationMetadata.direction).toBe("teacher_to_parent")
-    expect(providerInput?.lightEditMode).toBe(true)
+    expect(fallbackGenerator).not.toHaveBeenCalled()
+    expect(json.data?.metadata?.modelUsed).toBe("teacher-draft-copy-edit-only")
     expect(getWordSequenceSimilarity(strongLucyReply, generatedDraft)).toBeGreaterThanOrEqual(0.8)
     expect(countNormalizedWords(generatedDraft)).toBeLessThanOrEqual(
       Math.ceil(countNormalizedWords(strongLucyReply) * 1.1),
     )
     expect(json.data?.teacherDraftFeedback).toEqual({
+      verdict: "already_strong",
       level: "already_strong",
       reasons: ["preserved_tone", "maintained_boundaries", "risk_checked"],
     })
@@ -2227,15 +2228,15 @@ describe("/api/draft/generate light edit mode", () => {
     expect(response.status).toBe(200)
     const json = await response.json()
     const generatedDraft = json.data?.generatedDraft ?? ""
-    const providerInput = fallbackGenerator.mock.calls[fallbackGenerator.mock.calls.length - 1]?.[0]
 
-    expect(providerInput?.generationMetadata.direction).toBe("teacher_to_parent")
-    expect(providerInput?.lightEditMode).toBe(true)
+    expect(fallbackGenerator).not.toHaveBeenCalled()
+    expect(json.data?.metadata?.modelUsed).toBe("teacher-draft-copy-edit-only")
     expect(getWordSequenceSimilarity(teacherDraft, generatedDraft)).toBeGreaterThanOrEqual(0.8)
     expect(countNormalizedWords(generatedDraft)).toBeLessThanOrEqual(
       Math.ceil(countNormalizedWords(teacherDraft) * 1.15),
     )
     expect(json.data?.teacherDraftFeedback).toEqual({
+      verdict: "already_strong",
       level: "already_strong",
       reasons: ["preserved_tone", "maintained_boundaries", "risk_checked"],
     })
@@ -2245,6 +2246,52 @@ describe("/api/draft/generate light edit mode", () => {
     expect(generatedDraft).toContain("My intention was not to embarrass her")
     expect(generatedDraft).toContain("the usual classroom expectation around phone use consistently")
     expect(generatedDraft).toContain("follow up with the appropriate colleague")
+  })
+
+  it("skips rewriting for an already-strong teacher draft and returns only minor copy edits", async () => {
+    const teacherDraft = [
+      "Dear Parent/Carer,",
+      "",
+      "Thank you for getting in touch.",
+      "",
+      "I'm sorry to hear that Lucy felt uncomfortable in the lesson. My intention was to keep the phone expectation clear and consistent.",
+      "",
+      "The expectation is that phones stay away during lessons, and I will continue to handle this calmly and sensitively in class.",
+      "",
+      "Kind regards,",
+      "Greg",
+    ].join("\n")
+
+    const request = new Request("https://example.com/api/draft/generate", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: "Bearer token",
+      },
+      body: JSON.stringify({
+        situation: teacherDraft,
+        tone: "professional",
+        language: "en",
+        uiLocale: "en-GB",
+        mode: "parent_message",
+        inputIntent: "teacher_draft",
+      }),
+    })
+
+    const response = await POST(request)
+    expect(response.status).toBe(200)
+    const json = await response.json()
+    const generatedDraft = json.data?.generatedDraft ?? ""
+
+    expect(fallbackGenerator).not.toHaveBeenCalled()
+    expect(json.data?.metadata?.modelUsed).toBe("teacher-draft-copy-edit-only")
+    expect(getWordSequenceSimilarity(teacherDraft, generatedDraft)).toBeGreaterThanOrEqual(0.95)
+    expect(countNormalizedWords(generatedDraft)).toBeLessThanOrEqual(120)
+    expect(json.data?.teacherDraftFeedback).toEqual({
+      verdict: "already_strong",
+      level: "already_strong",
+      reasons: ["preserved_tone", "maintained_boundaries", "risk_checked"],
+    })
   })
 
   it("rewrites a blunt Lucy phone-exception draft with stronger teacher judgement instead of surface editing", async () => {

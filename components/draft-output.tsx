@@ -86,6 +86,7 @@ export function DraftOutput({
   const showDiagnostics = isDebugEnabled(searchParams)
   const modeKey = (metadata.modeUsed ?? DEFAULT_DRAFT_MODE) as keyof typeof MODE_LABEL_KEYS
   const modeLabel = modeLabelOverride ?? t(MODE_LABEL_KEYS[modeKey])
+  const teacherDraftFeedbackVerdict = teacherDraftFeedback?.verdict ?? teacherDraftFeedback?.level
   const teacherDraftFeedbackLines = useMemo(() => {
     if (!teacherDraftFeedback) {
       return []
@@ -93,14 +94,14 @@ export function DraftOutput({
 
     return teacherDraftFeedback.reasons.map((reason) => {
       if (reason === "preserved_tone") {
-        return t(`draft.teacherDraftFeedback.${teacherDraftFeedback.level}.preservedTone`)
+        return t(`draft.teacherDraftFeedback.${teacherDraftFeedbackVerdict}.preservedTone`)
       }
       if (reason === "maintained_boundaries") {
         return t("draft.teacherDraftFeedback.maintainedBoundaries")
       }
-      return t(`draft.teacherDraftFeedback.${teacherDraftFeedback.level}.riskChecked`)
+      return t(`draft.teacherDraftFeedback.${teacherDraftFeedbackVerdict}.riskChecked`)
     })
-  }, [t, teacherDraftFeedback])
+  }, [t, teacherDraftFeedback, teacherDraftFeedbackVerdict])
   const { displaySubject, displayParagraphs, signatureParagraph } = useMemo(() => {
     const parsedDraftText = formatDraftText(draftText, locale)
     const baseStructure = structure ?? parsedDraftText
@@ -469,29 +470,32 @@ export function DraftOutput({
 
             {teacherDraftFeedback ? (
               <div className="rounded-xl border border-slate-200/85 bg-slate-50/90 p-4 dark:border-slate-700 dark:bg-slate-900/40">
-                <div className="space-y-2">
-                  {teacherDraftFeedback.level === "already_strong" ? (
-                    <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">
-                      {t("draft.teacherDraftFeedback.alreadyStrong")}
-                    </p>
-                  ) : null}
-                  <p className="text-sm font-medium text-slate-700 dark:text-slate-200">
-                    {t("draft.teacherDraftFeedback.heading")}
+                {teacherDraftFeedbackVerdict === "already_strong" ? (
+                  <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">
+                    {t("draft.teacherDraftFeedback.alreadyStrong")}
                   </p>
-                </div>
-                <ul className="mt-3 space-y-2">
-                  {teacherDraftFeedbackLines.map((line, index) => (
-                    <li
-                      key={`${line}-${index}`}
-                      className="flex items-start gap-2 text-sm leading-relaxed text-slate-700 dark:text-slate-200"
-                    >
-                      <span aria-hidden="true" className="mt-0.5 text-slate-400 dark:text-slate-500">
-                        •
-                      </span>
-                      <span>{line}</span>
-                    </li>
-                  ))}
-                </ul>
+                ) : (
+                  <>
+                    <div className="space-y-2">
+                      <p className="text-sm font-medium text-slate-700 dark:text-slate-200">
+                        {t("draft.teacherDraftFeedback.heading")}
+                      </p>
+                    </div>
+                    <ul className="mt-3 space-y-2">
+                      {teacherDraftFeedbackLines.map((line, index) => (
+                        <li
+                          key={`${line}-${index}`}
+                          className="flex items-start gap-2 text-sm leading-relaxed text-slate-700 dark:text-slate-200"
+                        >
+                          <span aria-hidden="true" className="mt-0.5 text-slate-400 dark:text-slate-500">
+                            •
+                          </span>
+                          <span>{line}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </>
+                )}
               </div>
             ) : rewriteSummary ? (
               <div className="rounded-xl border border-sky-200 bg-sky-50/85 p-3 dark:border-sky-500/30 dark:bg-sky-950/20">

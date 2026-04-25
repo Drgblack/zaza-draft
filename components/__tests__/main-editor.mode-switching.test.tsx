@@ -107,7 +107,8 @@ vi.mock("@/hooks/use-locale", () => ({
         "editor.inputMode.mismatch.switchToTeacherDraft": "Switch to My draft",
         "draft.generatedTitle": "Ready to review",
         "draft.teacherDraftFeedback.heading": "What changed (and why):",
-        "draft.teacherDraftFeedback.alreadyStrong": "Your draft is already strong.",
+        "draft.teacherDraftFeedback.alreadyStrong":
+          "Your draft reads well. We made minor copy edits only.",
         "draft.teacherDraftFeedback.already_strong.preservedTone":
           "We kept your calm, professional tone because it was already working.",
         "draft.teacherDraftFeedback.light_touch.preservedTone":
@@ -273,6 +274,7 @@ const fetchMock = vi.fn(async (input: RequestInfo, init?: RequestInit) => {
             teacherDraftFeedback:
               body.inputIntent === "teacher_draft"
                 ? {
+                    verdict: "already_strong",
                     level: "already_strong",
                     reasons: ["preserved_tone", "maintained_boundaries", "risk_checked"],
                   }
@@ -512,11 +514,10 @@ describe("MainEditor mode switching", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Improve my draft" }))
 
-    expect(await screen.findByText("Your draft is already strong.")).toBeInTheDocument()
-    expect(screen.getByText("What changed (and why):")).toBeInTheDocument()
     expect(
-      screen.getByText("We kept your calm, professional tone because it was already working."),
+      await screen.findByText("Your draft reads well. We made minor copy edits only."),
     ).toBeInTheDocument()
+    expect(screen.queryByText("What changed (and why):")).toBeNull()
   })
 
   it("restores the last selected parent-message input mode from localStorage", async () => {

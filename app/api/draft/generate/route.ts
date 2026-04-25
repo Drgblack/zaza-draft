@@ -69,6 +69,11 @@ import { sanitizeReportCommentStructure, sanitizeReportCommentText } from "@/lib
 import { applyModeAwareSubjectLine } from "@/lib/draft/subject-policy"
 import { applyEnglishOutputSanity } from "@/lib/draft/english-output-sanity"
 import { detectTeacherNoteIssueClusters } from "@/lib/draft/teacher-note-issues"
+import {
+  detectRouteRecoveryIssueKind,
+  getRouteRecoveryAnchors,
+  type RouteRecoveryIssueKind,
+} from "@/lib/draft/route-recovery"
 import { isValidDraftRequest, OUT_OF_SCOPE_REDIRECT_MESSAGE } from "./scope-guard"
 import { isDebugEnabled } from "@/lib/debug"
 import {
@@ -601,6 +606,87 @@ function detectTeacherDraftQualityViolations(options: {
   )
 }
 
+function hasTeacherDraftSourceFabricationRisk(text: string) {
+  return TEACHER_DRAFT_FABRICATION_PHRASES.some(({ pattern }) => pattern.test(text))
+}
+
+function shouldUseTeacherDraftNoChangePath(options: {
+  sourceText: string
+  language: DraftLanguage
+  tone: ToneKey
+  teacherDraftMode: boolean
+  safetyAnalysis: SafetyEngineOutput | null
+  requestedSignatureName?: string
+  greetingLine?: string | null
+}) {
+  const {
+    sourceText,
+    language,
+    tone,
+    teacherDraftMode,
+    safetyAnalysis,
+    requestedSignatureName,
+    greetingLine,
+  } = options
+
+  if (!teacherDraftMode || (tone !== "warm" && tone !== "professional") || !safetyAnalysis) {
+    return false
+  }
+
+  if (
+    safetyAnalysis.riskLevel !== "low" ||
+    safetyAnalysis.structuralImbalance ||
+    safetyAnalysis.professionalRiskFlags.length > 0 ||
+    safetyAnalysis.toneClass === "accusatory" ||
+    safetyAnalysis.toneClass === "defensive"
+  ) {
+    return false
+  }
+
+  if (
+    safetyAnalysis.triggeredSignals.some((signal) =>
+      LIGHT_EDIT_RISK_CATEGORIES.has(
+        signal.category as
+          | "accusation"
+          | "escalation"
+          | "frustration"
+          | "negative_generalisation"
+          | "prescriptive_demand",
+      ),
+    )
+  ) {
+    return false
+  }
+
+  if (hasTeacherDraftSourceFabricationRisk(sourceText)) {
+    return false
+  }
+
+  const bodyParagraphs = getTeacherDraftSourceBodyParagraphs(sourceText, greetingLine)
+  const paragraphCount = bodyParagraphs.length
+  const bodyWordCount = bodyParagraphs
+    .join(" ")
+    .split(/\s+/)
+    .map((token) => token.trim())
+    .filter(Boolean).length
+  if (paragraphCount < 1 || paragraphCount > 4 || bodyWordCount > 120) {
+    return false
+  }
+
+  const violations = detectTeacherDraftQualityViolations({
+    sourceText,
+    candidateText: sourceText,
+    language,
+    teacherDraftMode,
+    requestedSignatureName,
+  })
+  if (violations.length > 0) {
+    return false
+  }
+
+  return true
+}
+
 function splitDocumentationSentences(rawMessage: string): string[] {
   const sentences = rawMessage.match(/[^.!?]+[.!?]?/g)
 
@@ -803,6 +889,18 @@ function getMeaningfulParentBodyWordCount(
     .split(/\s+/)
     .map((token) => token.trim())
     .filter(Boolean).length
+}
+
+function getTeacherDraftSourceBodyParagraphs(text: string, greetingLine?: string | null) {
+  const normalizedGreeting = greetingLine?.trim() ?? ""
+  const closing = extractTrailingClosingBlock(text)
+  const bodyText = (closing.body || text).trim()
+
+  return bodyText
+    .split(/\n\s*\n+/)
+    .map((paragraph) => paragraph.trim())
+    .filter(Boolean)
+    .filter((paragraph, index) => !(index === 0 && normalizedGreeting && paragraph === normalizedGreeting))
 }
 
 const LIGHT_EDIT_RISK_CATEGORIES = new Set([
@@ -1080,90 +1178,6 @@ type RecoveryTraceSource =
   | "retry_generation"
   | "deterministic_fallback"
   | "continuation_recovery"
-
-type RouteRecoveryIssueKind =
-  | "bullying_safety"
-  | "homework"
-  | "lateness"
-  | "grading"
-  | "behaviour"
-  | "disruption"
-  | "phone_device"
-  | "support"
-  | "general"
-
-export function detectRouteRecoveryIssueKind(
-  source: string | undefined,
-  language: string | undefined,
-): RouteRecoveryIssueKind {
-  const normalized = (source ?? "").toLowerCase()
-  const isGerman = language?.toLowerCase().startsWith("de")
-  const patterns = isGerman
-    ? {
-        bullying_safety:
-          /\b(mobb|gemobbt|sicherheit|sicher|verletz|geschubst|geschlagen|angst|weinen|aufsicht|pause|vorfall)\b/,
-        homework: /\b(hausaufgabe|hausaufgaben|nicht abgegeben|fehlende aufgabe|aufgabenmenge)\b/,
-        lateness: /\b(spät|verspät|zu spät|pünktlich)\b/,
-        grading: /\b(note|noten|bewertung|bewertet|test|prüfung|korrigiert)\b/,
-        behaviour: /\b(verhalten|respektlos|unfreundlich|streit|konflikt)\b/,
-        disruption: /\b(stört|unruh|reinruf|unterbr|ablenk|konzent|laut)\b/,
-        phone_device: /\b(handy|handys|mobiltelefon|gerät|geräte|bildschirmzeit|unterrichtsregeln)\b/,
-        support: /\b(unterstütz|hilfe|förder|zusätzliche hilfe|besprech)\b/,
-      }
-    : {
-        bullying_safety:
-          /\b(bully|bullying|unsafe|safety|hurt|pushed|hit|afraid|scared|crying|incident|breaktime|playground)\b/,
-        homework:
-          /\b(homework|missing work|not handed in|did not hand in|didn't hand in|worksheet|task load)\b/,
-        lateness: /\b(late|lateness|tardy|punctual|arrival)\b/,
-        grading: /\b(grade|grading|marking|marked|assessment|test score|exam)\b/,
-        behaviour: /\b(behaviour|behavior|rude|unkind|argument|conflict)\b/,
-        disruption: /\b(disrupt|disruption|calling out|talking over|interrupt|unsettled|focus)\b/,
-        phone_device: /\b(phone|phones|mobile|device|devices|screen time|classroom rules)\b/,
-        support: /\b(support|help|meeting|follow up|check in|plan)\b/,
-      }
-
-  if (patterns.bullying_safety.test(normalized)) return "bullying_safety"
-  if (patterns.homework.test(normalized)) return "homework"
-  if (patterns.lateness.test(normalized)) return "lateness"
-  if (patterns.grading.test(normalized)) return "grading"
-  if (patterns.behaviour.test(normalized)) return "behaviour"
-  if (patterns.disruption.test(normalized)) return "disruption"
-  if (patterns.phone_device.test(normalized)) return "phone_device"
-  if (patterns.support.test(normalized)) return "support"
-  return "general"
-}
-
-function getRouteRecoveryAnchors(issueKind: RouteRecoveryIssueKind, language: string | undefined) {
-  const isGerman = language?.toLowerCase().startsWith("de")
-  if (isGerman) {
-    const anchors: Record<RouteRecoveryIssueKind, string[]> = {
-      bullying_safety: ["vorfall", "sicherheit", "pause", "aufsicht", "mobbing"],
-      homework: ["hausaufgaben", "aufgaben", "fehlenden aufgaben"],
-      lateness: ["pünktlichkeit", "zu spät", "unterrichtsbeginn"],
-      grading: ["bewertung", "note", "test"],
-      behaviour: ["verhalten", "konflikt", "umgang"],
-      disruption: ["unterricht", "lernzeit", "unterrichtsverlauf"],
-      phone_device: ["handy", "unterrichtsregeln", "unterricht", "erwartungen"],
-      support: ["unterstützung", "nächsten schritte", "rückmeldung"],
-      general: ["unterricht", "rückmeldung", "nächsten schritte"],
-    }
-    return anchors[issueKind]
-  }
-
-  const anchors: Record<RouteRecoveryIssueKind, string[]> = {
-    bullying_safety: ["incident", "safety", "break", "breaktime", "playground", "bullying"],
-    homework: ["homework", "task", "work", "missing work"],
-    lateness: ["lateness", "arrival", "punctuality", "start of lessons"],
-    grading: ["marking", "grade", "assessment", "work"],
-    behaviour: ["behaviour", "conflict", "classroom behaviour"],
-    disruption: ["lesson", "class", "lesson time", "disruption"],
-    phone_device: ["phone", "phones", "classroom rules", "lesson", "expectations"],
-    support: ["support", "meeting", "follow up", "next steps"],
-    general: ["school", "class", "update", "next steps"],
-  }
-  return anchors[issueKind]
-}
 
 function detectGenericRecoveryOutput(
   draft: string,
@@ -2309,6 +2323,15 @@ export async function POST(request: Request) {
     greetingFinal: hasFinalGreeting,
     sourceSituation: currentSituation,
   }
+  const alreadyStrongTeacherDraft = shouldUseTeacherDraftNoChangePath({
+    sourceText: currentSituation,
+    language,
+    tone,
+    teacherDraftMode: requestedTeacherDraftMode,
+    safetyAnalysis,
+    requestedSignatureName,
+    greetingLine: finalGreetingLine,
+  })
   const configuredModels = getConfiguredModelNames()
   activeModelName = configuredModels.primary
   logDraftStructured("prompt_prepare", {
@@ -2321,6 +2344,7 @@ export async function POST(request: Request) {
     signatureFound: Boolean(teacherSignatureName),
     safetyAnalysisAvailable: Boolean(safetyAnalysis),
     lightEditMode,
+    alreadyStrongTeacherDraft,
     fallbackModelName: configuredModels.fallback,
   })
   const recoveryTrace: {
@@ -2579,34 +2603,60 @@ export async function POST(request: Request) {
     return result
   }
 
-  let draftAttempt = await runDraft(false, false, "primary")
-  let providerResult = draftAttempt.result
-  let usedFallback = draftAttempt.usedFallback
-  let fallbackErrorCode = draftAttempt.errorCode
-  let generatedDraft = finalizeWithGreeting(providerResult.text)
-  let providerMeta = providerResult.providerMeta
-  if (usedFallback) {
-    pushRecoveryEvent(
-      "deterministic_fallback",
-      fallbackErrorCode ?? "PROVIDER_FALLBACK",
-      draftAttempt.recoveryMeta?.templateFamily ?? null,
-    )
-  }
-
+  let providerResult: ProviderResult
+  let usedFallback = false
+  let fallbackErrorCode: string | null = null
+  let generatedDraft = ""
+  let providerMeta: ProviderMeta
   let forcedLanguageAttempted = false
-  if (language === "de" && containsStrongEnglishSignals(generatedDraft)) {
-    forcedLanguageAttempted = true
-    draftAttempt = await runDraft(true, false, "forced_language_retry")
+
+  if (alreadyStrongTeacherDraft) {
+    generatedDraft = finalizeWithGreeting(currentSituation)
+    providerMeta = {
+      modelUsed: "teacher-draft-copy-edit-only",
+      latencyMs: 0,
+    }
+    providerResult = {
+      text: generatedDraft,
+      providerMeta,
+    }
+    activeModelName = providerMeta.modelUsed
+    logDraftStructured("teacher_draft_no_change", {
+      ...baseDraftLog(),
+      bodyWordCount: getMeaningfulParentBodyWordCount(
+        formatDraftText(generatedDraft, language),
+        finalGreetingLine,
+      ),
+    })
+  } else {
+    let draftAttempt = await runDraft(false, false, "primary")
     providerResult = draftAttempt.result
     usedFallback = draftAttempt.usedFallback
     fallbackErrorCode = draftAttempt.errorCode
     generatedDraft = finalizeWithGreeting(providerResult.text)
     providerMeta = providerResult.providerMeta
-    pushRecoveryEvent(
-      usedFallback ? "deterministic_fallback" : "retry_generation",
-      "FORCED_LANGUAGE_RETRY",
-      draftAttempt.recoveryMeta?.templateFamily ?? null,
-    )
+    if (usedFallback) {
+      pushRecoveryEvent(
+        "deterministic_fallback",
+        fallbackErrorCode ?? "PROVIDER_FALLBACK",
+        draftAttempt.recoveryMeta?.templateFamily ?? null,
+      )
+    }
+
+    if (language === "de" && containsStrongEnglishSignals(generatedDraft)) {
+      forcedLanguageAttempted = true
+      draftAttempt = await runDraft(true, false, "forced_language_retry")
+      providerResult = draftAttempt.result
+      usedFallback = draftAttempt.usedFallback
+      fallbackErrorCode = draftAttempt.errorCode
+      generatedDraft = finalizeWithGreeting(providerResult.text)
+      providerMeta = providerResult.providerMeta
+      pushRecoveryEvent(
+        usedFallback ? "deterministic_fallback" : "retry_generation",
+        "FORCED_LANGUAGE_RETRY",
+        draftAttempt.recoveryMeta?.templateFamily ?? null,
+      )
+    }
   }
 
   const shouldNormalizeGermanParentMessage =
@@ -2650,15 +2700,17 @@ export async function POST(request: Request) {
       generatedDraft = applyGermanNormalization(generatedDraft)
     }
     generatedDraft = normalizeClosingForMode(generatedDraft)
-    generatedDraft = applyModeAwareSubjectLine(generatedDraft, {
-      mode,
-      language,
-      generationMode: generationMetadata.mode,
-      messageType: payload.messageType ?? undefined,
-      studentFirstName: studentNameForPayload || undefined,
-      situation: payload.situation,
-      contextSubject: payload.context?.subject,
-    })
+    if (!alreadyStrongTeacherDraft) {
+      generatedDraft = applyModeAwareSubjectLine(generatedDraft, {
+        mode,
+        language,
+        generationMode: generationMetadata.mode,
+        messageType: payload.messageType ?? undefined,
+        studentFirstName: studentNameForPayload || undefined,
+        situation: payload.situation,
+        contextSubject: payload.context?.subject,
+      })
+    }
     const finalSanity = applyEnglishOutputSanity(generatedDraft, {
       language,
       mode,
@@ -2991,7 +3043,12 @@ export async function POST(request: Request) {
   applyGenericRecoveryGuardIfNeeded()
 
   const preserveLightEditSourceIfNeeded = () => {
-    if (!lightEditMode || documentationModeActive || mode !== "parent_message") {
+    if (
+      alreadyStrongTeacherDraft ||
+      !lightEditMode ||
+      documentationModeActive ||
+      mode !== "parent_message"
+    ) {
       return
     }
 

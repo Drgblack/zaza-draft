@@ -1903,7 +1903,8 @@ export const localeMessages: Record<Locale, LocaleMessages> = {
     "draft.teacherControl.reassurance":
       "You stay in control. Review before sending.",
     "draft.teacherDraftFeedback.heading": "What changed (and why):",
-    "draft.teacherDraftFeedback.alreadyStrong": "Your draft is already strong.",
+    "draft.teacherDraftFeedback.alreadyStrong":
+      "Your draft reads well. We made minor copy edits only.",
     "draft.teacherDraftFeedback.already_strong.preservedTone":
       "We kept your calm, professional tone because it was already working.",
     "draft.teacherDraftFeedback.light_touch.preservedTone":
@@ -2655,7 +2656,8 @@ export const localeMessages: Record<Locale, LocaleMessages> = {
     "draft.teacherControl.reassurance":
       "Sie behalten die Kontrolle. Vor dem Senden bitte kurz prüfen.",
     "draft.teacherDraftFeedback.heading": "Was geändert wurde (und warum):",
-    "draft.teacherDraftFeedback.alreadyStrong": "Ihr Entwurf ist bereits stark.",
+    "draft.teacherDraftFeedback.alreadyStrong":
+      "Ihr Entwurf liest sich bereits gut. Wir haben nur kleine sprachliche Anpassungen vorgenommen.",
     "draft.teacherDraftFeedback.already_strong.preservedTone":
       "Wir haben Ihren ruhigen, professionellen Ton beibehalten, weil er bereits gut funktioniert hat.",
     "draft.teacherDraftFeedback.light_touch.preservedTone":
