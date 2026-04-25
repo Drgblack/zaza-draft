@@ -58,6 +58,7 @@ import {
   shouldShowToneSofteningExplanation,
   type SaferDraftCategory,
 } from "@/lib/draft/adjustment-reasons"
+import type { TeacherDraftFeedback } from "@/lib/draft/teacher-draft-feedback"
 import { assessSafeToSend } from "@/lib/safe-to-send"
 import { buildObservationOnlyRecoveryInput } from "@/lib/draft/diagnostic-recovery"
 import {
@@ -453,6 +454,7 @@ export function MainEditor({ canExport = true }: MainEditorProps = {}) {
   const [deescalationSummary, setDeescalationSummary] = useState<DeescalationSummary | null>(null)
   const [safetyAnalysis, setSafetyAnalysis] = useState<SafetyEngineOutput | null>(null)
   const [outputSafetyAnalysis, setOutputSafetyAnalysis] = useState<SafetyEngineOutput | null>(null)
+  const [teacherDraftFeedback, setTeacherDraftFeedback] = useState<TeacherDraftFeedback | null>(null)
   const [documentationModeActive, setDocumentationModeActive] = useState(false)
   const [enforcedGreeting, setEnforcedGreeting] = useState<EnforcedGreeting | null>(null)
   const [sourceFlow, setSourceFlow] = useState<SourceFlow>("safe_draft")
@@ -618,6 +620,7 @@ export function MainEditor({ canExport = true }: MainEditorProps = {}) {
     setDeescalationSummary(null)
     setSafetyAnalysis(null)
     setOutputSafetyAnalysis(null)
+    setTeacherDraftFeedback(null)
     setDocumentationModeActive(false)
     setInputReframeTier(null)
     setInputWasReframed(false)
@@ -1773,6 +1776,7 @@ Examples:
       setDeescalationSummary(nextDeescalationSummary)
       setSafetyAnalysis(nextSafetyOutput)
       setOutputSafetyAnalysis(nextOutputSafetyAnalysis)
+      setTeacherDraftFeedback(data.data.teacherDraftFeedback ?? null)
       setDocumentationModeActive(nextDocumentationModeActive)
       setEnforcedGreeting(data.data.greeting ?? null)
       setLastGenerationSignature({
@@ -2993,8 +2997,9 @@ Examples:
               modeLabelOverride={selectedModeLabel}
               documentationMode={documentationModeActive}
               draftAttribution={draftAttributionLine}
-              rewriteSummary={draftAdjustmentSummary}
+              rewriteSummary={teacherDraftFeedback ? null : draftAdjustmentSummary}
               safeToSend={safeToSendAssessment}
+              teacherDraftFeedback={teacherDraftFeedback}
             />
             {isFirstRunFreeUser && saferDraftCategories.length > 0 && (
               <div className="rounded-2xl border border-slate-200/80 bg-white/90 p-4 text-slate-900 shadow-sm dark:border-white/10 dark:bg-white/5 dark:text-white">

@@ -1902,6 +1902,18 @@ export const localeMessages: Record<Locale, LocaleMessages> = {
       "This message handles a sensitive topic with calmer, more respectful wording.",
     "draft.teacherControl.reassurance":
       "You stay in control. Review before sending.",
+    "draft.teacherDraftFeedback.heading": "What changed (and why):",
+    "draft.teacherDraftFeedback.alreadyStrong": "Your draft is already strong.",
+    "draft.teacherDraftFeedback.already_strong.preservedTone":
+      "We kept your calm, professional tone because it was already working.",
+    "draft.teacherDraftFeedback.light_touch.preservedTone":
+      "We kept your tone intact and only tightened a few phrases.",
+    "draft.teacherDraftFeedback.maintainedBoundaries":
+      "We kept your boundary and next step intact so the message still sounds like you.",
+    "draft.teacherDraftFeedback.already_strong.riskChecked":
+      "We checked for escalation or professional-risk wording and avoided unnecessary edits.",
+    "draft.teacherDraftFeedback.light_touch.riskChecked":
+      "We reduced small wording risks without adding new ideas or extra sentences.",
     "draft.documentation.label": "Mode:",
     "draft.documentation.badge": "Documentation Mode",
     "draft.documentation.description": "Rewritten as a neutral incident record.",
@@ -2642,6 +2654,18 @@ export const localeMessages: Record<Locale, LocaleMessages> = {
       "Diese Nachricht behandelt ein sensibles Thema mit ruhigerer, respektvoller Wortwahl.",
     "draft.teacherControl.reassurance":
       "Sie behalten die Kontrolle. Vor dem Senden bitte kurz prüfen.",
+    "draft.teacherDraftFeedback.heading": "Was geändert wurde (und warum):",
+    "draft.teacherDraftFeedback.alreadyStrong": "Ihr Entwurf ist bereits stark.",
+    "draft.teacherDraftFeedback.already_strong.preservedTone":
+      "Wir haben Ihren ruhigen, professionellen Ton beibehalten, weil er bereits gut funktioniert hat.",
+    "draft.teacherDraftFeedback.light_touch.preservedTone":
+      "Wir haben Ihren Ton beibehalten und nur einige Formulierungen leicht gestrafft.",
+    "draft.teacherDraftFeedback.maintainedBoundaries":
+      "Ihre Grenze und Ihr nächster Schritt bleiben erhalten, damit die Nachricht weiter nach Ihnen klingt.",
+    "draft.teacherDraftFeedback.already_strong.riskChecked":
+      "Wir haben auf Eskalations- oder Berufsrisiken geprüft und unnötige Änderungen vermieden.",
+    "draft.teacherDraftFeedback.light_touch.riskChecked":
+      "Wir haben kleine sprachliche Risiken reduziert, ohne neue Inhalte oder zusätzliche Sätze hinzuzufügen.",
     "draft.documentation.label": "Modus:",
     "draft.documentation.badge": "Dokumentationsmodus",
     "draft.documentation.description": "Als neutraler Vorfallsbericht umgeschrieben.",

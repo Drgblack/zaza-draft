@@ -2001,6 +2001,10 @@ describe("/api/draft/generate light edit mode", () => {
     expect(countNormalizedWords(generatedDraft)).toBeLessThanOrEqual(
       Math.ceil(countNormalizedWords(strongLucyReply) * 1.1),
     )
+    expect(json.data?.teacherDraftFeedback).toEqual({
+      level: "already_strong",
+      reasons: ["preserved_tone", "maintained_boundaries", "risk_checked"],
+    })
     expect(generatedDraft).not.toContain("support coordinator")
     expect(generatedDraft).not.toContain("pastoral")
     expect(generatedDraft).not.toContain("Would it be helpful to arrange a brief meeting")
@@ -2070,12 +2074,67 @@ describe("/api/draft/generate light edit mode", () => {
     expect(countNormalizedWords(generatedDraft)).toBeLessThanOrEqual(
       Math.ceil(countNormalizedWords(teacherDraft) * 1.15),
     )
+    expect(json.data?.teacherDraftFeedback).toEqual({
+      level: "already_strong",
+      reasons: ["preserved_tone", "maintained_boundaries", "risk_checked"],
+    })
     expect(generatedDraft).not.toContain("support coordinator")
     expect(generatedDraft).not.toContain("yesterday's lesson")
     expect(generatedDraft).not.toContain("next week")
     expect(generatedDraft).toContain("My intention was not to embarrass her")
     expect(generatedDraft).toContain("the usual classroom expectation around phone use consistently")
     expect(generatedDraft).toContain("follow up with the appropriate colleague")
+  })
+
+  it("preserves the teacher's existing sign-off in My draft mode when no explicit profile signature was supplied", async () => {
+    const teacherDraft = [
+      "Dear Parent/Carer,",
+      "",
+      "Thank you for getting in touch and for sharing your concerns.",
+      "",
+      "I'm sorry to hear that Lucy felt uncomfortable after the lesson.",
+      "",
+      "Kind regards,",
+      "Greg",
+    ].join("\n")
+
+    fallbackGenerator.mockResolvedValueOnce(
+      buildFallbackResult(
+        [
+          "Dear Parent/Carer,",
+          "",
+          "Thank you for getting in touch and for sharing your concerns.",
+          "",
+          "I'm sorry to hear that Lucy felt uncomfortable after the lesson.",
+          "",
+          "Kind regards,",
+          "Dr Greg Blackburn",
+        ].join("\n"),
+      ),
+    )
+
+    const request = new Request("https://example.com/api/draft/generate", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: "Bearer token",
+      },
+      body: JSON.stringify({
+        situation: teacherDraft,
+        tone: "professional",
+        language: "en",
+        uiLocale: "en-GB",
+        mode: "parent_message",
+        inputIntent: "teacher_draft",
+      }),
+    })
+
+    const response = await POST(request)
+    expect(response.status).toBe(200)
+    const json = await response.json()
+
+    expect(json.data.generatedDraft).toContain("Kind regards,\nGreg")
+    expect(json.data.generatedDraft).not.toContain("Kind regards,\nDr Greg Blackburn")
   })
 })
 

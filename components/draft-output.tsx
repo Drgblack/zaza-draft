@@ -18,6 +18,7 @@ import { useSearchParams } from "next/navigation"
 import { isDebugEnabled } from "@/lib/debug"
 import type { SafeToSendAssessment } from "@/lib/safe-to-send"
 import { logClientEvent, TRUST_FUNNEL_EVENTS } from "@/lib/analytics"
+import type { TeacherDraftFeedback } from "@/lib/draft/teacher-draft-feedback"
 
 interface DraftOutputProps {
   draftText: string
@@ -48,6 +49,7 @@ interface DraftOutputProps {
   draftAttribution?: string | null
   rewriteSummary?: string | null
   safeToSend?: SafeToSendAssessment | null
+  teacherDraftFeedback?: TeacherDraftFeedback | null
 }
 
 export function DraftOutput({
@@ -73,6 +75,7 @@ export function DraftOutput({
   draftAttribution = null,
   rewriteSummary = null,
   safeToSend,
+  teacherDraftFeedback = null,
 }: DraftOutputProps) {
   const [copied, setCopied] = useState(false)
   const [showSaveModal, setShowSaveModal] = useState(false)
@@ -83,6 +86,21 @@ export function DraftOutput({
   const showDiagnostics = isDebugEnabled(searchParams)
   const modeKey = (metadata.modeUsed ?? DEFAULT_DRAFT_MODE) as keyof typeof MODE_LABEL_KEYS
   const modeLabel = modeLabelOverride ?? t(MODE_LABEL_KEYS[modeKey])
+  const teacherDraftFeedbackLines = useMemo(() => {
+    if (!teacherDraftFeedback) {
+      return []
+    }
+
+    return teacherDraftFeedback.reasons.map((reason) => {
+      if (reason === "preserved_tone") {
+        return t(`draft.teacherDraftFeedback.${teacherDraftFeedback.level}.preservedTone`)
+      }
+      if (reason === "maintained_boundaries") {
+        return t("draft.teacherDraftFeedback.maintainedBoundaries")
+      }
+      return t(`draft.teacherDraftFeedback.${teacherDraftFeedback.level}.riskChecked`)
+    })
+  }, [t, teacherDraftFeedback])
   const { displaySubject, displayParagraphs, signatureParagraph } = useMemo(() => {
     const parsedDraftText = formatDraftText(draftText, locale)
     const baseStructure = structure ?? parsedDraftText
@@ -439,7 +457,7 @@ export function DraftOutput({
           </div>
         ) : null}
 
-        {modeKey === "parent_message" || rewriteSummary ? (
+        {modeKey === "parent_message" || rewriteSummary || teacherDraftFeedback ? (
           <div className="mb-4 space-y-3">
             {modeKey === "parent_message" ? (
               <div className="rounded-xl border border-slate-200/80 bg-slate-50/80 px-4 py-3 dark:border-slate-700 dark:bg-slate-900/40">
@@ -449,7 +467,33 @@ export function DraftOutput({
               </div>
             ) : null}
 
-            {rewriteSummary ? (
+            {teacherDraftFeedback ? (
+              <div className="rounded-xl border border-slate-200/85 bg-slate-50/90 p-4 dark:border-slate-700 dark:bg-slate-900/40">
+                <div className="space-y-2">
+                  {teacherDraftFeedback.level === "already_strong" ? (
+                    <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">
+                      {t("draft.teacherDraftFeedback.alreadyStrong")}
+                    </p>
+                  ) : null}
+                  <p className="text-sm font-medium text-slate-700 dark:text-slate-200">
+                    {t("draft.teacherDraftFeedback.heading")}
+                  </p>
+                </div>
+                <ul className="mt-3 space-y-2">
+                  {teacherDraftFeedbackLines.map((line, index) => (
+                    <li
+                      key={`${line}-${index}`}
+                      className="flex items-start gap-2 text-sm leading-relaxed text-slate-700 dark:text-slate-200"
+                    >
+                      <span aria-hidden="true" className="mt-0.5 text-slate-400 dark:text-slate-500">
+                        •
+                      </span>
+                      <span>{line}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ) : rewriteSummary ? (
               <div className="rounded-xl border border-sky-200 bg-sky-50/85 p-3 dark:border-sky-500/30 dark:bg-sky-950/20">
                 <p className="text-sm leading-relaxed text-sky-900 dark:text-sky-100">
                   {rewriteSummary}

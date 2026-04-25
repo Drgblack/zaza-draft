@@ -106,6 +106,18 @@ vi.mock("@/hooks/use-locale", () => ({
         "editor.inputMode.mismatch.switchToParentMessage": "Switch to Parent message",
         "editor.inputMode.mismatch.switchToTeacherDraft": "Switch to My draft",
         "draft.generatedTitle": "Ready to review",
+        "draft.teacherDraftFeedback.heading": "What changed (and why):",
+        "draft.teacherDraftFeedback.alreadyStrong": "Your draft is already strong.",
+        "draft.teacherDraftFeedback.already_strong.preservedTone":
+          "We kept your calm, professional tone because it was already working.",
+        "draft.teacherDraftFeedback.light_touch.preservedTone":
+          "We kept your tone intact and only tightened a few phrases.",
+        "draft.teacherDraftFeedback.maintainedBoundaries":
+          "We kept your boundary and next step intact so the message still sounds like you.",
+        "draft.teacherDraftFeedback.already_strong.riskChecked":
+          "We checked for escalation or professional-risk wording and avoided unnecessary edits.",
+        "draft.teacherDraftFeedback.light_touch.riskChecked":
+          "We reduced small wording risks without adding new ideas or extra sentences.",
         "draft.documentation.badge": "Documentation Mode",
         "draft.documentation.label": "Mode:",
         "draft.documentation.description": "Rewritten as a neutral incident record.",
@@ -258,6 +270,13 @@ const fetchMock = vi.fn(async (input: RequestInfo, init?: RequestInit) => {
             usage: { plan: "pro", currentMonthUsage: 1, limit: null, remaining: null },
             deescalationSummary: null,
             greeting: null,
+            teacherDraftFeedback:
+              body.inputIntent === "teacher_draft"
+                ? {
+                    level: "already_strong",
+                    reasons: ["preserved_tone", "maintained_boundaries", "risk_checked"],
+                  }
+                : null,
             safetyAnalysis: {
               documentationModeAvailable: true,
               triggeredSignals: [],
@@ -470,6 +489,34 @@ describe("MainEditor mode switching", () => {
 
     expect(getDraftGenerateBodies()[1]?.inputIntent).toBe("teacher_draft")
     expect(getDraftGenerateBodies()[1]?.parentMessageInputType).toBeUndefined()
+  })
+
+  it("shows the high-quality teacher draft explanation when only light edits were needed", async () => {
+    render(<MainEditor />)
+
+    fireEvent.click(within(getInputTypeTablist()).getByRole("tab", { name: "My draft" }))
+    fireEvent.change(getTextarea(), {
+      target: {
+        value: [
+          "Dear Parent/Carer,",
+          "",
+          "Thank you for getting in touch and for sharing your concerns.",
+          "",
+          "I'm sorry to hear that Lucy felt uncomfortable after the lesson.",
+          "",
+          "Kind regards,",
+          "Greg",
+        ].join("\n"),
+      },
+    })
+
+    fireEvent.click(screen.getByRole("button", { name: "Improve my draft" }))
+
+    expect(await screen.findByText("Your draft is already strong.")).toBeInTheDocument()
+    expect(screen.getByText("What changed (and why):")).toBeInTheDocument()
+    expect(
+      screen.getByText("We kept your calm, professional tone because it was already working."),
+    ).toBeInTheDocument()
   })
 
   it("restores the last selected parent-message input mode from localStorage", async () => {

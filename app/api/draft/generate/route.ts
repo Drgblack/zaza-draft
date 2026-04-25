@@ -41,7 +41,12 @@ import {
 import { isInternalQaUid, shouldRespectUsageLimit } from "@/lib/auth/internal-qa"
 import { buildBlockedLanguageResponse } from "@/lib/draft/blocked-response"
 import { enforceTeacherNameStyle } from "@/lib/draft/teacher-language"
-import { formatDraftText, DraftStructure, CLOSING_REGEX } from "@/lib/draft/format"
+import {
+  formatDraftText,
+  DraftStructure,
+  CLOSING_REGEX,
+  extractTrailingClosingBlock,
+} from "@/lib/draft/format"
 import { evaluateEmotionalStructure } from "@/lib/draft/emotional-structure"
 import { cleanStudentName } from "@/lib/draft/student-name"
 import { normalizeGermanParentMessage } from "@/lib/draft/german-normalizer"
@@ -74,6 +79,7 @@ import {
   type SourceType,
 } from "@/lib/generation/classification"
 import { applyFinalGreetingGuard } from "@/lib/draft/final-greeting"
+import { resolveTeacherDraftFeedback } from "@/lib/draft/teacher-draft-feedback"
 import { runSafetyEngine, type SafetyEngineOutput } from "@/src/lib/safetyEngine"
 import { detectTopicKeyword } from "@/src/lib/safetyEngine/topicDetector"
 import { classifyTeacherIntent } from "@/lib/teacher-intent"
@@ -345,6 +351,32 @@ function resolveDocumentationTopicLabel(
   }
 
   return null
+}
+
+function normalizeSignatureBlockForComparison(value: string | null | undefined) {
+  return value?.replace(/\s+/g, " ").trim().toLowerCase() ?? ""
+}
+
+function preserveTeacherDraftSignature(sourceDraft: string, candidateDraft: string) {
+  const sourceClosing = extractTrailingClosingBlock(sourceDraft)
+  if (!sourceClosing.closingBlock) {
+    return candidateDraft
+  }
+
+  const candidateClosing = extractTrailingClosingBlock(candidateDraft)
+  if (
+    normalizeSignatureBlockForComparison(candidateClosing.closingBlock) ===
+    normalizeSignatureBlockForComparison(sourceClosing.closingBlock)
+  ) {
+    return candidateDraft
+  }
+
+  const nextBody = candidateClosing.body.trimEnd()
+  if (!nextBody) {
+    return sourceClosing.closingBlock
+  }
+
+  return `${nextBody}\n\n${sourceClosing.closingBlock}`
 }
 
 function splitDocumentationSentences(rawMessage: string): string[] {
@@ -744,6 +776,7 @@ function assessLightEditDrift(options: {
     similarity,
     sourceWordCount,
     candidateWordCount,
+    expandsContent,
     introducedInstitutionalPhrases,
     introducedAuthoritySoftening,
     shouldPreserveSource:
@@ -1619,10 +1652,11 @@ export async function POST(request: Request) {
     normalizeName(
       (authContext as { decodedToken?: { name?: string | null } })?.decodedToken?.name ?? null,
     ) || undefined
-  const teacherSignatureName = resolveTeacherSignatureName(
-    teacherProfileDisplayName,
-    requestedSignatureName,
-  )
+  const preserveDraftSignatureFromInput =
+    mode === "parent_message" && inputIntent === "teacher_draft" && !requestedSignatureName
+  const teacherSignatureName = preserveDraftSignatureFromInput
+    ? requestedSignatureName
+    : resolveTeacherSignatureName(teacherProfileDisplayName, requestedSignatureName)
   const teacherSignatureSource =
     requestedSignatureName && teacherSignatureName === requestedSignatureName
       ? "request_signature_line1"
@@ -2652,7 +2686,29 @@ export async function POST(request: Request) {
     pushRecoveryEvent("deterministic_fallback", "LIGHT_EDIT_SOURCE_PRESERVATION")
   }
 
+  const preserveTeacherDraftSignatureIfNeeded = () => {
+    if (
+      documentationModeActive ||
+      mode !== "parent_message" ||
+      inputIntent !== "teacher_draft" ||
+      requestedSignatureName
+    ) {
+      return
+    }
+
+    const preservedDraft = preserveTeacherDraftSignature(currentSituation, generatedDraft)
+    if (preservedDraft === generatedDraft) {
+      return
+    }
+
+    generatedDraft = preservedDraft.trim()
+    formattedDraftStructure = formatDraftText(generatedDraft, language)
+    bodyParagraphCount = getParagraphCountExcludingGreeting(formattedDraftStructure, finalGreetingLine)
+    bodyWordCount = getMeaningfulParentBodyWordCount(formattedDraftStructure, finalGreetingLine)
+  }
+
   preserveLightEditSourceIfNeeded()
+  preserveTeacherDraftSignatureIfNeeded()
 
   let rewriteAttempted = false
   const generationTime = providerMeta.latencyMs ?? Date.now() - generationStart
@@ -2756,6 +2812,22 @@ export async function POST(request: Request) {
   }
 
   preserveLightEditSourceIfNeeded()
+  preserveTeacherDraftSignatureIfNeeded()
+
+  const teacherDraftFeedback =
+    requestedTeacherDraftMode && outputSafetyAnalysis
+      ? resolveTeacherDraftFeedback({
+          ...assessLightEditDrift({
+            sourceText: finalizeWithGreeting(currentSituation),
+            candidateText: generatedDraft,
+            language,
+            greetingLine: finalGreetingLine,
+          }),
+          inputSafetyAnalysis: safetyAnalysis,
+          outputSafetyAnalysis,
+          deescalationSummary,
+        })
+      : null
 
   logDraftStructured("normalization", {
     ...baseDraftLog(),
@@ -2977,6 +3049,7 @@ export async function POST(request: Request) {
     generatedDraft,
     formattedDraft: formattedDraftStructure,
     greeting: responseGreeting,
+    teacherDraftFeedback,
     metadata,
     meta: responseMeta,
     usage: usageAfterGeneration,
