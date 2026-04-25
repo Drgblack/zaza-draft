@@ -1,6 +1,6 @@
 "use client"
 
-import { Copy, Check, Save, FileText, Edit3, RefreshCw, AlertCircle, ChevronDown, Repeat, ShieldCheck } from "lucide-react"
+import { Copy, Check, Save, FileText, Edit3, RefreshCw, AlertCircle, ChevronDown, Repeat } from "lucide-react"
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react"
 import { SaveDraftModal } from "./save-draft-modal"
 import { Badge } from "@/components/ui/badge"
@@ -392,7 +392,7 @@ export function DraftOutput({
 
   return (
     <>
-      <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6 mb-6 shadow-sm">
+      <div className="mb-6 rounded-xl border border-gray-200 bg-white p-6 dark:border-gray-700 dark:bg-gray-800">
         {/* Header */}
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-3">
@@ -442,20 +442,15 @@ export function DraftOutput({
         {modeKey === "parent_message" || rewriteSummary ? (
           <div className="mb-4 space-y-3">
             {modeKey === "parent_message" ? (
-              <div className="rounded-xl border border-slate-200 bg-slate-50/90 p-3 shadow-sm dark:border-slate-700 dark:bg-slate-900/50">
-                <div className="flex items-start gap-3">
-                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-slate-200/80 text-slate-700 dark:bg-slate-800 dark:text-slate-200">
-                    <ShieldCheck size={16} />
-                  </div>
-                  <p className="text-sm leading-relaxed text-slate-700 dark:text-slate-200">
-                    {t("draft.teacherControl.reassurance")}
-                  </p>
-                </div>
+              <div className="rounded-xl border border-slate-200/80 bg-slate-50/80 px-4 py-3 dark:border-slate-700 dark:bg-slate-900/40">
+                <p className="text-sm leading-relaxed text-slate-700 dark:text-slate-200">
+                  {t("draft.teacherControl.reassurance")}
+                </p>
               </div>
             ) : null}
 
             {rewriteSummary ? (
-              <div className="rounded-xl border border-sky-200 bg-sky-50/85 p-3 shadow-sm dark:border-sky-500/30 dark:bg-sky-950/20">
+              <div className="rounded-xl border border-sky-200 bg-sky-50/85 p-3 dark:border-sky-500/30 dark:bg-sky-950/20">
                 <p className="text-sm leading-relaxed text-sky-900 dark:text-sky-100">
                   {rewriteSummary}
                 </p>

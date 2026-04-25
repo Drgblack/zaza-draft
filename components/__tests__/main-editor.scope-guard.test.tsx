@@ -103,7 +103,12 @@ vi.mock("@/hooks/use-locale", () => {
       "Convert observations into concise, report-ready comments without losing your meaning.",
     homeSafeDraftTitle: "Safe Draft",
     panicScanTitle: "Panic Scan",
+    "button.generate.parentMessage": "Write calm reply",
+    "button.generate.teacherDraft": "Improve my draft",
+    "button.generate.reportComment": "Generate comment",
     "editor.mode.reportComment": "Report comment",
+    "editor.mode.reportCommentShortcut": "Report comment instead",
+    "editor.mode.returnToParentMessage": "Back to parent reply",
     "editor.firstValue.badge": "Demo sample",
     "editor.firstValue.title": "This first-run example is sample content",
     "editor.firstValue.description":
@@ -204,7 +209,12 @@ vi.mock("@/hooks/use-locale", () => {
       "Verdichten Sie Beobachtungen zu präzisen Berichtskommentaren, ohne Ihre Aussage zu verlieren.",
     homeSafeDraftTitle: "Sicherer Entwurf",
     panicScanTitle: "Panic Scan",
+    "button.generate.parentMessage": "Ruhige Antwort schreiben",
+    "button.generate.teacherDraft": "Meinen Entwurf verbessern",
+    "button.generate.reportComment": "Kommentar erstellen",
     "editor.mode.reportComment": "Berichtskommentar",
+    "editor.mode.reportCommentShortcut": "Stattdessen Berichtskommentar",
+    "editor.mode.returnToParentMessage": "Zurück zur Elternantwort",
     "editor.firstValue.badge": "Demo-Beispiel",
     "editor.firstValue.title": "Dieses Erstbeispiel ist Demo-Inhalt",
     "editor.firstValue.description":
@@ -311,6 +321,7 @@ vi.mock("@/lib/analytics", () => ({
 const fetchMock = vi.fn(async (input: RequestInfo, init?: RequestInit) => {
   const url = typeof input === "string" ? input : (input as any)?.url ?? String(input)
   const full = url.startsWith("http") ? url : `http://localhost${url}`
+  const textFrom = (payload: unknown) => JSON.stringify(payload)
 
   if (full.includes("/api/account/status")) {
     return {
@@ -418,231 +429,237 @@ const fetchMock = vi.fn(async (input: RequestInfo, init?: RequestInit) => {
     const situation =
       typeof body?.situation === "string" ? body.situation.toLowerCase() : ""
     if (situation.includes("observation-based wording only")) {
+      const payload = {
+        success: true,
+        data: {
+          generatedDraft:
+            "Subject: Classroom update\n\nHello,\n\nI wanted to share that he sometimes finds it difficult to stay focused during longer tasks and benefits from clear step-by-step instructions.\n\nKind regards,\nGreg Blackburn",
+          formattedDraft: {
+            subject: "Classroom update",
+            paragraphs: [
+              "Hello,",
+              "I wanted to share that he sometimes finds it difficult to stay focused during longer tasks and benefits from clear step-by-step instructions.",
+              "Kind regards,\nGreg Blackburn",
+            ],
+          },
+          metadata: {
+            wordCount: 42,
+            toneUsed: "professional",
+            modelUsed: "model-v1",
+            pronounPreference: "auto",
+            pronounResolution: {
+              resolvedPreference: "auto",
+              reason: null,
+              source: null,
+            },
+            generationTime: 420,
+            tokensUsed: 210,
+            safetyFlags: [],
+            generatedAt: new Date().toISOString(),
+            requestedAt: new Date().toISOString(),
+            contextUsed: {},
+            signatureBlock: "Greg Blackburn",
+          },
+          meta: {
+            inputReframed: false,
+            inputReframedTier: null,
+            latencyMs: 420,
+            usedFallback: false,
+            errorCode: null,
+          },
+          usage: {
+            plan: "free",
+            currentMonthUsage: 3,
+            limit: 5,
+            remaining: 2,
+          },
+          safetyAnalysis: {
+            riskScore: 10,
+            riskLevel: "low",
+            triggeredSignals: [],
+            toneClass: "collaborative",
+            topicSensitivity: "medium",
+            reactionForecast: {
+              collaborative: 55,
+              concerned: 25,
+              defensive: 10,
+              hostile: 0,
+              confused: 10,
+            },
+            explanationLines: [],
+            documentationModeAvailable: false,
+            professionalRiskFlags: [],
+            structuralImbalance: false,
+          },
+          outputSafetyAnalysis: {
+            riskScore: 10,
+            riskLevel: "low",
+            triggeredSignals: [],
+            toneClass: "collaborative",
+            topicSensitivity: "medium",
+            reactionForecast: {
+              collaborative: 55,
+              concerned: 25,
+              defensive: 10,
+              hostile: 0,
+              confused: 10,
+            },
+            explanationLines: [],
+            documentationModeAvailable: false,
+            professionalRiskFlags: [],
+            structuralImbalance: false,
+          },
+          deescalationSummary: null,
+          documentationModeActive: false,
+        },
+      }
       return {
         ok: true,
         status: 200,
-        json: async () => ({
-          success: true,
-          data: {
-            generatedDraft:
-              "Subject: Classroom update\n\nHello,\n\nI wanted to share that he sometimes finds it difficult to stay focused during longer tasks and benefits from clear step-by-step instructions.\n\nKind regards,\nGreg Blackburn",
-            formattedDraft: {
-              subject: "Classroom update",
-              paragraphs: [
-                "Hello,",
-                "I wanted to share that he sometimes finds it difficult to stay focused during longer tasks and benefits from clear step-by-step instructions.",
-                "Kind regards,\nGreg Blackburn",
-              ],
-            },
-            metadata: {
-              wordCount: 42,
-              toneUsed: "professional",
-              modelUsed: "model-v1",
-              pronounPreference: "auto",
-              pronounResolution: {
-                resolvedPreference: "auto",
-                reason: null,
-                source: null,
-              },
-              generationTime: 420,
-              tokensUsed: 210,
-              safetyFlags: [],
-              generatedAt: new Date().toISOString(),
-              requestedAt: new Date().toISOString(),
-              contextUsed: {},
-              signatureBlock: "Greg Blackburn",
-            },
-            meta: {
-              inputReframed: false,
-              inputReframedTier: null,
-              latencyMs: 420,
-              usedFallback: false,
-              errorCode: null,
-            },
-            usage: {
-              plan: "free",
-              currentMonthUsage: 3,
-              limit: 5,
-              remaining: 2,
-            },
-            safetyAnalysis: {
-              riskScore: 10,
-              riskLevel: "low",
-              triggeredSignals: [],
-              toneClass: "collaborative",
-              topicSensitivity: "medium",
-              reactionForecast: {
-                collaborative: 55,
-                concerned: 25,
-                defensive: 10,
-                hostile: 0,
-                confused: 10,
-              },
-              explanationLines: [],
-              documentationModeAvailable: false,
-              professionalRiskFlags: [],
-              structuralImbalance: false,
-            },
-            outputSafetyAnalysis: {
-              riskScore: 10,
-              riskLevel: "low",
-              triggeredSignals: [],
-              toneClass: "collaborative",
-              topicSensitivity: "medium",
-              reactionForecast: {
-                collaborative: 55,
-                concerned: 25,
-                defensive: 10,
-                hostile: 0,
-                confused: 10,
-              },
-              explanationLines: [],
-              documentationModeAvailable: false,
-              professionalRiskFlags: [],
-              structuralImbalance: false,
-            },
-            deescalationSummary: null,
-            documentationModeActive: false,
-          },
-        }),
+        json: async () => payload,
+        text: async () => textFrom(payload),
       } as any
     }
     if (situation.includes("adhd") || situation.includes("autism spectrum")) {
+      const payload = {
+        success: false,
+        code: "BLOCKED_LANGUAGE",
+        message: "Draft paused this message to keep the communication parent-safe.",
+        error: { code: "BLOCKED_LANGUAGE", message: "Draft paused this message to keep the communication parent-safe." },
+        data: {
+          blockedLanguage: {
+            title: "Draft paused this message for safety",
+            teacherNote:
+              "This draft includes medical or diagnostic speculation, which teachers should avoid in parent communication. Instead, describe observed behaviour and classroom impact only.",
+            safeAlternatives: [
+              "Unsafe: 'I think he may have ADHD.'",
+              "Safer: 'He sometimes finds it difficult to stay focused during longer tasks and benefits from clear step-by-step instructions.'",
+              "Use observation-based wording instead.",
+            ],
+            actionLabel: "Create a parent-safe version",
+            variant: "diagnostic_speculation",
+          },
+        },
+      }
       return {
         ok: false,
         status: 422,
-        json: async () => ({
-          success: false,
-          code: "BLOCKED_LANGUAGE",
-          message: "Draft paused this message to keep the communication parent-safe.",
-          error: { code: "BLOCKED_LANGUAGE", message: "Draft paused this message to keep the communication parent-safe." },
-          data: {
-            blockedLanguage: {
-              title: "Draft paused this message for safety",
-              teacherNote:
-                "This draft includes medical or diagnostic speculation, which teachers should avoid in parent communication. Instead, describe observed behaviour and classroom impact only.",
-              safeAlternatives: [
-                "Unsafe: 'I think he may have ADHD.'",
-                "Safer: 'He sometimes finds it difficult to stay focused during longer tasks and benefits from clear step-by-step instructions.'",
-                "Use observation-based wording instead.",
-              ],
-              actionLabel: "Create a parent-safe version",
-              variant: "diagnostic_speculation",
-            },
-          },
-        }),
+        json: async () => payload,
+        text: async () => textFrom(payload),
       } as any
     }
     if (
       situation.includes("head teacher") ||
       situation.includes("schulleitung weiterzugeben")
     ) {
+      const payload = {
+        success: true,
+        data: {
+          generatedDraft:
+            "Dear Mr and Mrs Patel,\n\nThank you for sharing your concern about the recent homework load. I understand why the last few evenings have felt stressful, and I want to respond clearly and constructively.\n\nI will review the current homework instructions with the class, keep the next set more focused, and check in with your child this week so we can see what is feeling most manageable.\n\nIf it would help, we can also arrange a short call to agree the next step together.\n\nKind regards,\nGreg Blackburn",
+          formattedDraft: {
+            subject: "Homework concern follow-up",
+            paragraphs: [
+              "Dear Mr and Mrs Patel,",
+              "Thank you for sharing your concern about the recent homework load. I understand why the last few evenings have felt stressful, and I want to respond clearly and constructively.",
+              "I will review the current homework instructions with the class, keep the next set more focused, and check in with your child this week so we can see what is feeling most manageable.",
+              "If it would help, we can also arrange a short call to agree the next step together.",
+              "Kind regards,\nGreg Blackburn",
+            ],
+          },
+          metadata: {
+            wordCount: 109,
+            toneUsed: "professional",
+            modelUsed: "model-v1",
+            pronounPreference: "auto",
+            pronounResolution: {
+              resolvedPreference: "auto",
+              reason: null,
+              source: null,
+            },
+            generationTime: 610,
+            tokensUsed: 340,
+            safetyFlags: [],
+            generatedAt: new Date().toISOString(),
+            requestedAt: new Date().toISOString(),
+            contextUsed: {},
+            signatureBlock: "Greg Blackburn",
+          },
+          meta: {
+            inputReframed: false,
+            inputReframedTier: null,
+            latencyMs: 610,
+            usedFallback: false,
+            errorCode: null,
+          },
+          usage: {
+            plan: "free",
+            currentMonthUsage: 1,
+            limit: 5,
+            remaining: 4,
+          },
+          safetyAnalysis: {
+            riskScore: 44,
+            riskLevel: "medium",
+            triggeredSignals: [
+              {
+                id: "cold_no_collaboration",
+                category: "escalation",
+                label: "No collaboration invitation",
+                matchedPhrase: "Please deal with this immediately",
+              },
+              {
+                id: "blame",
+                category: "accusation",
+                label: "Blame wording",
+                matchedPhrase: "your homework expectations are unreasonable",
+              },
+            ],
+            toneClass: "tense",
+            topicSensitivity: "high",
+            reactionForecast: {
+              collaborative: 20,
+              concerned: 35,
+              defensive: 30,
+              hostile: 5,
+              confused: 10,
+            },
+            explanationLines: [],
+            documentationModeAvailable: false,
+            professionalRiskFlags: [],
+            structuralImbalance: false,
+          },
+          outputSafetyAnalysis: {
+            riskScore: 12,
+            riskLevel: "low",
+            triggeredSignals: [],
+            toneClass: "collaborative",
+            topicSensitivity: "high",
+            reactionForecast: {
+              collaborative: 60,
+              concerned: 20,
+              defensive: 10,
+              hostile: 0,
+              confused: 10,
+            },
+            explanationLines: [],
+            documentationModeAvailable: false,
+            professionalRiskFlags: [],
+            structuralImbalance: false,
+          },
+          deescalationSummary: {
+            wasDeescalated: true,
+            flaggedPhrases: [{ original: "escalating", replacement: "follow up", category: "threat" }],
+            coachingLine: "The wording was made calmer and easier to send.",
+          },
+          documentationModeActive: false,
+        },
+      }
       return {
         ok: true,
         status: 200,
-        json: async () => ({
-          success: true,
-          data: {
-            generatedDraft:
-              "Dear Mr and Mrs Patel,\n\nThank you for sharing your concern about the recent homework load. I understand why the last few evenings have felt stressful, and I want to respond clearly and constructively.\n\nI will review the current homework instructions with the class, keep the next set more focused, and check in with your child this week so we can see what is feeling most manageable.\n\nIf it would help, we can also arrange a short call to agree the next step together.\n\nKind regards,\nGreg Blackburn",
-            formattedDraft: {
-              subject: "Homework concern follow-up",
-              paragraphs: [
-                "Dear Mr and Mrs Patel,",
-                "Thank you for sharing your concern about the recent homework load. I understand why the last few evenings have felt stressful, and I want to respond clearly and constructively.",
-                "I will review the current homework instructions with the class, keep the next set more focused, and check in with your child this week so we can see what is feeling most manageable.",
-                "If it would help, we can also arrange a short call to agree the next step together.",
-                "Kind regards,\nGreg Blackburn",
-              ],
-            },
-            metadata: {
-              wordCount: 109,
-              toneUsed: "professional",
-              modelUsed: "model-v1",
-              pronounPreference: "auto",
-              pronounResolution: {
-                resolvedPreference: "auto",
-                reason: null,
-                source: null,
-              },
-              generationTime: 610,
-              tokensUsed: 340,
-              safetyFlags: [],
-              generatedAt: new Date().toISOString(),
-              requestedAt: new Date().toISOString(),
-              contextUsed: {},
-              signatureBlock: "Greg Blackburn",
-            },
-            meta: {
-              inputReframed: false,
-              inputReframedTier: null,
-              latencyMs: 610,
-              usedFallback: false,
-              errorCode: null,
-            },
-            usage: {
-              plan: "free",
-              currentMonthUsage: 1,
-              limit: 5,
-              remaining: 4,
-            },
-            safetyAnalysis: {
-              riskScore: 44,
-              riskLevel: "medium",
-              triggeredSignals: [
-                {
-                  id: "cold_no_collaboration",
-                  category: "escalation",
-                  label: "No collaboration invitation",
-                  matchedPhrase: "Please deal with this immediately",
-                },
-                {
-                  id: "blame",
-                  category: "accusation",
-                  label: "Blame wording",
-                  matchedPhrase: "your homework expectations are unreasonable",
-                },
-              ],
-              toneClass: "tense",
-              topicSensitivity: "high",
-              reactionForecast: {
-                collaborative: 20,
-                concerned: 35,
-                defensive: 30,
-                hostile: 5,
-                confused: 10,
-              },
-              explanationLines: [],
-              documentationModeAvailable: false,
-              professionalRiskFlags: [],
-              structuralImbalance: false,
-            },
-            outputSafetyAnalysis: {
-              riskScore: 12,
-              riskLevel: "low",
-              triggeredSignals: [],
-              toneClass: "collaborative",
-              topicSensitivity: "high",
-              reactionForecast: {
-                collaborative: 60,
-                concerned: 20,
-                defensive: 10,
-                hostile: 0,
-                confused: 10,
-              },
-              explanationLines: [],
-              documentationModeAvailable: false,
-              professionalRiskFlags: [],
-              structuralImbalance: false,
-            },
-            deescalationSummary: {
-              wasDeescalated: true,
-              flaggedPhrases: [{ original: "escalating", replacement: "follow up", category: "threat" }],
-              coachingLine: "The wording was made calmer and easier to send.",
-            },
-            documentationModeActive: false,
-          },
-        }),
+        json: async () => payload,
+        text: async () => textFrom(payload),
       } as any
     }
     if (situation.includes("reading progress")) {
@@ -695,6 +712,7 @@ const fetchMock = vi.fn(async (input: RequestInfo, init?: RequestInit) => {
         ok: true,
         status: 200,
         json: async () => success,
+        text: async () => textFrom(success),
       } as any
     }
 
@@ -712,6 +730,14 @@ const fetchMock = vi.fn(async (input: RequestInfo, init?: RequestInit) => {
         message: msg,
         error: { code: "OUT_OF_SCOPE", message: msg },
       }),
+      text: async () =>
+        textFrom({
+          success: false,
+          ok: false,
+          code: "OUT_OF_SCOPE",
+          message: msg,
+          error: { code: "OUT_OF_SCOPE", message: msg },
+        }),
     } as any
   }
 
@@ -749,7 +775,18 @@ function getPromptTextarea() {
 }
 
 function findGenerateButton() {
-  const matchers = [/button\.generate/i, /generate/i, /entwurf/i, /draft/i]
+  const matchers = [
+    /button\.generate/i,
+    /write calm reply/i,
+    /improve my draft/i,
+    /generate comment/i,
+    /generate/i,
+    /ruhige antwort schreiben/i,
+    /meinen entwurf verbessern/i,
+    /kommentar erstellen/i,
+    /entwurf/i,
+    /draft/i,
+  ]
   for (const matcher of matchers) {
     const button = screen.queryByRole("button", { name: matcher })
     if (button) {

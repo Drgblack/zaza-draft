@@ -116,19 +116,6 @@ const PRONOUN_OPTIONS: { id: PronounPreference; label: string }[] = [
 type ModeKey = DraftMode
 type ParentInputMode = ParentMessageInputType
 
-const MODE_SEGMENT_OPTIONS = [
-  {
-    id: "parent_message" as ModeKey,
-    labelKey: MODE_LABEL_KEYS.parent_message,
-    icon: Mail,
-  },
-  {
-    id: "report_comment" as ModeKey,
-    labelKey: MODE_LABEL_KEYS.report_comment,
-    icon: MessageCircle,
-  },
-]
-
 type ToneKey = (typeof TONE_OPTIONS)[number]["id"]
 type RewriteMode = "standard" | "forward_safe"
 type DisplayModeKey = DraftMode | "documentation_mode"
@@ -458,19 +445,6 @@ export function MainEditor({ canExport = true }: MainEditorProps = {}) {
       }),
     [t],
   )
-  const modeControlOptions = useMemo(
-    () =>
-      MODE_SEGMENT_OPTIONS.map((option) => {
-        const Icon = option.icon
-        return {
-          value: option.id,
-          label: t(option.labelKey),
-          icon: <Icon size={16} aria-hidden="true" />,
-          ariaLabel: t(option.labelKey),
-        }
-      }),
-    [t],
-  )
   const [greeting, setGreeting] = useState("Good morning")
   const [userName, setUserName] = useState("")
   const [generatedDraft, setGeneratedDraft] = useState<string | null>(null)
@@ -763,10 +737,6 @@ export function MainEditor({ canExport = true }: MainEditorProps = {}) {
   const modeSwitchButtonLabel = documentationDisplayActive
     ? t("editor.mode.switchToMessage")
     : t("editor.mode.switchToDocumentation")
-  const selectedModeHelper = documentationDisplayActive
-    ? t("editor.mode.documentationHelper")
-    : t("editor.mode.helper")
-  const selectedModeStatus = documentationDisplayActive
   const selectedModeLabelForInsights = useMemo(
     () => t(mode === "report_comment" ? MODE_LABEL_KEYS.report_comment : MODE_LABEL_KEYS.parent_message),
     [mode, t],
@@ -833,6 +803,15 @@ Examples:
 - Parent email about homework concerns, professional and empathetic tone
 - Report card comment for excellent progress in reading comprehension`
   }, [locale, mode, parentInputMode, t])
+  const generateButtonLabel = useMemo(() => {
+    if (mode === "report_comment") {
+      return t("button.generate.reportComment")
+    }
+
+    return parentInputMode === "teacher_draft"
+      ? t("button.generate.teacherDraft")
+      : t("button.generate.parentMessage")
+  }, [mode, parentInputMode, t])
   const greetingHeading = useMemo(() => {
     if (looksLikeHumanDisplayName(userName, user?.email)) {
       return formatGreetingDisplay(greeting, userName)
@@ -2141,46 +2120,62 @@ Examples:
                   </Button>
                 </div>
               )}
-              {mode === "parent_message" && (
-                <div className="mb-5 flex flex-wrap items-center gap-2 sm:gap-3">
-                  <span className="text-sm font-medium text-slate-700 dark:text-white/75">
-                    {t("editor.inputMode.heading")}
-                  </span>
-                  <div
-                    role="tablist"
-                    aria-label={t("editor.inputMode.heading")}
-                    className="inline-flex items-center gap-1 rounded-full border border-slate-200/80 bg-white/55 p-1 dark:border-white/12 dark:bg-white/6"
-                  >
-                    {PARENT_INPUT_SEGMENT_OPTIONS.map((option, index) => {
-                      const selected = option.id === parentInputMode
+              {mode === "parent_message" ? (
+                <div className="mb-6 space-y-3">
+                  <div className="flex flex-wrap items-center gap-2.5 sm:gap-3">
+                    <span className="text-sm font-medium text-slate-700 dark:text-white/75">
+                      {t("editor.inputMode.heading")}
+                    </span>
+                    <div
+                      role="tablist"
+                      aria-label={t("editor.inputMode.heading")}
+                      className="inline-flex items-center gap-1 rounded-full border border-slate-200/80 bg-white/50 p-1 dark:border-white/12 dark:bg-white/6"
+                    >
+                      {PARENT_INPUT_SEGMENT_OPTIONS.map((option, index) => {
+                        const selected = option.id === parentInputMode
 
-                      return (
-                        <button
-                          key={option.id}
-                          ref={(element) => {
-                            parentInputModeButtonRefs.current[index] = element
-                          }}
-                          type="button"
-                          role="tab"
-                          aria-selected={selected}
-                          aria-label={t(option.labelKey)}
-                          tabIndex={selected ? 0 : -1}
-                          onClick={() => handleParentInputModeChange(option.id)}
-                          onKeyDown={(event) => handleParentInputModeKeyDown(event, index)}
-                          className={cn(
-                            "inline-flex min-h-[36px] items-center justify-center rounded-full border px-3 py-1.5 text-sm font-medium transition-colors duration-200 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-sky-300/60 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-slate-950",
-                            selected
-                              ? "border-sky-300/70 bg-sky-500/10 text-slate-900 dark:border-sky-300/25 dark:bg-sky-400/10 dark:text-white"
-                              : "border-transparent bg-transparent text-slate-500 hover:border-slate-200/80 hover:text-slate-800 dark:text-white/55 dark:hover:border-white/12 dark:hover:text-white/85",
-                          )}
-                        >
-                          <span>{t(option.labelKey)}</span>
-                        </button>
-                      )
-                    })}
+                        return (
+                          <button
+                            key={option.id}
+                            ref={(element) => {
+                              parentInputModeButtonRefs.current[index] = element
+                            }}
+                            type="button"
+                            role="tab"
+                            aria-selected={selected}
+                            aria-label={t(option.labelKey)}
+                            tabIndex={selected ? 0 : -1}
+                            onClick={() => handleParentInputModeChange(option.id)}
+                            onKeyDown={(event) => handleParentInputModeKeyDown(event, index)}
+                            className={cn(
+                              "inline-flex min-h-[34px] items-center justify-center rounded-full border px-3.5 py-1.5 text-sm transition-colors duration-200 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-sky-300/55 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-slate-950",
+                              selected
+                                ? "border-sky-300/70 bg-sky-500/10 font-semibold text-slate-900 dark:border-sky-300/30 dark:bg-sky-400/12 dark:text-white"
+                                : "border-transparent bg-transparent font-medium text-slate-500 hover:text-slate-800 dark:text-white/55 dark:hover:text-white/85",
+                            )}
+                          >
+                            <span>{t(option.labelKey)}</span>
+                          </button>
+                        )
+                      })}
+                    </div>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => handleModeChange("report_comment")}
+                      className="h-8 rounded-full px-3 text-xs font-medium text-slate-500 hover:bg-white/70 hover:text-slate-800 dark:text-white/55 dark:hover:bg-white/10 dark:hover:text-white/85"
+                    >
+                      {t("editor.mode.reportCommentShortcut")}
+                    </Button>
                   </div>
+                  {parentInputPromise ? (
+                    <p className="text-sm leading-relaxed text-slate-600 dark:text-white/72">
+                      {parentInputPromise}
+                    </p>
+                  ) : null}
                   {inputModeMismatchSuggestion ? (
-                    <div className="rounded-2xl border border-amber-300/55 bg-amber-50/85 px-4 py-3 text-sm text-amber-950 shadow-[0_10px_30px_rgba(120,53,15,0.08)] dark:border-amber-200/20 dark:bg-amber-300/10 dark:text-amber-50">
+                    <div className="rounded-2xl border border-amber-300/45 bg-amber-50/80 px-4 py-3 text-sm text-amber-950 dark:border-amber-200/15 dark:bg-amber-300/10 dark:text-amber-50">
                       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                         <p className="font-medium">{inputModeMismatchSuggestion.message}</p>
                         <Button
@@ -2188,13 +2183,36 @@ Examples:
                           variant="ghost"
                           size="sm"
                           onClick={() => handleParentInputModeChange(inputModeMismatchSuggestion.nextMode)}
-                          className="h-9 rounded-full border border-amber-400/40 bg-white/70 px-4 text-amber-950 hover:bg-white dark:border-amber-100/15 dark:bg-white/10 dark:text-amber-50 dark:hover:bg-white/15"
+                          className="h-9 rounded-full border border-amber-400/35 bg-white/70 px-4 text-amber-950 hover:bg-white dark:border-amber-100/15 dark:bg-white/10 dark:text-amber-50 dark:hover:bg-white/15"
                         >
                           {inputModeMismatchSuggestion.action}
                         </Button>
                       </div>
                     </div>
                   ) : null}
+                </div>
+              ) : (
+                <div className="mb-6 space-y-3">
+                  <div className="flex flex-wrap items-center gap-2.5 sm:gap-3">
+                    <span className="text-sm font-medium text-slate-700 dark:text-white/75">
+                      {t("editor.mode.outputLabel")}
+                    </span>
+                    <span className="inline-flex min-h-[34px] items-center rounded-full border border-slate-300/70 bg-slate-500/10 px-3.5 py-1.5 text-sm font-semibold text-slate-900 dark:border-white/15 dark:bg-white/8 dark:text-white">
+                      {t("editor.mode.reportComment")}
+                    </span>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => handleModeChange("parent_message")}
+                      className="h-8 rounded-full px-3 text-xs font-medium text-slate-500 hover:bg-white/70 hover:text-slate-800 dark:text-white/55 dark:hover:bg-white/10 dark:hover:text-white/85"
+                    >
+                      {t("editor.mode.returnToParentMessage")}
+                    </Button>
+                  </div>
+                  <p className="text-sm leading-relaxed text-slate-600 dark:text-white/72">
+                    {t("editor.mode.reportCommentHelper")}
+                  </p>
                 </div>
               )}
               <textarea
@@ -2221,10 +2239,7 @@ Examples:
                       : "Describe the situation you need help with"
                 }
               />
-              <div className="mt-3 space-y-1">
-                {parentInputPromise ? (
-                  <p className="text-sm text-slate-700 dark:text-white/80">{parentInputPromise}</p>
-                ) : null}
+              <div className="mt-4 space-y-1">
                 <p className="text-xs text-white/80">
                   {locale === "de-DE"
                     ? "Geben Sie keine vollständigen Namen, E-Mails, Telefonnummern oder Adressen ein."
@@ -2320,26 +2335,6 @@ Examples:
           )}
 
           {!outOfScopeNotice && showWellbeingInsights && !blockedDiagnosticVisible && <ContextualWellbeingTip />}
-
-          <section className="space-y-2">
-            <span className="text-sm font-semibold text-gray-800 dark:text-gray-200 mb-2">{t("editor.mode.label")}</span>
-            <p className="text-xs text-gray-600 dark:text-gray-400 mb-3">{selectedModeHelper}</p>
-            {selectedModeStatus ? (
-              <div className="rounded-xl border border-slate-200 bg-white/90 px-4 py-3 text-sm font-semibold text-slate-800 shadow-sm dark:border-slate-600 dark:bg-slate-900/70 dark:text-slate-100">
-                {selectedModeLabel}
-              </div>
-            ) : (
-              <div className="bg-white/10 border border-white/20 dark:bg-white/5 dark:border-white/10 rounded-xl p-1 shadow-inner">
-                <SegmentedControl
-                  options={modeControlOptions}
-                  value={mode}
-                  onChange={(value) => handleModeChange(value as ModeKey)}
-                  ariaLabel={t("editor.mode.label")}
-                  className="border-none bg-transparent p-0 shadow-none"
-                />
-              </div>
-            )}
-          </section>
 
           <section>
             <details className="rounded-xl bg-white/10 dark:bg-white/5 border border-white/20 dark:border-white/10 shadow-lg">
@@ -2460,10 +2455,10 @@ Examples:
             <Button
               onClick={() => handleGenerate()}
               disabled={!content.trim() || isGenerating}
-              className="w-full bg-gradient-to-br from-[#7c3aed] via-[#6d28d9] to-[#5b21b6] text-white dark:text-white text-base sm:text-lg font-bold py-5 sm:py-6 min-h-[52px] rounded-xl transition-all duration-200 shadow-[inset_0_1px_0_rgba(255,255,255,0.35),0_18px_48px_rgba(124,58,237,0.45)] hover:shadow-[inset_0_1px_0_rgba(255,255,255,0.55),0_22px_56px_rgba(124,58,237,0.55)] hover:-translate-y-1 hover:scale-[1.02] active:translate-y-[1px] active:scale-[0.99] active:shadow-[inset_0_1px_0_rgba(255,255,255,0.3),0_12px_28px_rgba(124,58,237,0.5)] disabled:opacity-50 disabled:cursor-not-allowed focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 border-2 border-white/30 motion-reduce:transition-none motion-reduce:transform-none"
-              aria-label={t("button.generate")}
+              className="w-full min-h-[52px] rounded-2xl border border-slate-900/10 bg-slate-950 px-6 py-4 text-base font-semibold text-white transition-colors duration-200 hover:bg-slate-900 disabled:cursor-not-allowed disabled:opacity-50 focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 dark:border-white/10 dark:bg-white dark:text-slate-950 dark:hover:bg-slate-100"
+              aria-label={generateButtonLabel}
             >
-              {isGenerating ? t("editor.generating.message") : t("button.generate")}
+              {isGenerating ? t("editor.generating.message") : generateButtonLabel}
             </Button>
             <div className="text-sm text-white/90 drop-shadow-[0_1px_4px_rgba(0,0,0,0.25)] font-medium">
               {isLimitedUser ? (

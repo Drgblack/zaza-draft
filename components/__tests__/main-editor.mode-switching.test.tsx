@@ -74,11 +74,19 @@ vi.mock("@/hooks/use-locale", () => ({
     t: (key: string, vars?: Record<string, string | number>) => {
       const translations: Record<string, string> = {
         "button.generate": "Generate",
+        "button.generate.parentMessage": "Write calm reply",
+        "button.generate.teacherDraft": "Improve my draft",
+        "button.generate.reportComment": "Generate comment",
         "editor.mode.parentMessage": "Parent message",
         "editor.mode.reportComment": "Report comment",
         "editor.mode.label": "Mode",
         "editor.mode.helper": "Choose your message type",
         "editor.mode.documentationHelper": "Documentation Mode is active for this result.",
+        "editor.mode.outputLabel": "Output format",
+        "editor.mode.reportCommentShortcut": "Report comment instead",
+        "editor.mode.reportCommentHelper":
+          "We'll shape this into a clear report comment for school records.",
+        "editor.mode.returnToParentMessage": "Back to parent reply",
         "editor.mode.switchToDocumentation": "Switch to Documentation Mode",
         "editor.mode.switchToMessage": "Switch to Message Mode",
         "editor.inputMode.heading": "What are you working with?",
@@ -88,16 +96,16 @@ vi.mock("@/hooks/use-locale", () => ({
         "editor.inputMode.teacherDraftDescription": "Improve what I’ve written",
         "editor.inputMode.parentMessagePlaceholder": "Paste the parent’s message here…",
         "editor.inputMode.teacherDraftPlaceholder":
-          "Paste your draft reply… I’ll make it calmer and safer",
+          "Paste your draft reply… I’ll make it calmer and safer.",
         "editor.inputMode.parentMessagePromise":
-          "I’ll write a reply that’s calm, professional, and hard to misread.",
+          "We’ll write a calm, professional reply.",
         "editor.inputMode.teacherDraftPromise":
-          "I’ll improve your message without changing what you want to say.",
+          "We’ll improve your draft without changing your intent.",
         "editor.inputMode.mismatch.parentMessage": "This looks like a parent message.",
         "editor.inputMode.mismatch.teacherDraft": "This looks like your draft reply.",
         "editor.inputMode.mismatch.switchToParentMessage": "Switch to Parent message",
         "editor.inputMode.mismatch.switchToTeacherDraft": "Switch to My draft",
-        "draft.generatedTitle": "Draft generated",
+        "draft.generatedTitle": "Ready to review",
         "draft.documentation.badge": "Documentation Mode",
         "draft.documentation.label": "Mode:",
         "draft.documentation.description": "Rewritten as a neutral incident record.",
@@ -117,7 +125,7 @@ vi.mock("@/hooks/use-locale", () => ({
         "editor.history.viewData": "View data",
         "editor.history.empty": "No history",
         "draft.teacherControl.reassurance":
-          "You review every message before anything is sent. Draft never sends messages for you.",
+          "You stay in control. Review before sending.",
         "homeSafeDraftTitle": "Safe Draft",
         "panicScanTitle": "Panic Scan",
         "editor.advanced.summaryTitle": "Advanced options",
@@ -323,10 +331,6 @@ function getDraftGenerateBodies() {
     .map(([, init]) => JSON.parse(String(init?.body ?? "{}")))
 }
 
-function getModeTablist() {
-  return screen.getByRole("tablist", { name: "Mode" })
-}
-
 function getInputTypeTablist() {
   return screen.getByRole("tablist", { name: "What are you working with?" })
 }
@@ -341,7 +345,7 @@ describe("MainEditor mode switching", () => {
       },
     })
 
-    fireEvent.click(screen.getByRole("button", { name: "Generate" }))
+    fireEvent.click(screen.getByRole("button", { name: "Write calm reply" }))
 
     await waitFor(() => {
       expect(screen.getByTestId("draft-output-body")).toHaveTextContent(
@@ -350,7 +354,7 @@ describe("MainEditor mode switching", () => {
     })
 
     expect(screen.getByText("Mode: Parent message")).toBeInTheDocument()
-    expect(within(getModeTablist()).getByRole("tab", { name: "Parent message" })).toBeInTheDocument()
+    expect(screen.getByRole("button", { name: "Report comment instead" })).toBeInTheDocument()
     expect(screen.getByRole("button", { name: "Switch to Documentation Mode" })).toBeInTheDocument()
     expect(screen.queryByRole("button", { name: "Switch to Message Mode" })).toBeNull()
 
@@ -362,9 +366,8 @@ describe("MainEditor mode switching", () => {
       )
     })
 
-    expect(screen.getAllByText("Documentation Mode").length).toBeGreaterThanOrEqual(2)
-    expect(screen.getByText("Documentation Mode is active for this result.")).toBeInTheDocument()
-    expect(screen.queryByRole("tablist", { name: "Mode" })).toBeNull()
+    expect(screen.getByText("Documentation Mode")).toBeInTheDocument()
+    expect(screen.queryByText("Output format")).toBeNull()
     expect(screen.queryByRole("button", { name: "Switch to Documentation Mode" })).toBeNull()
     expect(screen.getByRole("button", { name: "Switch to Message Mode" })).toBeInTheDocument()
   })
@@ -379,7 +382,7 @@ describe("MainEditor mode switching", () => {
       target: { value: sourceText },
     })
 
-    fireEvent.click(screen.getByRole("button", { name: "Generate" }))
+    fireEvent.click(screen.getByRole("button", { name: "Write calm reply" }))
 
     await waitFor(() => {
       expect(screen.getByTestId("draft-output-body")).toHaveTextContent(
@@ -406,7 +409,7 @@ describe("MainEditor mode switching", () => {
     })
 
     expect(screen.getByText("Mode: Parent message")).toBeInTheDocument()
-    expect(within(getModeTablist()).getByRole("tab", { name: "Parent message" })).toBeInTheDocument()
+    expect(screen.getByRole("button", { name: "Report comment instead" })).toBeInTheDocument()
     expect(screen.getByRole("button", { name: "Switch to Documentation Mode" })).toBeInTheDocument()
     expect(screen.queryByRole("button", { name: "Switch to Message Mode" })).toBeNull()
     expect(getTextarea().value).toBe(sourceText)
@@ -426,9 +429,8 @@ describe("MainEditor mode switching", () => {
 
     expect(screen.getByText("What are you working with?")).toBeInTheDocument()
     expect(getTextarea()).toHaveAttribute("placeholder", "Paste the parent’s message here…")
-    expect(
-      screen.getByText("I’ll write a reply that’s calm, professional, and hard to misread."),
-    ).toBeInTheDocument()
+    expect(screen.getByText("We’ll write a calm, professional reply.")).toBeInTheDocument()
+    expect(screen.getByRole("button", { name: "Write calm reply" })).toBeInTheDocument()
     expect(within(getInputTypeTablist()).getByRole("tab", { name: "Parent message" })).toHaveAttribute(
       "aria-selected",
       "true",
@@ -441,7 +443,7 @@ describe("MainEditor mode switching", () => {
       },
     })
 
-    fireEvent.click(screen.getByRole("button", { name: "Generate" }))
+    fireEvent.click(screen.getByRole("button", { name: "Write calm reply" }))
 
     await waitFor(() => {
       expect(getDraftGenerateBodies()).toHaveLength(1)
@@ -454,11 +456,13 @@ describe("MainEditor mode switching", () => {
 
     expect(getTextarea()).toHaveAttribute(
       "placeholder",
-      "Paste your draft reply… I’ll make it calmer and safer",
+      "Paste your draft reply… I’ll make it calmer and safer.",
     )
+    expect(screen.getByText("We’ll improve your draft without changing your intent.")).toBeInTheDocument()
+    expect(screen.getByRole("button", { name: "Improve my draft" })).toBeInTheDocument()
     expect(window.localStorage.getItem("zaza:parent-input-mode")).toBe("teacher_draft")
 
-    fireEvent.click(screen.getByRole("button", { name: "Generate" }))
+    fireEvent.click(screen.getByRole("button", { name: "Improve my draft" }))
 
     await waitFor(() => {
       expect(getDraftGenerateBodies()).toHaveLength(2)
@@ -482,7 +486,7 @@ describe("MainEditor mode switching", () => {
 
     expect(getTextarea()).toHaveAttribute(
       "placeholder",
-      "Paste your draft reply… I’ll make it calmer and safer",
+      "Paste your draft reply… I’ll make it calmer and safer.",
     )
   })
 
@@ -555,7 +559,7 @@ describe("MainEditor mode switching", () => {
       },
     })
 
-    fireEvent.click(screen.getByRole("button", { name: "Generate" }))
+    fireEvent.click(screen.getByRole("button", { name: "Write calm reply" }))
 
     expect(
       await screen.findByText(
@@ -578,7 +582,7 @@ describe("MainEditor mode switching", () => {
       },
     })
 
-    fireEvent.click(screen.getByRole("button", { name: "Generate" }))
+    fireEvent.click(screen.getByRole("button", { name: "Write calm reply" }))
 
     expect(
       await screen.findByText(

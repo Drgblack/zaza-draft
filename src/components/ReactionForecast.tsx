@@ -44,7 +44,7 @@ function ForecastRows({ forecast }: { forecast: ReactionForecastData }) {
       {entries.map(([reaction, value]) => (
         <div
           key={reaction}
-          className="rounded-xl border border-slate-200 bg-white/80 p-3 shadow-sm dark:border-slate-700 dark:bg-slate-950/30"
+          className="rounded-xl border border-slate-200 bg-white/75 p-3 dark:border-slate-700 dark:bg-slate-950/25"
         >
           <div className="flex items-center justify-between gap-3 text-sm">
             <span className="font-medium text-slate-900 dark:text-slate-100">
@@ -79,7 +79,7 @@ function ForecastSummary({
   )
 
   return (
-    <div className="mt-3 rounded-xl border border-slate-200 bg-white/85 p-4 shadow-sm dark:border-slate-700 dark:bg-slate-950/30">
+    <div className="mt-3 rounded-xl border border-slate-200 bg-white/80 p-4 dark:border-slate-700 dark:bg-slate-950/25">
       {showTitle ? (
         <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">
           Parent Reaction Predictor
@@ -130,13 +130,13 @@ export function ReactionForecast({ forecast, riskLevel }: ReactionForecastProps)
 
   if (riskLevel === "high") {
     return (
-      <div className="rounded-xl border border-rose-200 bg-white p-4 shadow-sm dark:border-rose-500/20 dark:bg-slate-900/60">
+      <div className="rounded-xl border border-rose-200 bg-white/90 p-4 dark:border-rose-500/20 dark:bg-slate-900/50">
         <div className="space-y-1">
           <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">
             Parent Reaction Predictor
           </p>
           <p className="text-xs leading-relaxed text-slate-600 dark:text-slate-300">
-            Actionable interpretation of the current tone and wording.
+            Based on tone and wording, here's how this message is likely to be received.
           </p>
         </div>
         <ForecastSummary forecast={normalizedForecast} showTitle={false} />
@@ -150,7 +150,7 @@ export function ReactionForecast({ forecast, riskLevel }: ReactionForecastProps)
       open={open}
       onOpenChange={setOpen}
       className={cn(
-        "rounded-xl border bg-white p-4 shadow-sm dark:bg-slate-900/60",
+        "rounded-xl border bg-white/90 p-4 dark:bg-slate-900/50",
         riskLevel === "medium"
           ? "border-amber-200 dark:border-amber-500/20"
           : "border-emerald-200 dark:border-emerald-500/20",
@@ -159,7 +159,7 @@ export function ReactionForecast({ forecast, riskLevel }: ReactionForecastProps)
       <div className={cn(open && "mb-3")}>
         <ForecastSummary forecast={normalizedForecast} />
         <p className="mt-3 text-xs leading-relaxed text-slate-600 dark:text-slate-300">
-          Actionable interpretation of the current tone and wording.
+          Based on tone and wording, here's how this message is likely to be received.
         </p>
       </div>
       <CollapsibleTrigger

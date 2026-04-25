@@ -74,12 +74,20 @@ vi.mock("@/hooks/use-locale", () => ({
     t: (key: string, vars?: Record<string, string | number>) => {
       const translations: Record<string, string> = {
         "button.generate": "Generate",
+        "button.generate.parentMessage": "Write calm reply",
+        "button.generate.teacherDraft": "Improve my draft",
+        "button.generate.reportComment": "Generate comment",
         "editor.mode.parentMessage": "Parent message",
         "editor.mode.reportComment": "Report comment",
         "editor.mode.label": "Mode",
         "editor.mode.helper": "Choose the output mode",
+        "editor.mode.outputLabel": "Output format",
+        "editor.mode.reportCommentShortcut": "Report comment instead",
+        "editor.mode.reportCommentHelper":
+          "We'll shape this into a clear report comment for school records.",
+        "editor.mode.returnToParentMessage": "Back to parent reply",
         panicScanReturnNote: "Continuing from Panic Scan",
-        "draft.generatedTitle": "Draft generated",
+        "draft.generatedTitle": "Ready to review",
         "draft.button.copy": "Copy",
         "draft.button.copyShort": "Copy",
         "draft.button.edit": "Edit",
@@ -125,42 +133,37 @@ vi.mock("@/lib/analytics", () => ({
 const fetchMock = vi.fn(async (input: RequestInfo, init?: RequestInit) => {
   const url = typeof input === "string" ? input : (input as Request).url
   const full = url.startsWith("http") ? url : `http://localhost${url}`
+  const responseFrom = (payload: unknown, status = 200, ok = true) =>
+    ({
+      ok,
+      status,
+      json: async () => payload,
+      text: async () => JSON.stringify(payload),
+    }) as Response
 
   if (full.includes("/api/account/status")) {
-    return {
-      ok: true,
-      status: 200,
-      json: async () => ({
-        success: true,
-        data: {
-          usage: { plan: "pro", currentMonthUsage: 0, limit: null, remaining: null },
-          isQaUser: false,
-        },
-      }),
-    } as Response
+    return responseFrom({
+      success: true,
+      data: {
+        usage: { plan: "pro", currentMonthUsage: 0, limit: null, remaining: null },
+        isQaUser: false,
+      },
+    })
   }
 
   if (full.includes("/api/onboarding")) {
-    return {
-      ok: true,
-      status: 200,
-      json: async () => ({
-        success: true,
-        data: {
-          onboardingCompleted: true,
-          welcomeEmailSent: true,
-          firstLogin: false,
-        },
-      }),
-    } as Response
+    return responseFrom({
+      success: true,
+      data: {
+        onboardingCompleted: true,
+        welcomeEmailSent: true,
+        firstLogin: false,
+      },
+    })
   }
 
   if (full.includes("/api/snippets")) {
-    return {
-      ok: true,
-      status: 200,
-      json: async () => ({ success: true, data: { snippets: [], nextCursor: null } }),
-    } as Response
+    return responseFrom({ success: true, data: { snippets: [], nextCursor: null } })
   }
 
   if (full.includes("/api/draft/generate")) {
@@ -174,35 +177,27 @@ const fetchMock = vi.fn(async (input: RequestInfo, init?: RequestInit) => {
             paragraphs: ["Dear family,", renderedBody, "Kind regards,\nDr Greg Blackburn"],
           }
 
-    return {
-      ok: true,
-      status: 200,
-      json: async () => ({
-        success: true,
-        data: {
-          generatedDraft: renderedBody,
-          formattedDraft,
-          metadata: {
-            generationTime: 420,
-            wordCount: renderedBody.split(/\s+/).length,
-            toneUsed: body.tone,
-            modeUsed: body.mode,
-            generatedAt: new Date().toISOString(),
-          },
-          usage: { plan: "pro", currentMonthUsage: 1, limit: null, remaining: null },
-          deescalationSummary: null,
-          greeting: null,
-          meta: {},
+    return responseFrom({
+      success: true,
+      data: {
+        generatedDraft: renderedBody,
+        formattedDraft,
+        metadata: {
+          generationTime: 420,
+          wordCount: renderedBody.split(/\s+/).length,
+          toneUsed: body.tone,
+          modeUsed: body.mode,
+          generatedAt: new Date().toISOString(),
         },
-      }),
-    } as Response
+        usage: { plan: "pro", currentMonthUsage: 1, limit: null, remaining: null },
+        deescalationSummary: null,
+        greeting: null,
+        meta: {},
+      },
+    })
   }
 
-  return {
-    ok: true,
-    status: 200,
-    json: async () => ({ success: true, data: {} }),
-  } as Response
+  return responseFrom({ success: true, data: {} })
 })
 
 beforeEach(() => {
@@ -265,7 +260,7 @@ describe("MainEditor Panic Scan handoff lifecycle", () => {
 
     expect(screen.getByText("Continuing from Panic Scan")).toBeInTheDocument()
 
-    fireEvent.click(screen.getByRole("button", { name: "Generate" }))
+    fireEvent.click(screen.getByRole("button", { name: "Write calm reply" }))
 
     await waitFor(() => {
       expect(screen.getByTestId("draft-output-body")).toHaveTextContent(
@@ -273,7 +268,7 @@ describe("MainEditor Panic Scan handoff lifecycle", () => {
       )
     })
 
-    fireEvent.click(screen.getByRole("tab", { name: "Report comment" }))
+    fireEvent.click(screen.getByRole("button", { name: "Report comment instead" }))
 
     expect(screen.queryByText("Continuing from Panic Scan")).not.toBeInTheDocument()
     expect(screen.queryByTestId("draft-output-body")).not.toBeInTheDocument()
@@ -285,7 +280,7 @@ describe("MainEditor Panic Scan handoff lifecycle", () => {
       },
     })
 
-    fireEvent.click(screen.getByRole("button", { name: "Generate" }))
+    fireEvent.click(screen.getByRole("button", { name: "Generate comment" }))
 
     await waitFor(() => {
       expect(screen.getByTestId("draft-output-body")).toHaveTextContent(
@@ -321,7 +316,7 @@ describe("MainEditor Panic Scan handoff lifecycle", () => {
 
     expect(screen.queryByText("Continuing from Panic Scan")).not.toBeInTheDocument()
 
-    fireEvent.click(screen.getByRole("button", { name: "Generate" }))
+    fireEvent.click(screen.getByRole("button", { name: "Write calm reply" }))
 
     await waitFor(() => {
       expect(screen.getByTestId("draft-output-body")).toHaveTextContent(

@@ -23,7 +23,7 @@ type LocaleKey = "en-GB" | "de-DE"
 
 const localeMessages: Record<LocaleKey, Record<string, string>> = {
   "en-GB": {
-    "draft.generatedTitle": "Draft Generated",
+    "draft.generatedTitle": "Ready to review",
     "editor.history.subjectLabel": "Subject",
     "draft.button.copy": "Copy to Clipboard",
     "draft.button.copyShort": "Copy",
@@ -33,18 +33,18 @@ const localeMessages: Record<LocaleKey, Record<string, string>> = {
     "draft.action.load": "Load",
     "draft.action.delete": "Delete",
     "draft.actions.loadMore": "Load more",
-    "draft.safeToSend.label": "Sending guidance:",
+    "draft.safeToSend.label": "Sending guidance",
     "draft.safeToSend.safeToSend.title": "Ready to send",
     "draft.safeToSend.safeToSend.description":
-      "The wording is calm, clear, and ready for you to send when you're happy with it.",
+      "This message keeps your boundary clear while staying respectful.",
     "draft.safeToSend.reviewOnceMore.title": "Review once before sending",
     "draft.safeToSend.reviewOnceMore.description":
-      "The draft is close, but one or two phrases may still need a quick teacher check.",
+      "The message is nearly there, but one or two phrases are worth a quick final check.",
     "draft.safeToSend.sensitiveTopic.title": "Sensitive topic: refined for parent communication",
     "draft.safeToSend.sensitiveTopic.description":
-      "This topic is sensitive. Draft has adjusted the wording to ensure it remains clear, respectful, and appropriate for communication with parents.",
+      "This message handles a sensitive topic with calmer, more respectful wording.",
     "draft.teacherControl.reassurance":
-      "You review every message before anything is sent. Draft never sends messages for you.",
+      "You stay in control. Review before sending.",
     "draft.documentation.label": "Mode:",
     "draft.documentation.badge": "Documentation Mode",
     "draft.documentation.description": "Rewritten as a neutral incident record.",
@@ -60,7 +60,7 @@ const localeMessages: Record<LocaleKey, Record<string, string>> = {
     "editor.mode.reportComment": "Report comment",
   },
   "de-DE": {
-    "draft.generatedTitle": "Entwurf erstellt",
+    "draft.generatedTitle": "Bereit zum Prüfen",
     "editor.history.subjectLabel": "Betreff",
     "draft.button.copy": "In die Zwischenablage kopieren",
     "draft.button.copyShort": "Kopieren",
@@ -70,18 +70,18 @@ const localeMessages: Record<LocaleKey, Record<string, string>> = {
     "draft.action.load": "Laden",
     "draft.action.delete": "Löschen",
     "draft.actions.loadMore": "Mehr laden",
-    "draft.safeToSend.label": "Sendehinweis:",
+    "draft.safeToSend.label": "Sendehinweis",
     "draft.safeToSend.safeToSend.title": "Bereit zum Senden",
     "draft.safeToSend.safeToSend.description":
-      "Die Formulierung ist ruhig und klar und kann gesendet werden, sobald Sie zufrieden sind.",
+      "Diese Nachricht wahrt Ihre Grenze und bleibt dabei respektvoll.",
     "draft.safeToSend.reviewOnceMore.title": "Vor dem Senden einmal prüfen",
     "draft.safeToSend.reviewOnceMore.description":
-      "Der Entwurf ist fast fertig, aber ein oder zwei Formulierungen sollten Sie noch kurz prüfen.",
+      "Die Nachricht ist fast fertig, aber ein oder zwei Formulierungen verdienen noch einen kurzen Blick.",
     "draft.safeToSend.sensitiveTopic.title": "Sensibles Thema: elterngerecht formuliert",
     "draft.safeToSend.sensitiveTopic.description":
-      "Dieses Thema ist sensibel. Draft hat die Formulierung so angepasst, dass sie klar, respektvoll und für die Kommunikation mit Eltern geeignet ist.",
+      "Diese Nachricht behandelt ein sensibles Thema mit ruhigerer, respektvoller Wortwahl.",
     "draft.teacherControl.reassurance":
-      "Sie prüfen jede Nachricht selbst, bevor etwas gesendet wird. Draft versendet nichts für Sie.",
+      "Sie behalten die Kontrolle. Vor dem Senden bitte kurz prüfen.",
     "draft.documentation.label": "Modus:",
     "draft.documentation.badge": "Dokumentationsmodus",
     "draft.documentation.description": "Als neutraler Vorfallsbericht umgeschrieben.",
@@ -466,9 +466,9 @@ Frau Mueller`
     )
 
     const body = screen.getByTestId("draft-output-body")
-    const label = screen.getByText("Sending guidance:")
+    const label = screen.getByText("Sending guidance")
     const description = screen.getByText(
-      "The wording is calm, clear, and ready for you to send when you're happy with it.",
+      "This message keeps your boundary clear while staying respectful.",
     )
 
     expect(label).toBeInTheDocument()
@@ -481,7 +481,7 @@ Frau Mueller`
     const { rerender } = render(<DraftOutput {...baseProps} />)
 
     const reassurance = screen.getByText(
-      "You review every message before anything is sent. Draft never sends messages for you.",
+      "You stay in control. Review before sending.",
     )
     const body = screen.getByTestId("draft-output-body")
 
@@ -497,7 +497,7 @@ Frau Mueller`
 
     expect(
       screen.queryByText(
-        "You review every message before anything is sent. Draft never sends messages for you.",
+        "You stay in control. Review before sending.",
       ),
     ).toBeNull()
   })
@@ -539,11 +539,11 @@ Frau Mueller`
       />,
     )
 
-    expect(screen.getByText("Sending guidance:")).toBeInTheDocument()
+    expect(screen.getByText("Sending guidance")).toBeInTheDocument()
     expect(screen.getByText("Sensitive topic: refined for parent communication")).toBeInTheDocument()
     expect(
       screen.getByText(
-        "This topic is sensitive. Draft has adjusted the wording to ensure it remains clear, respectful, and appropriate for communication with parents.",
+        "This message handles a sensitive topic with calmer, more respectful wording.",
       ),
     ).toBeInTheDocument()
   })
