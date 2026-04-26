@@ -484,6 +484,8 @@ describe("MainEditor mode switching", () => {
       expect(getDraftGenerateBodies()).toHaveLength(1)
     })
 
+    expect(getDraftGenerateBodies()[0]?.requestedMode).toBe("parent_message")
+    expect(getDraftGenerateBodies()[0]?.activeMode).toBe("parent_message")
     expect(getDraftGenerateBodies()[0]?.inputIntent).toBe("parent_message")
     expect(getDraftGenerateBodies()[0]?.parentMessageInputType).toBeUndefined()
 
@@ -503,8 +505,34 @@ describe("MainEditor mode switching", () => {
       expect(getDraftGenerateBodies()).toHaveLength(2)
     })
 
+    expect(getDraftGenerateBodies()[1]?.requestedMode).toBe("teacher_draft")
+    expect(getDraftGenerateBodies()[1]?.activeMode).toBe("teacher_draft")
     expect(getDraftGenerateBodies()[1]?.inputIntent).toBe("teacher_draft")
     expect(getDraftGenerateBodies()[1]?.parentMessageInputType).toBeUndefined()
+  })
+
+  it("uses the newly selected My draft mode in the request payload when the user switches immediately before generating", async () => {
+    render(<MainEditor />)
+
+    fireEvent.change(getTextarea(), {
+      target: {
+        value: LUCY_TEACHER_DRAFT,
+      },
+    })
+
+    fireEvent.click(within(getInputTypeTablist()).getByRole("tab", { name: "My draft" }))
+    fireEvent.click(screen.getByRole("button", { name: "Improve my draft" }))
+
+    await waitFor(() => {
+      expect(getDraftGenerateBodies()).toHaveLength(1)
+    })
+
+    expect(getDraftGenerateBodies()[0]).toMatchObject({
+      mode: "parent_message",
+      requestedMode: "teacher_draft",
+      activeMode: "teacher_draft",
+      inputIntent: "teacher_draft",
+    })
   })
 
   it("shows the high-quality teacher draft explanation when only light edits were needed", async () => {

@@ -1629,6 +1629,9 @@ Examples:
       autoAppendReportComment: prefs.autoAppendSignatureReportComment,
     }
 
+    const selectedRequestMode: ParentInputMode | ModeKey =
+      mode === "parent_message" ? parentInputMode : mode
+
     const payload: Record<string, unknown> = {
       situation: requestSituation,
       tone: selectedTone,
@@ -1637,6 +1640,8 @@ Examples:
       preferredLanguage: prefs.preferredLanguage,
       uiLocale: locale,
       analyticsConsent,
+      requestedMode: selectedRequestMode,
+      activeMode: selectedRequestMode,
     }
 
     const context: Record<string, string> = {}
@@ -1695,7 +1700,7 @@ Examples:
       tone: selectedTone,
       language: languageChoice,
       pronounPreference,
-      mode,
+      mode: selectedRequestMode,
       inputIntent: mode === "parent_message" ? parentInputMode : null,
       sourceFlow,
       studentFirstNameProvided: Boolean(sanitizedStudentFirstName),

@@ -169,6 +169,8 @@ interface GenerateDraftRequest {
   previousDraft?: string
   pronounPreference?: PronounPreference
   mode?: DraftMode
+  requestedMode?: DraftMode | ParentMessageInputType
+  activeMode?: DraftMode | ParentMessageInputType
   studentFirstName?: string
   studentName?: string // deprecated - use studentFirstName
   outputLanguage?: string
@@ -1539,7 +1541,7 @@ export async function POST(request: Request) {
   const attemptStartedAt = Date.now()
   let documentationModeRequested = false
   let sessionId: string | null = null
-  let activeMode: DraftMode | null = null
+  let activeMode: string | null = null
   let activeModelName: string | null = null
 
   const logDraftStructured = (
@@ -1685,6 +1687,8 @@ export async function POST(request: Request) {
   payload.outputLanguage = language
   const canonicalUiLocale = canonicalizeLocaleIdentifier(uiLocale)
   const normalizedUiLocale = canonicalUiLocale ?? uiLocale
+  const requestedMode = payload?.requestedMode ?? payload?.mode ?? null
+  const requestedActiveMode = payload?.activeMode ?? requestedMode
   const mode = resolveDraftMode(payload?.mode)
   const inputIntent = parseInputIntent(payload?.inputIntent ?? payload?.parentMessageInputType)
   const analyticsConsentEnabled = payload?.analyticsConsent === true
@@ -1716,10 +1720,13 @@ export async function POST(request: Request) {
           hasVoiceSessionId: Boolean(payload.voiceSessionId),
         })
     : null
-  activeMode = mode
+  activeMode =
+    typeof requestedActiveMode === "string" && requestedActiveMode.trim()
+      ? requestedActiveMode
+      : mode
   logDraftStructured("attempt_start", {
     ...baseDraftLog(),
-    requestedMode: payload.mode ?? null,
+    requestedMode,
     documentationModeRequested,
     inputMode: payload.inputMode ?? null,
     inputIntent,
@@ -1730,6 +1737,7 @@ export async function POST(request: Request) {
   })
   logDraftStructured("mode_resolution", {
     ...baseDraftLog(),
+    requestedMode,
     resolvedMode: mode,
     generationMode: generationTrace?.metadata.mode ?? null,
     messageDirection: generationTrace?.metadata.direction ?? null,

@@ -1878,7 +1878,7 @@ describe("/api/draft/generate routing classification", () => {
     const response = await POST(request)
     expect(response.status).toBe(200)
     const providerInput = fallbackGenerator.mock.calls[fallbackGenerator.mock.calls.length - 1]?.[0]
-    expect(providerInput?.generationMetadata.direction).toBe("teacher_to_parent")
+    expect(providerInput?.generationMetadata.direction).toBe("teacher_internal_notes")
   })
 
   it("falls back to the legacy parent-message input field when inputIntent is missing", async () => {
