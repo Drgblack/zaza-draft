@@ -59,6 +59,7 @@ import {
   type SaferDraftCategory,
 } from "@/lib/draft/adjustment-reasons"
 import type { TeacherDraftFeedback } from "@/lib/draft/teacher-draft-feedback"
+import type { DraftProfessionalJudgementMeta } from "@/components/draft-judgement-strip"
 import { assessSafeToSend } from "@/lib/safe-to-send"
 import { buildObservationOnlyRecoveryInput } from "@/lib/draft/diagnostic-recovery"
 import {
@@ -450,6 +451,9 @@ export function MainEditor({ canExport = true }: MainEditorProps = {}) {
   const [userName, setUserName] = useState("")
   const [generatedDraft, setGeneratedDraft] = useState<string | null>(null)
   const [draftMetadata, setDraftMetadata] = useState<any>(null)
+  const [draftResponseMeta, setDraftResponseMeta] = useState<{
+    professionalJudgement?: DraftProfessionalJudgementMeta | null
+  } | null>(null)
   const [draftStructure, setDraftStructure] = useState<DraftStructure | null>(null)
   const [deescalationSummary, setDeescalationSummary] = useState<DeescalationSummary | null>(null)
   const [safetyAnalysis, setSafetyAnalysis] = useState<SafetyEngineOutput | null>(null)
@@ -616,6 +620,7 @@ export function MainEditor({ canExport = true }: MainEditorProps = {}) {
   const resetGeneratedOutput = useCallback(() => {
     setGeneratedDraft(null)
     setDraftMetadata(null)
+    setDraftResponseMeta(null)
     setDraftStructure(null)
     setDeescalationSummary(null)
     setSafetyAnalysis(null)
@@ -1539,6 +1544,7 @@ Examples:
     setSensitivePreview(null)
     setGeneratedDraft(null)
     setDraftMetadata(null)
+    setDraftResponseMeta(null)
     setDraftStructure(null)
     setDeescalationSummary(null)
     setInputReframeTier(null)
@@ -1772,6 +1778,7 @@ Examples:
 
       setGeneratedDraft(data.data.generatedDraft)
       setDraftMetadata(data.data.metadata)
+      setDraftResponseMeta(responseMeta)
       setDraftStructure(data.data.formattedDraft ?? null)
       setDeescalationSummary(nextDeescalationSummary)
       setSafetyAnalysis(nextSafetyOutput)
@@ -3000,6 +3007,11 @@ Examples:
               rewriteSummary={teacherDraftFeedback ? null : draftAdjustmentSummary}
               safeToSend={safeToSendAssessment}
               teacherDraftFeedback={teacherDraftFeedback}
+              teacherDraftMode={parentInputMode === "teacher_draft"}
+              professionalJudgement={draftResponseMeta?.professionalJudgement ?? null}
+              professionalJudgementLoading={
+                isGenerating && parentInputMode === "teacher_draft"
+              }
             />
             {isFirstRunFreeUser && saferDraftCategories.length > 0 && (
               <div className="rounded-2xl border border-slate-200/80 bg-white/90 p-4 text-slate-900 shadow-sm dark:border-white/10 dark:bg-white/5 dark:text-white">

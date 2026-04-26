@@ -2351,6 +2351,10 @@ describe("/api/draft/generate light edit mode", () => {
       level: "already_strong",
       reasons: ["preserved_tone", "maintained_boundaries", "risk_checked"],
     })
+    expect(json.data?.meta?.professionalJudgement?.sendConfidenceScore).toEqual(expect.any(Number))
+    expect(["low", "medium", "high"]).toContain(
+      json.data?.meta?.professionalJudgement?.replyLikelihood,
+    )
     expect(getWordSequenceSimilarity(teacherDraft, generatedDraft)).toBeGreaterThanOrEqual(0.95)
     expect(generatedDraft).not.toContain("working together")
     expect(generatedDraft).toContain("The expectation is that phones stay away during lessons")
@@ -2715,6 +2719,252 @@ describe("/api/draft/generate light edit mode", () => {
     expect(generatedDraft.toLowerCase()).toContain("chat further")
     expect(generatedDraft).not.toContain("support coordinator")
     expect(generatedDraft).not.toContain("usual support process")
+  })
+
+  it("retries a low-confidence teacher-draft output and serves the stronger second pass", async () => {
+    const teacherDraft = [
+      "Dear Parent/Carer,",
+      "",
+      "I can't make individual exceptions when rules are in place, and I need to apply the same expectation consistently for all students.",
+      "",
+      "Regards,",
+      "Greg",
+    ].join("\n")
+
+    fallbackGenerator
+      .mockResolvedValueOnce(
+        buildFallbackResult(
+          [
+            "Dear Parent/Carer,",
+            "",
+            "As I previously explained, I'm so sorry if this has caused any upset, but we'll see depending on how things go.",
+            "",
+            "Please don't hesitate to get in touch.",
+            "",
+            "Kind regards,",
+            "Greg",
+          ].join("\n"),
+        ),
+      )
+      .mockResolvedValueOnce(
+        buildFallbackResult(
+          [
+            "Dear Parent/Carer,",
+            "",
+            "Thank you for getting in touch.",
+            "",
+            "The classroom expectation remains the same, and I apply it consistently for all students.",
+            "",
+            "Kind regards,",
+            "Greg",
+          ].join("\n"),
+        ),
+      )
+
+    const response = await POST(
+      new Request("https://example.com/api/draft/generate", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: "Bearer token",
+        },
+        body: JSON.stringify({
+          situation: teacherDraft,
+          tone: "professional",
+          language: "en",
+          uiLocale: "en-GB",
+          mode: "parent_message",
+          inputIntent: "teacher_draft",
+        }),
+      }),
+    )
+
+    expect(response.status).toBe(200)
+    const json = await response.json()
+    expect(fallbackGenerator).toHaveBeenCalledTimes(2)
+    expect(fallbackGenerator.mock.calls[1]?.[0]?.professionalJudgementConstraints).toMatchObject({
+      authorityIssue: true,
+      replyLikelihoodIssue: true,
+    })
+    expect(
+      fallbackGenerator.mock.calls[1]?.[0]?.professionalJudgementConstraints
+        ?.interpretationRiskPhrases,
+    ).toContain("As I previously explained")
+    expect(json.data?.generatedDraft).toContain("I apply it consistently for all students")
+    expect(json.data?.generatedDraft).not.toContain("Please don't hesitate to get in touch")
+  })
+
+  it("retries a high-regret teacher-draft output and serves the corrected second pass", async () => {
+    const teacherDraft = [
+      "Dear Parent/Carer,",
+      "",
+      "I understand your concern, but I can't make individual exceptions and the rule remains the same for all students.",
+      "",
+      "Regards,",
+      "Greg",
+    ].join("\n")
+
+    fallbackGenerator
+      .mockResolvedValueOnce(
+        buildFallbackResult(
+          [
+            "Dear Parent/Carer,",
+            "",
+            "As I previously explained, that is simply how it works.",
+            "",
+            "Kind regards,",
+            "Greg",
+          ].join("\n"),
+        ),
+      )
+      .mockResolvedValueOnce(
+        buildFallbackResult(
+          [
+            "Dear Parent/Carer,",
+            "",
+            "I understand your concern. The expectation remains the same, and I apply it consistently for all students.",
+            "",
+            "Kind regards,",
+            "Greg",
+          ].join("\n"),
+        ),
+      )
+
+    const response = await POST(
+      new Request("https://example.com/api/draft/generate", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: "Bearer token",
+        },
+        body: JSON.stringify({
+          situation: teacherDraft,
+          tone: "professional",
+          language: "en",
+          uiLocale: "en-GB",
+          mode: "parent_message",
+          inputIntent: "teacher_draft",
+        }),
+      }),
+    )
+
+    expect(response.status).toBe(200)
+    const json = await response.json()
+    expect(fallbackGenerator).toHaveBeenCalledTimes(2)
+    expect(json.data?.generatedDraft).not.toContain("that is simply how it works")
+    expect(json.data?.generatedDraft).toContain("I apply it consistently for all students")
+  })
+
+  it("falls back to source-grounded teacher-draft recovery when confidence stays low after retries", async () => {
+    const teacherDraft = [
+      "Dear Parent/Carer,",
+      "",
+      "Trading cards keep coming out during lessons, and I can't make individual exceptions. These expectations will remain in place.",
+      "",
+      "Regards,",
+      "Greg",
+    ].join("\n")
+
+    const lowConfidenceDraft = [
+      "Dear Parent/Carer,",
+      "",
+      "As I previously explained, we'll see depending on how things go.",
+      "",
+      "Please don't hesitate to get in touch.",
+      "",
+      "Kind regards,",
+      "Greg",
+    ].join("\n")
+
+    fallbackGenerator
+      .mockResolvedValueOnce(buildFallbackResult(lowConfidenceDraft))
+      .mockResolvedValueOnce(buildFallbackResult(lowConfidenceDraft))
+      .mockResolvedValueOnce(buildFallbackResult(lowConfidenceDraft))
+
+    mockedBuildSourceGroundedTeacherDraftFallbackResult.mockResolvedValueOnce({
+      text: [
+        "Subject: Update from school",
+        "Dear Parent/Carer,",
+        "Thank you for getting in touch. I will continue to handle this calmly in class.",
+        "The classroom expectation is that trading cards are not used during lessons. I apply this consistently so that expectations remain clear and fair for all students.",
+        "Kind regards,",
+        "Greg",
+      ].join("\n\n"),
+      templateFamily: "safe_draft_teacher_to_parent_source_grounded_teacher_draft",
+      issueKind: "general",
+      sourceAnchors: ["trading cards are not used during lessons", "classroom_boundary"],
+    })
+
+    const response = await POST(
+      new Request("https://example.com/api/draft/generate", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: "Bearer token",
+        },
+        body: JSON.stringify({
+          situation: teacherDraft,
+          tone: "professional",
+          language: "en",
+          uiLocale: "en-GB",
+          mode: "parent_message",
+          inputIntent: "teacher_draft",
+        }),
+      }),
+    )
+
+    expect(response.status).toBe(200)
+    const json = await response.json()
+    expect(json.data?.meta?.fallbackReason).toBe("LOW_SEND_CONFIDENCE")
+    expect(json.data?.generatedDraft).toContain("trading cards are not used during lessons")
+    expect(json.data?.generatedDraft).not.toContain("Please don't hesitate to get in touch")
+  })
+
+  it("does not retry a high-confidence teacher-draft output unnecessarily", async () => {
+    const teacherDraft = [
+      "Dear Parent/Carer,",
+      "",
+      "I can't make individual exceptions, and the rule remains the same for all students.",
+      "",
+      "Regards,",
+      "Greg",
+    ].join("\n")
+
+    fallbackGenerator.mockResolvedValueOnce(
+      buildFallbackResult(
+        [
+          "Dear Parent/Carer,",
+          "",
+          "Thank you for getting in touch.",
+          "",
+          "The classroom expectation remains the same, and I apply it consistently for all students.",
+          "",
+          "Kind regards,",
+          "Greg",
+        ].join("\n"),
+      ),
+    )
+
+    const response = await POST(
+      new Request("https://example.com/api/draft/generate", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: "Bearer token",
+        },
+        body: JSON.stringify({
+          situation: teacherDraft,
+          tone: "professional",
+          language: "en",
+          uiLocale: "en-GB",
+          mode: "parent_message",
+          inputIntent: "teacher_draft",
+        }),
+      }),
+    )
+
+    expect(response.status).toBe(200)
+    expect(fallbackGenerator).toHaveBeenCalledTimes(1)
   })
 
   it("reduces defensiveness in a grading dispute while keeping the marking boundary", async () => {

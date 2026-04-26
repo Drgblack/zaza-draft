@@ -93,6 +93,13 @@ interface ProviderInput {
     types: string[]
     phrases: string[]
   }
+  professionalJudgementConstraints?: {
+    clarityIssue: boolean
+    authorityIssue: boolean
+    interpretationRiskPhrases: string[]
+    replyLikelihoodIssue: boolean
+    boundaryStrengthIssue: boolean
+  }
   lengthTarget?: LengthTarget
   safetyAnalysis?: SafetyEngineOutput | null
   documentationMode?: boolean
@@ -816,6 +823,35 @@ export function buildSystemPrompt(input: ProviderInput) {
       "Do not invent context, follow-up channels, school processes, or collaboration offers that are absent from the source draft.",
       "Every sentence must stay traceable to the teacher's source text.",
     )
+  }
+  if (input.professionalJudgementConstraints) {
+    const constraints = input.professionalJudgementConstraints
+    systemLines.push("PROFESSIONAL JUDGEMENT CONSTRAINTS (this rewrite pass):")
+    if (constraints.clarityIssue) {
+      systemLines.push(
+        "End with a single, unambiguous declarative statement. Do not leave the message open-ended.",
+      )
+    }
+    if (constraints.authorityIssue) {
+      systemLines.push(
+        "Do not apologise. Do not seek permission. Use first-person firm statements (I will, I apply, I expect).",
+      )
+    }
+    if (constraints.interpretationRiskPhrases.length > 0) {
+      systemLines.push(
+        `Do not use any of these phrases: ${Array.from(new Set(constraints.interpretationRiskPhrases)).join(", ")}. They risk reading as passive-aggressive or patronising.`,
+      )
+    }
+    if (constraints.replyLikelihoodIssue) {
+      systemLines.push(
+        "Do not add any invitation for further contact unless the teacher's source text explicitly invites discussion.",
+      )
+    }
+    if (constraints.boundaryStrengthIssue) {
+      systemLines.push(
+        "State the boundary once, clearly, using direct language. Do not soften it immediately after stating it.",
+      )
+    }
   }
   systemLines.push(
     "Treat the cleaned notes that follow as your primary source and use the original notes only for background; do not repeat the original wording.",

@@ -1253,6 +1253,13 @@ export interface ProviderRequestInput {
     types: string[]
     phrases: string[]
   }
+  professionalJudgementConstraints?: {
+    clarityIssue: boolean
+    authorityIssue: boolean
+    interpretationRiskPhrases: string[]
+    replyLikelihoodIssue: boolean
+    boundaryStrengthIssue: boolean
+  }
   lengthTarget?: LengthTarget
   safetyAnalysis?: SafetyEngineOutput | null
   documentationMode?: boolean

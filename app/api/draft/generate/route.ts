@@ -94,6 +94,10 @@ import {
   checkVoicePreservation,
   extractVoiceProfile,
 } from "@/lib/draft/voice-preservation"
+import {
+  evaluateProfessionalJudgement,
+  type ProfessionalJudgementResult,
+} from "@/lib/draft/professional-judgement"
 import { isValidDraftRequest, OUT_OF_SCOPE_REDIRECT_MESSAGE } from "./scope-guard"
 import { isDebugEnabled } from "@/lib/debug"
 import {
@@ -680,6 +684,27 @@ function shouldUseTeacherDraftNoChangePath(options: {
   }
 
   return true
+}
+
+const PROFESSIONAL_INTERPRETATION_RISK_PATTERNS = [
+  /\b(as I (previously|already) (mentioned|said|noted|explained)|as per my (previous|last|earlier)|I (have|had) already|as we (discussed|agreed)|you will (recall|remember|note))\b/i,
+  /\b(that is (not|simply) (the case|how it works|possible|my responsibility)|this is (standard|normal|policy|procedure)|all (students|children|parents) (are|have been|must))\b/i,
+  /\b(I think you('ll| will) (find|see|understand)|as you may (know|be aware|understand)|I (hope|trust) (this|that) (helps|clarifies|explains)|hopefully this (makes sense|helps|clarifies))\b/i,
+] as const
+
+function collectProfessionalInterpretationRiskPhrases(text: string) {
+  return PROFESSIONAL_INTERPRETATION_RISK_PATTERNS.flatMap((pattern) => {
+    const match = pattern.exec(text)
+    return match?.[0] ? [match[0]] : []
+  })
+}
+
+function shouldRewriteForProfessionalJudgement(result: ProfessionalJudgementResult) {
+  return (
+    result.regretRisk === "high" ||
+    result.sendConfidenceScore < 60 ||
+    (result.parentInterpretationRisk === "high" && result.authorityScore < 50)
+  )
 }
 
 function splitDocumentationSentences(rawMessage: string): string[] {
@@ -2627,6 +2652,7 @@ export async function POST(request: Request) {
   let providerResult: ProviderResult
   let usedFallback = false
   let fallbackErrorCode: string | null = null
+  let fallbackReason: string | null = null
   let generatedDraft = ""
   let providerMeta: ProviderMeta
   let forcedLanguageAttempted = false
@@ -3226,6 +3252,36 @@ export async function POST(request: Request) {
   preserveLightEditSourceIfNeeded()
   preserveTeacherDraftSignatureIfNeeded()
 
+  const sourceTeacherDraftIntent = requestedTeacherDraftMode
+    ? classifyTeacherDraftIntent(currentSituation)
+    : null
+
+  const evaluateTeacherDraftProfessionalJudgement = (
+    candidateText: string,
+    analysis: SafetyEngineOutput | null,
+  ) =>
+    requestedTeacherDraftMode && sourceTeacherDraftIntent
+      ? evaluateProfessionalJudgement({
+          sourceText: currentSituation,
+          candidateText,
+          sourceIntent: sourceTeacherDraftIntent.intent,
+          language,
+          safetyAnalysis: analysis,
+        })
+      : null
+
+  const buildProfessionalJudgementConstraints = (
+    candidateText: string,
+    result: ProfessionalJudgementResult,
+  ): NonNullable<ProviderRequestInput["professionalJudgementConstraints"]> => ({
+    clarityIssue: result.clarityScore < 60,
+    authorityIssue: result.authorityScore < 50 || result.regretRisk === "high",
+    interpretationRiskPhrases: collectProfessionalInterpretationRiskPhrases(candidateText),
+    replyLikelihoodIssue: result.replyLikelihood === "high",
+    boundaryStrengthIssue:
+      sourceTeacherDraftIntent?.intent === "limit" && result.boundaryStrengthScore < 70,
+  })
+
   let teacherDraftQualityResult = evaluateDraftQuality({
     sourceText: currentSituation,
     candidateText: generatedDraft,
@@ -3238,6 +3294,10 @@ export async function POST(request: Request) {
   let teacherDraftQualityViolations = teacherDraftQualityResult.violations
   let teacherDraftQualityRegenerationAttempts = 0
   let worseThanSourceDetected = false
+  let professionalJudgementResult = evaluateTeacherDraftProfessionalJudgement(
+    generatedDraft,
+    outputSafetyAnalysis,
+  )
 
   const sourceTeacherDraftQuality = requestedTeacherDraftMode
     ? evaluateDraftQuality({
@@ -3294,20 +3354,49 @@ export async function POST(request: Request) {
     if (!documentationModeActive && mode === "parent_message") {
       outputSafetyAnalysis = await runSafetyAnalysis(generatedDraft, "output_safety_analysis")
     }
+
+    professionalJudgementResult = evaluateTeacherDraftProfessionalJudgement(
+      generatedDraft,
+      outputSafetyAnalysis,
+    )
   }
 
   const attemptTeacherDraftQualityRegeneration = async (
     currentViolations: DraftQualityViolation[],
-  ): Promise<DraftQualityResult> => {
-    if (currentViolations.length === 0 || teacherDraftQualityRegenerationAttempts >= 2) {
-      return teacherDraftQualityResult
+    currentProfessionalJudgement: ProfessionalJudgementResult | null,
+  ): Promise<{
+    qualityResult: DraftQualityResult
+    professionalJudgementResult: ProfessionalJudgementResult | null
+  }> => {
+    if (
+      currentViolations.length === 0 &&
+      (!currentProfessionalJudgement ||
+        !shouldRewriteForProfessionalJudgement(currentProfessionalJudgement))
+    ) {
+      return {
+        qualityResult: teacherDraftQualityResult,
+        professionalJudgementResult,
+      }
+    }
+
+    if (teacherDraftQualityRegenerationAttempts >= 2) {
+      return {
+        qualityResult: teacherDraftQualityResult,
+        professionalJudgementResult,
+      }
     }
 
     teacherDraftQualityRegenerationAttempts += 1
-    providerInput.teacherDraftQualityViolations = {
-      types: Array.from(new Set(currentViolations.map((violation) => violation.category))),
-      phrases: currentViolations.map((violation) => violation.phrase),
-    }
+    providerInput.teacherDraftQualityViolations =
+      currentViolations.length > 0
+        ? {
+            types: Array.from(new Set(currentViolations.map((violation) => violation.category))),
+            phrases: currentViolations.map((violation) => violation.phrase),
+          }
+        : undefined
+    providerInput.professionalJudgementConstraints = currentProfessionalJudgement
+      ? buildProfessionalJudgementConstraints(generatedDraft, currentProfessionalJudgement)
+      : undefined
     const regenerationAttempt = await runDraft(forcedLanguageAttempted)
     providerResult = regenerationAttempt.result
     usedFallback = regenerationAttempt.usedFallback
@@ -3319,35 +3408,57 @@ export async function POST(request: Request) {
     generatedDraft = applyTeacherDraftRegisterNormalisation(generatedDraft)
     finalizeAndFormatDraft(generatedDraft)
     preserveTeacherDraftSignatureIfNeeded()
+    if (!documentationModeActive && mode === "parent_message") {
+      outputSafetyAnalysis = await runSafetyAnalysis(generatedDraft, "output_safety_analysis")
+    }
     providerInput.teacherDraftQualityViolations = undefined
+    providerInput.professionalJudgementConstraints = undefined
     pushRecoveryEvent(
       usedFallback ? "deterministic_fallback" : "retry_generation",
       "TEACHER_DRAFT_QUALITY_RETRY",
       regenerationAttempt.recoveryMeta?.templateFamily ?? null,
     )
 
-    return evaluateDraftQuality({
+    const qualityResult = evaluateDraftQuality({
       sourceText: currentSituation,
       candidateText: generatedDraft,
       language,
       teacherDraftMode: requestedTeacherDraftMode,
       requestedSignatureName,
-      safetyAnalysis,
+      safetyAnalysis: outputSafetyAnalysis,
       lengthTarget: teacherDraftLengthTarget,
     })
+
+    return {
+      qualityResult,
+      professionalJudgementResult: evaluateTeacherDraftProfessionalJudgement(
+        generatedDraft,
+        outputSafetyAnalysis,
+      ),
+    }
   }
 
   while (
-    teacherDraftQualityResult.verdict === "needs_rewrite" &&
+    (teacherDraftQualityResult.verdict === "needs_rewrite" ||
+      (professionalJudgementResult &&
+        shouldRewriteForProfessionalJudgement(professionalJudgementResult))) &&
     teacherDraftQualityRegenerationAttempts < 2
   ) {
-    teacherDraftQualityResult = await attemptTeacherDraftQualityRegeneration(
+    const regenerationResult = await attemptTeacherDraftQualityRegeneration(
       teacherDraftQualityViolations,
+      professionalJudgementResult,
     )
+    teacherDraftQualityResult = regenerationResult.qualityResult
+    professionalJudgementResult = regenerationResult.professionalJudgementResult
     teacherDraftQualityViolations = teacherDraftQualityResult.violations
   }
 
-  if (teacherDraftQualityResult.verdict === "needs_rewrite") {
+  const needsLowConfidenceFallback =
+    requestedTeacherDraftMode &&
+    professionalJudgementResult &&
+    professionalJudgementResult.sendConfidenceScore < 60
+
+  if (teacherDraftQualityResult.verdict === "needs_rewrite" || needsLowConfidenceFallback) {
     const fallbackDraft = applyTeacherDraftRegisterNormalisation(
       finalizeWithGreeting(await buildRouteFallbackDraft(fallbackContext)),
     )
@@ -3357,7 +3468,7 @@ export async function POST(request: Request) {
       language,
       teacherDraftMode: requestedTeacherDraftMode,
       requestedSignatureName,
-      safetyAnalysis,
+      safetyAnalysis: outputSafetyAnalysis,
       lengthTarget: teacherDraftLengthTarget,
     })
 
@@ -3365,11 +3476,23 @@ export async function POST(request: Request) {
       generatedDraft = fallbackDraft
       finalizeAndFormatDraft(generatedDraft)
       preserveTeacherDraftSignatureIfNeeded()
+      professionalJudgementResult = evaluateTeacherDraftProfessionalJudgement(
+        generatedDraft,
+        outputSafetyAnalysis,
+      )
       providerMeta = {
         modelUsed: "teacher-draft-boutique-fallback",
         latencyMs: providerMeta.latencyMs,
       }
       usedFallback = true
+      if (needsLowConfidenceFallback) {
+        fallbackReason = "LOW_SEND_CONFIDENCE"
+        console.log("[quality-framework] low_confidence_fallback", {
+          requestId,
+          sendConfidenceScore: professionalJudgementResult?.sendConfidenceScore ?? null,
+          regretRisk: professionalJudgementResult?.regretRisk ?? null,
+        })
+      }
       fallbackErrorCode = fallbackErrorCode ?? "TEACHER_DRAFT_QUALITY_FALLBACK"
       teacherDraftQualityResult = fallbackQualityResult
       teacherDraftQualityViolations = fallbackQualityResult.violations
@@ -3382,7 +3505,7 @@ export async function POST(request: Request) {
   }
 
   if (requestedTeacherDraftMode) {
-    const sourceIntent = classifyTeacherDraftIntent(currentSituation)
+    const sourceIntent = sourceTeacherDraftIntent ?? classifyTeacherDraftIntent(currentSituation)
     const candidateIntent = classifyTeacherDraftIntent(generatedDraft)
     const intentCheck = checkIntentPreservation({
       sourceIntent,
@@ -3395,6 +3518,13 @@ export async function POST(request: Request) {
       candidateProfile: extractVoiceProfile(generatedDraft),
     })
     const registerViolations = language === "en" ? detectRegisterViolations(generatedDraft) : []
+    professionalJudgementResult = evaluateProfessionalJudgement({
+      sourceText: currentSituation,
+      candidateText: generatedDraft,
+      sourceIntent: sourceIntent.intent,
+      language,
+      safetyAnalysis: outputSafetyAnalysis,
+    })
 
     console.log("[quality-framework] result", {
       requestId,
@@ -3409,6 +3539,17 @@ export async function POST(request: Request) {
       registerViolations: registerViolations.length,
       lengthBand: teacherDraftLengthTarget?.band ?? null,
       modelUsed: providerMeta.modelUsed,
+    })
+
+    console.log("[quality-framework] judgement", {
+      requestId,
+      clarityScore: professionalJudgementResult.clarityScore,
+      authorityScore: professionalJudgementResult.authorityScore,
+      parentInterpretationRisk: professionalJudgementResult.parentInterpretationRisk,
+      replyLikelihood: professionalJudgementResult.replyLikelihood,
+      boundaryStrengthScore: professionalJudgementResult.boundaryStrengthScore,
+      regretRisk: professionalJudgementResult.regretRisk,
+      sendConfidenceScore: professionalJudgementResult.sendConfidenceScore,
     })
   }
 
@@ -3500,7 +3641,17 @@ export async function POST(request: Request) {
     latencyMs,
     usedFallback,
     errorCode: fallbackErrorCode,
+    fallbackReason,
     requestId,
+    professionalJudgement: professionalJudgementResult
+      ? {
+          sendConfidenceScore: professionalJudgementResult.sendConfidenceScore,
+          replyLikelihood: professionalJudgementResult.replyLikelihood,
+          regretRisk: professionalJudgementResult.regretRisk,
+          parentInterpretationRisk: professionalJudgementResult.parentInterpretationRisk,
+          signals: professionalJudgementResult.signals,
+        }
+      : undefined,
     recovery:
       process.env.NODE_ENV !== "production" || debugEnabled
         ? {

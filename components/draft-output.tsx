@@ -19,6 +19,10 @@ import { isDebugEnabled } from "@/lib/debug"
 import type { SafeToSendAssessment } from "@/lib/safe-to-send"
 import { logClientEvent, TRUST_FUNNEL_EVENTS } from "@/lib/analytics"
 import type { TeacherDraftFeedback } from "@/lib/draft/teacher-draft-feedback"
+import {
+  DraftJudgementStrip,
+  type DraftProfessionalJudgementMeta,
+} from "@/components/draft-judgement-strip"
 
 interface DraftOutputProps {
   draftText: string
@@ -50,6 +54,9 @@ interface DraftOutputProps {
   rewriteSummary?: string | null
   safeToSend?: SafeToSendAssessment | null
   teacherDraftFeedback?: TeacherDraftFeedback | null
+  teacherDraftMode?: boolean
+  professionalJudgement?: DraftProfessionalJudgementMeta | null
+  professionalJudgementLoading?: boolean
 }
 
 export function DraftOutput({
@@ -76,6 +83,9 @@ export function DraftOutput({
   rewriteSummary = null,
   safeToSend,
   teacherDraftFeedback = null,
+  teacherDraftMode = false,
+  professionalJudgement = null,
+  professionalJudgementLoading = false,
 }: DraftOutputProps) {
   const [copied, setCopied] = useState(false)
   const [showSaveModal, setShowSaveModal] = useState(false)
@@ -102,6 +112,11 @@ export function DraftOutput({
       return t(`draft.teacherDraftFeedback.${teacherDraftFeedbackVerdict}.riskChecked`)
     })
   }, [t, teacherDraftFeedback, teacherDraftFeedbackVerdict])
+  const shouldShowJudgementStrip =
+    teacherDraftMode &&
+    metadata.modeUsed === "parent_message" &&
+    teacherDraftFeedbackVerdict !== "already_strong" &&
+    (professionalJudgementLoading || Boolean(professionalJudgement))
   const { displaySubject, displayParagraphs, signatureParagraph } = useMemo(() => {
     const parsedDraftText = formatDraftText(draftText, locale)
     const baseStructure = structure ?? parsedDraftText
@@ -536,6 +551,18 @@ export function DraftOutput({
             </p>
           )}
         </div>
+
+        {shouldShowJudgementStrip ? (
+          <div className="mb-4">
+            <DraftJudgementStrip
+              professionalJudgement={professionalJudgement}
+              teacherDraftMode={teacherDraftMode}
+              modeUsed={metadata.modeUsed}
+              verdict={teacherDraftFeedbackVerdict}
+              loading={professionalJudgementLoading}
+            />
+          </div>
+        ) : null}
 
         {metadata.forwardSafeRewrite ? (
           <div className="mb-4 rounded-xl border border-sky-200 bg-sky-50 p-4 dark:border-sky-500/30 dark:bg-sky-950/20">
