@@ -13,6 +13,7 @@ import { ADMIN_SESSION_COOKIE_NAME } from "@/lib/auth/admin-session"
 const mockGetUserRole = vi.fn()
 const mockGetFirebaseAdmin = vi.fn()
 const mockSignInWithEmailAndPassword = vi.fn()
+const mockSendPasswordResetEmail = vi.fn()
 const mockSignOut = vi.fn()
 const mockRouterPush = vi.fn()
 const mockRouterReplace = vi.fn()
@@ -27,6 +28,7 @@ vi.mock("@/lib/firebase/admin", () => ({
 
 vi.mock("firebase/auth", () => ({
   signInWithEmailAndPassword: (...args: unknown[]) => mockSignInWithEmailAndPassword(...args),
+  sendPasswordResetEmail: (...args: unknown[]) => mockSendPasswordResetEmail(...args),
   signOut: (...args: unknown[]) => mockSignOut(...args),
 }))
 
@@ -54,6 +56,7 @@ describe("/api/admin/session", () => {
     mockGetUserRole.mockReset()
     mockGetFirebaseAdmin.mockReset()
     mockSignInWithEmailAndPassword.mockReset()
+    mockSendPasswordResetEmail.mockReset()
     mockSignOut.mockReset()
     mockRouterPush.mockReset()
     mockRouterReplace.mockReset()
@@ -183,5 +186,26 @@ describe("/api/admin/session", () => {
         headers: { "Content-Type": "application/json" },
       }),
     )
+  })
+
+  it("sends a password reset email from the login page", async () => {
+    mockSendPasswordResetEmail.mockResolvedValue(undefined)
+
+    render(React.createElement(AdminLoginPage))
+
+    fireEvent.change(screen.getByLabelText("Email"), {
+      target: { value: "greg@zazatechnologies.com" },
+    })
+    fireEvent.click(screen.getByRole("button", { name: "Forgot password?" }))
+
+    await waitFor(() =>
+      expect(mockSendPasswordResetEmail).toHaveBeenCalledWith(
+        expect.anything(),
+        "greg@zazatechnologies.com",
+      ),
+    )
+    expect(
+      screen.getByText("Password reset email sent to greg@zazatechnologies.com"),
+    ).toBeTruthy()
   })
 })

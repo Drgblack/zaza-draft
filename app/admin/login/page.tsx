@@ -1,7 +1,11 @@
 "use client"
 
 import { useState } from "react"
-import { signInWithEmailAndPassword, signOut } from "firebase/auth"
+import {
+  sendPasswordResetEmail,
+  signInWithEmailAndPassword,
+  signOut,
+} from "firebase/auth"
 import { useRouter } from "next/navigation"
 
 import { Button } from "@/components/ui/button"
@@ -14,11 +18,14 @@ export default function AdminLoginPage() {
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [error, setError] = useState<string | null>(null)
+  const [resetMessage, setResetMessage] = useState<string | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [isResettingPassword, setIsResettingPassword] = useState(false)
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     setError(null)
+    setResetMessage(null)
     setIsSubmitting(true)
 
     try {
@@ -51,6 +58,32 @@ export default function AdminLoginPage() {
       setError((submitError as Error)?.message ?? "Unable to sign in.")
     } finally {
       setIsSubmitting(false)
+    }
+  }
+
+  const handlePasswordReset = async () => {
+    setError(null)
+    setResetMessage(null)
+
+    const normalizedEmail = email.trim()
+    if (!normalizedEmail) {
+      setError("Enter your email address first")
+      return
+    }
+
+    if (!auth) {
+      setError("Firebase Auth is not configured.")
+      return
+    }
+
+    try {
+      setIsResettingPassword(true)
+      await sendPasswordResetEmail(auth, normalizedEmail)
+      setResetMessage(`Password reset email sent to ${normalizedEmail}`)
+    } catch (resetError) {
+      setError((resetError as Error)?.message ?? "Unable to send password reset email.")
+    } finally {
+      setIsResettingPassword(false)
     }
   }
 
@@ -93,12 +126,26 @@ export default function AdminLoginPage() {
               value={password}
               onChange={(event) => setPassword(event.target.value)}
             />
+            <button
+              type="button"
+              className="text-sm font-medium text-slate-600 underline-offset-4 hover:text-slate-900 hover:underline"
+              onClick={() => void handlePasswordReset()}
+              disabled={isSubmitting || isResettingPassword}
+            >
+              {isResettingPassword ? "Sending reset email..." : "Forgot password?"}
+            </button>
           </div>
         </div>
 
         {error ? (
           <p className="mt-4 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
             {error}
+          </p>
+        ) : null}
+
+        {resetMessage ? (
+          <p className="mt-4 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
+            {resetMessage}
           </p>
         ) : null}
 
