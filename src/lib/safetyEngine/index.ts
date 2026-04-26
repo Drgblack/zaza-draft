@@ -10,6 +10,7 @@ export interface SafetyEngineInput {
   rawMessage: string
   messageDirection: string
   inputMode: string
+  suppressSignalIds?: string[]
 }
 
 export interface SafetyEngineOutput {
@@ -140,7 +141,9 @@ export async function runSafetyEngine(
     return null
   }
 
-  const firedSignals = detectSignals(input.rawMessage)
+  const firedSignals = detectSignals(input.rawMessage, {
+    suppressSignalIds: input.suppressSignalIds,
+  })
   const topicSensitivity = detectTopicSensitivity(input.rawMessage)
   const structuralImbalance = detectStructuralImbalance(input.rawMessage, firedSignals)
   let toneClass: ToneClass = "clinical"

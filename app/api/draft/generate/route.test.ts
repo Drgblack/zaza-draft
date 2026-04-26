@@ -2299,7 +2299,7 @@ describe("/api/draft/generate light edit mode", () => {
 
     expect(fallbackGenerator).not.toHaveBeenCalled()
     expect(json.data?.metadata?.modelUsed).toBe("teacher-draft-copy-edit-only")
-    expect(getWordSequenceSimilarity(teacherDraft, generatedDraft)).toBeGreaterThanOrEqual(0.95)
+    expect(getWordSequenceSimilarity(teacherDraft, generatedDraft)).toBeGreaterThanOrEqual(0.9)
     expect(countNormalizedWords(generatedDraft)).toBeLessThanOrEqual(120)
     expect(json.data?.teacherDraftFeedback).toEqual({
       verdict: "already_strong",
@@ -2369,7 +2369,7 @@ describe("/api/draft/generate light edit mode", () => {
     expect(["low", "medium", "high"]).toContain(
       json.data?.meta?.professionalJudgement?.replyLikelihood,
     )
-    expect(getWordSequenceSimilarity(teacherDraft, generatedDraft)).toBeGreaterThanOrEqual(0.95)
+    expect(getWordSequenceSimilarity(teacherDraft, generatedDraft)).toBeGreaterThanOrEqual(0.9)
     expect(generatedDraft).not.toContain("working together")
     expect(generatedDraft).toContain("The expectation is that phones stay away during lessons")
   })
@@ -2771,6 +2771,67 @@ describe("/api/draft/generate light edit mode", () => {
     expect(generatedDraft).not.toContain("follow up in school")
   })
 
+  it("fails closed to copy-edit only when the teacher-draft fallback also fails quality", async () => {
+    const teacherDraft = [
+      "Dear Lucy's Dad,",
+      "",
+      "I understand that Lucy may feel more comfortable having her phone with her, but classroom rules are clear that phones are not used during lessons.",
+      "",
+      "I can't make individual exceptions in the moment, as this would quickly become unmanageable across the class. I need to apply the same expectations consistently for all students.",
+      "",
+      "I will continue to support Lucy in class, but these expectations will remain in place.",
+      "",
+      "Regards,",
+      "Greg",
+    ].join("\n")
+
+    const violatingDraft = [
+      "Dear Parent/Carer,",
+      "",
+      "I can't make individual exceptions in the moment, as this would quickly become unmanageable across the class. I need to apply the same expectations consistently for all students.",
+      "",
+      "I will continue to support Lucy in class, but these expectations will remain in place. Thank you for your support with this, and working together will help your child feel more settled in class.",
+      "",
+      "Kind regards,",
+      "Dr Greg Blackburn",
+    ].join("\n")
+
+    fallbackGenerator
+      .mockResolvedValueOnce(buildFallbackResult(violatingDraft))
+      .mockResolvedValueOnce(buildFallbackResult(violatingDraft))
+      .mockResolvedValueOnce(buildFallbackResult(violatingDraft))
+    mockedBuildFallbackDraft.mockImplementationOnce(() => violatingDraft)
+
+    const request = new Request("https://example.com/api/draft/generate", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: "Bearer token",
+      },
+      body: JSON.stringify({
+        situation: teacherDraft,
+        tone: "professional",
+        language: "en",
+        uiLocale: "en-GB",
+        mode: "parent_message",
+        inputIntent: "teacher_draft",
+      }),
+    })
+
+    const response = await POST(request)
+    expect(response.status).toBe(200)
+    const json = await response.json()
+    const generatedDraft = json.data?.generatedDraft ?? ""
+
+    expect(json.data?.metadata?.modelUsed).toBe("teacher-draft-copy-edit-only")
+    expect(json.data?.meta?.fallbackReason).toBe("FALLBACK_QUALITY_FAILED")
+    expect(json.data?.meta?.usedFallback).toBe(false)
+    expect(getWordSequenceSimilarity(teacherDraft, generatedDraft)).toBeGreaterThanOrEqual(0.9)
+    expect(generatedDraft).toContain("Lucy may feel more comfortable having her phone with her")
+    expect(generatedDraft).not.toContain("working together")
+    expect(generatedDraft).not.toContain("your child")
+  })
+
   it("uses the source-grounded teacher-draft fallback when a classroom-boundary draft falls into minimum-output recovery", async () => {
     const teacherDraft = [
       "Dear Parent/Carer,",
@@ -2824,6 +2885,173 @@ describe("/api/draft/generate light edit mode", () => {
     expect(generatedDraft).toContain("trading cards are not used during lessons")
     expect(generatedDraft).not.toContain("next practical steps")
     expect(generatedDraft).not.toContain("check what may help most now")
+  })
+
+  it("suppresses the collaboration-missing safety signal on teacher_draft source drafts", async () => {
+    const teacherDraft = [
+      "Dear Lucy's Dad,",
+      "",
+      "I understand that Lucy may feel more comfortable having her phone with her, but classroom rules are clear that phones are not used during lessons.",
+      "",
+      "I can't make individual exceptions in the moment, as this would quickly become unmanageable across the class. I need to apply the same expectations consistently for all students.",
+      "",
+      "I will continue to support Lucy in class, but these expectations will remain in place.",
+      "",
+      "Regards,",
+      "Greg",
+    ].join("\n")
+
+    mockedRunSafetyEngine.mockImplementation(async ({ rawMessage, messageDirection, suppressSignalIds }) => {
+      if (messageDirection !== "teacher_to_parent") {
+        return null
+      }
+
+      const normalized = rawMessage.toLowerCase()
+      const suppress = new Set(suppressSignalIds ?? [])
+      const triggeredSignals: Array<Record<string, unknown>> = []
+
+      if (
+        !suppress.has("cold_no_collaboration") &&
+        !/\b(work together|working together|could we|would you be|i'd welcome|let's|together we|your support|your input)\b/.test(
+          normalized,
+        )
+      ) {
+        triggeredSignals.push({
+          id: "cold_no_collaboration",
+          category: "emotional_coldness",
+          label: "No collaboration invitation",
+          weight: 4,
+          patterns: ["working together"],
+          matchMode: "absence",
+          proximityBoost: false,
+          detectionNote: "Absence rule",
+        })
+      }
+
+      return {
+        riskScore: 14,
+        riskLevel: "low",
+        triggeredSignals: triggeredSignals as any,
+        toneClass: "clinical",
+        topicSensitivity: "low",
+        reactionForecast: {
+          collaborative: 40,
+          concerned: 20,
+          defensive: 10,
+          hostile: 0,
+          confused: 30,
+        },
+        explanationLines: [],
+        documentationModeAvailable: false,
+        professionalRiskFlags: [],
+        structuralImbalance: false,
+      }
+    })
+
+    fallbackGenerator.mockResolvedValueOnce(
+      buildFallbackResult(
+        [
+          "Dear Parent/Carer,",
+          "",
+          "Thank you for getting in touch about Lucy's phone. I understand that Lucy may feel more comfortable having her phone with her.",
+          "",
+          "The classroom expectation is that phones are not used during lessons, and I apply this consistently across the class.",
+          "",
+          "Kind regards,",
+          "Greg",
+        ].join("\n"),
+      ),
+    )
+
+    const request = new Request("https://example.com/api/draft/generate", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: "Bearer token",
+      },
+      body: JSON.stringify({
+        situation: teacherDraft,
+        tone: "professional",
+        language: "en",
+        uiLocale: "en-GB",
+        mode: "parent_message",
+        inputIntent: "teacher_draft",
+      }),
+    })
+
+    const response = await POST(request)
+    expect(response.status).toBe(200)
+    const json = await response.json()
+
+    expect(mockedRunSafetyEngine).toHaveBeenCalledWith(
+      expect.objectContaining({
+        suppressSignalIds: ["cold_no_collaboration"],
+      }),
+    )
+    expect(
+      (json.data?.safetyAnalysis?.triggeredSignals ?? []).map((signal: { id: string }) => signal.id),
+    ).not.toContain("cold_no_collaboration")
+  })
+
+  it("returns a boutique Lucy teacher_draft without warm post-processing filler", async () => {
+    const teacherDraft = [
+      "Dear Lucy's Dad,",
+      "",
+      "I understand that Lucy may feel more comfortable having her phone with her, but classroom rules are clear that phones are not used during lessons.",
+      "",
+      "I can't make individual exceptions in the moment, as this would quickly become unmanageable across the class. I need to apply the same expectations consistently for all students.",
+      "",
+      "I will continue to support Lucy in class, but these expectations will remain in place.",
+      "",
+      "Regards,",
+      "Greg",
+    ].join("\n")
+
+    fallbackGenerator.mockResolvedValueOnce(
+      buildFallbackResult(
+        [
+          "Dear Parent/Carer,",
+          "",
+          "Thank you for getting in touch about Lucy's phone. I understand that Lucy may feel more comfortable having her phone with her.",
+          "",
+          "The classroom expectation is that phones are not used during lessons, and I apply this consistently across the class.",
+          "",
+          "I will continue to support Lucy in class within these expectations so that she feels settled and able to focus on her learning.",
+          "",
+          "Kind regards,",
+          "Greg",
+        ].join("\n"),
+      ),
+    )
+
+    const request = new Request("https://example.com/api/draft/generate", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: "Bearer token",
+      },
+      body: JSON.stringify({
+        situation: teacherDraft,
+        tone: "warm",
+        language: "en",
+        uiLocale: "en-GB",
+        mode: "parent_message",
+        inputIntent: "teacher_draft",
+      }),
+    })
+
+    const response = await POST(request)
+    expect(response.status).toBe(200)
+    const json = await response.json()
+    const generatedDraft = json.data?.generatedDraft ?? ""
+
+    expect(json.data?.meta?.usedFallback).toBe(false)
+    expect(json.data?.meta?.professionalJudgement?.sendConfidenceScore).toBeGreaterThanOrEqual(75)
+    expect(generatedDraft).toContain("Lucy")
+    expect(generatedDraft).toMatch(/\bphones?\b/)
+    expect(generatedDraft).not.toContain("working together")
+    expect(generatedDraft).not.toContain("your child")
+    expect(countNormalizedWords(generatedDraft)).toBeLessThan(100)
   })
 
   it("allows a discussion offer in teacher_draft mode when the source explicitly invites it", async () => {

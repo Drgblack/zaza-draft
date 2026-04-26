@@ -1208,6 +1208,7 @@ type RecoveryTraceSource =
   | "retry_generation"
   | "deterministic_fallback"
   | "continuation_recovery"
+  | "copy_edit_only"
 
 function detectGenericRecoveryOutput(
   draft: string,
@@ -1903,6 +1904,12 @@ export async function POST(request: Request) {
   const resolvedPronounPreference = pronounResolution.resolvedPreference
   const safetyEngineMessageDirection =
     mode === "parent_message" ? "teacher_to_parent" : generationMetadata.direction
+  const suppressedSafetySignalIds =
+    mode === "parent_message" &&
+      inputIntent === "teacher_draft" &&
+      generationMetadata.direction === "teacher_to_parent"
+    ? ["cold_no_collaboration"]
+    : undefined
 
   console.log("[safety-engine] input", {
     messageDirection: safetyEngineMessageDirection,
@@ -1919,6 +1926,7 @@ export async function POST(request: Request) {
         rawMessage,
         messageDirection: safetyEngineMessageDirection,
         inputMode: generationMetadata.mode,
+        suppressSignalIds: suppressedSafetySignalIds,
       })
     } catch (error) {
       logAttemptError(stage, error, { fatal: false })
@@ -2788,6 +2796,7 @@ export async function POST(request: Request) {
       mode,
       tone,
       studentFirstName: studentNameForPayload || undefined,
+      requestedTeacherDraftMode,
     })
     generatedDraft = finalSanity.text
     generatedDraft = normalizeClosingForMode(generatedDraft)
@@ -3533,6 +3542,34 @@ export async function POST(request: Request) {
       teacherDraftQualityResult = fallbackQualityResult
       teacherDraftQualityViolations = fallbackQualityResult.violations
       pushRecoveryEvent("deterministic_fallback", "TEACHER_DRAFT_QUALITY_FALLBACK")
+    } else {
+      generatedDraft = finalizeWithGreeting(currentSituation)
+      finalizeAndFormatDraft(generatedDraft)
+      preserveTeacherDraftSignatureIfNeeded()
+      providerMeta = {
+        modelUsed: "teacher-draft-copy-edit-only",
+        latencyMs: providerMeta.latencyMs,
+      }
+      usedFallback = false
+      fallbackReason = "FALLBACK_QUALITY_FAILED"
+      fallbackErrorCode = fallbackErrorCode ?? "FALLBACK_QUALITY_FAILED"
+      teacherDraftQualityResult =
+        sourceTeacherDraftQuality ??
+        evaluateDraftQuality({
+          sourceText: currentSituation,
+          candidateText: generatedDraft,
+          language,
+          teacherDraftMode: requestedTeacherDraftMode,
+          requestedSignatureName,
+          safetyAnalysis,
+          lengthTarget: teacherDraftLengthTarget,
+        })
+      teacherDraftQualityViolations = teacherDraftQualityResult.violations
+      professionalJudgementResult = evaluateTeacherDraftProfessionalJudgement(
+        generatedDraft,
+        outputSafetyAnalysis,
+      )
+      pushRecoveryEvent("copy_edit_only", "FALLBACK_QUALITY_FAILED")
     }
   }
 

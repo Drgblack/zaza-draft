@@ -15,6 +15,7 @@ interface EnglishOutputSanityOptions {
   mode: DraftMode
   tone?: DraftTone
   studentFirstName?: string
+  requestedTeacherDraftMode?: boolean
 }
 
 interface EnglishOutputSanityResult {
@@ -237,7 +238,12 @@ function applyParentMessageTonePolish(
   text: string,
   tone: DraftTone | undefined,
   studentFirstName?: string,
+  requestedTeacherDraftMode?: boolean,
 ) {
+  if (requestedTeacherDraftMode) {
+    return { text, changed: false }
+  }
+
   if (!tone || (tone !== "warm" && tone !== "direct")) {
     return { text, changed: false }
   }
@@ -320,6 +326,7 @@ export function applyEnglishOutputSanity(
       sanitized,
       options.tone,
       options.studentFirstName,
+      options.requestedTeacherDraftMode,
     )
     if (tonePolished.changed) {
       issues.push("tone_distinction")

@@ -73,10 +73,17 @@ function hasEdgeSentenceMatch(signal: Signal, sentences: string[]): boolean {
   )
 }
 
-export function detectSignals(rawMessage: string): FiredSignal[] {
+export function detectSignals(
+  rawMessage: string,
+  options?: {
+    suppressSignalIds?: string[]
+  },
+): FiredSignal[] {
   const sentences = splitSentences(rawMessage)
+  const suppressSignalIds = new Set(options?.suppressSignalIds ?? [])
 
   return safetySignals
+    .filter((signal) => !suppressSignalIds.has(signal.id))
     .filter((signal) => isSignalMatched(signal, rawMessage))
     .map((signal) => ({
       ...signal,
@@ -86,4 +93,3 @@ export function detectSignals(rawMessage: string): FiredSignal[] {
           : signal.weight,
     }))
 }
-

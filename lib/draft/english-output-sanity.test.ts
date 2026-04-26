@@ -157,6 +157,34 @@ describe("applyEnglishOutputSanity", () => {
     expect(result.issues).toContain("tone_distinction")
   })
 
+  it("does not inject partnership filler into teacher-draft rewrites", () => {
+    const draft = [
+      "Subject: Classroom update",
+      "",
+      "Dear Parent/Carer,",
+      "",
+      "Thank you for getting in touch about Lucy's phone.",
+      "",
+      "The classroom expectation is that phones are not used during lessons, and I apply this consistently across the class.",
+      "",
+      "Kind regards,",
+      "Greg",
+    ].join("\n")
+
+    const result = applyEnglishOutputSanity(draft, {
+      language: "en",
+      mode: "parent_message",
+      tone: "warm",
+      studentFirstName: "Lucy",
+      requestedTeacherDraftMode: true,
+    })
+
+    expect(result.text).toBe(draft)
+    expect(result.text).not.toContain("working together")
+    expect(result.text).not.toContain("your child")
+    expect(result.issues).toEqual([])
+  })
+
   it("keeps direct parent messages lean by removing extra partnership filler", () => {
     const result = applyEnglishOutputSanity(
       [
