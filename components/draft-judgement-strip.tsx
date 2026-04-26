@@ -1,11 +1,19 @@
 "use client"
 
 import { Reply, Shield, TriangleAlert } from "lucide-react"
+import { useEffect, useRef } from "react"
 import type { DraftMode } from "@/lib/types"
 import type { ProfessionalJudgementSignal } from "@/lib/draft/professional-judgement"
 import { useLocale } from "@/hooks/use-locale"
+import { emitClientSignal } from "@/lib/analytics/client-signal-emitter"
 
 type JudgementLevel = "low" | "medium" | "high"
+export type DraftJudgementActionType = "sent" | "edited" | "discarded" | "regenerated"
+
+export interface DraftJudgementActionEvent {
+  type: DraftJudgementActionType
+  at: number
+}
 
 export interface DraftProfessionalJudgementMeta {
   sendConfidenceScore: number
@@ -21,6 +29,12 @@ interface DraftJudgementStripProps {
   modeUsed?: DraftMode
   verdict?: string | null
   loading?: boolean
+  analyticsContext?: {
+    sessionId: string
+    uidHash: string
+    locale: string
+  } | null
+  lastAction?: DraftJudgementActionEvent | null
 }
 
 function getToneClasses(tone: "success" | "warning" | "danger" | "muted") {
@@ -108,8 +122,127 @@ export function DraftJudgementStrip({
   modeUsed,
   verdict,
   loading = false,
+  analyticsContext = null,
+  lastAction = null,
 }: DraftJudgementStripProps) {
   const { t } = useLocale()
+  const rootRef = useRef<HTMLDivElement | null>(null)
+  const viewStartTimeRef = useRef<number | null>(null)
+  const viewVisibleRef = useRef(false)
+  const viewedEmittedRef = useRef(false)
+  const ignoredEmittedRef = useRef(false)
+  const pauseEmittedRef = useRef(false)
+  const editEmittedRef = useRef(false)
+
+  useEffect(() => {
+    if (!analyticsContext || !rootRef.current || !professionalJudgement) {
+      return undefined
+    }
+
+    const observer = new IntersectionObserver((entries) => {
+      const entry = entries[0]
+      if (!entry?.isIntersecting) {
+        viewVisibleRef.current = false
+        viewStartTimeRef.current = null
+        return
+      }
+
+      viewVisibleRef.current = true
+      viewStartTimeRef.current = Date.now()
+
+      window.setTimeout(() => {
+        if (
+          !viewedEmittedRef.current &&
+          viewVisibleRef.current &&
+          viewStartTimeRef.current &&
+          Date.now() - viewStartTimeRef.current >= 2000
+        ) {
+          viewedEmittedRef.current = true
+          void emitClientSignal({
+            sessionId: analyticsContext.sessionId,
+            uidHash: analyticsContext.uidHash,
+            signalType: "risk_strip_viewed",
+            payload: {
+              interactionType: "viewed",
+              sendConfidenceScore: professionalJudgement.sendConfidenceScore,
+              replyLikelihood: professionalJudgement.replyLikelihood,
+              regretRisk: professionalJudgement.regretRisk,
+              viewDurationMs: Date.now() - viewStartTimeRef.current,
+            },
+            locale: analyticsContext.locale,
+          })
+        }
+      }, 2000)
+    }, { threshold: 0.5 })
+
+    observer.observe(rootRef.current)
+    return () => observer.disconnect()
+  }, [analyticsContext, professionalJudgement])
+
+  useEffect(() => {
+    if (!analyticsContext || !professionalJudgement || !lastAction || !viewStartTimeRef.current) {
+      return
+    }
+
+    const viewDurationMs = Math.max(0, lastAction.at - viewStartTimeRef.current)
+    const subsequentAction = lastAction.type
+
+    if (lastAction.type === "edited" && !editEmittedRef.current) {
+      editEmittedRef.current = true
+      void emitClientSignal({
+        sessionId: analyticsContext.sessionId,
+        uidHash: analyticsContext.uidHash,
+        signalType: "risk_strip_caused_edit",
+        payload: {
+          interactionType: "caused_edit",
+          sendConfidenceScore: professionalJudgement.sendConfidenceScore,
+          replyLikelihood: professionalJudgement.replyLikelihood,
+          regretRisk: professionalJudgement.regretRisk,
+          viewDurationMs,
+          subsequentAction,
+        },
+        locale: analyticsContext.locale,
+      })
+      return
+    }
+
+    if (lastAction.type === "sent" && viewDurationMs <= 1000 && !ignoredEmittedRef.current) {
+      ignoredEmittedRef.current = true
+      void emitClientSignal({
+        sessionId: analyticsContext.sessionId,
+        uidHash: analyticsContext.uidHash,
+        signalType: "risk_strip_ignored",
+        payload: {
+          interactionType: "ignored",
+          sendConfidenceScore: professionalJudgement.sendConfidenceScore,
+          replyLikelihood: professionalJudgement.replyLikelihood,
+          regretRisk: professionalJudgement.regretRisk,
+          viewDurationMs,
+          subsequentAction,
+        },
+        locale: analyticsContext.locale,
+      })
+      return
+    }
+
+    if (viewDurationMs >= 5000 && !pauseEmittedRef.current) {
+      pauseEmittedRef.current = true
+      void emitClientSignal({
+        sessionId: analyticsContext.sessionId,
+        uidHash: analyticsContext.uidHash,
+        signalType: "risk_strip_caused_pause",
+        payload: {
+          interactionType: "caused_pause",
+          sendConfidenceScore: professionalJudgement.sendConfidenceScore,
+          replyLikelihood: professionalJudgement.replyLikelihood,
+          regretRisk: professionalJudgement.regretRisk,
+          viewDurationMs,
+          subsequentAction,
+        },
+        locale: analyticsContext.locale,
+      })
+    }
+  }, [analyticsContext, lastAction, professionalJudgement])
 
   if (!teacherDraftMode || modeUsed !== "parent_message" || verdict === "already_strong") {
     return null
@@ -122,6 +255,7 @@ export function DraftJudgementStrip({
   if (loading || !professionalJudgement) {
     return (
       <div
+        ref={rootRef}
         className="flex items-stretch gap-3 overflow-hidden rounded-xl border border-slate-200/80 bg-slate-50/90 p-3 dark:border-slate-700 dark:bg-slate-900/40"
         data-testid="draft-judgement-strip"
       >
@@ -143,6 +277,7 @@ export function DraftJudgementStrip({
 
   return (
     <div
+      ref={rootRef}
       className="flex items-stretch gap-3 overflow-hidden rounded-xl border border-slate-200/80 bg-slate-50/90 p-3 dark:border-slate-700 dark:bg-slate-900/40"
       data-testid="draft-judgement-strip"
     >

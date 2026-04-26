@@ -24,6 +24,7 @@ import {
   type MonthlyUsageRecord,
 } from "@/lib/usage"
 import { logServerEvent } from "@/lib/analytics"
+import { emitSignal, withAnalyticsConsent } from "@/lib/analytics/signal-emitter"
 import { getUserEntitlements } from "@/lib/entitlements"
 import { extractBearerToken } from "@/lib/auth/bearer"
 import { hasDraftEntitlementAccess, resolveDraftEntitlement } from "@/lib/draft-entitlements"
@@ -90,6 +91,7 @@ import {
   detectRegisterViolations,
   normaliseSpelling,
 } from "@/lib/draft/register-accuracy"
+import { getUserProfile } from "@/lib/auth/get-user-role"
 import {
   checkVoicePreservation,
   extractVoiceProfile,
@@ -193,6 +195,7 @@ interface GenerateDraftRequest {
   ocrConfidence?: number
   panicClassificationConfidence?: number
   documentationMode?: boolean
+  analyticsConsent?: boolean
 }
 
 function buildContextLine(context?: GenerateDraftRequest["context"]) {
@@ -1684,6 +1687,7 @@ export async function POST(request: Request) {
   const normalizedUiLocale = canonicalUiLocale ?? uiLocale
   const mode = resolveDraftMode(payload?.mode)
   const inputIntent = parseInputIntent(payload?.inputIntent ?? payload?.parentMessageInputType)
+  const analyticsConsentEnabled = payload?.analyticsConsent === true
   const debugEnabled =
     isDebugEnabled(requestUrl.searchParams) || request.headers.get("x-debug") === "1"
   const generationTrace = mode
@@ -2114,6 +2118,8 @@ export async function POST(request: Request) {
   const enforceUsageLimits = isDevBypassRequest ? false : shouldRespectUsageLimit(uid)
 
   const userRef = firestore ? firestore.collection("users").doc(uid) : null
+  const userProfile = firestore ? await getUserProfile(uid, firestore) : null
+  const userSchoolId = userProfile?.schoolId
   const diagnosticsRef = userRef?.collection("diagnostics").doc("status") ?? null
   const insightsSummaryRef = userRef?.collection("insights").doc("summary") ?? null
   const recordDiagnostic = async (fields: Record<string, unknown>) => {
@@ -3643,6 +3649,7 @@ export async function POST(request: Request) {
     errorCode: fallbackErrorCode,
     fallbackReason,
     requestId,
+    uidHash,
     professionalJudgement: professionalJudgementResult
       ? {
           sendConfidenceScore: professionalJudgementResult.sendConfidenceScore,
@@ -3792,6 +3799,89 @@ export async function POST(request: Request) {
     latencyMs: generationTime,
     modelUsed: metadata.modelUsed,
     tokensUsed: providerMeta.tokensUsed,
+  })
+
+  const sourceIntentForSignals =
+    requestedTeacherDraftMode && sourceTeacherDraftIntent
+      ? sourceTeacherDraftIntent
+      : requestedTeacherDraftMode
+        ? classifyTeacherDraftIntent(currentSituation)
+        : null
+
+  void withAnalyticsConsent(analyticsConsentEnabled, () => {
+    const signalPromises: Array<Promise<void>> = [
+      emitSignal({
+        sessionId: requestId,
+        uidHash,
+        schoolId: userSchoolId,
+        signalType: usedFallback
+          ? "draft_fallback_used"
+          : providerMeta.modelUsed === "teacher-draft-copy-edit-only"
+            ? "draft_copy_edit_only"
+            : "draft_generated",
+        payload: {
+          modelUsed: providerMeta.modelUsed,
+          generationAttempts: teacherDraftQualityRegenerationAttempts + 1,
+          sourceWordCount: countWords(currentSituation),
+          outputWordCount: countWords(generatedDraft),
+          inputIntent: generationMetadata.direction,
+          languagePair: `${language}-${language}`,
+          latencyMs: providerMeta.latencyMs ?? latencyMs,
+        },
+        appVersion: process.env.npm_package_version ?? "unknown",
+        locale: language,
+      }),
+    ]
+
+    if (requestedTeacherDraftMode) {
+      signalPromises.push(
+        emitSignal({
+          sessionId: requestId,
+          uidHash,
+          schoolId: userSchoolId,
+          signalType: "quality_verdict_emitted",
+          payload: {
+            verdict: teacherDraftQualityResult.verdict,
+            violationCategories: teacherDraftQualityResult.violations.map((violation) => violation.category),
+            violationCount: teacherDraftQualityResult.violations.length,
+            blockingViolationCount: teacherDraftQualityResult.violations.filter(
+              (violation) => violation.severity === "blocking",
+            ).length,
+            advisoryViolationCount: teacherDraftQualityResult.violations.filter(
+              (violation) => violation.severity === "advisory",
+            ).length,
+          },
+          appVersion: process.env.npm_package_version ?? "unknown",
+          locale: language,
+        }),
+      )
+    }
+
+    if (requestedTeacherDraftMode && professionalJudgementResult && sourceIntentForSignals) {
+      signalPromises.push(
+        emitSignal({
+          sessionId: requestId,
+          uidHash,
+          schoolId: userSchoolId,
+          signalType: "judgement_score_emitted",
+          payload: {
+            sendConfidenceScore: professionalJudgementResult.sendConfidenceScore,
+            clarityScore: professionalJudgementResult.clarityScore,
+            authorityScore: professionalJudgementResult.authorityScore,
+            replyLikelihood: professionalJudgementResult.replyLikelihood,
+            regretRisk: professionalJudgementResult.regretRisk,
+            parentInterpretationRisk: professionalJudgementResult.parentInterpretationRisk,
+            boundaryStrengthScore: professionalJudgementResult.boundaryStrengthScore,
+            sourceIntent: sourceIntentForSignals.intent,
+            parentEmotionalState: professionalJudgementResult.parentEmotionalState,
+          },
+          appVersion: process.env.npm_package_version ?? "unknown",
+          locale: language,
+        }),
+      )
+    }
+
+    return Promise.allSettled(signalPromises)
   })
 
   return ok({

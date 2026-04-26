@@ -2,7 +2,8 @@
 
 import "@testing-library/jest-dom"
 import { render, screen } from "@testing-library/react"
-import { describe, expect, it, vi } from "vitest"
+import { act } from "@testing-library/react"
+import { beforeEach, describe, expect, it, vi } from "vitest"
 import {
   DraftJudgementStrip,
   type DraftProfessionalJudgementMeta,
@@ -17,12 +18,38 @@ const messages: Record<string, string> = {
   "judgementStrip.high": "High",
 }
 
+const { emitClientSignalMock } = vi.hoisted(() => ({
+  emitClientSignalMock: vi.fn().mockResolvedValue(undefined),
+}))
+
 vi.mock("@/hooks/use-locale", () => ({
   useLocale: () => ({
     locale: "en-GB",
     t: (key: string) => messages[key] ?? key,
   }),
 }))
+
+vi.mock("@/lib/analytics/client-signal-emitter", () => ({
+  emitClientSignal: emitClientSignalMock,
+}))
+
+let currentObserver: {
+  callback: IntersectionObserverCallback
+} | null = null
+
+beforeEach(() => {
+  vi.useFakeTimers()
+  emitClientSignalMock.mockClear()
+  currentObserver = null
+  class MockIntersectionObserver {
+    constructor(callback: IntersectionObserverCallback) {
+      currentObserver = { callback }
+    }
+    observe() {}
+    disconnect() {}
+  }
+  vi.stubGlobal("IntersectionObserver", MockIntersectionObserver as unknown as typeof IntersectionObserver)
+})
 
 const buildJudgement = (
   overrides: Partial<DraftProfessionalJudgementMeta> = {},
@@ -101,5 +128,66 @@ describe("DraftJudgementStrip", () => {
     const replyLikelihood = screen.getByTestId("judgement-reply-likelihood")
     expect(replyLikelihood).toHaveTextContent("Medium")
     expect(replyLikelihood.querySelector("svg")).toHaveClass("text-amber-500")
+  })
+
+  it("emits caused_pause after a long visible pause before send", () => {
+    const nowSpy = vi.spyOn(Date, "now")
+    nowSpy.mockReturnValue(1_000)
+
+    const { rerender } = render(
+      <DraftJudgementStrip
+        professionalJudgement={buildJudgement()}
+        teacherDraftMode
+        modeUsed="parent_message"
+        analyticsContext={{
+          sessionId: "req-1",
+          uidHash: "hash-1",
+          locale: "en",
+        }}
+      />,
+    )
+
+    act(() => {
+      currentObserver?.callback(
+        [{ isIntersecting: true } as IntersectionObserverEntry],
+        {} as IntersectionObserver,
+      )
+    })
+
+    nowSpy.mockReturnValue(7_100)
+    act(() => {
+      vi.advanceTimersByTime(2000)
+    })
+
+    rerender(
+      <DraftJudgementStrip
+        professionalJudgement={buildJudgement()}
+        teacherDraftMode
+        modeUsed="parent_message"
+        analyticsContext={{
+          sessionId: "req-1",
+          uidHash: "hash-1",
+          locale: "en",
+        }}
+        lastAction={{
+          type: "sent",
+          at: 7_100,
+        }}
+      />,
+    )
+
+    expect(emitClientSignalMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        signalType: "risk_strip_caused_pause",
+        payload: expect.objectContaining({
+          interactionType: "caused_pause",
+          viewDurationMs: expect.any(Number),
+        }),
+      }),
+    )
+    const payload = emitClientSignalMock.mock.calls.find(
+      ([signal]) => signal.signalType === "risk_strip_caused_pause",
+    )?.[0]?.payload as { viewDurationMs: number }
+    expect(payload.viewDurationMs).toBeGreaterThanOrEqual(6000)
   })
 })

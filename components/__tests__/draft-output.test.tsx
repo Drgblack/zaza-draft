@@ -3,7 +3,7 @@
 import "@testing-library/jest-dom"
 import { act, fireEvent, render, screen, within } from "@testing-library/react"
 import { vi } from "vitest"
-import { DraftOutput } from "@/components/draft-output"
+import { DraftOutput, classifyEditDistance } from "@/components/draft-output"
 import type { DraftStructure } from "@/lib/draft/format"
 
 let mockSearchParams = new URLSearchParams()
@@ -190,6 +190,24 @@ afterEach(() => {
 })
 
 describe("DraftOutput formatting", () => {
+  it("classifies small wording changes as minor", () => {
+    expect(
+      classifyEditDistance(
+        "I will support Lucy in class.",
+        "I will continue to support Lucy sensitively in class.",
+      ),
+    ).toBe("minor")
+  })
+
+  it("classifies substantial changes as major", () => {
+    expect(
+      classifyEditDistance(
+        "I will support Lucy in class during lessons today.",
+        "Lucy needs a different plan because the whole lesson structure broke down and expectations changed again.",
+      ),
+    ).toBe("major")
+  })
+
   it("renders the subject, structured paragraphs, and signature once", () => {
     render(<DraftOutput {...baseProps} structure={mockStructure} />)
     const body = screen.getByTestId("draft-output-body")

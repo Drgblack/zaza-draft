@@ -152,6 +152,9 @@ function countNormalizedWords(text: string) {
 const TRUST_GRADE_FAILURE_MESSAGE =
   "Unable to generate a compliant draft. Please rephrase or contact support."
 const MOCK_FREE_TIER_LIMIT = 5
+const { mockedEmitSignal } = vi.hoisted(() => ({
+  mockedEmitSignal: vi.fn().mockResolvedValue(undefined),
+}))
 
 vi.mock("@/lib/firebase/server", () => ({
   authorizeFirebaseRequest: vi.fn().mockResolvedValue({
@@ -193,6 +196,12 @@ vi.mock("@/lib/safety", () => ({
 
 vi.mock("@/lib/analytics", () => ({
   logServerEvent: vi.fn(),
+}))
+
+vi.mock("@/lib/analytics/signal-emitter", () => ({
+  emitSignal: mockedEmitSignal,
+  isAnalyticsEnabled: vi.fn().mockReturnValue(true),
+  withAnalyticsConsent: vi.fn((enabled: boolean, callback: () => unknown) => callback()),
 }))
 
 vi.mock("@/src/lib/safetyEngine", () => ({
@@ -468,6 +477,7 @@ const mockedRunSafetyEngine = vi.mocked(runSafetyEngine)
 const mockedDetectBlockedLanguage = vi.mocked(detectBlockedLanguage)
 beforeEach(() => {
   vi.clearAllMocks()
+  mockedEmitSignal.mockClear()
   fallbackGenerator.mockReset()
   fallbackGenerator.mockResolvedValue(buildFallbackResult(getLongDraft()))
   mockedBuildFallbackDraft.mockClear()
@@ -5523,5 +5533,63 @@ describe("/api/draft/generate professional risk handling", () => {
     expect(json.data.safetyAnalysis?.professionalRiskFlags[0]?.signalId).toBe(
       "pro_medical_speculation",
     )
+  })
+})
+
+describe("/api/draft/generate usage signal emission", () => {
+  it("emits generation, quality, and judgement signals when analytics consent is enabled", async () => {
+    mockedGenerateDraft.mockResolvedValueOnce({
+      text: [
+        "Dear Parent/Carer,",
+        "",
+        "Thank you for getting in touch.",
+        "",
+        "The classroom expectation is that phones are not used during lessons, and I apply this consistently for all students.",
+        "",
+        "Kind regards,",
+        "Greg",
+      ].join("\n"),
+      providerMeta: {
+        modelUsed: "test-model",
+        latencyMs: 12,
+      },
+    })
+
+    const request = new Request("https://example.com/api/draft/generate", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: "Bearer token",
+      },
+      body: JSON.stringify({
+        situation: [
+          "Dear Lucy's Dad,",
+          "",
+          "I understand that Lucy may feel more comfortable having her phone with her, but classroom rules are clear that phones are not used during lessons.",
+          "",
+          "I can't make individual exceptions in the moment, and I need to apply the same expectations consistently for all students.",
+          "",
+          "These expectations will remain in place.",
+          "",
+          "Regards,",
+          "Greg",
+        ].join("\n"),
+        tone: "professional",
+        language: "en",
+        mode: "parent_message",
+        inputIntent: "teacher_draft",
+        analyticsConsent: true,
+      }),
+    })
+
+    const response = await POST(request)
+
+    expect(response.status).toBe(200)
+    expect(mockedEmitSignal).toHaveBeenCalledTimes(3)
+    expect(mockedEmitSignal.mock.calls.map(([signal]) => signal.signalType)).toEqual([
+      "draft_fallback_used",
+      "quality_verdict_emitted",
+      "judgement_score_emitted",
+    ])
   })
 })

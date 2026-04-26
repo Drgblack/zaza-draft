@@ -43,6 +43,9 @@ export default function PrivacyPage() {
                   <p className="text-sm text-gray-600 dark:text-gray-300">
                     {t("account.privacy.sharing.explainer")}
                   </p>
+                  <p className="text-sm text-gray-600 dark:text-gray-300">
+                    {t("account.privacy.sharing.learningSignal")}
+                  </p>
                   <p className="text-xs text-gray-500 dark:text-gray-400">
                     {t("account.privacy.sharing.controlHint")}
                   </p>

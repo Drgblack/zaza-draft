@@ -1,9 +1,17 @@
+import { createHash } from "node:crypto"
+
 import { NextRequest, NextResponse } from "next/server"
 import Stripe from "stripe"
 import type { Firestore } from "firebase-admin/firestore"
 import { getFirebaseAdmin, getFirebaseCredentialError } from "@/lib/firebase/admin"
 import { createStripeClient, getStripeWebhookSecret } from "@/lib/stripe"
 import { logServerEvent } from "@/lib/analytics"
+import {
+  buildBillingProfilePatch,
+  createDefaultUserProfile,
+  type ZazaUserProfile,
+} from "@/lib/auth/roles"
+import { invalidateUserRoleCache } from "@/lib/auth/get-user-role"
 
 async function resolveUidByCustomerId(customerId: string, firestore: Firestore) {
   const doc = await firestore.collection("stripeCustomers").doc(customerId).get()
@@ -29,6 +37,32 @@ async function resolveUidByCustomerId(customerId: string, firestore: Firestore) 
 async function updateBillingForUser(firestore: Firestore, uid: string, customerId: string, subscription: Stripe.Subscription) {
   const priceId = subscription.items.data[0]?.price?.id ?? null
   const rawCurrentPeriodEnd = (subscription as { current_period_end?: number }).current_period_end
+  const nowIso = new Date().toISOString()
+  const profileSnapshot = await firestore.collection("user_profiles").doc(uid).get()
+  const userSnapshot = await firestore.collection("users").doc(uid).get()
+  const userData = userSnapshot.data() as Record<string, unknown> | undefined
+  const currentProfile = profileSnapshot.data() as Partial<ZazaUserProfile> | undefined
+  const uidHash =
+    typeof currentProfile?.uidHash === "string" && currentProfile.uidHash
+      ? currentProfile.uidHash
+      : createHash("sha256").update(uid).digest("hex").slice(0, 12)
+  const email =
+    typeof currentProfile?.email === "string"
+      ? currentProfile.email
+      : typeof userData?.email === "string"
+        ? userData.email
+        : ""
+  const nextPlanStatus =
+    subscription.status === "trialing"
+      ? "trialing"
+      : subscription.status === "active"
+        ? "active"
+        : "cancelled"
+  const profilePatch = buildBillingProfilePatch({
+    currentRole: (currentProfile?.role as ZazaUserProfile["role"] | undefined) ?? "teacher_free",
+    planStatus: nextPlanStatus,
+    stripeCustomerId: customerId,
+  })
   const updates = {
     stripeCustomerId: customerId,
     subscriptionStatus: subscription.status,
@@ -37,11 +71,26 @@ async function updateBillingForUser(firestore: Firestore, uid: string, customerI
       ? new Date(rawCurrentPeriodEnd * 1000).toISOString()
       : null,
     cancelAtPeriodEnd: subscription.cancel_at_period_end ?? false,
-    updatedAt: new Date().toISOString(),
+    updatedAt: nowIso,
   }
 
   await firestore.collection("users").doc(uid).set(updates, { merge: true })
   await firestore.collection("stripeCustomers").doc(customerId).set({ uid }, { merge: true })
+  await firestore.collection("user_profiles").doc(uid).set(
+    profileSnapshot.exists
+      ? profilePatch
+      : {
+          ...createDefaultUserProfile({
+            uid,
+            uidHash,
+            email,
+            stripeCustomerId: customerId,
+          }),
+          ...profilePatch,
+        },
+    { merge: true },
+  )
+  invalidateUserRoleCache(uid)
   logServerEvent("subscription_status_changed", { uid, status: subscription.status })
 }
 

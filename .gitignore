@@ -51,3 +51,5 @@ _fix-*.ps1
 /.local-trash/
 
 .env.test.local
+
+.playwright-mcp/

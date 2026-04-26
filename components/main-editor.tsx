@@ -13,9 +13,10 @@ import { Button } from "@/components/ui/button"
 import { SegmentedControl } from "@/components/ui/segmented-control"
 import { useTeacherPrefs } from "@/hooks/use-teacher-prefs"
 import { useLocale } from "@/hooks/use-locale"
+import { useAnalyticsConsent } from "@/hooks/use-analytics-consent"
 import FooterSlim from "@/components/FooterSlim"
 import { ZaraAssistant } from "@/components/zara-assistant"
-import { DraftOutput } from "@/components/draft-output"
+import { DraftOutput, classifyEditDistance } from "@/components/draft-output"
 import { CommentBankSection } from "@/components/comment-bank-section"
 import { DeescalationBanner } from "@/components/deescalation-banner"
 import { MiniInsightsBar } from "@/components/MiniInsightsBar"
@@ -34,6 +35,7 @@ import {
   logDraftInteractionEvent,
   TRUST_FUNNEL_EVENTS,
 } from "@/lib/analytics"
+import { emitClientSignal } from "@/lib/analytics/client-signal-emitter"
 import { FREE_TIER_LIMIT, type PlanType } from "@/lib/usage"
 import type { DeescalationSummary } from "@/lib/deescalation/types"
 import type { DraftStructure } from "@/lib/draft/format"
@@ -426,6 +428,7 @@ export function MainEditor({ canExport = true }: MainEditorProps = {}) {
   const [isQaUser, setIsQaUser] = useState(false)
   const isLimitedUser = usage.plan === "free" && !isQaUser
   const { prefs } = useTeacherPrefs()
+  const { analyticsConsent } = useAnalyticsConsent()
   const { t, locale } = useLocale()
   const searchParams = useSearchParams()
   const isReturningFromPanicScan = searchParams.get("panicScanReturn") === "1"
@@ -452,6 +455,8 @@ export function MainEditor({ canExport = true }: MainEditorProps = {}) {
   const [generatedDraft, setGeneratedDraft] = useState<string | null>(null)
   const [draftMetadata, setDraftMetadata] = useState<any>(null)
   const [draftResponseMeta, setDraftResponseMeta] = useState<{
+    requestId?: string
+    uidHash?: string
     professionalJudgement?: DraftProfessionalJudgementMeta | null
   } | null>(null)
   const [draftStructure, setDraftStructure] = useState<DraftStructure | null>(null)
@@ -593,6 +598,15 @@ export function MainEditor({ canExport = true }: MainEditorProps = {}) {
   const textareaRef = useRef<HTMLTextAreaElement | null>(null)
   const parentInputModeButtonRefs = useRef<Array<HTMLButtonElement | null>>([])
   const draftEditDepthRef = useRef(0)
+  const pendingTeacherDraftEditRef = useRef<{
+    originalDraft: string
+    displayedAt: number
+    sessionId: string
+    uidHash: string
+    locale: string
+    qualityVerdict?: string | null
+    professionalJudgement?: DraftProfessionalJudgementMeta | null
+  } | null>(null)
   const draftModificationLoggedRef = useRef(false)
   const rewriteSuggestionPendingRef = useRef(false)
   const rewriteReasonRef = useRef<DraftInteractionRewriteReason | null>(null)
@@ -616,6 +630,44 @@ export function MainEditor({ canExport = true }: MainEditorProps = {}) {
       })
     },
     [getIdToken, locale, mode],
+  )
+  const emitPendingTeacherDraftEditSignal = useCallback(
+    async (editedText: string) => {
+      const pendingEdit = pendingTeacherDraftEditRef.current
+      if (!pendingEdit) {
+        return
+      }
+
+      pendingTeacherDraftEditRef.current = null
+      const editDistanceCategory = classifyEditDistance(pendingEdit.originalDraft, editedText)
+      const signalType =
+        editDistanceCategory === "none"
+          ? "draft_accepted"
+          : editDistanceCategory === "minor"
+            ? "draft_edited_minor"
+            : "draft_edited_major"
+      const interactionType =
+        editDistanceCategory === "none"
+          ? "accepted"
+          : editDistanceCategory === "minor"
+            ? "edited_minor"
+            : "edited_major"
+
+      await emitClientSignal({
+        sessionId: pendingEdit.sessionId,
+        uidHash: pendingEdit.uidHash,
+        signalType,
+        payload: {
+          interactionType,
+          timeToActionMs: Date.now() - pendingEdit.displayedAt,
+          sendConfidenceScore: pendingEdit.professionalJudgement?.sendConfidenceScore,
+          verdictAtAction: pendingEdit.qualityVerdict ?? undefined,
+          editDistanceCategory,
+        },
+        locale: pendingEdit.locale,
+      })
+    },
+    [],
   )
   const resetGeneratedOutput = useCallback(() => {
     setGeneratedDraft(null)
@@ -1508,6 +1560,10 @@ Examples:
       return
     }
 
+    if (!options.rewrite && !options.documentationMode && !options.overrideSituation) {
+      await emitPendingTeacherDraftEditSignal(requestSituation)
+    }
+
     const nextWorkflowType = inferDraftWorkflowType({
       rewrite: Boolean(options.rewrite || options.previousDraft),
       documentationMode: Boolean(options.documentationMode),
@@ -1569,6 +1625,7 @@ Examples:
       outputLanguage: languageChoice,
       preferredLanguage: prefs.preferredLanguage,
       uiLocale: locale,
+      analyticsConsent,
     }
 
     const context: Record<string, string> = {}
@@ -1977,6 +2034,25 @@ Examples:
     }
     focusEditor()
   }
+
+  const handleBeginEditSession = useCallback(
+    (displayedAt: number) => {
+      if (!generatedDraft || !draftResponseMeta?.requestId || !draftResponseMeta?.uidHash) {
+        return
+      }
+
+      pendingTeacherDraftEditRef.current = {
+        originalDraft: generatedDraft,
+        displayedAt,
+        sessionId: draftResponseMeta.requestId,
+        uidHash: draftResponseMeta.uidHash,
+        locale,
+        qualityVerdict: teacherDraftFeedback?.verdict ?? teacherDraftFeedback?.level ?? null,
+        professionalJudgement: draftResponseMeta.professionalJudgement ?? null,
+      }
+    },
+    [draftResponseMeta?.professionalJudgement, draftResponseMeta?.requestId, draftResponseMeta?.uidHash, generatedDraft, locale, teacherDraftFeedback?.level, teacherDraftFeedback?.verdict],
+  )
 
   const handleRegenerateDraft = () => {
     handleGenerate()
@@ -3012,6 +3088,16 @@ Examples:
               professionalJudgementLoading={
                 isGenerating && parentInputMode === "teacher_draft"
               }
+              analyticsContext={
+                draftResponseMeta?.requestId && draftResponseMeta?.uidHash
+                  ? {
+                      sessionId: draftResponseMeta.requestId,
+                      uidHash: draftResponseMeta.uidHash,
+                      locale,
+                    }
+                  : null
+              }
+              onBeginEditSession={handleBeginEditSession}
             />
             {isFirstRunFreeUser && saferDraftCategories.length > 0 && (
               <div className="rounded-2xl border border-slate-200/80 bg-white/90 p-4 text-slate-900 shadow-sm dark:border-white/10 dark:bg-white/5 dark:text-white">

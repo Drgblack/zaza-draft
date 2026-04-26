@@ -825,6 +825,8 @@ export const localeMessages: Record<Locale, LocaleMessages> = {
     "account.privacy.sharing.label": "Help improve Draft for teachers worldwide",
     "account.privacy.sharing.explainer":
       "Share anonymized usage insights so Draft can learn what helps teachers communicate safely. No message content is stored.",
+    "account.privacy.sharing.learningSignal":
+      "Usage patterns help Draft learn what helps teachers communicate safely.",
     "account.privacy.sharing.controlHint": "When this is off, Draft stops sending analytics events.",
     "account.privacy.collect.title": "What We Collect",
     "account.privacy.collect.item1": "Usage patterns and feature interactions",
@@ -1667,6 +1669,8 @@ export const localeMessages: Record<Locale, LocaleMessages> = {
     "account.privacy.sharing.label": "Help improve Draft for teachers worldwide",
     "account.privacy.sharing.explainer":
       "Share anonymized usage insights so Draft can learn what helps teachers communicate safely. No message content is stored.",
+    "account.privacy.sharing.learningSignal":
+      "Usage patterns help Draft learn what helps teachers communicate safely.",
     "account.privacy.sharing.controlHint": "When this is off, Draft stops sending analytics events.",
     "account.privacy.collect.title": "What We Collect",
     "account.privacy.collect.item1": "Usage patterns and feature interactions",
@@ -3076,6 +3080,8 @@ export const localeMessages: Record<Locale, LocaleMessages> = {
     "account.privacy.sharing.label": "Hilf, Draft für Lehrkräfte weltweit zu verbessern",
     "account.privacy.sharing.explainer":
       "Teile anonymisierte Nutzungsdaten, damit Draft lernen kann, was Lehrkräften bei sicherer Kommunikation hilft. Es werden keine Nachrichteninhalte gespeichert.",
+    "account.privacy.sharing.learningSignal":
+      "Nutzungsmuster helfen Draft zu lernen, was Lehrern hilft, sicher zu kommunizieren.",
     "account.privacy.sharing.controlHint": "Wenn dies deaktiviert ist, sendet Draft keine Analytics-Ereignisse.",
     "account.privacy.collect.title": "Was wir sammeln",
     "account.privacy.collect.item1": "Nutzungsverhalten und Feature-Interaktionen",

@@ -1,7 +1,7 @@
 "use client"
 
 import { Copy, Check, Save, FileText, Edit3, RefreshCw, AlertCircle, ChevronDown, Repeat } from "lucide-react"
-import { useEffect, useMemo, useRef, useState, type ReactNode } from "react"
+import { useEffect, useMemo, useRef, useState, useCallback, type ReactNode } from "react"
 import { SaveDraftModal } from "./save-draft-modal"
 import { Badge } from "@/components/ui/badge"
 import type { DraftMode } from "@/lib/types"
@@ -18,11 +18,53 @@ import { useSearchParams } from "next/navigation"
 import { isDebugEnabled } from "@/lib/debug"
 import type { SafeToSendAssessment } from "@/lib/safe-to-send"
 import { logClientEvent, TRUST_FUNNEL_EVENTS } from "@/lib/analytics"
+import { emitClientSignal } from "@/lib/analytics/client-signal-emitter"
 import type { TeacherDraftFeedback } from "@/lib/draft/teacher-draft-feedback"
 import {
   DraftJudgementStrip,
+  type DraftJudgementActionEvent,
   type DraftProfessionalJudgementMeta,
 } from "@/components/draft-judgement-strip"
+
+export function classifyEditDistance(
+  original: string,
+  edited: string,
+): "none" | "minor" | "major" {
+  if (original === edited) {
+    return "none"
+  }
+
+  const originalWords = original.trim().split(/\s+/).filter(Boolean)
+  const editedWords = edited.trim().split(/\s+/).filter(Boolean)
+  const lowerOriginalWords = originalWords.map((word) => word.toLowerCase())
+  const lowerEditedWords = editedWords.map((word) => word.toLowerCase())
+  let originalIndex = 0
+
+  for (const word of lowerEditedWords) {
+    if (word === lowerOriginalWords[originalIndex]) {
+      originalIndex += 1
+    }
+  }
+
+  if (
+    originalIndex === lowerOriginalWords.length &&
+    Math.abs(originalWords.length - editedWords.length) <= 3
+  ) {
+    return "minor"
+  }
+
+  const changedWords = Math.abs(originalWords.length - editedWords.length)
+  const originalWordCount = originalWords.length
+  const changeRatio = originalWordCount > 0 ? changedWords / originalWordCount : 1
+
+  return changeRatio < 0.2 ? "minor" : "major"
+}
+
+interface DraftClientAnalyticsContext {
+  sessionId: string
+  uidHash: string
+  locale: string
+}
 
 interface DraftOutputProps {
   draftText: string
@@ -57,6 +99,8 @@ interface DraftOutputProps {
   teacherDraftMode?: boolean
   professionalJudgement?: DraftProfessionalJudgementMeta | null
   professionalJudgementLoading?: boolean
+  analyticsContext?: DraftClientAnalyticsContext | null
+  onBeginEditSession?: (displayedAt: number) => void
 }
 
 export function DraftOutput({
@@ -86,6 +130,8 @@ export function DraftOutput({
   teacherDraftMode = false,
   professionalJudgement = null,
   professionalJudgementLoading = false,
+  analyticsContext = null,
+  onBeginEditSession,
 }: DraftOutputProps) {
   const [copied, setCopied] = useState(false)
   const [showSaveModal, setShowSaveModal] = useState(false)
@@ -94,6 +140,10 @@ export function DraftOutput({
   const { locale, t } = useLocale()
   const searchParams = useSearchParams()
   const showDiagnostics = isDebugEnabled(searchParams)
+  const displayedAtRef = useRef(Date.now())
+  const terminalActionRecordedRef = useRef(false)
+  const sendConfidenceOutcomeEmittedRef = useRef(false)
+  const [lastJudgementAction, setLastJudgementAction] = useState<DraftJudgementActionEvent | null>(null)
   const modeKey = (metadata.modeUsed ?? DEFAULT_DRAFT_MODE) as keyof typeof MODE_LABEL_KEYS
   const modeLabel = modeLabelOverride ?? t(MODE_LABEL_KEYS[modeKey])
   const teacherDraftFeedbackVerdict = teacherDraftFeedback?.verdict ?? teacherDraftFeedback?.level
@@ -117,6 +167,95 @@ export function DraftOutput({
     metadata.modeUsed === "parent_message" &&
     teacherDraftFeedbackVerdict !== "already_strong" &&
     (professionalJudgementLoading || Boolean(professionalJudgement))
+
+  const emitSendConfidenceOutcome = useCallback(async (teacherAction: "sent" | "discarded") => {
+    if (
+      !analyticsContext ||
+      !professionalJudgement ||
+      sendConfidenceOutcomeEmittedRef.current ||
+      (teacherAction === "discarded" && professionalJudgement.sendConfidenceScore >= 60)
+    ) {
+      return
+    }
+
+    const scoreBand =
+      professionalJudgement.sendConfidenceScore >= 80
+        ? "high"
+        : professionalJudgement.sendConfidenceScore >= 60
+          ? "medium"
+          : "low"
+
+    const signalType =
+      teacherAction === "sent"
+        ? (`send_confidence_${scoreBand}_accepted` as const)
+        : "send_confidence_low_discarded"
+
+    sendConfidenceOutcomeEmittedRef.current = true
+    await emitClientSignal({
+      sessionId: analyticsContext.sessionId,
+      uidHash: analyticsContext.uidHash,
+      signalType,
+      payload: {
+        scoreAtSend: professionalJudgement.sendConfidenceScore,
+        scoreBand,
+        teacherAction,
+        replyLikelihood: professionalJudgement.replyLikelihood,
+        regretRisk: professionalJudgement.regretRisk,
+      },
+      locale: analyticsContext.locale,
+    })
+  }, [analyticsContext, professionalJudgement])
+
+  const markJudgementAction = (type: DraftJudgementActionEvent["type"]) => {
+    setLastJudgementAction({
+      type,
+      at: Date.now(),
+    })
+  }
+
+  const emitAcceptedSignal = async () => {
+    if (!analyticsContext || terminalActionRecordedRef.current) {
+      return
+    }
+
+    terminalActionRecordedRef.current = true
+    markJudgementAction("sent")
+    await emitClientSignal({
+      sessionId: analyticsContext.sessionId,
+      uidHash: analyticsContext.uidHash,
+      signalType: "draft_accepted",
+      payload: {
+        interactionType: "accepted",
+        timeToActionMs: Date.now() - displayedAtRef.current,
+        sendConfidenceScore: professionalJudgement?.sendConfidenceScore,
+        verdictAtAction: teacherDraftFeedbackVerdict,
+        editDistanceCategory: "none",
+      },
+      locale: analyticsContext.locale,
+    })
+    await emitSendConfidenceOutcome("sent")
+  }
+
+  const emitRegeneratedSignal = async () => {
+    if (!analyticsContext || terminalActionRecordedRef.current) {
+      return
+    }
+
+    terminalActionRecordedRef.current = true
+    markJudgementAction("regenerated")
+    await emitClientSignal({
+      sessionId: analyticsContext.sessionId,
+      uidHash: analyticsContext.uidHash,
+      signalType: "draft_regenerated",
+      payload: {
+        interactionType: "regenerated",
+        timeToActionMs: Date.now() - displayedAtRef.current,
+        sendConfidenceScore: professionalJudgement?.sendConfidenceScore,
+        verdictAtAction: teacherDraftFeedbackVerdict,
+      },
+      locale: analyticsContext.locale,
+    })
+  }
   const { displaySubject, displayParagraphs, signatureParagraph } = useMemo(() => {
     const parsedDraftText = formatDraftText(draftText, locale)
     const baseStructure = structure ?? parsedDraftText
@@ -206,6 +345,7 @@ export function DraftOutput({
   const handleCopy = async () => {
     try {
       await navigator.clipboard.writeText(clipboardText)
+      await emitAcceptedSignal()
       logClientEvent(TRUST_FUNNEL_EVENTS.draftCopied, {
         mode: metadata.modeUsed ?? DEFAULT_DRAFT_MODE,
       })
@@ -281,6 +421,7 @@ export function DraftOutput({
         extractFilenameFromDisposition(response.headers.get("content-disposition")) ??
         `zaza-draft-${new Date().toISOString().replace(/[:.]/g, "-")}.pdf`
       createDownloadLink(blob, filename)
+      await emitAcceptedSignal()
       logClientEvent(TRUST_FUNNEL_EVENTS.draftExported, {
         format: "pdf",
         mode,
@@ -334,6 +475,7 @@ export function DraftOutput({
         extractFilenameFromDisposition(response.headers.get("content-disposition")) ??
         `zaza-draft-${new Date().toISOString().replace(/[:.]/g, "-")}.docx`
       createDownloadLink(blob, filename)
+      await emitAcceptedSignal()
       logClientEvent(TRUST_FUNNEL_EVENTS.draftExported, {
         format: "docx",
         mode,
@@ -423,6 +565,36 @@ export function DraftOutput({
     const timer = setTimeout(() => setActionMessage(null), 3000)
     return () => clearTimeout(timer)
   }, [actionMessage])
+
+  useEffect(() => {
+    displayedAtRef.current = Date.now()
+    terminalActionRecordedRef.current = false
+    sendConfidenceOutcomeEmittedRef.current = false
+    setLastJudgementAction(null)
+  }, [draftText])
+
+  useEffect(() => {
+    return () => {
+      if (!analyticsContext || terminalActionRecordedRef.current || !hasDraft) {
+        return
+      }
+
+      terminalActionRecordedRef.current = true
+      void emitClientSignal({
+        sessionId: analyticsContext.sessionId,
+        uidHash: analyticsContext.uidHash,
+        signalType: "draft_discarded",
+        payload: {
+          interactionType: "discarded",
+          timeToActionMs: Date.now() - displayedAtRef.current,
+          sendConfidenceScore: professionalJudgement?.sendConfidenceScore,
+          verdictAtAction: teacherDraftFeedbackVerdict,
+        },
+        locale: analyticsContext.locale,
+      })
+      void emitSendConfidenceOutcome("discarded")
+    }
+  }, [analyticsContext, emitSendConfidenceOutcome, hasDraft, professionalJudgement?.sendConfidenceScore, teacherDraftFeedbackVerdict])
 
   return (
     <>
@@ -560,6 +732,8 @@ export function DraftOutput({
               modeUsed={metadata.modeUsed}
               verdict={teacherDraftFeedbackVerdict}
               loading={professionalJudgementLoading}
+              analyticsContext={analyticsContext}
+              lastAction={lastJudgementAction}
             />
           </div>
         ) : null}
@@ -656,7 +830,12 @@ export function DraftOutput({
           </button>
 
           <button
-            onClick={onEdit}
+            onClick={() => {
+              terminalActionRecordedRef.current = true
+              markJudgementAction("edited")
+              onBeginEditSession?.(displayedAtRef.current)
+              onEdit()
+            }}
             className="flex items-center gap-2 px-4 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-600 rounded-lg font-medium transition focus-visible:ring-2 focus-visible:ring-purple-600 focus-visible:ring-offset-2"
           >
             <Edit3 size={18} />
@@ -711,7 +890,10 @@ export function DraftOutput({
                 <button
                   type="button"
                 onClick={() => {
-                  void runMenuAction(onRegenerate, "Regenerating draft...")
+                  void runMenuAction(async () => {
+                    await emitRegeneratedSignal()
+                    onRegenerate()
+                  }, "Regenerating draft...")
                 }}
                   disabled={!hasDraft}
                   className="w-full text-left px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center gap-3 text-gray-700 dark:text-gray-200 transition disabled:opacity-40 disabled:cursor-not-allowed"
@@ -753,7 +935,12 @@ export function DraftOutput({
             )}
           </button>
           <button
-            onClick={onEdit}
+            onClick={() => {
+              terminalActionRecordedRef.current = true
+              markJudgementAction("edited")
+              onBeginEditSession?.(displayedAtRef.current)
+              onEdit()
+            }}
             className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-600 rounded-lg font-medium transition"
           >
             <Edit3 size={18} />
@@ -807,7 +994,10 @@ export function DraftOutput({
                 <button
                   type="button"
                   onClick={() => {
-                    void runMenuAction(onRegenerate, "Regenerating draft...")
+                    void runMenuAction(async () => {
+                      await emitRegeneratedSignal()
+                      onRegenerate()
+                    }, "Regenerating draft...")
                   }}
                   disabled={!hasDraft}
                   className="w-full text-left px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center gap-3 text-gray-700 dark:text-gray-200 transition disabled:opacity-40 disabled:cursor-not-allowed"
