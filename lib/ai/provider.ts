@@ -27,6 +27,7 @@ import type { SafetyEngineOutput } from "@/src/lib/safetyEngine"
 
 const ANTHROPIC_API_URL = "https://api.anthropic.com/v1/messages"
 const DEFAULT_ANTHROPIC_MODEL = "claude-sonnet-4-20250514"
+const SECONDARY_ANTHROPIC_TIMEOUT_MS = 3000
 
 function getAnthropicApiKey() {
   return process.env.ANTHROPIC_API_KEY
@@ -1179,6 +1180,14 @@ function extractAnthropicTextContent(payload: any) {
 }
 
 async function callAnthropicModel(model: string, payload: FetchPayload): Promise<GenerationResult> {
+  return callAnthropicModelWithOptions(model, payload)
+}
+
+async function callAnthropicModelWithOptions(
+  model: string,
+  payload: FetchPayload,
+  options?: { timeoutMs?: number },
+): Promise<GenerationResult> {
   const anthropicKey = getAnthropicApiKey()
   if (!anthropicKey) {
     throw new ProviderError("Missing Anthropic API key (ANTHROPIC_API_KEY)")
@@ -1202,6 +1211,12 @@ async function callAnthropicModel(model: string, payload: FetchPayload): Promise
   }
 
   const start = Date.now()
+  const controller = new AbortController()
+  const timeoutMs = options?.timeoutMs
+  const timeoutHandle =
+    typeof timeoutMs === "number" && timeoutMs > 0
+      ? setTimeout(() => controller.abort(), timeoutMs)
+      : null
   let response: Response
   try {
     response = await fetch(ANTHROPIC_API_URL, {
@@ -1212,11 +1227,24 @@ async function callAnthropicModel(model: string, payload: FetchPayload): Promise
         "anthropic-version": "2023-06-01",
       },
       body: JSON.stringify(requestPayload),
+      signal: controller.signal,
     })
   } catch (error) {
+    if (
+      controller.signal.aborted ||
+      (error instanceof Error && error.name === "AbortError")
+    ) {
+      throw new ProviderError(
+        `AI_GENERATION_FAILED: Request timed out after ${timeoutMs ?? 0}ms`,
+      )
+    }
     throw new ProviderError(
       `AI_GENERATION_FAILED: ${error instanceof Error ? error.message : "Network error"}`,
     )
+  } finally {
+    if (timeoutHandle) {
+      clearTimeout(timeoutHandle)
+    }
   }
 
   const responseText = await response.text()
@@ -1371,7 +1399,9 @@ export async function extractTeacherDraftFallbackContext(params: {
   }
 
   try {
-    const result = await callWithFallback(payload)
+    const result = await callAnthropicModelWithOptions(resolveModels().primary, payload, {
+      timeoutMs: SECONDARY_ANTHROPIC_TIMEOUT_MS,
+    })
     return parseTeacherDraftFallbackExtraction(result.text)
   } catch {
     return null

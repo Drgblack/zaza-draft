@@ -129,6 +129,8 @@ import {
   type NameConfidenceLevel,
 } from "@/lib/draft/greeting-resolution"
 
+export const maxDuration = 60
+
 const TONE_DESCRIPTIONS: Record<ToneKey, string> = {
   warm: "Warm & Encouraging",
   professional: "Professional & Neutral",
