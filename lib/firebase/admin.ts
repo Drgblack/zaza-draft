@@ -1,12 +1,16 @@
 import fs from "fs"
 import path from "path"
 import admin from "firebase-admin"
+import { getExplicitFirebaseProjectId } from "@/lib/firebase/project-policy"
 
 let cachedApp: admin.app.App | null = null
 let credentialError: string | null = null
 
 const ERR_PROJECT_ID =
   "Missing FIREBASE_PROJECT_ID or NEXT_PUBLIC_FIREBASE_PROJECT_ID. Set FIREBASE_PROJECT_ID for server-only usage or expose the project through NEXT_PUBLIC_FIREBASE_PROJECT_ID."
+
+const ERR_SERVER_PROJECT_ID =
+  "Missing FIREBASE_PROJECT_ID. Server-side Firebase Admin must use an explicit FIREBASE_PROJECT_ID and must not rely on NEXT_PUBLIC_FIREBASE_PROJECT_ID."
 
 const ERR_CREDENTIALS =
   "Missing FIREBASE_SERVICE_ACCOUNT_JSON or GOOGLE_APPLICATION_CREDENTIALS. Provide a service account JSON string via FIREBASE_SERVICE_ACCOUNT_JSON or point GOOGLE_APPLICATION_CREDENTIALS at a JSON file."
@@ -52,7 +56,14 @@ function getAdminApp() {
   }
 
   credentialError = null
-  const projectId = getProjectId()
+  let projectId: string
+  try {
+    projectId = getExplicitFirebaseProjectId()
+  } catch (error) {
+    credentialError = error instanceof Error ? error.message : ERR_SERVER_PROJECT_ID
+    console.error("[firebase-admin] Missing explicit server project id", credentialError)
+    return null
+  }
   const serviceAccount = parseServiceAccountJson()
   const useServiceAccount = Boolean(serviceAccount)
   const source: "serviceAccountJson" | "applicationDefault" = useServiceAccount
@@ -61,10 +72,22 @@ function getAdminApp() {
   let credential: admin.credential.Credential
 
   if (useServiceAccount) {
+    if (serviceAccount?.project_id && serviceAccount.project_id !== projectId) {
+      credentialError = `FIREBASE_PROJECT_ID (${projectId}) does not match the service account project (${serviceAccount.project_id}).`
+      console.error("[firebase-admin] Service account project mismatch", credentialError)
+      return null
+    }
     credential = admin.credential.cert(serviceAccount!)
   } else if (process.env.GOOGLE_APPLICATION_CREDENTIALS) {
     try {
-      validateApplicationDefaultCredential(process.env.GOOGLE_APPLICATION_CREDENTIALS)
+      const applicationDefaultProjectId = validateApplicationDefaultCredential(
+        process.env.GOOGLE_APPLICATION_CREDENTIALS,
+      )
+      if (applicationDefaultProjectId && applicationDefaultProjectId !== projectId) {
+        credentialError = `FIREBASE_PROJECT_ID (${projectId}) does not match the GOOGLE_APPLICATION_CREDENTIALS project (${applicationDefaultProjectId}).`
+        console.error("[firebase-admin] Application default project mismatch", credentialError)
+        return null
+      }
       credential = admin.credential.applicationDefault()
     } catch (error) {
       credentialError =
@@ -120,10 +143,6 @@ function ensureFirestoreSettings(firestore: admin.firestore.Firestore) {
 }
 
 function validateApplicationDefaultCredential(filePath: string) {
-  if (process.env.NODE_ENV === "production") {
-    return
-  }
-
   const resolvedPath = path.resolve(filePath)
   if (!fs.existsSync(resolvedPath)) {
     throw new Error(`GOOGLE_APPLICATION_CREDENTIALS path missing: ${resolvedPath}`)
@@ -153,6 +172,8 @@ function validateApplicationDefaultCredential(filePath: string) {
       )}. ${GEO_CREDENTIAL_GUIDANCE}`,
     )
   }
+
+  return typeof parsed.project_id === "string" ? parsed.project_id : null
 }
 
 export function getFirebaseCredentialError() {

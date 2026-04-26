@@ -1,7 +1,7 @@
 "use client"
 
-import { useState, useEffect } from "react"
-import { Settings, Download, Shield, HelpCircle, LogOut } from "lucide-react"
+import { useState } from "react"
+import { Settings, Download, Shield, ShieldCheck, HelpCircle, LogOut } from "lucide-react"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import {
   DropdownMenu,
@@ -15,14 +15,16 @@ import { useLocale } from "@/hooks/use-locale"
 import { useRouter } from "next/navigation"
 import { useTeacherPrefs } from "@/hooks/use-teacher-prefs"
 import { useAuth } from "@/hooks/use-auth"
+import { hasAdminAccess } from "@/lib/auth/roles"
 
 export function UserMenu() {
   const { t } = useLocale()
   const router = useRouter()
   const { prefs } = useTeacherPrefs()
-  const { user, signOut } = useAuth()
+  const { user, role, signOut } = useAuth()
   const [open, setOpen] = useState(false)
   const profilePhoto = prefs.profilePhoto
+  const showAdminDashboard = role ? hasAdminAccess(role) : false
 
   const displayName = user?.displayName ?? prefs.firstName
   const displayPhoto = user?.photoURL ?? profilePhoto
@@ -104,7 +106,23 @@ export function UserMenu() {
           <HelpCircle className="mr-2 h-4 w-4" />
           <span>{t("account.menu.helpSupport") || "Help / Support"}</span>
         </DropdownMenuItem>
-        <DropdownMenuSeparator className="bg-purple-200/50 dark:bg-purple-700/50" />
+        {showAdminDashboard ? (
+          <>
+            <DropdownMenuSeparator className="bg-purple-200/50 dark:bg-purple-700/50" />
+            <DropdownMenuItem
+              onClick={() => {
+                router.push("/admin/analytics")
+                setOpen(false)
+              }}
+              className="cursor-pointer"
+            >
+              <ShieldCheck className="mr-2 h-4 w-4" />
+              <span>{t("account.menu.adminDashboard") || "Admin dashboard"}</span>
+            </DropdownMenuItem>
+          </>
+        ) : (
+          <DropdownMenuSeparator className="bg-purple-200/50 dark:bg-purple-700/50" />
+        )}
         <DropdownMenuItem onClick={handleLogout} className="cursor-pointer text-red-600 dark:text-red-400">
           <LogOut className="mr-2 h-4 w-4" />
           <span>{t("account.menu.logout") || "Log out"}</span>

@@ -2,6 +2,7 @@
  * Usage:
  *   npx tsx scripts/set-super-admin.ts --email=greg@zazadraft.com --role=super_admin
  *   npx tsx scripts/set-super-admin.ts --uid=KJ8ZDQdeflRxSyy1BXwSFNA2dt2 --role=super_admin
+ *   npx tsx scripts/set-super-admin.ts --email=admin@example.com --role=admin --allow-project-override
  *
  * Security notes:
  * - This script requires FIREBASE_ADMIN_SDK credentials.
@@ -14,6 +15,7 @@ import { createHash } from "node:crypto"
 
 import { getFirebaseAdmin } from "../lib/firebase/admin"
 import { createDefaultUserProfile, type ZazaRole } from "../lib/auth/roles"
+import { prepareFirebaseScriptEnvironment } from "./firebase-project"
 
 const ASSIGNABLE_SCRIPT_ROLES: ZazaRole[] = [
   "super_admin",
@@ -46,6 +48,10 @@ function getRoleArg(): ZazaRole {
 }
 
 async function main() {
+  const { projectId } = prepareFirebaseScriptEnvironment({
+    scriptName: "set-super-admin.ts",
+    mutatesProtectedUserState: true,
+  })
   const email = getEmailArg()
   const uid = getUidArg()
   const role = getRoleArg()
@@ -102,6 +108,7 @@ async function main() {
   }
 
   const targetLabel = resolvedEmail || targetUid
+  console.info(`[firebase-project] target project ${projectId}`)
   console.log(`${role} role assigned to ${targetLabel} (${targetUid})`)
 }
 

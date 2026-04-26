@@ -3,7 +3,7 @@ import { createHash } from "node:crypto"
 import { FieldValue } from "firebase-admin/firestore"
 import { FREE_TIER_LIMIT } from "@/lib/usage"
 import { EMPTY_ONBOARDING_PROFILE } from "@/lib/onboarding-profile"
-import { createDefaultUserProfile } from "@/lib/auth/roles"
+import { createDefaultUserProfile, type ZazaRole } from "@/lib/auth/roles"
 
 export type FirestoreLike = {
   collection: (path: string) => {
@@ -56,18 +56,24 @@ export async function ensureUserDocument(
       { merge: true },
     )
     if (!userProfileSnapshot.exists) {
+      const defaultUserProfile = createDefaultUserProfile({
+        uid,
+        uidHash,
+        email: email ?? "",
+        now,
+      })
       await userProfileRef.set(
-        createDefaultUserProfile({
-          uid,
-          uidHash,
-          email: email ?? "",
-          now,
-        }) as unknown as Record<string, unknown>,
+        defaultUserProfile as unknown as Record<string, unknown>,
         { merge: true },
       )
+      return { created: true, firstLogin: true, role: defaultUserProfile.role }
     }
     console.info("[account-bootstrap] user document created", { uid, firstLogin: true })
-    return { created: true, firstLogin: true }
+    return {
+      created: true,
+      firstLogin: true,
+      role: resolveStoredRole(userProfileSnapshot.data?.()?.role),
+    }
   }
 
   const existingData = snapshot.data?.() ?? {}
@@ -115,15 +121,17 @@ export async function ensureUserDocument(
 
   await userRef.set(safeBackfill, { merge: true })
   if (!userProfileSnapshot.exists) {
+    const defaultUserProfile = createDefaultUserProfile({
+      uid,
+      uidHash,
+      email: email ?? "",
+      now,
+    })
     await userProfileRef.set(
-      createDefaultUserProfile({
-        uid,
-        uidHash,
-        email: email ?? "",
-        now,
-      }) as unknown as Record<string, unknown>,
+      defaultUserProfile as unknown as Record<string, unknown>,
       { merge: true },
     )
+    return { created: false, firstLogin: false, role: defaultUserProfile.role }
   } else {
     const existingProfile = userProfileSnapshot.data?.() ?? {}
     const profileBackfill: Record<string, unknown> = {
@@ -149,6 +157,24 @@ export async function ensureUserDocument(
     }
 
     await userProfileRef.set(profileBackfill, { merge: true })
+    return {
+      created: false,
+      firstLogin: false,
+      role: resolveStoredRole(profileBackfill.role ?? existingProfile.role),
+    }
   }
-  return { created: false, firstLogin: false }
+}
+
+function resolveStoredRole(value: unknown): ZazaRole {
+  if (
+    value === "super_admin" ||
+    value === "admin" ||
+    value === "school_admin" ||
+    value === "teacher" ||
+    value === "teacher_free"
+  ) {
+    return value
+  }
+
+  return "teacher_free"
 }

@@ -1,4 +1,5 @@
 import type { Firestore } from "firebase-admin/firestore"
+import { getExplicitFirebaseProjectId } from "@/lib/firebase/project-policy"
 
 type FirebaseCredential = {
   projectId: string
@@ -45,7 +46,13 @@ function parseServiceAccountKey(): FirebaseCredential | null {
 }
 
 function collectConfig(): FirestoreConfig | null {
-  const projectId = process.env.FIREBASE_PROJECT_ID?.trim()
+  let projectId: string
+  try {
+    projectId = getExplicitFirebaseProjectId()
+  } catch (error) {
+    console.warn("[support-contact] Missing explicit Firebase project id", error)
+    return null
+  }
   const clientEmail = process.env.FIREBASE_CLIENT_EMAIL?.trim()
   const privateKey = process.env.FIREBASE_PRIVATE_KEY?.trim()
 
@@ -62,8 +69,15 @@ function collectConfig(): FirestoreConfig | null {
 
   const serviceAccount = parseServiceAccountKey()
   if (serviceAccount) {
+    if (serviceAccount.projectId !== projectId) {
+      console.warn(
+        "[support-contact] Service account project mismatch",
+        `FIREBASE_PROJECT_ID=${projectId} serviceAccount.projectId=${serviceAccount.projectId}`,
+      )
+      return null
+    }
     return {
-      projectId: serviceAccount.projectId,
+      projectId,
       credential: serviceAccount,
     }
   }

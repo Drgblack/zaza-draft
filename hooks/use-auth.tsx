@@ -1,6 +1,6 @@
 "use client"
 
-import { createContext, useContext, useEffect, useMemo, useRef, useState } from "react"
+import { createContext, useContext, useEffect, useRef, useState } from "react"
 import {
   isSignInWithEmailLink,
   onIdTokenChanged,
@@ -11,6 +11,7 @@ import {
   type User,
 } from "firebase/auth"
 import { auth, googleAuthProvider } from "@/lib/firebase/client"
+import type { ZazaRole } from "@/lib/auth/roles"
 import {
   AUTH_COOKIE_MAX_AGE,
   AUTH_COOKIE_NAME,
@@ -32,6 +33,7 @@ type EmailLinkStatus = "idle" | "processing" | "awaiting_email" | "recovery"
 
 interface AuthContextValue {
   user: User | null
+  role: ZazaRole | null
   status: AuthStatus
   emailLinkStatus: EmailLinkStatus
   emailLinkKnownEmail: string | null
@@ -56,6 +58,7 @@ function writeAuthCookie(value: string, maxAge: number) {
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
+  const [role, setRole] = useState<ZazaRole | null>(null)
   const [status, setStatus] = useState<AuthStatus>("loading")
   const [emailLinkStatus, setEmailLinkStatus] = useState<EmailLinkStatus>("idle")
   const [emailLinkKnownEmail, setEmailLinkKnownEmail] = useState<string | null>(null)
@@ -127,6 +130,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         refreshedClaimUidRef.current = null
         refreshInFlightRef.current = { uid: null, promise: null }
         setUser(null)
+        setRole(null)
         setStatus("unauthenticated")
         return
       }
@@ -169,12 +173,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             throw new Error(`Bootstrap failed with status ${response.status}`)
           }
           const payload = await response.json()
+          const nextRole = normalizeRole(payload?.data?.role)
+          setRole(nextRole)
           console.info("[auth] account bootstrap result", payload?.data ?? payload ?? null)
           logClientEvent(TRUST_FUNNEL_EVENTS.accountBootstrapCompleted, {
             created: Boolean(payload?.data?.created),
             firstLogin: Boolean(payload?.data?.firstLogin),
           })
         } catch (error) {
+          setRole(null)
           console.warn("[auth] account bootstrap failed", error)
         }
       })()
@@ -325,6 +332,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
     refreshedClaimUidRef.current = null
     refreshInFlightRef.current = { uid: null, promise: null }
+    setRole(null)
     await firebaseSignOut(auth)
   }
 
@@ -338,23 +346,35 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     })
   }
 
-  const contextValue = useMemo(
-    () => ({
-      user,
-      status,
-      emailLinkStatus,
-      emailLinkKnownEmail,
-      emailLinkRecoveryReason,
-      sendEmailLink,
-      completeEmailLinkSignIn,
-      signInWithGoogle,
-      signOut,
-      getIdToken,
-    }),
-    [user, status, emailLinkKnownEmail, emailLinkRecoveryReason, emailLinkStatus],
-  )
+  const contextValue = {
+    user,
+    role,
+    status,
+    emailLinkStatus,
+    emailLinkKnownEmail,
+    emailLinkRecoveryReason,
+    sendEmailLink,
+    completeEmailLinkSignIn,
+    signInWithGoogle,
+    signOut,
+    getIdToken,
+  }
 
   return <AuthContext.Provider value={contextValue}>{children}</AuthContext.Provider>
+}
+
+function normalizeRole(value: unknown): ZazaRole | null {
+  if (
+    value === "super_admin" ||
+    value === "admin" ||
+    value === "school_admin" ||
+    value === "teacher" ||
+    value === "teacher_free"
+  ) {
+    return value
+  }
+
+  return null
 }
 
 export function useAuth() {
