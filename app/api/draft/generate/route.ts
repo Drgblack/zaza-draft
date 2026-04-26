@@ -3161,6 +3161,7 @@ export async function POST(request: Request) {
         generationMetadata,
         requestedTeacherDraftMode,
         lightEditMode,
+        teacherDraftLengthTarget,
         forcedLanguageAttempted,
       )
       if (rewriteResult) {
