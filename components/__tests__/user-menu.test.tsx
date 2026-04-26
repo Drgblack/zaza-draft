@@ -53,6 +53,7 @@ vi.mock("@/hooks/use-locale", () => ({
           "account.menu.privacySafety": "Privacy & safety",
           "account.menu.helpSupport": "Help / Support",
           "account.menu.adminDashboard": "Admin dashboard",
+          "account.menu.adminUsers": "Admin users",
           "account.menu.logout": "Log out",
         } as Record<string, string>
       )[key] ?? key,
@@ -75,6 +76,7 @@ describe("UserMenu admin link", () => {
     render(<UserMenu />)
 
     expect(screen.getByText("Admin dashboard")).toBeInTheDocument()
+    expect(screen.getByText("Admin users")).toBeInTheDocument()
   })
 
   it("hides the Admin dashboard link for teacher", () => {
@@ -87,6 +89,7 @@ describe("UserMenu admin link", () => {
     render(<UserMenu />)
 
     expect(screen.queryByText("Admin dashboard")).toBeNull()
+    expect(screen.queryByText("Admin users")).toBeNull()
   })
 
   it("hides the Admin dashboard link for teacher_free", () => {
@@ -99,5 +102,6 @@ describe("UserMenu admin link", () => {
     render(<UserMenu />)
 
     expect(screen.queryByText("Admin dashboard")).toBeNull()
+    expect(screen.queryByText("Admin users")).toBeNull()
   })
 })

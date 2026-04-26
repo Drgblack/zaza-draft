@@ -13,7 +13,8 @@ type AdminUser = {
   uid: string
   email: string
   role: ZazaRole
-  planStatus: "active" | "trialing" | "free" | "cancelled"
+  plan: string
+  planStatus: string
   schoolId: string | null
   createdAt: number
 }
@@ -287,7 +288,7 @@ export default function AdminUsersPage() {
                         </select>
                       )}
                     </td>
-                    <td className="px-4 py-3 text-slate-600">{user.planStatus}</td>
+                    <td className="px-4 py-3 text-slate-600">{user.plan || user.planStatus}</td>
                     <td className="px-4 py-3 text-slate-600">{formatDate(user.createdAt)}</td>
                     <td className="px-4 py-3">
                       {user.role === "super_admin" ? (

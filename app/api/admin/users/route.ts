@@ -2,12 +2,75 @@ import { NextResponse } from "next/server"
 
 import { authorizeFirebaseRequest, FirebaseAuthorizationError } from "@/lib/firebase/server"
 import { getUserProfile } from "@/lib/auth/get-user-role"
-import { canAssignRoles } from "@/lib/auth/roles"
+import { canAssignRoles, type ZazaRole } from "@/lib/auth/roles"
+
+type AdminUserRecord = {
+  uid: string
+  email: string
+  role: ZazaRole
+  plan: string
+  planStatus: string
+  schoolId: string | null
+  createdAt: number
+  updatedAt: number
+}
+
+function toTimestamp(value: unknown) {
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return value
+  }
+
+  if (typeof value === "string") {
+    const parsed = Date.parse(value)
+    return Number.isNaN(parsed) ? 0 : parsed
+  }
+
+  if (
+    typeof value === "object" &&
+    value !== null &&
+    "toMillis" in value &&
+    typeof (value as { toMillis: () => number }).toMillis === "function"
+  ) {
+    return (value as { toMillis: () => number }).toMillis()
+  }
+
+  return 0
+}
+
+function normaliseRole(value: unknown): ZazaRole {
+  if (
+    value === "super_admin" ||
+    value === "admin" ||
+    value === "school_admin" ||
+    value === "teacher" ||
+    value === "teacher_free"
+  ) {
+    return value
+  }
+
+  return "teacher_free"
+}
+
+function mergeAdminUser(
+  source: Partial<AdminUserRecord> & Pick<AdminUserRecord, "uid">,
+  existing?: AdminUserRecord,
+): AdminUserRecord {
+  return {
+    uid: source.uid,
+    email: source.email ?? existing?.email ?? "",
+    role: source.role ?? existing?.role ?? "teacher_free",
+    plan: source.plan ?? existing?.plan ?? "free",
+    planStatus: source.planStatus ?? existing?.planStatus ?? "free",
+    schoolId: source.schoolId ?? existing?.schoolId ?? null,
+    createdAt: source.createdAt ?? existing?.createdAt ?? 0,
+    updatedAt: source.updatedAt ?? existing?.updatedAt ?? 0,
+  }
+}
 
 export async function GET(request: Request) {
   try {
     const authContext = await authorizeFirebaseRequest(request)
-    const firestore = authContext.firestore
+    const { auth, firestore } = authContext
     if (!firestore) {
       return NextResponse.json(
         {
@@ -31,20 +94,96 @@ export async function GET(request: Request) {
       )
     }
 
-    const snapshot = await firestore.collection("user_profiles").get()
-    const users = snapshot.docs
-      .map((doc) => {
-        const data = doc.data() as Record<string, unknown>
-        return {
-          uid: doc.id,
-          email: typeof data.email === "string" ? data.email : "",
-          role: typeof data.role === "string" ? data.role : "teacher_free",
-          planStatus: typeof data.planStatus === "string" ? data.planStatus : "free",
-          schoolId: typeof data.schoolId === "string" ? data.schoolId : null,
-          createdAt: typeof data.createdAt === "number" ? data.createdAt : 0,
-          updatedAt: typeof data.updatedAt === "number" ? data.updatedAt : 0,
+    const [profileSnapshot, userSnapshot, authUserPages] = await Promise.all([
+      firestore.collection("user_profiles").get(),
+      firestore.collection("users").get(),
+      (async () => {
+        if (!auth) {
+          return []
         }
-      })
+
+        const users: Array<{ uid: string; email: string; createdAt: number }> = []
+        let nextPageToken: string | undefined
+
+        do {
+          const page = await auth.listUsers(1000, nextPageToken)
+          users.push(
+            ...page.users.map((user) => ({
+              uid: user.uid,
+              email: user.email ?? "",
+              createdAt: user.metadata.creationTime
+                ? Date.parse(user.metadata.creationTime) || 0
+                : 0,
+            })),
+          )
+          nextPageToken = page.pageToken
+        } while (nextPageToken)
+
+        return users
+      })(),
+    ])
+
+    const userMap = new Map<string, AdminUserRecord>()
+
+    for (const doc of profileSnapshot.docs) {
+      const data = doc.data() as Record<string, unknown>
+      userMap.set(
+        doc.id,
+        mergeAdminUser(
+          {
+            uid: doc.id,
+            email: typeof data.email === "string" ? data.email : "",
+            role: normaliseRole(data.role),
+            plan: typeof data.planStatus === "string" ? data.planStatus : "free",
+            planStatus: typeof data.planStatus === "string" ? data.planStatus : "free",
+            schoolId: typeof data.schoolId === "string" ? data.schoolId : null,
+            createdAt: toTimestamp(data.createdAt),
+            updatedAt: toTimestamp(data.updatedAt),
+          },
+          userMap.get(doc.id),
+        ),
+      )
+    }
+
+    for (const doc of userSnapshot.docs) {
+      const data = doc.data() as Record<string, unknown>
+      const plan =
+        typeof data.plan === "string"
+          ? data.plan
+          : typeof data.accountType === "string"
+            ? data.accountType
+            : "free"
+      userMap.set(
+        doc.id,
+        mergeAdminUser(
+          {
+            uid: doc.id,
+            email: typeof data.email === "string" ? data.email : undefined,
+            plan,
+            planStatus: typeof data.planStatus === "string" ? data.planStatus : plan,
+            createdAt: toTimestamp(data.createdAt),
+            updatedAt: toTimestamp(data.updatedAt),
+          },
+          userMap.get(doc.id),
+        ),
+      )
+    }
+
+    for (const user of authUserPages) {
+      userMap.set(
+        user.uid,
+        mergeAdminUser(
+          {
+            uid: user.uid,
+            email: user.email,
+            createdAt: user.createdAt,
+          },
+          userMap.get(user.uid),
+        ),
+      )
+    }
+
+    const users = Array.from(userMap.values())
       .sort((a, b) => b.createdAt - a.createdAt)
 
     return NextResponse.json({ success: true, users })

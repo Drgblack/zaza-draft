@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { Settings, Download, Shield, ShieldCheck, HelpCircle, LogOut } from "lucide-react"
+import { Settings, Download, Shield, ShieldCheck, Users, HelpCircle, LogOut } from "lucide-react"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import {
   DropdownMenu,
@@ -15,7 +15,7 @@ import { useLocale } from "@/hooks/use-locale"
 import { useRouter } from "next/navigation"
 import { useTeacherPrefs } from "@/hooks/use-teacher-prefs"
 import { useAuth } from "@/hooks/use-auth"
-import { hasAdminAccess } from "@/lib/auth/roles"
+import { canAssignRoles, hasAdminAccess } from "@/lib/auth/roles"
 
 export function UserMenu() {
   const { t } = useLocale()
@@ -25,6 +25,7 @@ export function UserMenu() {
   const [open, setOpen] = useState(false)
   const profilePhoto = prefs.profilePhoto
   const showAdminDashboard = role ? hasAdminAccess(role) : false
+  const showAdminUsers = role ? canAssignRoles(role) : false
 
   const displayName = user?.displayName ?? prefs.firstName
   const displayPhoto = user?.photoURL ?? profilePhoto
@@ -119,6 +120,18 @@ export function UserMenu() {
               <ShieldCheck className="mr-2 h-4 w-4" />
               <span>{t("account.menu.adminDashboard") || "Admin dashboard"}</span>
             </DropdownMenuItem>
+            {showAdminUsers ? (
+              <DropdownMenuItem
+                onClick={() => {
+                  router.push("/admin/users")
+                  setOpen(false)
+                }}
+                className="cursor-pointer"
+              >
+                <Users className="mr-2 h-4 w-4" />
+                <span>{t("account.menu.adminUsers") || "Admin users"}</span>
+              </DropdownMenuItem>
+            ) : null}
           </>
         ) : (
           <DropdownMenuSeparator className="bg-purple-200/50 dark:bg-purple-700/50" />
