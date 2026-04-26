@@ -45,4 +45,19 @@ describe("sanitizeEmailText", () => {
       expect.arrayContaining(["Search mail", "Meet", "Toolbar buttons", "Inbox"]),
     )
   })
+
+  it("does not strip substantive prose that happens to contain words like more or chat", () => {
+    const raw = [
+      "Dear Lucy's Dad,",
+      "I understand that Lucy may feel more comfortable having her phone with her, but classroom rules are clear that phones are not used during lessons.",
+      "I'd be happy to chat further if helpful.",
+      "Regards,",
+      "Greg",
+    ].join("\n")
+    const result = sanitizeEmailText(raw)
+
+    expect(result.cleanText).toContain("more comfortable")
+    expect(result.cleanText).toContain("happy to chat further")
+    expect(result.removedLines).toEqual([])
+  })
 })

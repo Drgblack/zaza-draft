@@ -6,6 +6,19 @@ import {
 import { calibrateLengthTarget } from "@/lib/draft/length-calibration"
 
 describe("evaluateDraftQuality", () => {
+  const lucySource = [
+    "Dear Lucy's Dad,",
+    "",
+    "I understand that Lucy may feel more comfortable having her phone with her, but classroom rules are clear that phones are not used during lessons.",
+    "",
+    "I can't make individual exceptions in the moment, as this would quickly become unmanageable across the class. I need to apply the same expectations consistently for all students.",
+    "",
+    "I will continue to support Lucy in class, but these expectations will remain in place.",
+    "",
+    "Regards,",
+    "Greg",
+  ].join("\n")
+
   it("returns already_strong for a warm professional draft with no violations", () => {
     const source = [
       "Dear Parent/Carer,",
@@ -176,6 +189,127 @@ describe("evaluateDraftQuality", () => {
       expect.arrayContaining([
         expect.objectContaining({
           category: "FABRICATION",
+          severity: "blocking",
+        }),
+      ]),
+    )
+  })
+
+  it("fails the bad Lucy collaborative rewrite with blocking violations", () => {
+    const badCandidate = [
+      "Dear Parent/Carer,",
+      "",
+      "I understand your concerns about Lucy's needs in class. While I maintain consistent expectations for all students to ensure fairness, I'm committed to supporting Lucy within this framework.",
+      "",
+      "I'd be happy to discuss how we can best help Lucy meet these expectations while ensuring she feels supported in her learning.",
+      "",
+      "Kind regards,",
+      "Greg",
+    ].join("\n")
+
+    const result = evaluateDraftQuality({
+      sourceText: lucySource,
+      candidateText: badCandidate,
+      language: "en",
+      teacherDraftMode: true,
+    })
+
+    expect(result.verdict).toBe("needs_rewrite")
+    expect(result.violations).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ category: "FABRICATION", severity: "blocking" }),
+        expect.objectContaining({ category: "INTENT_DRIFT", severity: "blocking" }),
+        expect.objectContaining({ category: "BOUNDARY_DILUTION", severity: "blocking" }),
+        expect.objectContaining({ category: "TOPIC_OMISSION", severity: "blocking" }),
+      ]),
+    )
+  })
+
+  it("fails a live-style Lucy rewrite that adds an available-to-discuss invitation", () => {
+    const liveStyleCandidate = [
+      "Dear Parent/Carer,",
+      "",
+      "I am writing about Lucy's phone use during lessons. Our classroom policy is that phones are not used during class time, and I apply this expectation to all students.",
+      "",
+      "I will continue to support Lucy in her learning, and the phone policy will remain in place. I am available to discuss any concerns you may have about how Lucy is settling into class routines.",
+      "",
+      "Kind regards,",
+      "Greg",
+    ].join("\n")
+
+    const result = evaluateDraftQuality({
+      sourceText: lucySource,
+      candidateText: liveStyleCandidate,
+      language: "en",
+      teacherDraftMode: true,
+    })
+
+    expect(result.verdict).toBe("needs_rewrite")
+    expect(result.violations).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ category: "FABRICATION", severity: "blocking" }),
+        expect.objectContaining({ category: "INTENT_DRIFT", severity: "blocking" }),
+      ]),
+    )
+  })
+
+  it("passes a good Lucy phone-boundary rewrite", () => {
+    const goodCandidate = [
+      "Dear Parent/Carer,",
+      "",
+      "Thank you for getting in touch.",
+      "",
+      "I understand that Lucy may feel more comfortable having her phone with her, and I will continue to support her sensitively in class.",
+      "",
+      "The classroom expectation is that phones are not used during lessons. I apply this consistently so that expectations remain clear and fair for all students.",
+      "",
+      "Kind regards,",
+      "Greg",
+    ].join("\n")
+
+    const result = evaluateDraftQuality({
+      sourceText: lucySource,
+      candidateText: goodCandidate,
+      language: "en",
+      teacherDraftMode: true,
+    })
+
+    expect(result.violations.filter((violation) => violation.severity === "blocking")).toEqual([])
+    expect(["already_strong", "improved"]).toContain(result.verdict)
+  })
+
+  it("flags boundary dilution when a firm source statement is removed entirely", () => {
+    const result = evaluateDraftQuality({
+      sourceText: "These expectations will remain in place.",
+      candidateText: "I am committed to supporting Lucy within this framework and working with her calmly in class.",
+      language: "en",
+      teacherDraftMode: true,
+    })
+
+    expect(result.violations).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          category: "BOUNDARY_DILUTION",
+          severity: "blocking",
+          phrase: "firm boundary removed from output",
+        }),
+      ]),
+    )
+  })
+
+  it("flags topic omission for phone-device drafts", () => {
+    const result = evaluateDraftQuality({
+      sourceText: lucySource,
+      candidateText:
+        "Dear Parent/Carer,\n\nThank you for getting in touch. I will continue to support Lucy sensitively in class and keep expectations fair for all students.\n\nKind regards,\nGreg",
+      language: "en",
+      teacherDraftMode: true,
+    })
+
+    expect(result.violations).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          category: "TOPIC_OMISSION",
           severity: "blocking",
         }),
       ]),

@@ -1,5 +1,6 @@
 import type { DraftLanguage } from "@/lib/types"
 import { extractTrailingClosingBlock, formatDraftText } from "@/lib/draft/format"
+import { detectRouteRecoveryIssueKind } from "@/lib/draft/route-recovery"
 import {
   checkIntentPreservation,
   classifyTeacherIntent,
@@ -17,6 +18,7 @@ export type DraftQualityCategory =
   | "DEFENSIVE_PHRASE"
   | "GENERIC_FILLER"
   | "BOUNDARY_DILUTION"
+  | "TOPIC_OMISSION"
   | "INCONSISTENT_FRAMING"
   | "OVER_SOFTENING"
   | "MESSAGE_EXPANSION"
@@ -36,6 +38,7 @@ export type DraftQualityCheckName =
   | "DEFENSIVE_PHRASE"
   | "GENERIC_FILLER"
   | "BOUNDARY_DILUTION"
+  | "TOPIC_OMISSION"
   | "INCONSISTENT_FRAMING"
   | "OVER_SOFTENING"
   | "MESSAGE_EXPANSION"
@@ -101,6 +104,8 @@ const TEACHER_DRAFT_FABRICATION_PHRASES = [
   { label: "discuss approaches", pattern: /\bdiscuss approaches\b/i },
   { label: "explore what", pattern: /\bexplore what\b/i },
   { label: "what might work", pattern: /\bwhat might work\b/i },
+  { label: "happy to discuss", pattern: /\b(?:i(?:'d| would) be )?happy to (discuss|chat|talk|meet|speak|connect)\b/i },
+  { label: "available to discuss", pattern: /\b(?:i(?:'m| am) )?available to (discuss|chat|talk|meet|speak|connect)\b/i },
 ] as const
 
 const GENERIC_REASSURANCE_FILLER_PATTERNS = [
@@ -113,7 +118,8 @@ const GENERIC_REASSURANCE_FILLER_PATTERNS = [
 
 const BOUNDARY_DILUTION_PATTERN =
   /\b(we('ll| will) consider|we('ll| will) review|we can look at|this may be reviewed|open to reviewing|willing to reconsider)\b/i
-const SOURCE_FIRM_BOUNDARY_PATTERN = /\b(will not|cannot|won't|not permitted|not allowed|must not)\b/i
+const FIRM_BOUNDARY_PATTERN =
+  /\b(will not|cannot|won't|not permitted|not allowed|must not|remain in place|remains in place|expectation is that [^.?!]{0,80}\bnot\b|phones? are not used during lessons|devices? are not used during lessons)\b/i
 const INCONSISTENT_FIRM_MARKERS_PATTERN =
   /\b(will not|cannot|won't|must not|not permitted|not allowed|remains in place)\b/i
 const INCONSISTENT_HEDGE_MARKERS_PATTERN =
@@ -121,6 +127,8 @@ const INCONSISTENT_HEDGE_MARKERS_PATTERN =
 const CANDIDATE_HEDGING_PATTERN =
   /\b(may not|might not|ideally|where possible|as much as possible|try to)\b/i
 const EXPLANATION_PATTERN = /\bbecause\b|\bin order to\b|\bso that\b|\bto ensure\b/i
+const PHONE_DEVICE_TOPIC_PATTERN =
+  /\b(phone|phones|mobile|device|devices|classroom rule|classroom rules|classroom expectation|classroom expectations)\b/i
 
 function countWords(text: string) {
   return text
@@ -350,10 +358,13 @@ export function evaluateDraftQuality(options: {
     pushViolation("GENERIC_FILLER", phrase, "blocking")
   })
 
-  const sourceHasFirmBoundary = SOURCE_FIRM_BOUNDARY_PATTERN.test(sourceText)
-  const candidateHasFirmBoundary = SOURCE_FIRM_BOUNDARY_PATTERN.test(candidateText)
+  const sourceHasFirmBoundary = FIRM_BOUNDARY_PATTERN.test(sourceText)
+  const candidateHasFirmBoundary = FIRM_BOUNDARY_PATTERN.test(candidateText)
   if (sourceHasFirmBoundary && BOUNDARY_DILUTION_PATTERN.test(candidateText)) {
     pushViolation("BOUNDARY_DILUTION", "firm boundary was diluted", "blocking")
+  }
+  if (sourceHasFirmBoundary && !candidateHasFirmBoundary) {
+    pushViolation("BOUNDARY_DILUTION", "firm boundary removed from output", "blocking")
   }
 
   if (
@@ -369,6 +380,13 @@ export function evaluateDraftQuality(options: {
 
   if (sourceHasFirmBoundary && CANDIDATE_HEDGING_PATTERN.test(candidateText) && !candidateHasFirmBoundary) {
     pushViolation("OVER_SOFTENING", "firm boundary became hedged", "blocking")
+  }
+
+  if (
+    detectRouteRecoveryIssueKind(sourceText, language) === "phone_device" &&
+    !PHONE_DEVICE_TOPIC_PATTERN.test(candidateText)
+  ) {
+    pushViolation("TOPIC_OMISSION", "Phone boundary topic omitted from output", "blocking")
   }
 
   if (candidateWordCount > Math.ceil(sourceWordCount * 1.4)) {
@@ -447,6 +465,7 @@ export function evaluateDraftQuality(options: {
     "DEFENSIVE_PHRASE",
     "GENERIC_FILLER",
     "BOUNDARY_DILUTION",
+    "TOPIC_OMISSION",
     "INCONSISTENT_FRAMING",
     "OVER_SOFTENING",
     "MESSAGE_EXPANSION",

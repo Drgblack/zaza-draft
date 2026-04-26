@@ -63,6 +63,10 @@ const CLOSE_SIGNALS = [
 const INVITE_SIGNALS = [
   { label: "happy to chat", pattern: /\bhappy to (chat|discuss|meet|talk)\b/i },
   {
+    label: "available to discuss",
+    pattern: /\b(?:i(?:'m| am) )?available to (chat|discuss|meet|talk|speak|connect)\b/i,
+  },
+  {
     label: "please let me know",
     pattern: /\bplease (let me know|get in touch)\b/i,
   },
@@ -84,6 +88,8 @@ const ACKNOWLEDGE_SIGNALS = [
 
 const OPEN_ENDED_CLOSE_INVITATION_PATTERN =
   /\b(please (don't hesitate|feel free)|get in touch|if you have (any|further) (questions|concerns))\b/i
+const LIMIT_OPEN_INVITATION_PATTERN =
+  /\b((?:i(?:'d| would) be )?happy to (chat|discuss|meet|talk|speak|connect)|(?:i(?:'m| am) )?available to (chat|discuss|meet|talk|speak|connect)|please (let me know|get in touch)|if you (have|would like)|if that would help|if helpful)\b/i
 
 const LIMIT_RESTATEMENT_PATTERN =
   /\b(will not|cannot|won't|not permitted|not allowed|must not|expectation is that|expectations remain clear|apply this consistently|clear and fair for all students|within those expectations)\b/i
@@ -185,13 +191,17 @@ export function checkIntentPreservation(options: {
     }
   }
 
-  if (sourceIntent === "limit" && candidateIntent === "invite") {
+  if (
+    sourceIntent === "limit" &&
+    !LIMIT_OPEN_INVITATION_PATTERN.test(sourceText) &&
+    (candidateIntent === "invite" || LIMIT_OPEN_INVITATION_PATTERN.test(candidateText))
+  ) {
     return {
       preserved: false,
       violation: {
         type: "INTENT_DRIFT",
         sourceIntent,
-        candidateIntent,
+        candidateIntent: candidateIntent === "invite" ? candidateIntent : "invite",
         description: "Source sets a limit but output opens dialogue about it",
       },
     }

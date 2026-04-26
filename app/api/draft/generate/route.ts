@@ -35,6 +35,7 @@ import {
   buildTeacherNotesRecoveryDraft,
   DraftFallbackContext,
   generateDraftWithFallback,
+  hasTeacherDraftPhoneBoundaryConcern,
   isSafeDraftTeacherNotesRecovery,
   LanguageKey,
   ProviderRequestInput,
@@ -535,6 +536,7 @@ type TeacherDraftQualityViolationType =
   | "DEFENSIVE_PHRASE"
   | "GENERIC_FILLER"
   | "BOUNDARY_DILUTION"
+  | "TOPIC_OMISSION"
   | "OVER_SOFTENING"
   | "MESSAGE_EXPANSION"
   | "GENERIC_REASSURANCE_FILLER"
@@ -1001,6 +1003,7 @@ const TEACHER_DRAFT_FABRICATION_PHRASES = [
   { label: "discuss approaches", pattern: /\bdiscuss approaches\b/i },
   { label: "explore what", pattern: /\bexplore what\b/i },
   { label: "what might work", pattern: /\bwhat might work\b/i },
+  { label: "happy to discuss", pattern: /\b(?:i(?:'d| would) be )?happy to (discuss|chat|talk|meet|speak|connect)\b/i },
 ] as const
 
 function getComparableParentBodyText(
@@ -2374,6 +2377,12 @@ export async function POST(request: Request) {
     greetingFinal: hasFinalGreeting,
     sourceSituation: currentSituation,
   }
+  const resolvedIssueKind = requestedTeacherDraftMode
+    ? detectRouteRecoveryIssueKind(currentSituation, language)
+    : null
+  const phoneBoundaryConcern = requestedTeacherDraftMode
+    ? hasTeacherDraftPhoneBoundaryConcern(currentSituation)
+    : null
   const alreadyStrongTeacherDraft = shouldUseTeacherDraftNoChangePath({
     sourceText: currentSituation,
     language,
@@ -3507,6 +3516,17 @@ export async function POST(request: Request) {
           regretRisk: professionalJudgementResult?.regretRisk ?? null,
         })
       }
+      console.log(
+        "[teacher-draft][fallback-decision]",
+        JSON.stringify({
+          requestId,
+          issueKind: resolvedIssueKind,
+          teacherDraftMode: requestedTeacherDraftMode,
+          phoneBoundaryConcern,
+          buildingSourceAwareParagraphs: true,
+          fallbackReason,
+        }),
+      )
       fallbackErrorCode = fallbackErrorCode ?? "TEACHER_DRAFT_QUALITY_FALLBACK"
       teacherDraftQualityResult = fallbackQualityResult
       teacherDraftQualityViolations = fallbackQualityResult.violations
@@ -3676,6 +3696,26 @@ export async function POST(request: Request) {
             events: recoveryTrace.events,
           }
         : undefined,
+  }
+
+  if (requestedTeacherDraftMode) {
+    console.log(
+      "[teacher-draft][final-output]",
+      JSON.stringify({
+        requestId,
+        finalModelUsed: providerMeta?.modelUsed ?? metadata.modelUsed,
+        fallbackReason,
+        errorCode: responseMeta.errorCode ?? null,
+        qualityVerdict: teacherDraftQualityResult?.verdict ?? null,
+        violationCategories:
+          teacherDraftQualityResult?.violations?.map((violation) => violation.category) ?? [],
+        sendConfidenceScore: professionalJudgementResult?.sendConfidenceScore ?? null,
+        issueKind: resolvedIssueKind,
+        phoneBoundaryConcern,
+        outputWordCount: countWords(generatedDraft),
+        outputPreview: generatedDraft?.slice(0, 80) ?? null,
+      }),
+    )
   }
 
   const responseGreeting = {

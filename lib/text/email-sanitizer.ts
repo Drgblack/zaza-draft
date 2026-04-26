@@ -74,7 +74,11 @@ const UI_LINE_KEYWORDS = [
 
 function containsUiNoise(line: string) {
   const lower = line.toLowerCase()
-  if (UI_LINE_KEYWORDS.some((phrase) => lower.includes(phrase))) {
+  if (
+    UI_LINE_KEYWORDS.some((phrase) =>
+      phrase.includes(" ") ? lower.includes(phrase) : lower === phrase,
+    )
+  ) {
     return true
   }
   if (/^(?:sans serif|search mail|compose|inbox|drafts|meet|chat|toolbar)$/i.test(line)) {

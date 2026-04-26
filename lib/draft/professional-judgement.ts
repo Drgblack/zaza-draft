@@ -54,11 +54,13 @@ const EXPLANATION_PATTERN = /\bbecause\b|\bin order to\b|\bso that\b|\bto ensure
 const PERMISSION_SEEKING_END_PATTERN =
   /\bdo you (think|feel|agree|mind)|is that (okay|alright|acceptable|ok)\b/i
 const FIRM_MARKERS_PATTERN =
-  /\b(will not|cannot|won't|must not|not permitted|not allowed|remains in place)\b/i
+  /\b(will not|cannot|won't|must not|not permitted|not allowed|remains in place|remain in place|expectation is that [^.?!]{0,80}\bnot\b|phones? are not used during lessons|devices? are not used during lessons)\b/i
 const LIMIT_OPENING_PATTERN =
-  /\b(happy to (chat|discuss|meet|talk)|please (let me know|get in touch)|would you like to|if you (have|would like))\b/i
+  /\b(happy to (chat|discuss|meet|talk)|available to (chat|discuss|meet|talk|speak|connect)|please (let me know|get in touch)|would you like to|if you (have|would like))\b/i
+const LIMIT_DISCUSSION_INVITATION_PATTERN =
+  /\b((?:i(?:'d| would) be )?happy to (chat|discuss|meet|talk|speak|connect)|(?:i(?:'m| am) )?available to (chat|discuss|meet|talk|speak|connect)|please (let me know|get in touch)|if you (have|would like)|if that would help|if helpful)\b/i
 const RISKY_INVITATION_PATTERN =
-  /\b(please (don't hesitate|feel free)|get in touch|happy to (chat|discuss|meet|talk)|if you have (any|further) (questions|concerns))\b/i
+  /\b(please (don't hesitate|feel free)|get in touch|happy to (chat|discuss|meet|talk)|available to (chat|discuss|meet|talk|speak|connect)|if you have (any|further) (questions|concerns))\b/i
 const QUESTION_ENDING_PATTERN = /\?\s*$/
 const PASSIVE_AGGRESSIVE_PATTERN =
   /\b(as I (previously|already) (mentioned|said|noted|explained)|as per my (previous|last|earlier)|I (have|had) already|as we (discussed|agreed)|you will (recall|remember|note))\b/i
@@ -80,14 +82,15 @@ const DISTRESSED_PARENT_PATTERN =
   /\b(crying|in tears|cannot (cope|sleep|concentrate)|refusing (to go|school)|very (upset|distressed|unhappy))\b/i
 const DE_ESCALATION_OPENING_PATTERN = /\bI (understand|can see|appreciate|hear) (that|why|how)\b/i
 const OPEN_LOOP_PATTERN =
-  /\b(please (let me know|get in touch|do not hesitate|don't hesitate|feel free)|if you (have|would like|need|want)|happy to (discuss|chat|talk|meet))\b/i
+  /\b(please (let me know|get in touch|do not hesitate|don't hesitate|feel free)|if you (have|would like|need|want)|happy to (discuss|chat|talk|meet)|available to (discuss|chat|talk|meet|speak|connect))\b/i
 const VAGUE_NEXT_STEP_PATTERN =
   /\b(we('ll| will) (discuss|review|look into|follow up)|I('ll| will) (look into|check|find out|investigate))\b/i
 const SOFTENING_PATTERN =
   /\b(where possible|try to|ideally|as much as possible|in most cases)\b/i
 const OVER_SOFTENING_PATTERN =
   /\b(may not|might not|ideally|where possible|as much as possible|try to)\b/i
-const SOURCE_FIRM_BOUNDARY_PATTERN = /\b(will not|cannot|won't|not permitted|not allowed|must not)\b/i
+const SOURCE_FIRM_BOUNDARY_PATTERN =
+  /\b(will not|cannot|won't|not permitted|not allowed|must not|remain in place|remains in place|expectation is that [^.?!]{0,80}\bnot\b|phones? are not used during lessons|devices? are not used during lessons)\b/i
 const BOUNDARY_DILUTION_PATTERN =
   /\b(we('ll| will) consider|we('ll| will) review|we can look at|this may be reviewed|open to reviewing|willing to reconsider)\b/i
 const EMPATHY_PATTERN =
@@ -106,6 +109,8 @@ const FABRICATION_PHRASES = [
   /\bdiscuss approaches\b/i,
   /\bexplore what\b/i,
   /\bwhat might work\b/i,
+  /\b(?:i(?:'d| would) be )?happy to (discuss|chat|talk|meet|speak|connect)\b/i,
+  /\b(?:i(?:'m| am) )?available to (discuss|chat|talk|meet|speak|connect)\b/i,
 ] as const
 const SUBJECT_FAMILIES = [
   /\bphones?\b/i,
@@ -147,7 +152,10 @@ function containsFabrication(sourceText: string, candidateText: string) {
 }
 
 function hasBoundaryDilution(sourceText: string, candidateText: string) {
-  return SOURCE_FIRM_BOUNDARY_PATTERN.test(sourceText) && BOUNDARY_DILUTION_PATTERN.test(candidateText)
+  return (
+    SOURCE_FIRM_BOUNDARY_PATTERN.test(sourceText) &&
+    (BOUNDARY_DILUTION_PATTERN.test(candidateText) || !FIRM_MARKERS_PATTERN.test(candidateText))
+  )
 }
 
 function hasOverSoftening(sourceText: string, candidateText: string) {
@@ -264,6 +272,7 @@ export function evaluateProfessionalJudgement(options: {
       : undefined
   const candidateIntent = classifyTeacherIntent(candidateText)
   const sourceIntent = options.sourceIntent
+  const sourceHasDiscussionInvite = LIMIT_DISCUSSION_INVITATION_PATTERN.test(sourceText)
   const hasFabrication = containsFabrication(sourceText, candidateText)
   const boundaryDilution = hasBoundaryDilution(sourceText, candidateText)
   const overSoftening = hasOverSoftening(sourceText, candidateText)
@@ -376,6 +385,26 @@ export function evaluateProfessionalJudgement(options: {
       direction: "negative",
     })
   }
+  if (sourceIntent === "limit" && !FIRM_MARKERS_PATTERN.test(candidateText)) {
+    authorityScore -= 20
+    signals.push({
+      dimension: "authority",
+      finding: "Firm limit from the source was not restated directly in the output.",
+      direction: "negative",
+    })
+  }
+  if (
+    sourceIntent === "limit" &&
+    !sourceHasDiscussionInvite &&
+    LIMIT_DISCUSSION_INVITATION_PATTERN.test(candidateText)
+  ) {
+    authorityScore -= 20
+    signals.push({
+      dimension: "authority",
+      finding: "Output reopens dialogue instead of holding the teacher's limit.",
+      direction: "negative",
+    })
+  }
   if (
     parentEmotionalState === "accusatory" &&
     !DE_ESCALATION_OPENING_PATTERN.test(getOpeningParagraph(candidateText))
@@ -439,6 +468,14 @@ export function evaluateProfessionalJudgement(options: {
         direction: "negative",
       })
     }
+    if (!FIRM_MARKERS_PATTERN.test(candidateText)) {
+      boundaryStrengthScore -= 20
+      signals.push({
+        dimension: "boundary_strength",
+        finding: "Boundary is not restated with direct language in the output.",
+        direction: "negative",
+      })
+    }
     if (hasEmpathyAfterBoundaryInSameParagraph(candidateText)) {
       boundaryStrengthScore -= 10
       signals.push({
@@ -498,7 +535,9 @@ export function evaluateProfessionalJudgement(options: {
 
   let replyLikelihood: ReplyLikelihood = "low"
   if (
-    ((sourceIntent === "close" || sourceIntent === "limit") && OPEN_LOOP_PATTERN.test(candidateText)) ||
+    ((sourceIntent === "close" ||
+      (sourceIntent === "limit" && !sourceHasDiscussionInvite)) &&
+      OPEN_LOOP_PATTERN.test(candidateText)) ||
     endsWithQuestion ||
     (VAGUE_NEXT_STEP_PATTERN.test(candidateText) && !VAGUE_NEXT_STEP_PATTERN.test(sourceText))
   ) {
@@ -529,7 +568,8 @@ export function evaluateProfessionalJudgement(options: {
     authorityScore < 45 ||
     clarityScore < 45 ||
     hasFabrication ||
-    missingAccusatoryDeEscalation
+    missingAccusatoryDeEscalation ||
+    (sourceIntent === "limit" && !sourceHasDiscussionInvite && replyLikelihood === "high")
       ? "high"
       : parentInterpretationRisk === "medium" ||
         authorityScore < 60 ||

@@ -6,6 +6,19 @@ import {
 } from "./professional-judgement"
 
 describe("evaluateProfessionalJudgement", () => {
+  const lucySource = [
+    "Dear Lucy's Dad,",
+    "",
+    "I understand that Lucy may feel more comfortable having her phone with her, but classroom rules are clear that phones are not used during lessons.",
+    "",
+    "I can't make individual exceptions in the moment, as this would quickly become unmanageable across the class. I need to apply the same expectations consistently for all students.",
+    "",
+    "I will continue to support Lucy in class, but these expectations will remain in place.",
+    "",
+    "Regards,",
+    "Greg",
+  ].join("\n")
+
   it("scores a firm, clear draft highly for clarity", () => {
     const result = evaluateProfessionalJudgement({
       sourceText: "Phones are not used during lessons.",
@@ -99,6 +112,75 @@ describe("evaluateProfessionalJudgement", () => {
     })
 
     expect(result.sendConfidenceScore).toBeLessThan(60)
+  })
+
+  it("scores the bad Lucy collaborative rewrite as low confidence", () => {
+    const result = evaluateProfessionalJudgement({
+      sourceText: lucySource,
+      candidateText: [
+        "Dear Parent/Carer,",
+        "",
+        "I understand your concerns about Lucy's needs in class. While I maintain consistent expectations for all students to ensure fairness, I'm committed to supporting Lucy within this framework.",
+        "",
+        "I'd be happy to discuss how we can best help Lucy meet these expectations while ensuring she feels supported in her learning.",
+        "",
+        "Kind regards,",
+        "Greg",
+      ].join("\n"),
+      sourceIntent: "limit",
+      language: "en",
+      safetyAnalysis: null,
+    })
+
+    expect(result.replyLikelihood).toBe("high")
+    expect(result.regretRisk).toBe("high")
+    expect(result.sendConfidenceScore).toBeLessThan(60)
+  })
+
+  it("keeps a good Lucy phone-boundary rewrite in the high-confidence band", () => {
+    const result = evaluateProfessionalJudgement({
+      sourceText: lucySource,
+      candidateText: [
+        "Dear Parent/Carer,",
+        "",
+        "Thank you for getting in touch.",
+        "",
+        "I understand that Lucy may feel more comfortable having her phone with her, and I will continue to support her sensitively in class.",
+        "",
+        "The classroom expectation is that phones are not used during lessons. I apply this consistently so that expectations remain clear and fair for all students.",
+        "",
+        "Kind regards,",
+        "Greg",
+      ].join("\n"),
+      sourceIntent: "limit",
+      language: "en",
+      safetyAnalysis: null,
+    })
+
+    expect(result.sendConfidenceScore).toBeGreaterThanOrEqual(75)
+  })
+
+  it("treats a live-style available-to-discuss Lucy rewrite as reply-inviting and higher risk", () => {
+    const result = evaluateProfessionalJudgement({
+      sourceText: lucySource,
+      candidateText: [
+        "Dear Parent/Carer,",
+        "",
+        "I am writing about Lucy's phone use during lessons. Our classroom policy is that phones are not used during class time, and I apply this expectation to all students.",
+        "",
+        "I will continue to support Lucy in her learning, and the phone policy will remain in place. I am available to discuss any concerns you may have about how Lucy is settling into class routines.",
+        "",
+        "Kind regards,",
+        "Greg",
+      ].join("\n"),
+      sourceIntent: "limit",
+      language: "en",
+      safetyAnalysis: null,
+    })
+
+    expect(result.replyLikelihood).toBe("high")
+    expect(result.regretRisk).toBe("high")
+    expect(result.sendConfidenceScore).toBeLessThan(75)
   })
 
   it("flags passive-aggressive phrasing as high parent-interpretation risk", () => {
