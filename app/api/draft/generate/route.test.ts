@@ -2294,6 +2294,68 @@ describe("/api/draft/generate light edit mode", () => {
     })
   })
 
+  it("returns copy-edit-only when the generated teacher draft is worse than a clean source", async () => {
+    const teacherDraft = [
+      "Dear Parent/Carer,",
+      "",
+      "Thank you for getting in touch.",
+      "",
+      "I understand your concern, and I will continue to handle this calmly in class.",
+      "",
+      "The expectation is that phones stay away during lessons, and I will keep that clear and consistent.",
+      "",
+      "Kind regards,",
+      "Greg",
+    ].join("\n")
+
+    const paddedDraft = [
+      "Dear Parent/Carer,",
+      "",
+      "Thank you for getting in touch.",
+      "",
+      "I understand your concern, and I will continue to handle this calmly in class.",
+      "",
+      "The expectation is that phones stay away during lessons, and I will keep that clear and consistent while working together.",
+      "",
+      "Kind regards,",
+      "Greg",
+    ].join("\n")
+
+    fallbackGenerator.mockResolvedValueOnce(buildFallbackResult(paddedDraft))
+
+    const request = new Request("https://example.com/api/draft/generate", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: "Bearer token",
+      },
+      body: JSON.stringify({
+        situation: teacherDraft,
+        tone: "professional",
+        language: "en",
+        uiLocale: "en-GB",
+        mode: "parent_message",
+        inputIntent: "teacher_draft",
+        rewrite: true,
+      }),
+    })
+
+    const response = await POST(request)
+    expect(response.status).toBe(200)
+    const json = await response.json()
+    const generatedDraft = json.data?.generatedDraft ?? ""
+
+    expect(json.data?.metadata?.modelUsed).toBe("teacher-draft-copy-edit-only")
+    expect(json.data?.teacherDraftFeedback).toEqual({
+      verdict: "already_strong",
+      level: "already_strong",
+      reasons: ["preserved_tone", "maintained_boundaries", "risk_checked"],
+    })
+    expect(getWordSequenceSimilarity(teacherDraft, generatedDraft)).toBeGreaterThanOrEqual(0.95)
+    expect(generatedDraft).not.toContain("working together")
+    expect(generatedDraft).toContain("The expectation is that phones stay away during lessons")
+  })
+
   it("rewrites a blunt Lucy phone-exception draft with stronger teacher judgement instead of surface editing", async () => {
     const teacherDraft = [
       "Dear Lucy's Dad,",

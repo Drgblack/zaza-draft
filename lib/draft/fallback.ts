@@ -5,6 +5,7 @@ import {
   type ProviderResult,
   type TeacherDraftFallbackExtraction,
 } from "@/lib/ai/provider"
+import type { LengthTarget } from "@/lib/draft/length-calibration"
 import type { GenerationMetadata } from "@/lib/generation/classification"
 import {
   normalizeParentFacingGreetingLine,
@@ -1252,6 +1253,7 @@ export interface ProviderRequestInput {
     types: string[]
     phrases: string[]
   }
+  lengthTarget?: LengthTarget
   safetyAnalysis?: SafetyEngineOutput | null
   documentationMode?: boolean
   documentationTopic?: string | null

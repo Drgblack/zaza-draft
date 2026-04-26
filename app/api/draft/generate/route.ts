@@ -74,6 +74,26 @@ import {
   getRouteRecoveryAnchors,
   type RouteRecoveryIssueKind,
 } from "@/lib/draft/route-recovery"
+import { calibrateLengthTarget, type LengthTarget } from "@/lib/draft/length-calibration"
+import {
+  checkIntentPreservation,
+  classifyTeacherIntent as classifyTeacherDraftIntent,
+} from "@/lib/draft/intent-classification"
+import {
+  evaluateDraftQuality,
+  type DraftQualityResult,
+  type DraftQualityViolation,
+  isOutputWorseThanSource,
+} from "@/lib/draft/quality-evaluation"
+import {
+  applyRegisterCorrections,
+  detectRegisterViolations,
+  normaliseSpelling,
+} from "@/lib/draft/register-accuracy"
+import {
+  checkVoicePreservation,
+  extractVoiceProfile,
+} from "@/lib/draft/voice-preservation"
 import { isValidDraftRequest, OUT_OF_SCOPE_REDIRECT_MESSAGE } from "./scope-guard"
 import { isDebugEnabled } from "@/lib/debug"
 import {
@@ -248,6 +268,11 @@ function containsStrongEnglishSignals(text: string) {
 
 function countWords(text: string) {
   return text.split(/\s+/).filter(Boolean).length
+}
+
+function countSentences(text: string) {
+  const matches = text.match(/[.!?]+(?=\s|$)/g)
+  return matches ? matches.length : 0
 }
 
 const SHORT_ACCUSATORY_TEACHER_NOTE_PATTERNS = [
@@ -500,7 +525,17 @@ function preserveTeacherDraftSignature(
 type TeacherDraftQualityViolationType =
   | "DEFENSIVE_PHRASE"
   | "GENERIC_FILLER"
-  | "INVENTED_PROCESS"
+  | "BOUNDARY_DILUTION"
+  | "OVER_SOFTENING"
+  | "MESSAGE_EXPANSION"
+  | "GENERIC_REASSURANCE_FILLER"
+  | "OVER_EXPLANATION"
+  | "REGISTER_ACCURACY"
+  | "INTENT_DRIFT"
+  | "SENTENCE_LENGTH_DRIFT"
+  | "FORMALITY_DRIFT"
+  | "PERSON_DRIFT"
+  | "LENGTH_EXCEEDED"
   | "FABRICATION"
   | "SIGNOFF_CHANGE"
   | "MISSING_ACKNOWLEDGEMENT"
@@ -542,68 +577,24 @@ function detectTeacherDraftQualityViolations(options: {
   language: DraftLanguage
   teacherDraftMode: boolean
   requestedSignatureName?: string
+  safetyAnalysis?: SafetyEngineOutput | null
 }) {
-  if (!options.teacherDraftMode) {
-    return []
-  }
-
-  const violations: TeacherDraftQualityViolation[] = []
-  const candidate = options.candidateText
-
-  TEACHER_DRAFT_DEFENSIVE_PATTERNS.forEach(({ label, pattern }) => {
-    if (pattern.test(candidate)) {
-      violations.push({ type: "DEFENSIVE_PHRASE", phrase: label })
-    }
+  const result = evaluateDraftQuality({
+    sourceText: options.sourceText,
+    candidateText: options.candidateText,
+    language: options.language,
+    teacherDraftMode: options.teacherDraftMode,
+    requestedSignatureName: options.requestedSignatureName,
+    safetyAnalysis: options.safetyAnalysis,
   })
 
-  TEACHER_DRAFT_GENERIC_FILLER_PATTERNS.forEach(({ label, pattern }) => {
-    if (pattern.test(candidate)) {
-      violations.push({ type: "GENERIC_FILLER", phrase: label })
-    }
-  })
-
-  collectIntroducedTeacherDraftPhrases(
-    options.sourceText,
-    candidate,
-    TEACHER_DRAFT_INVENTED_PROCESS_PHRASES,
-  ).forEach((phrase) => {
-    violations.push({ type: "INVENTED_PROCESS", phrase })
-  })
-
-  collectIntroducedTeacherDraftPhrases(
-    options.sourceText,
-    candidate,
-    TEACHER_DRAFT_FABRICATION_PHRASES,
-  ).forEach((phrase) => {
-    violations.push({ type: "FABRICATION", phrase })
-  })
-
-  if (
-    !options.requestedSignatureName &&
-    normalizeSignatureLinesForComparison(
-      extractTeacherDraftSignatureLines(options.sourceText, options.language),
-    ) &&
-    normalizeSignatureLinesForComparison(
-      extractTeacherDraftSignatureLines(options.sourceText, options.language),
-    ) !==
-      normalizeSignatureLinesForComparison(extractSignatureLinesForComparison(candidate))
-  ) {
-    violations.push({ type: "SIGNOFF_CHANGE", phrase: "sign-off changed" })
-  }
-
-  if (
-    hasTeacherDraftAcknowledgementNeed(options.sourceText) &&
-    !hasTeacherDraftAcknowledgement(candidate, options.language)
-  ) {
-    violations.push({ type: "MISSING_ACKNOWLEDGEMENT", phrase: "brief acknowledgement missing" })
-  }
-
-  return violations.filter(
-    (violation, index, collection) =>
-      collection.findIndex(
-        (entry) => entry.type === violation.type && entry.phrase === violation.phrase,
-      ) === index,
-  )
+  return result.violations.map((violation) => ({
+    type:
+      violation.category === "SIGNATURE_DRIFT"
+        ? "SIGNOFF_CHANGE"
+        : (violation.category as Exclude<DraftQualityViolation["category"], "SIGNATURE_DRIFT">),
+    phrase: violation.phrase,
+  })) as TeacherDraftQualityViolation[]
 }
 
 function hasTeacherDraftSourceFabricationRisk(text: string) {
@@ -618,6 +609,7 @@ function shouldUseTeacherDraftNoChangePath(options: {
   safetyAnalysis: SafetyEngineOutput | null
   requestedSignatureName?: string
   greetingLine?: string | null
+  lengthTarget?: LengthTarget
 }) {
   const {
     sourceText,
@@ -627,6 +619,7 @@ function shouldUseTeacherDraftNoChangePath(options: {
     safetyAnalysis,
     requestedSignatureName,
     greetingLine,
+    lengthTarget,
   } = options
 
   if (!teacherDraftMode || (tone !== "warm" && tone !== "professional") || !safetyAnalysis) {
@@ -673,14 +666,16 @@ function shouldUseTeacherDraftNoChangePath(options: {
     return false
   }
 
-  const violations = detectTeacherDraftQualityViolations({
+  const qualityResult = evaluateDraftQuality({
     sourceText,
     candidateText: sourceText,
     language,
     teacherDraftMode,
     requestedSignatureName,
+    safetyAnalysis,
+    lengthTarget,
   })
-  if (violations.length > 0) {
+  if (qualityResult.verdict !== "already_strong") {
     return false
   }
 
@@ -1481,6 +1476,7 @@ async function reRunWithRewrite(
   generationMetadata: GenerationMetadata,
   teacherDraftMode: boolean,
   lightEditMode: boolean,
+  lengthTarget?: LengthTarget,
   forceLanguage?: boolean,
   safetyAnalysis?: SafetyEngineOutput | null,
 ): Promise<ProviderResult | null> {
@@ -1497,6 +1493,7 @@ async function reRunWithRewrite(
       mode,
       teacherDraftMode,
       lightEditMode,
+      lengthTarget,
       forceLanguage,
       safetyAnalysis,
     })
@@ -2245,6 +2242,20 @@ export async function POST(request: Request) {
     mode === "parent_message" &&
     inputIntent === "teacher_draft" &&
     generationMetadata.direction === "teacher_to_parent"
+  const teacherDraftIntent = requestedTeacherDraftMode
+    ? classifyTeacherDraftIntent(currentSituation)
+    : null
+  const teacherDraftIssueClusters = requestedTeacherDraftMode
+    ? detectTeacherNoteIssueClusters(currentSituation, language)
+    : []
+  const teacherDraftLengthTarget = requestedTeacherDraftMode
+    ? calibrateLengthTarget({
+        sourceWordCount: countWords(currentSituation),
+        sourceSentenceCount: countSentences(currentSituation),
+        intent: teacherDraftIntent?.intent ?? "unknown",
+        hasMultipleIssues: teacherDraftIssueClusters.length > 1,
+      })
+    : undefined
   const safeLightEditMode = shouldUseLightEditMode({
     mode,
     situation: currentSituation,
@@ -2287,6 +2298,7 @@ export async function POST(request: Request) {
       generationMetadata.direction === "teacher_internal_notes"
         ? detectTeacherNoteIssueClusters(currentSituation, language)
         : undefined,
+    lengthTarget: teacherDraftLengthTarget,
     resolvedPronounPreference,
     signatureBlock: resolvedSignature.block,
     teacherSignatureName,
@@ -2331,6 +2343,7 @@ export async function POST(request: Request) {
     safetyAnalysis,
     requestedSignatureName,
     greetingLine: finalGreetingLine,
+    lengthTarget: teacherDraftLengthTarget,
   })
   const configuredModels = getConfiguredModelNames()
   activeModelName = configuredModels.primary
@@ -2497,6 +2510,14 @@ export async function POST(request: Request) {
     documentationModeActive
       ? finalizeDraftWithSignature(text)
       : removeDuplicateGreeting(finalizeDraftWithSignature(text), finalGreetingLine)
+  const applyTeacherDraftRegisterNormalisation = (draftText: string) => {
+    if (!requestedTeacherDraftMode || language !== "en") {
+      return draftText
+    }
+
+    const { corrected } = applyRegisterCorrections(draftText)
+    return normaliseSpelling(corrected, normalizedUiLocale ?? language)
+  }
   const runDraft = async (
     forceLanguage = false,
     forceContinuation = false,
@@ -2611,7 +2632,7 @@ export async function POST(request: Request) {
   let forcedLanguageAttempted = false
 
   if (alreadyStrongTeacherDraft) {
-    generatedDraft = finalizeWithGreeting(currentSituation)
+    generatedDraft = applyTeacherDraftRegisterNormalisation(finalizeWithGreeting(currentSituation))
     providerMeta = {
       modelUsed: "teacher-draft-copy-edit-only",
       latencyMs: 0,
@@ -2633,7 +2654,7 @@ export async function POST(request: Request) {
     providerResult = draftAttempt.result
     usedFallback = draftAttempt.usedFallback
     fallbackErrorCode = draftAttempt.errorCode
-    generatedDraft = finalizeWithGreeting(providerResult.text)
+    generatedDraft = applyTeacherDraftRegisterNormalisation(finalizeWithGreeting(providerResult.text))
     providerMeta = providerResult.providerMeta
     if (usedFallback) {
       pushRecoveryEvent(
@@ -3181,6 +3202,7 @@ export async function POST(request: Request) {
       generationMetadata,
       requestedTeacherDraftMode,
       lightEditMode,
+      teacherDraftLengthTarget,
       forcedLanguageAttempted,
       outputSafetyAnalysis,
     )
@@ -3203,25 +3225,86 @@ export async function POST(request: Request) {
   preserveLightEditSourceIfNeeded()
   preserveTeacherDraftSignatureIfNeeded()
 
-  let teacherDraftQualityViolations = detectTeacherDraftQualityViolations({
+  let teacherDraftQualityResult = evaluateDraftQuality({
     sourceText: currentSituation,
     candidateText: generatedDraft,
     language,
     teacherDraftMode: requestedTeacherDraftMode,
     requestedSignatureName,
+    safetyAnalysis: outputSafetyAnalysis,
+    lengthTarget: teacherDraftLengthTarget,
   })
+  let teacherDraftQualityViolations = teacherDraftQualityResult.violations
   let teacherDraftQualityRegenerationAttempts = 0
+  let worseThanSourceDetected = false
+
+  const sourceTeacherDraftQuality = requestedTeacherDraftMode
+    ? evaluateDraftQuality({
+      sourceText: currentSituation,
+      candidateText: currentSituation,
+      language,
+      teacherDraftMode: requestedTeacherDraftMode,
+      requestedSignatureName,
+      safetyAnalysis,
+      lengthTarget: teacherDraftLengthTarget,
+    })
+    : null
+
+  if (
+    requestedTeacherDraftMode &&
+    sourceTeacherDraftQuality &&
+    isOutputWorseThanSource({
+      sourceText: currentSituation,
+      candidateText: generatedDraft,
+      sourceViolations: sourceTeacherDraftQuality.violations,
+      candidateViolations: teacherDraftQualityResult.violations,
+      similarity: teacherDraftQualityResult.similarity,
+      sourceWordCount: sourceTeacherDraftQuality.wordCount,
+      candidateWordCount: teacherDraftQualityResult.wordCount,
+    })
+  ) {
+    worseThanSourceDetected = true
+    logDraftStructured("worse_than_source_detected", {
+      ...baseDraftLog(),
+      sourceWordCount: sourceTeacherDraftQuality.wordCount,
+      candidateWordCount: teacherDraftQualityResult.wordCount,
+      similarity: teacherDraftQualityResult.similarity,
+      advisoryViolations: Array.from(
+        new Set(
+          teacherDraftQualityResult.violations
+            .filter((violation) => violation.severity === "advisory")
+            .map((violation) => violation.category),
+        ),
+      ),
+    })
+
+    generatedDraft = finalizeWithGreeting(currentSituation)
+    finalizeAndFormatDraft(generatedDraft)
+    preserveTeacherDraftSignatureIfNeeded()
+    providerMeta = {
+      ...providerMeta,
+      modelUsed: "teacher-draft-copy-edit-only",
+    }
+    usedFallback = false
+    fallbackErrorCode = null
+    teacherDraftQualityResult = sourceTeacherDraftQuality
+    teacherDraftQualityViolations = sourceTeacherDraftQuality.violations
+
+    if (!documentationModeActive && mode === "parent_message") {
+      outputSafetyAnalysis = await runSafetyAnalysis(generatedDraft, "output_safety_analysis")
+    }
+  }
 
   const attemptTeacherDraftQualityRegeneration = async (
-    currentViolations: TeacherDraftQualityViolation[],
-  ) => {
+    currentViolations: DraftQualityViolation[],
+  ): Promise<DraftQualityResult> => {
     if (currentViolations.length === 0 || teacherDraftQualityRegenerationAttempts >= 2) {
-      return currentViolations
+      return teacherDraftQualityResult
     }
 
     teacherDraftQualityRegenerationAttempts += 1
     providerInput.teacherDraftQualityViolations = {
-      types: Array.from(new Set(currentViolations.map((violation) => violation.type))),
+      types: Array.from(new Set(currentViolations.map((violation) => violation.category))),
       phrases: currentViolations.map((violation) => violation.phrase),
     }
     const regenerationAttempt = await runDraft(forcedLanguageAttempted)
@@ -3232,6 +3315,9 @@ export async function POST(request: Request) {
     providerMeta = providerResult.providerMeta
     finalizeAndFormatDraft(generatedDraft)
     preserveTeacherDraftSignatureIfNeeded()
+    generatedDraft = applyTeacherDraftRegisterNormalisation(generatedDraft)
+    finalizeAndFormatDraft(generatedDraft)
+    preserveTeacherDraftSignatureIfNeeded()
     providerInput.teacherDraftQualityViolations = undefined
     pushRecoveryEvent(
       usedFallback ? "deterministic_fallback" : "retry_generation",
@@ -3239,32 +3325,42 @@ export async function POST(request: Request) {
       regenerationAttempt.recoveryMeta?.templateFamily ?? null,
     )
 
-    return detectTeacherDraftQualityViolations({
+    return evaluateDraftQuality({
       sourceText: currentSituation,
       candidateText: generatedDraft,
       language,
       teacherDraftMode: requestedTeacherDraftMode,
       requestedSignatureName,
+      safetyAnalysis,
+      lengthTarget: teacherDraftLengthTarget,
     })
   }
 
-  while (teacherDraftQualityViolations.length > 0 && teacherDraftQualityRegenerationAttempts < 2) {
-    teacherDraftQualityViolations = await attemptTeacherDraftQualityRegeneration(
+  while (
+    teacherDraftQualityResult.verdict === "needs_rewrite" &&
+    teacherDraftQualityRegenerationAttempts < 2
+  ) {
+    teacherDraftQualityResult = await attemptTeacherDraftQualityRegeneration(
       teacherDraftQualityViolations,
     )
+    teacherDraftQualityViolations = teacherDraftQualityResult.violations
   }
 
-  if (teacherDraftQualityViolations.length > 0) {
-    const fallbackDraft = finalizeWithGreeting(await buildRouteFallbackDraft(fallbackContext))
-    const fallbackViolations = detectTeacherDraftQualityViolations({
+  if (teacherDraftQualityResult.verdict === "needs_rewrite") {
+    const fallbackDraft = applyTeacherDraftRegisterNormalisation(
+      finalizeWithGreeting(await buildRouteFallbackDraft(fallbackContext)),
+    )
+    const fallbackQualityResult = evaluateDraftQuality({
       sourceText: currentSituation,
       candidateText: fallbackDraft,
       language,
       teacherDraftMode: requestedTeacherDraftMode,
       requestedSignatureName,
+      safetyAnalysis,
+      lengthTarget: teacherDraftLengthTarget,
     })
 
-    if (fallbackViolations.length === 0) {
+    if (fallbackQualityResult.verdict !== "needs_rewrite") {
       generatedDraft = fallbackDraft
       finalizeAndFormatDraft(generatedDraft)
       preserveTeacherDraftSignatureIfNeeded()
@@ -3274,13 +3370,45 @@ export async function POST(request: Request) {
       }
       usedFallback = true
       fallbackErrorCode = fallbackErrorCode ?? "TEACHER_DRAFT_QUALITY_FALLBACK"
-      teacherDraftQualityViolations = []
+      teacherDraftQualityResult = fallbackQualityResult
+      teacherDraftQualityViolations = fallbackQualityResult.violations
       pushRecoveryEvent("deterministic_fallback", "TEACHER_DRAFT_QUALITY_FALLBACK")
     }
   }
 
   if (!documentationModeActive && mode === "parent_message") {
     outputSafetyAnalysis = await runSafetyAnalysis(generatedDraft, "output_safety_analysis")
+  }
+
+  if (requestedTeacherDraftMode) {
+    const sourceIntent = classifyTeacherDraftIntent(currentSituation)
+    const candidateIntent = classifyTeacherDraftIntent(generatedDraft)
+    const intentCheck = checkIntentPreservation({
+      sourceIntent,
+      candidateIntent,
+      sourceText: currentSituation,
+      candidateText: generatedDraft,
+    })
+    const voiceCheck = checkVoicePreservation({
+      sourceProfile: extractVoiceProfile(currentSituation),
+      candidateProfile: extractVoiceProfile(generatedDraft),
+    })
+    const registerViolations = language === "en" ? detectRegisterViolations(generatedDraft) : []
+
+    console.log("[quality-framework] result", {
+      requestId,
+      verdict: teacherDraftQualityResult.verdict,
+      violations: teacherDraftQualityResult.violations.map((violation) => ({
+        category: violation.category,
+        severity: violation.severity,
+      })),
+      worseThanSource: worseThanSourceDetected,
+      intentPreserved: intentCheck.preserved,
+      voiceViolations: voiceCheck.violations.length,
+      registerViolations: registerViolations.length,
+      lengthBand: teacherDraftLengthTarget?.band ?? null,
+      modelUsed: providerMeta.modelUsed,
+    })
   }
 
   const teacherDraftFeedback =

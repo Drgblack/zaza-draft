@@ -22,6 +22,7 @@ import {
   type GreetingDecision,
   type NameConfidenceLevel,
 } from "@/lib/draft/greeting-resolution"
+import type { LengthTarget } from "@/lib/draft/length-calibration"
 import type { SafetyEngineOutput } from "@/src/lib/safetyEngine"
 
 const ANTHROPIC_API_URL = "https://api.anthropic.com/v1/messages"
@@ -92,6 +93,7 @@ interface ProviderInput {
     types: string[]
     phrases: string[]
   }
+  lengthTarget?: LengthTarget
   safetyAnalysis?: SafetyEngineOutput | null
   documentationMode?: boolean
   documentationTopic?: string | null
@@ -306,6 +308,13 @@ function buildTeacherDraftEditContract(input: ProviderInput) {
     "6. Keep it concise. Use no more than four short paragraphs unless the source clearly requires more.",
     "7. Ask yourself before finalising: would a tired teacher feel safer sending this tomorrow?",
     "8. If not, rewrite more decisively rather than polishing the same risky structure.",
+    ...(input.lengthTarget
+      ? [
+          "--- LENGTH CONTRACT ---",
+          `Your reply must be between ${input.lengthTarget.minWords} and ${input.lengthTarget.maxWords} words and no more than ${input.lengthTarget.maxSentences} sentences.`,
+          "Do not pad. Do not add sentences that are not traceable to the source draft.",
+        ]
+      : []),
     ...(input.lightEditMode
       ? [
           "--- CURRENT DRAFT SIGNAL ---",
