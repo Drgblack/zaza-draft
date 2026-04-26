@@ -1631,6 +1631,12 @@ Examples:
 
     const selectedRequestMode: ParentInputMode | ModeKey =
       mode === "parent_message" ? parentInputMode : mode
+    const selectedInputIntent: ParentInputMode | null =
+      mode === "parent_message"
+        ? selectedRequestMode === "teacher_draft"
+          ? "teacher_draft"
+          : "parent_message"
+        : null
 
     const payload: Record<string, unknown> = {
       situation: requestSituation,
@@ -1665,8 +1671,8 @@ Examples:
 
     payload.pronounPreference = pronounPreference
     payload.mode = mode
-    if (mode === "parent_message") {
-      payload.inputIntent = parentInputMode
+    if (selectedInputIntent) {
+      payload.inputIntent = selectedInputIntent
     }
 
     payload.signature = signaturePayload
@@ -1701,7 +1707,7 @@ Examples:
       language: languageChoice,
       pronounPreference,
       mode: selectedRequestMode,
-      inputIntent: mode === "parent_message" ? parentInputMode : null,
+      inputIntent: selectedInputIntent,
       sourceFlow,
       studentFirstNameProvided: Boolean(sanitizedStudentFirstName),
     })
