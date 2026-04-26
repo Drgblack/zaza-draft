@@ -37,6 +37,25 @@ describe("classifyGenerationRequest", () => {
     expect(result.metadata.source_type).toBe("typed_text")
   })
 
+  it("recognizes a teacher-authored draft with a plain Regards sign-off", () => {
+    const result = classifyGenerationRequest({
+      draftMode: "parent_message",
+      locale: "en",
+      situation: [
+        "Dear Lucy's Dad,",
+        "",
+        "I understand that Lucy may feel more comfortable having her phone with her, but classroom rules are clear that phones are not used during lessons.",
+        "",
+        "I need to apply the same expectations consistently for all students.",
+        "",
+        "Regards,",
+        "Greg",
+      ].join("\n"),
+    })
+
+    expect(result.metadata.direction).toBe("teacher_to_parent")
+  })
+
   it("honors explicit parent-message selection even when the text looks like a teacher draft", () => {
     const result = classifyGenerationRequest({
       draftMode: "parent_message",

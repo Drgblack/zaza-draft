@@ -7,6 +7,19 @@ import { MainEditor } from "@/components/main-editor"
 type Locale = "en-GB" | "de-DE"
 type DraftGenerateScenario = "success" | "json_error" | "non_json_error"
 
+const LUCY_TEACHER_DRAFT = [
+  "Dear Lucy's Dad,",
+  "",
+  "I understand that Lucy may feel more comfortable having her phone with her, but classroom rules are clear that phones are not used during lessons.",
+  "",
+  "I can't make individual exceptions in the moment, as this would quickly become unmanageable across the class. I need to apply the same expectations consistently for all students.",
+  "",
+  "I will continue to support Lucy in class, but these expectations will remain in place.",
+  "",
+  "Regards,",
+  "Greg",
+].join("\n")
+
 let mockLocale: Locale = "en-GB"
 let mockSearchParams = new URLSearchParams()
 let draftGenerateScenario: DraftGenerateScenario = "success"
@@ -102,9 +115,10 @@ vi.mock("@/hooks/use-locale", () => ({
         "editor.inputMode.teacherDraftPromise":
           "We’ll improve your draft without changing your intent.",
         "editor.inputMode.mismatch.parentMessage": "This looks like a parent message.",
-        "editor.inputMode.mismatch.teacherDraft": "This looks like your draft reply.",
+        "editor.inputMode.mismatch.teacherDraft":
+          "This looks like a teacher draft. Switch to My Draft mode to improve your message.",
         "editor.inputMode.mismatch.switchToParentMessage": "Switch to Parent message",
-        "editor.inputMode.mismatch.switchToTeacherDraft": "Switch to My draft",
+        "editor.inputMode.mismatch.switchToTeacherDraft": "Switch to My Draft",
         "draft.generatedTitle": "Ready to review",
         "draft.teacherDraftFeedback.heading": "What changed (and why):",
         "draft.teacherDraftFeedback.alreadyStrong":
@@ -571,28 +585,57 @@ describe("MainEditor mode switching", () => {
     render(<MainEditor />)
 
     fireEvent.change(getTextarea(), {
-      target: {
-        value: [
-          "Subject: Follow-up on Lucy",
-          "",
-          "Dear Parent/Carer,",
-          "",
-          "Thank you for your email. My intention was to keep the classroom expectation clear.",
-          "",
-          "Kind regards,",
-          "Greg",
-        ].join("\n"),
-      },
+      target: { value: LUCY_TEACHER_DRAFT },
     })
 
-    expect(screen.getByText("This looks like your draft reply.")).toBeInTheDocument()
+    expect(
+      screen.getByText(
+        "This looks like a teacher draft. Switch to My Draft mode to improve your message.",
+      ),
+    ).toBeInTheDocument()
 
-    fireEvent.click(screen.getByRole("button", { name: "Switch to My draft" }))
+    fireEvent.click(screen.getByRole("button", { name: "Switch to My Draft" }))
 
     expect(within(getInputTypeTablist()).getByRole("tab", { name: "My draft" })).toHaveAttribute(
       "aria-selected",
       "true",
     )
+    expect(
+      screen.queryByText(
+        "This looks like a teacher draft. Switch to My Draft mode to improve your message.",
+      ),
+    ).toBeNull()
+  })
+
+  it("does not show the teacher draft warning for an actual parent message", async () => {
+    render(<MainEditor />)
+
+    fireEvent.change(getTextarea(), {
+      target: {
+        value: "Hi, I'm writing about my daughter Lucy. She's been upset about the phone policy.",
+      },
+    })
+
+    expect(
+      screen.queryByText(
+        "This looks like a teacher draft. Switch to My Draft mode to improve your message.",
+      ),
+    ).toBeNull()
+  })
+
+  it("does not show the warning when My draft mode is already selected", async () => {
+    render(<MainEditor />)
+
+    fireEvent.click(within(getInputTypeTablist()).getByRole("tab", { name: "My draft" }))
+    fireEvent.change(getTextarea(), {
+      target: { value: LUCY_TEACHER_DRAFT },
+    })
+
+    expect(
+      screen.queryByText(
+        "This looks like a teacher draft. Switch to My Draft mode to improve your message.",
+      ),
+    ).toBeNull()
   })
 
   it("shows the backend safe message for handled non-200 draft failures", async () => {

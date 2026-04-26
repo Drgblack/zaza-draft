@@ -68,8 +68,10 @@ const TEACHER_GREETING_PATTERNS = [
 ]
 
 const CLOSING_PATTERNS = [
+  /\bregards\b/i,
   /\bbest regards\b/i,
   /\bkind regards\b/i,
+  /\byours sincerely\b/i,
   /\bsincerely\b/i,
   /\bmit freundlichen grüßen\b/i,
   /\bherzliche grüße\b/i,
@@ -112,6 +114,28 @@ const TEACHER_OUTGOING_PATTERNS = [
   /\bin der schule\b/i,
 ]
 
+const TEACHER_DRAFT_SIGNAL_PATTERNS = [
+  /\bi will\b/i,
+  /\bi need to\b/i,
+  /\bi have\b/i,
+  /\bi understand\b/i,
+  /\bi apply\b/i,
+  /\bi expect\b/i,
+  /\bi wanted to update you\b/i,
+  /\byour child\b/i,
+  /\bin class\b/i,
+  /\bclassroom\b/i,
+  /\ball students\b/i,
+  /\bconsistently\b/i,
+]
+
+const PARENT_PERSPECTIVE_PATTERNS = [
+  /\bmy child\b/i,
+  /\bmy son\b/i,
+  /\bmy daughter\b/i,
+  /\bi(?:'m| am) concerned about\b/i,
+]
+
 function isKnownInputMode(value: unknown): value is GenerationInputMode {
   return typeof value === "string" && INPUT_MODES.includes(value as GenerationInputMode)
 }
@@ -146,10 +170,36 @@ export function looksLikeTeacherAuthoredDraft(text: string) {
     return false
   }
 
-  const firstLine = normalized.split("\n").find((line) => line.trim().length > 0) ?? ""
+  const lines = normalized
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean)
+
+  if (!lines.length) {
+    return false
+  }
+
+  const firstContentLine = lines[0] ?? ""
+  const possibleGreetingLine =
+    /^subject:|^betreff:/i.test(firstContentLine) ? (lines[1] ?? "") : firstContentLine
+
+  const hasTeacherGreeting = /^dear\s+\w/i.test(possibleGreetingLine)
+  const hasTeacherSignoff =
+    /(?:^|\n)\s*(?:Regards|Kind regards|Best regards|Yours sincerely),?\s*\n\s*[\p{L}][\p{L}.' -]*\s*$/iu.test(
+      normalized,
+    ) || CLOSING_PATTERNS.some((pattern) => pattern.test(normalized))
+  const teacherSignalCount = TEACHER_DRAFT_SIGNAL_PATTERNS.filter((pattern) =>
+    pattern.test(normalized),
+  ).length
+  const hasParentPerspectiveLanguage = PARENT_PERSPECTIVE_PATTERNS.some((pattern) =>
+    pattern.test(normalized),
+  )
+
   return (
-    TEACHER_GREETING_PATTERNS.some((pattern) => pattern.test(firstLine)) &&
-    CLOSING_PATTERNS.some((pattern) => pattern.test(normalized))
+    hasTeacherGreeting &&
+    hasTeacherSignoff &&
+    teacherSignalCount >= 2 &&
+    !hasParentPerspectiveLanguage
   )
 }
 

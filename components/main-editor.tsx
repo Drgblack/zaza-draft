@@ -166,6 +166,13 @@ type PanicScanHandoffState = {
   greeting?: EnforcedGreeting | null
 }
 
+type InputModeMismatchSuggestion = {
+  id: string
+  message: string
+  action: string
+  nextMode: ParentInputMode
+}
+
 const LOADING_MESSAGES = [
   "Analyzing your request...",
   "Understanding context...",
@@ -497,6 +504,7 @@ export function MainEditor({ canExport = true }: MainEditorProps = {}) {
   const [mode, setMode] = useState<ModeKey>("parent_message")
   const [parentInputMode, setParentInputMode] = useState<ParentInputMode>("parent_message")
   const [parentInputModeReady, setParentInputModeReady] = useState(false)
+  const [dismissedInputModeMismatchId, setDismissedInputModeMismatchId] = useState<string | null>(null)
   const [rewriteMode, setRewriteMode] = useState<RewriteMode>("standard")
   const [inputReframeTier, setInputReframeTier] = useState<"tier1" | "tier2" | null>(null)
   const [inputWasReframed, setInputWasReframed] = useState(false)
@@ -809,7 +817,7 @@ export function MainEditor({ canExport = true }: MainEditorProps = {}) {
       ? t("editor.inputMode.teacherDraftPromise")
       : t("editor.inputMode.parentMessagePromise")
   }, [mode, parentInputMode, t])
-  const inputModeMismatchSuggestion = useMemo(() => {
+  const inputModeMismatchSuggestion = useMemo<InputModeMismatchSuggestion | null>(() => {
     if (mode !== "parent_message") {
       return null
     }
@@ -824,6 +832,7 @@ export function MainEditor({ canExport = true }: MainEditorProps = {}) {
       looksLikeIncomingParentEmail(trimmedContent)
     ) {
       return {
+        id: `parent_message:${parentInputMode}:${trimmedContent}`,
         message: t("editor.inputMode.mismatch.parentMessage"),
         action: t("editor.inputMode.mismatch.switchToParentMessage"),
         nextMode: "parent_message" as ParentInputMode,
@@ -835,6 +844,7 @@ export function MainEditor({ canExport = true }: MainEditorProps = {}) {
       looksLikeTeacherAuthoredDraft(trimmedContent)
     ) {
       return {
+        id: `teacher_draft:${parentInputMode}:${trimmedContent}`,
         message: t("editor.inputMode.mismatch.teacherDraft"),
         action: t("editor.inputMode.mismatch.switchToTeacherDraft"),
         nextMode: "teacher_draft" as ParentInputMode,
@@ -1120,6 +1130,7 @@ Examples:
     }
 
     setParentInputMode(nextInputMode)
+    setDismissedInputModeMismatchId(null)
   }
 
   const handleParentInputModeKeyDown = (event: KeyboardEvent<HTMLButtonElement>, currentIndex: number) => {
@@ -2261,19 +2272,31 @@ Examples:
                       {parentInputPromise}
                     </p>
                   ) : null}
-                  {inputModeMismatchSuggestion ? (
+                  {inputModeMismatchSuggestion &&
+                  dismissedInputModeMismatchId !== inputModeMismatchSuggestion.id ? (
                     <div className="rounded-2xl border border-amber-300/45 bg-amber-50/80 px-4 py-3 text-sm text-amber-950 dark:border-amber-200/15 dark:bg-amber-300/10 dark:text-amber-50">
                       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                         <p className="font-medium">{inputModeMismatchSuggestion.message}</p>
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleParentInputModeChange(inputModeMismatchSuggestion.nextMode)}
-                          className="h-9 rounded-full border border-amber-400/35 bg-white/70 px-4 text-amber-950 hover:bg-white dark:border-amber-100/15 dark:bg-white/10 dark:text-amber-50 dark:hover:bg-white/15"
-                        >
-                          {inputModeMismatchSuggestion.action}
-                        </Button>
+                        <div className="flex items-center gap-2 self-start sm:self-auto">
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleParentInputModeChange(inputModeMismatchSuggestion.nextMode)}
+                            className="h-9 rounded-full border border-amber-400/35 bg-white/70 px-4 text-amber-950 hover:bg-white dark:border-amber-100/15 dark:bg-white/10 dark:text-amber-50 dark:hover:bg-white/15"
+                          >
+                            {inputModeMismatchSuggestion.action}
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setDismissedInputModeMismatchId(inputModeMismatchSuggestion.id)}
+                            className="h-9 rounded-full px-3 text-amber-950 hover:bg-white/60 dark:text-amber-50 dark:hover:bg-white/10"
+                          >
+                            {t("dismiss")}
+                          </Button>
+                        </div>
                       </div>
                     </div>
                   ) : null}

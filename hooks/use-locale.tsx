@@ -1847,9 +1847,10 @@ export const localeMessages: Record<Locale, LocaleMessages> = {
     "editor.inputMode.teacherDraftPromise":
       "We’ll improve your draft without changing your intent.",
     "editor.inputMode.mismatch.parentMessage": "This looks like a parent message.",
-    "editor.inputMode.mismatch.teacherDraft": "This looks like your draft reply.",
+    "editor.inputMode.mismatch.teacherDraft":
+      "This looks like a teacher draft. Switch to My Draft mode to improve your message.",
     "editor.inputMode.mismatch.switchToParentMessage": "Switch to Parent message",
-    "editor.inputMode.mismatch.switchToTeacherDraft": "Switch to My draft",
+    "editor.inputMode.mismatch.switchToTeacherDraft": "Switch to My Draft",
     "editor.studentName.display": "Displayed name: {name}",
     "editor.generating.message": "Generating your snippet.",
     "commentBank.title": "Comment Bank",
@@ -2624,7 +2625,8 @@ export const localeMessages: Record<Locale, LocaleMessages> = {
     "editor.inputMode.teacherDraftPromise":
       "Wir verbessern deinen Entwurf, ohne deine Absicht zu verändern.",
     "editor.inputMode.mismatch.parentMessage": "Das sieht wie eine Nachricht von Eltern aus.",
-    "editor.inputMode.mismatch.teacherDraft": "Das sieht wie dein Antwortentwurf aus.",
+    "editor.inputMode.mismatch.teacherDraft":
+      "Das sieht wie ein Lehrkraft-Entwurf aus. Wechseln Sie zu Mein Entwurf, um Ihre Nachricht zu verbessern.",
     "editor.inputMode.mismatch.switchToParentMessage": "Zu Elternnachricht wechseln",
     "editor.inputMode.mismatch.switchToTeacherDraft": "Zu Mein Entwurf wechseln",
     "editor.studentName.display": "Angezeigter Name: {name}",
