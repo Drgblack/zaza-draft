@@ -255,9 +255,23 @@ const fetchMock = vi.fn(async (input: RequestInfo, init?: RequestInit) => {
     }
 
     const documentationMode = Boolean(body.documentationMode)
+    const teacherDraftBody = [
+      "Subject: Classroom update",
+      "",
+      "Dear Parent/Carer,",
+      "",
+      "Thank you for getting in touch about Lucy's phone. I understand that Lucy may feel more comfortable having her phone with her.",
+      "",
+      "The classroom expectation is that phones are not used during lessons, and I apply this consistently across the class. I will continue to support Lucy in class within these expectations so that she feels settled and able to focus on her learning.",
+      "",
+      "Kind regards,",
+      "Greg",
+    ].join("\n")
     const renderedBody = documentationMode
       ? `Documentation [${body.mode}]: ${body.situation}`
-      : `Generated [${body.mode}]: ${body.situation}`
+      : body.inputIntent === "teacher_draft"
+        ? teacherDraftBody
+        : `Generated [${body.mode}]: ${body.situation}`
     const formattedDraft =
       documentationMode || body.mode === "report_comment"
         ? { paragraphs: [renderedBody] }
@@ -533,6 +547,24 @@ describe("MainEditor mode switching", () => {
       activeMode: "teacher_draft",
       inputIntent: "teacher_draft",
     })
+  })
+
+  it("shows My draft in the output panel and keeps the Lucy phone details when My draft is active", async () => {
+    render(<MainEditor />)
+
+    fireEvent.change(getTextarea(), {
+      target: {
+        value: LUCY_TEACHER_DRAFT,
+      },
+    })
+
+    fireEvent.click(within(getInputTypeTablist()).getByRole("tab", { name: "My draft" }))
+    fireEvent.click(screen.getByRole("button", { name: "Improve my draft" }))
+
+    expect(await screen.findByText("Mode: My draft")).toBeInTheDocument()
+    expect(screen.getByTestId("draft-output-body")).toHaveTextContent("Lucy")
+    expect(screen.getByTestId("draft-output-body")).toHaveTextContent(/phones?/i)
+    expect(screen.queryByText("Mode: Parent message")).toBeNull()
   })
 
   it("shows the high-quality teacher draft explanation when only light edits were needed", async () => {

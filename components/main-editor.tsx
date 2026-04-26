@@ -792,22 +792,32 @@ export function MainEditor({ canExport = true }: MainEditorProps = {}) {
     ? "documentation_mode"
     : mode
   const selectedModeLabel = useMemo(
-    () =>
-      effectiveDisplayMode === "documentation_mode"
-        ? t("draft.documentation.badge")
-        : t(
-            effectiveDisplayMode === "report_comment"
-              ? MODE_LABEL_KEYS.report_comment
-              : MODE_LABEL_KEYS.parent_message,
-          ),
-    [effectiveDisplayMode, t],
+    () => {
+      if (effectiveDisplayMode === "documentation_mode") {
+        return t("draft.documentation.badge")
+      }
+      if (effectiveDisplayMode === "report_comment") {
+        return t(MODE_LABEL_KEYS.report_comment)
+      }
+      return parentInputMode === "teacher_draft"
+        ? t("editor.inputMode.teacherDraft")
+        : t(MODE_LABEL_KEYS.parent_message)
+    },
+    [effectiveDisplayMode, parentInputMode, t],
   )
   const modeSwitchButtonLabel = documentationDisplayActive
     ? t("editor.mode.switchToMessage")
     : t("editor.mode.switchToDocumentation")
   const selectedModeLabelForInsights = useMemo(
-    () => t(mode === "report_comment" ? MODE_LABEL_KEYS.report_comment : MODE_LABEL_KEYS.parent_message),
-    [mode, t],
+    () => {
+      if (mode === "report_comment") {
+        return t(MODE_LABEL_KEYS.report_comment)
+      }
+      return parentInputMode === "teacher_draft"
+        ? t("editor.inputMode.teacherDraft")
+        : t(MODE_LABEL_KEYS.parent_message)
+    },
+    [mode, parentInputMode, t],
   )
   const parentInputPromise = useMemo(() => {
     if (mode !== "parent_message") {
