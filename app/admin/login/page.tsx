@@ -27,21 +27,26 @@ export default function AdminLoginPage() {
       }
 
       const credential = await signInWithEmailAndPassword(auth, email.trim(), password)
-      const token = await credential.user.getIdToken(true)
+      const idToken = await credential.user.getIdToken()
       const response = await fetch("/api/admin/session", {
-        method: "GET",
+        method: "POST",
         headers: {
-          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
         },
+        body: JSON.stringify({ idToken }),
       })
 
-      if (!response.ok) {
+      if (response.status === 403) {
         await signOut(auth)
         setError("You do not have admin access")
         return
       }
 
-      router.replace("/admin/analytics")
+      if (!response.ok) {
+        throw new Error("Unable to start admin session.")
+      }
+
+      router.push("/admin/analytics")
     } catch (submitError) {
       setError((submitError as Error)?.message ?? "Unable to sign in.")
     } finally {

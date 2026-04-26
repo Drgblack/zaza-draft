@@ -1,0 +1,3 @@
+export const ADMIN_SESSION_COOKIE_NAME = "zaza-admin-session"
+export const ADMIN_SESSION_COOKIE_MAX_AGE = 60 * 60 * 24 * 7
+export const ADMIN_SESSION_COOKIE_MAX_AGE_MS = ADMIN_SESSION_COOKIE_MAX_AGE * 1000

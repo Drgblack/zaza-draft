@@ -67,21 +67,16 @@ export default function AdminUsersPage() {
           return
         }
 
-        const [sessionResponse, usersResponse] = await Promise.all([
-          fetch("/api/admin/session", {
-            headers: { Authorization: `Bearer ${token}` },
-          }),
-          fetch("/api/admin/users", {
-            headers: { Authorization: `Bearer ${token}` },
-          }),
-        ])
+        const usersResponse = await fetch("/api/admin/users", {
+          headers: { Authorization: `Bearer ${token}` },
+        })
 
-        if (sessionResponse.status === 403 || usersResponse.status === 403) {
+        if (usersResponse.status === 403) {
           router.replace("/admin/analytics?error=super_admin_required")
           return
         }
 
-        if (!sessionResponse.ok || !usersResponse.ok) {
+        if (!usersResponse.ok) {
           throw new Error("Unable to load admin users.")
         }
 

@@ -1,6 +1,7 @@
 /**
  * Usage:
  *   npx tsx scripts/set-super-admin.ts --email=greg@zazadraft.com --role=super_admin
+ *   npx tsx scripts/set-super-admin.ts --uid=KJ8ZDQdeflRxSyy1BXwSFNA2dt2 --role=super_admin
  *
  * Security notes:
  * - This script requires FIREBASE_ADMIN_SDK credentials.
@@ -26,6 +27,11 @@ function getEmailArg() {
   return emailArg?.slice("--email=".length).trim() ?? ""
 }
 
+function getUidArg() {
+  const uidArg = process.argv.find((arg) => arg.startsWith("--uid="))
+  return uidArg?.slice("--uid=".length).trim() ?? ""
+}
+
 function getRoleArg(): ZazaRole {
   const roleArg = process.argv.find((arg) => arg.startsWith("--role="))
   const parsedRole = roleArg?.slice("--role=".length).trim() ?? "super_admin"
@@ -41,9 +47,10 @@ function getRoleArg(): ZazaRole {
 
 async function main() {
   const email = getEmailArg()
+  const uid = getUidArg()
   const role = getRoleArg()
-  if (!email) {
-    throw new Error("Missing --email argument.")
+  if (!email && !uid) {
+    throw new Error("Missing --email or --uid argument.")
   }
 
   const { auth, firestore } = getFirebaseAdmin()
@@ -51,24 +58,36 @@ async function main() {
     throw new Error("Firebase Admin SDK is not configured.")
   }
 
-  const user = await auth.getUserByEmail(email)
-  const uidHash = createHash("sha256").update(user.uid).digest("hex").slice(0, 12)
-  const profileRef = firestore.collection("user_profiles").doc(user.uid)
+  let targetUid = uid
+  let targetEmail = email
+
+  if (!targetUid) {
+    const user = await auth.getUserByEmail(email)
+    targetUid = user.uid
+    targetEmail = user.email ?? email
+  }
+
+  const uidHash = createHash("sha256").update(targetUid).digest("hex").slice(0, 12)
+  const profileRef = firestore.collection("user_profiles").doc(targetUid)
   const profileSnapshot = await profileRef.get()
+  const existingProfile = profileSnapshot.data() as Record<string, unknown> | undefined
+  const resolvedEmail =
+    targetEmail ||
+    (typeof existingProfile?.email === "string" ? existingProfile.email : "")
 
   await profileRef.set(
     profileSnapshot.exists
       ? {
           role,
-          email: user.email ?? email,
+          email: resolvedEmail,
           uidHash,
           updatedAt: Date.now(),
         }
       : {
           ...createDefaultUserProfile({
-            uid: user.uid,
+            uid: targetUid,
             uidHash,
-            email: user.email ?? email,
+            email: resolvedEmail,
           }),
           role,
           updatedAt: Date.now(),
@@ -79,10 +98,11 @@ async function main() {
   const updatedProfileSnapshot = await profileRef.get()
   const updatedProfile = updatedProfileSnapshot.data()
   if (!updatedProfile || updatedProfile.role !== role) {
-    throw new Error(`Role assignment verification failed for ${email}.`)
+    throw new Error(`Role assignment verification failed for ${targetUid}.`)
   }
 
-  console.log(`${role} role assigned to ${email} (${user.uid})`)
+  const targetLabel = resolvedEmail || targetUid
+  console.log(`${role} role assigned to ${targetLabel} (${targetUid})`)
 }
 
 void main().catch((error) => {
