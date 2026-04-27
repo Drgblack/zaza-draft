@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { Settings, Download, Shield, ShieldCheck, Users, HelpCircle, LogOut } from "lucide-react"
+import { Settings, Download, Shield, ShieldCheck, Users, HelpCircle, LogOut, KeyRound } from "lucide-react"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import {
   DropdownMenu,
@@ -132,6 +132,16 @@ export function UserMenu() {
                 <span>{t("account.menu.adminUsers") || "Admin users"}</span>
               </DropdownMenuItem>
             ) : null}
+            <DropdownMenuItem
+              onClick={() => {
+                router.push("/admin/licences")
+                setOpen(false)
+              }}
+              className="cursor-pointer"
+            >
+              <KeyRound className="mr-2 h-4 w-4" />
+              <span>{t("userMenu.adminLicences") || "Admin licences"}</span>
+            </DropdownMenuItem>
           </>
         ) : (
           <DropdownMenuSeparator className="bg-purple-200/50 dark:bg-purple-700/50" />
