@@ -72,10 +72,16 @@ async function callPatch(
     requesterRole?: string
     authUser?: { uid: string; email?: string }
     firestoreUsers?: Record<string, Record<string, unknown>>
+    targetRole?: string | null
   },
 ) {
   const { firestore, users } = createFirestore(options?.firestoreUsers)
-  mockGetUserProfile.mockResolvedValue({ role: options?.requesterRole ?? "super_admin" })
+  mockGetUserProfile.mockImplementation(async (uid: string) => {
+    if (uid === "super-admin") {
+      return { role: options?.requesterRole ?? "super_admin" }
+    }
+    return options?.targetRole ? { role: options.targetRole } : null
+  })
   mockAuthorizeFirebaseRequest.mockResolvedValue({
     uid: "super-admin",
     firestore,
@@ -241,6 +247,24 @@ describe("PATCH /api/admin/set-plan", () => {
     expect(response.status).toBe(500)
     await expect(response.json()).resolves.toMatchObject({
       error: { code: "FIREBASE_PROJECT_MISMATCH" },
+    })
+  })
+
+  it("rejects modifying a super_admin through the compatibility route", async () => {
+    const { response } = await callPatch(
+      {
+        email: "teacher@example.com",
+        plan: "free",
+      },
+      {
+        authUser: { uid: "target-uid", email: "teacher@example.com" },
+        targetRole: "super_admin",
+      },
+    )
+
+    expect(response.status).toBe(403)
+    await expect(response.json()).resolves.toMatchObject({
+      error: { code: "SUPER_ADMIN_PROTECTED" },
     })
   })
 })

@@ -1,8 +1,12 @@
 import { NextResponse } from "next/server"
 
-import { applyAdminPlanUpdate, normalizeAdminPlanReason, type AdminPlanUpdateValue } from "@/lib/admin/plan-updates"
 import { getUserProfile } from "@/lib/auth/get-user-role"
 import { canAssignRoles } from "@/lib/auth/roles"
+import {
+  applyAdminPlanUpdate,
+  normalizeAdminPlanReason,
+  type AdminPlanUpdateValue,
+} from "@/lib/admin/plan-updates"
 import { assertZazaDraftProject, FirebaseProjectSafetyError } from "@/lib/firebase/project-policy"
 import { authorizeFirebaseRequest, FirebaseAuthorizationError } from "@/lib/firebase/server"
 
@@ -10,10 +14,7 @@ function fail(status: number, code: string, message: string) {
   return NextResponse.json(
     {
       success: false,
-      error: {
-        code,
-        message,
-      },
+      error: { code, message },
     },
     { status },
   )
@@ -21,52 +22,58 @@ function fail(status: number, code: string, message: string) {
 
 export async function PATCH(request: Request) {
   try {
-    assertZazaDraftProject({ context: "PATCH /api/admin/set-plan" })
+    assertZazaDraftProject({ context: "PATCH /api/admin/users/plan" })
 
     const authContext = await authorizeFirebaseRequest(request)
     const { auth, firestore, uid: adminUid } = authContext
-
-    if (!auth) {
-      return fail(500, "FIREBASE_AUTH_UNAVAILABLE", "Firebase Admin Auth unavailable.")
-    }
-
     if (!firestore) {
       return fail(500, "FIRESTORE_UNAVAILABLE", "Firestore unavailable.")
     }
 
     const requesterProfile = await getUserProfile(adminUid, firestore)
     const requesterRole = requesterProfile?.role ?? "teacher_free"
-
     if (!canAssignRoles(requesterRole)) {
       return fail(403, "SUPER_ADMIN_REQUIRED", "Super admin access required.")
     }
 
     const body = (await request.json().catch(() => null)) as
-      | { email?: string; plan?: AdminPlanUpdateValue; reason?: string }
+      | { targetUid?: string; plan?: AdminPlanUpdateValue; reason?: string }
       | null
-    const targetEmail = typeof body?.email === "string" ? body.email.trim().toLowerCase() : ""
-    if (!targetEmail) {
-      return fail(400, "EMAIL_REQUIRED", "Email is required.")
+
+    const targetUid = typeof body?.targetUid === "string" ? body.targetUid.trim() : ""
+    if (!targetUid) {
+      return fail(400, "TARGET_UID_REQUIRED", "targetUid is required.")
     }
 
     if (body?.plan !== "free" && body?.plan !== "pro") {
       return fail(400, "INVALID_PLAN", "Plan must be free or pro.")
     }
 
-    let targetUser: Awaited<ReturnType<typeof auth.getUserByEmail>>
-    try {
-      targetUser = await auth.getUserByEmail(targetEmail)
-    } catch (error) {
-      const authError = error as { code?: string }
-      if (authError.code === "auth/user-not-found") {
-        return fail(404, "USER_NOT_FOUND", "User not found.")
-      }
-      throw error
-    }
-
-    const targetProfile = await getUserProfile(targetUser.uid, firestore)
+    const targetProfile = await getUserProfile(targetUid, firestore)
     if (targetProfile?.role === "super_admin") {
       return fail(403, "SUPER_ADMIN_PROTECTED", "super_admin plan cannot be changed via admin UI.")
+    }
+
+    const targetUserRef = firestore.collection("users").doc(targetUid)
+    const [targetUserSnapshot, targetProfileSnapshot, authUserResult] = await Promise.all([
+      targetUserRef.get(),
+      firestore.collection("user_profiles").doc(targetUid).get(),
+      auth
+        ? auth
+            .getUser(targetUid)
+            .then((user) => user)
+            .catch((error) => {
+              const authError = error as { code?: string }
+              if (authError.code === "auth/user-not-found") {
+                return null
+              }
+              throw error
+            })
+        : Promise.resolve(null),
+    ])
+
+    if (!targetUserSnapshot.exists && !targetProfileSnapshot.exists && !authUserResult) {
+      return fail(404, "USER_NOT_FOUND", "User not found.")
     }
 
     const requestedReason = normalizeAdminPlanReason(body?.reason)
@@ -74,15 +81,14 @@ export async function PATCH(request: Request) {
     try {
       const { appliedReason } = await applyAdminPlanUpdate({
         firestore,
-        targetUid: targetUser.uid,
+        targetUid,
         plan: body.plan,
         reason: requestedReason,
       })
 
-      console.info("[admin-action] set_plan", {
+      console.info("[admin-action] users_plan_updated", {
         adminUid,
-        targetEmail,
-        targetUid: targetUser.uid,
+        targetUid,
         plan: body.plan,
         reason: appliedReason,
         timestamp: new Date().toISOString(),
@@ -90,15 +96,14 @@ export async function PATCH(request: Request) {
 
       return NextResponse.json({
         success: true,
-        uid: targetUser.uid,
+        uid: targetUid,
         plan: body.plan,
         reason: appliedReason,
       })
     } catch (error) {
-      console.error("[admin-action] set_plan_firestore_failed", {
+      console.error("[admin-action] users_plan_update_failed", {
         adminUid,
-        targetEmail,
-        targetUid: targetUser.uid,
+        targetUid,
         plan: body.plan,
         reason: requestedReason,
         error,
@@ -114,7 +119,6 @@ export async function PATCH(request: Request) {
       return fail(error.statusCode, "UNAUTHORIZED", error.message)
     }
 
-    console.error("[admin-action] set_plan_failed", error)
-    return fail(500, "SET_PLAN_FAILED", "Unable to update user plan.")
+    return fail(500, "ADMIN_USERS_PLAN_UPDATE_FAILED", "Unable to update user plan.")
   }
 }

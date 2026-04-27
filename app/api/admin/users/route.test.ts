@@ -48,9 +48,11 @@ function createSnapshot(records: Record<string, Record<string, unknown>>) {
 function createFirestore(options: {
   profiles?: Record<string, Record<string, unknown>>
   users?: Record<string, Record<string, unknown>>
+  schoolLicences?: Record<string, Record<string, unknown>>
 }) {
   const profiles = options.profiles ?? {}
   const users = options.users ?? {}
+  const schoolLicences = options.schoolLicences ?? {}
 
   return {
     collection: (name: string) => ({
@@ -61,10 +63,34 @@ function createFirestore(options: {
         if (name === "users") {
           return createSnapshot(users)
         }
+        if (name === "schoolLicences") {
+          return createSnapshot(schoolLicences)
+        }
         return createSnapshot({})
       }),
     }),
   }
+}
+
+async function callGet(
+  query = "",
+  options?: {
+    firestore?: ReturnType<typeof createFirestore>
+    authUsers?: Array<{ uid: string; email: string; metadata: { creationTime?: string } }>
+  },
+) {
+  mockAuthorizeFirebaseRequest.mockResolvedValue({
+    uid: "super-admin",
+    firestore: options?.firestore ?? createFirestore({}),
+    auth: {
+      listUsers: vi.fn(async () => ({
+        users: options?.authUsers ?? [],
+        pageToken: undefined,
+      })),
+    },
+  })
+
+  return GET(new Request(`https://app.zazadraft.com/api/admin/users${query}`))
 }
 
 describe("GET /api/admin/users", () => {
@@ -91,25 +117,18 @@ describe("GET /api/admin/users", () => {
       },
     })
 
-    mockAuthorizeFirebaseRequest.mockResolvedValue({
-      uid: "super-admin",
-      firestore,
-      auth: {
-        listUsers: vi.fn(async () => ({ users: [], pageToken: undefined })),
-      },
-    })
-
-    const response = await GET(new Request("https://app.zazadraft.com/api/admin/users"))
+    const response = await callGet("", { firestore })
     expect(response.status).toBe(200)
     const payload = await response.json()
 
-    expect(payload.users).toEqual(
+    expect(payload.items).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
           uid: "target-uid",
           email: "shoshoshaer@gmail.com",
           plan: "pro",
           effectivePlan: "pro",
+          planReason: "influencer",
           proReason: "influencer",
         }),
       ]),
@@ -135,34 +154,104 @@ describe("GET /api/admin/users", () => {
       },
     })
 
-    mockAuthorizeFirebaseRequest.mockResolvedValue({
-      uid: "super-admin",
+    const response = await callGet("", {
       firestore,
-      auth: {
-        listUsers: vi.fn(async () => ({
-          users: [
-            {
-              uid: "greg",
-              email: "greg@zazatechnologies.com",
-              metadata: { creationTime: "2024-01-01T00:00:00.000Z" },
-            },
-          ],
-          pageToken: undefined,
-        })),
-      },
+      authUsers: [
+        {
+          uid: "greg",
+          email: "greg@zazatechnologies.com",
+          metadata: { creationTime: "2024-01-01T00:00:00.000Z" },
+        },
+      ],
     })
 
-    const response = await GET(new Request("https://app.zazadraft.com/api/admin/users"))
     expect(response.status).toBe(200)
     const payload = await response.json()
 
-    expect(payload.users).toHaveLength(1)
-    expect(payload.users[0]).toMatchObject({
+    expect(payload.items).toHaveLength(1)
+    expect(payload.items[0]).toMatchObject({
       uid: "greg",
       email: "greg@zazatechnologies.com",
       role: "super_admin",
       plan: "pro",
+      effectivePlan: "pro",
     })
+  })
+
+  it("filters by search on email", async () => {
+    const firestore = createFirestore({
+      users: {
+        a: { email: "alpha@example.com", plan: "free" },
+        b: { email: "beta@example.com", plan: "free" },
+      },
+    })
+
+    const response = await callGet("?search=beta", { firestore })
+    const payload = await response.json()
+
+    expect(payload.items).toHaveLength(1)
+    expect(payload.items[0].email).toBe("beta@example.com")
+  })
+
+  it("filters by role", async () => {
+    const firestore = createFirestore({
+      profiles: {
+        a: { email: "alpha@example.com", role: "teacher", createdAt: 1 },
+        b: { email: "beta@example.com", role: "admin", createdAt: 2 },
+      },
+    })
+
+    const response = await callGet("?role=admin", { firestore })
+    const payload = await response.json()
+
+    expect(payload.items).toHaveLength(1)
+    expect(payload.items[0]).toMatchObject({ uid: "b", role: "admin" })
+  })
+
+  it("filters by effective plan including school domain licences", async () => {
+    const firestore = createFirestore({
+      users: {
+        a: { email: "teacher@school.org", plan: "free" },
+        b: { email: "teacher@example.com", plan: "free" },
+      },
+      schoolLicences: {
+        "school.org": {
+          domain: "school.org",
+          plan: "pro",
+          reason: "school pilot",
+        },
+      },
+    })
+
+    const response = await callGet("?plan=pro", { firestore })
+    const payload = await response.json()
+
+    expect(payload.items).toHaveLength(1)
+    expect(payload.items[0]).toMatchObject({
+      uid: "a",
+      effectivePlan: "pro",
+      planReason: "school pilot",
+    })
+  })
+
+  it("returns pagination metadata and sort order", async () => {
+    const firestore = createFirestore({
+      users: {
+        a: { email: "charlie@example.com", plan: "free", createdAt: 300 },
+        b: { email: "alpha@example.com", plan: "free", createdAt: 100 },
+        c: { email: "bravo@example.com", plan: "free", createdAt: 200 },
+      },
+    })
+
+    const response = await callGet("?sort=email_asc&page=2&pageSize=1", { firestore })
+    const payload = await response.json()
+
+    expect(payload.page).toBe(2)
+    expect(payload.pageSize).toBe(1)
+    expect(payload.total).toBe(3)
+    expect(payload.totalPages).toBe(3)
+    expect(payload.items).toHaveLength(1)
+    expect(payload.items[0].email).toBe("bravo@example.com")
   })
 
   it("fails closed when Firebase points to the wrong project", async () => {

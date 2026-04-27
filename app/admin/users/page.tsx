@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 
@@ -16,12 +16,24 @@ type AdminUser = {
   plan: string
   effectivePlan?: string
   planStatus: string
-  proReason: string | null
+  planReason?: string | null
+  proReason?: string | null
   schoolId: string | null
   createdAt: number
 }
 
+type AdminUsersResponse = {
+  success: boolean
+  items?: AdminUser[]
+  users?: AdminUser[]
+  page?: number
+  pageSize?: number
+  total?: number
+  totalPages?: number
+}
+
 type PlanOption = "free" | "pro"
+type SortOption = "created_desc" | "created_asc" | "email_asc" | "email_desc"
 type ProReasonOption =
   | "manual upgrade"
   | "influencer"
@@ -38,6 +50,13 @@ const ROLE_OPTIONS: Exclude<ZazaRole, "super_admin">[] = [
 ]
 
 const PLAN_OPTIONS: PlanOption[] = ["free", "pro"]
+const FILTER_ROLE_OPTIONS: Array<"" | ZazaRole> = ["", ...ROLE_OPTIONS, "super_admin"]
+const SORT_OPTIONS: Array<{ value: SortOption; label: string }> = [
+  { value: "created_desc", label: "Newest first" },
+  { value: "created_asc", label: "Oldest first" },
+  { value: "email_asc", label: "Email A-Z" },
+  { value: "email_desc", label: "Email Z-A" },
+]
 const PRO_REASON_OPTIONS: ProReasonOption[] = [
   "manual upgrade",
   "influencer",
@@ -77,7 +96,11 @@ function resolveReasonOption(reason: string | null | undefined): ProReasonOption
     : "other"
 }
 
-function resolveReasonText(option: string | undefined, customReason: string | undefined, fallbackReason?: string | null) {
+function resolveReasonText(
+  option: string | undefined,
+  customReason: string | undefined,
+  fallbackReason?: string | null,
+) {
   if (option === "other") {
     const normalizedCustomReason = customReason?.trim()
     return normalizedCustomReason || normaliseReason(fallbackReason)
@@ -86,24 +109,58 @@ function resolveReasonText(option: string | undefined, customReason: string | un
   return option?.trim() || normaliseReason(fallbackReason)
 }
 
+function getUserPlanReason(user: AdminUser) {
+  return user.planReason ?? user.proReason ?? null
+}
+
 export default function AdminUsersPage() {
   const router = useRouter()
   const { status, getIdToken } = useAuth()
+
   const [users, setUsers] = useState<AdminUser[]>([])
+  const [page, setPage] = useState(1)
+  const [pageSize] = useState(25)
+  const [total, setTotal] = useState(0)
+  const [totalPages, setTotalPages] = useState(1)
+  const [search, setSearch] = useState("")
+  const [roleFilter, setRoleFilter] = useState<"" | ZazaRole>("")
+  const [planFilter, setPlanFilter] = useState<"" | PlanOption>("")
+  const [sort, setSort] = useState<SortOption>("created_desc")
+
   const [roleDrafts, setRoleDrafts] = useState<Record<string, Exclude<ZazaRole, "super_admin">>>({})
   const [planDrafts, setPlanDrafts] = useState<Record<string, PlanOption>>({})
   const [reasonDrafts, setReasonDrafts] = useState<Record<string, ProReasonOption>>({})
   const [customReasonDrafts, setCustomReasonDrafts] = useState<Record<string, string>>({})
+
   const [error, setError] = useState<string | null>(null)
   const [successMessage, setSuccessMessage] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [savingUid, setSavingUid] = useState<string | null>(null)
+  const [reloadNonce, setReloadNonce] = useState(0)
+
   const [grantEmail, setGrantEmail] = useState("")
   const [grantCustomReason, setGrantCustomReason] = useState("")
   const [grantReason, setGrantReason] = useState<ProReasonOption>("manual upgrade")
   const [grantError, setGrantError] = useState<string | null>(null)
   const [grantSuccess, setGrantSuccess] = useState<string | null>(null)
   const [grantingPro, setGrantingPro] = useState(false)
+
+  const queryString = useMemo(() => {
+    const params = new URLSearchParams()
+    if (search.trim()) {
+      params.set("search", search.trim())
+    }
+    if (roleFilter) {
+      params.set("role", roleFilter)
+    }
+    if (planFilter) {
+      params.set("plan", planFilter)
+    }
+    params.set("sort", sort)
+    params.set("page", String(page))
+    params.set("pageSize", String(pageSize))
+    return params.toString()
+  }, [page, pageSize, planFilter, roleFilter, search, sort])
 
   useEffect(() => {
     if (status === "unauthenticated") {
@@ -119,13 +176,16 @@ export default function AdminUsersPage() {
 
     void (async () => {
       try {
+        setLoading(true)
+        setError(null)
+
         const token = await getIdToken()
         if (!token) {
           router.replace("/admin/login")
           return
         }
 
-        const usersResponse = await fetch("/api/admin/users", {
+        const usersResponse = await fetch(`/api/admin/users?${queryString}`, {
           headers: { Authorization: `Bearer ${token}` },
         })
 
@@ -138,37 +198,39 @@ export default function AdminUsersPage() {
           throw new Error("Unable to load admin users.")
         }
 
-        const usersPayload = await usersResponse.json()
+        const usersPayload = (await usersResponse.json()) as AdminUsersResponse
         if (!active) {
           return
         }
 
-        setUsers(usersPayload.users)
+        const nextUsers = usersPayload.items ?? usersPayload.users ?? []
+        setUsers(nextUsers)
+        setPage(usersPayload.page ?? 1)
+        setTotal(usersPayload.total ?? nextUsers.length)
+        setTotalPages(usersPayload.totalPages ?? 1)
+
         setRoleDrafts(
           Object.fromEntries(
-            usersPayload.users
-              .filter((user: AdminUser) => user.role !== "super_admin")
-              .map((user: AdminUser) => [user.uid, user.role]),
+            nextUsers
+              .filter((user) => user.role !== "super_admin")
+              .map((user) => [user.uid, user.role as Exclude<ZazaRole, "super_admin">]),
           ),
         )
         setPlanDrafts(
           Object.fromEntries(
-            usersPayload.users.map((user: AdminUser) => [
-              user.uid,
-              normalisePlan(user.effectivePlan ?? user.plan),
-            ]),
+            nextUsers.map((user) => [user.uid, normalisePlan(user.effectivePlan ?? user.plan)]),
           ),
         )
         setReasonDrafts(
           Object.fromEntries(
-            usersPayload.users.map((user: AdminUser) => [user.uid, resolveReasonOption(user.proReason)]),
+            nextUsers.map((user) => [user.uid, resolveReasonOption(getUserPlanReason(user))]),
           ),
         )
         setCustomReasonDrafts(
           Object.fromEntries(
-            usersPayload.users.map((user: AdminUser) => [
+            nextUsers.map((user) => [
               user.uid,
-              resolveReasonOption(user.proReason) === "other" ? user.proReason ?? "" : "",
+              resolveReasonOption(getUserPlanReason(user)) === "other" ? getUserPlanReason(user) ?? "" : "",
             ]),
           ),
         )
@@ -186,13 +248,14 @@ export default function AdminUsersPage() {
     return () => {
       active = false
     }
-  }, [getIdToken, router, status])
+  }, [getIdToken, queryString, reloadNonce, router, status])
 
   const handleSaveUser = async (targetUid: string) => {
     try {
       setSavingUid(targetUid)
       setError(null)
       setSuccessMessage(null)
+
       const token = await getIdToken()
       if (!token) {
         router.replace("/admin/login")
@@ -206,17 +269,17 @@ export default function AdminUsersPage() {
 
       const nextRole = roleDrafts[targetUid] ?? userRecord.role
       const nextPlan = planDrafts[targetUid] ?? normalisePlan(userRecord.effectivePlan ?? userRecord.plan)
-      const nextReasonOption = reasonDrafts[targetUid] ?? resolveReasonOption(userRecord.proReason)
+      const nextReasonOption = reasonDrafts[targetUid] ?? resolveReasonOption(getUserPlanReason(userRecord))
       const nextReason = resolveReasonText(
         nextReasonOption,
         customReasonDrafts[targetUid],
-        userRecord.proReason,
+        getUserPlanReason(userRecord),
       )
+
       const roleChanged = nextRole !== userRecord.role
       const planChanged = nextPlan !== normalisePlan(userRecord.effectivePlan ?? userRecord.plan)
       const reasonChanged =
-        nextPlan === "pro" &&
-        nextReason !== normaliseReason(userRecord.proReason)
+        nextPlan === "pro" && nextReason !== normaliseReason(getUserPlanReason(userRecord))
 
       if (!roleChanged && !planChanged && !reasonChanged) {
         setSuccessMessage("No changes to save")
@@ -242,14 +305,14 @@ export default function AdminUsersPage() {
       }
 
       if (planChanged || reasonChanged) {
-        const planResponse = await fetch("/api/admin/set-plan", {
+        const planResponse = await fetch("/api/admin/users/plan", {
           method: "PATCH",
           headers: {
             "Content-Type": "application/json",
             Authorization: `Bearer ${token}`,
           },
           body: JSON.stringify({
-            email: userRecord.email,
+            targetUid,
             plan: nextPlan,
             reason: nextPlan === "pro" ? nextReason : undefined,
           }),
@@ -260,21 +323,8 @@ export default function AdminUsersPage() {
         }
       }
 
-      setUsers((currentUsers) =>
-        currentUsers.map((user) =>
-          user.uid === targetUid
-            ? {
-                ...user,
-                role: nextRole,
-                plan: nextPlan,
-                effectivePlan: nextPlan,
-                planStatus: nextPlan,
-                proReason: nextPlan === "pro" ? nextReason : null,
-              }
-            : user,
-        ),
-      )
-      setSuccessMessage(planChanged ? "Plan updated" : "Role updated")
+      setSuccessMessage(planChanged || reasonChanged ? "Plan updated" : "Role updated")
+      setReloadNonce((current) => current + 1)
     } catch (saveError) {
       setError(
         (saveError as Error)?.message ??
@@ -314,62 +364,19 @@ export default function AdminUsersPage() {
         throw new Error(payload?.error?.message ?? "Unable to grant Pro access.")
       }
 
-      setUsers((currentUsers) =>
-        currentUsers.map((user) =>
-          user.email.toLowerCase() === grantEmail.trim().toLowerCase()
-            ? {
-                ...user,
-                plan: "pro",
-                effectivePlan: "pro",
-                planStatus: "pro",
-                proReason: resolveReasonText(grantReason, grantCustomReason, "manual upgrade"),
-              }
-            : user,
-        ),
-      )
-      setPlanDrafts((current) => {
-        const matchingUser = users.find(
-          (user) => user.email.toLowerCase() === grantEmail.trim().toLowerCase(),
-        )
-        return matchingUser ? { ...current, [matchingUser.uid]: "pro" } : current
-      })
-      setReasonDrafts((current) => {
-        const matchingUser = users.find(
-          (user) => user.email.toLowerCase() === grantEmail.trim().toLowerCase(),
-        )
-        return matchingUser
-          ? {
-              ...current,
-              [matchingUser.uid]: resolveReasonOption(
-                resolveReasonText(grantReason, grantCustomReason, "manual upgrade"),
-              ),
-            }
-          : current
-      })
-      setCustomReasonDrafts((current) => {
-        const matchingUser = users.find(
-          (user) => user.email.toLowerCase() === grantEmail.trim().toLowerCase(),
-        )
-        return matchingUser
-          ? {
-              ...current,
-              [matchingUser.uid]:
-                grantReason === "other"
-                  ? resolveReasonText(grantReason, grantCustomReason, "manual upgrade")
-                  : "",
-            }
-          : current
-      })
       setGrantEmail("")
       setGrantReason("manual upgrade")
       setGrantCustomReason("")
       setGrantSuccess("Pro access granted")
+      setReloadNonce((current) => current + 1)
     } catch (grantProError) {
       setGrantError((grantProError as Error)?.message ?? "Unable to grant Pro access.")
     } finally {
       setGrantingPro(false)
     }
   }
+
+  const totalLabel = total === 1 ? "1 user" : `${total} users`
 
   return (
     <div className="mx-auto flex min-h-screen w-full max-w-6xl flex-col gap-6 px-4 py-10 sm:px-6">
@@ -463,6 +470,84 @@ export default function AdminUsersPage() {
             <div className="border-b border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">
               Users may appear here from Firebase Auth, app user records, or admin profiles.
             </div>
+            <div className="grid gap-3 border-b border-slate-200 px-4 py-4 md:grid-cols-4">
+              <div className="md:col-span-2">
+                <label htmlFor="user-search" className="mb-2 block text-sm font-medium text-slate-700">
+                  Search users
+                </label>
+                <Input
+                  id="user-search"
+                  placeholder="Search by email or UID"
+                  value={search}
+                  onChange={(event) => {
+                    setSearch(event.target.value)
+                    setPage(1)
+                  }}
+                />
+              </div>
+              <div>
+                <label htmlFor="role-filter" className="mb-2 block text-sm font-medium text-slate-700">
+                  Role filter
+                </label>
+                <select
+                  id="role-filter"
+                  value={roleFilter}
+                  onChange={(event) => {
+                    setRoleFilter(event.target.value as "" | ZazaRole)
+                    setPage(1)
+                  }}
+                  className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900"
+                >
+                  <option value="">All roles</option>
+                  {FILTER_ROLE_OPTIONS.filter(Boolean).map((roleOption) => (
+                    <option key={roleOption} value={roleOption}>
+                      {roleOption}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label htmlFor="plan-filter" className="mb-2 block text-sm font-medium text-slate-700">
+                  Plan filter
+                </label>
+                <select
+                  id="plan-filter"
+                  value={planFilter}
+                  onChange={(event) => {
+                    setPlanFilter(event.target.value as "" | PlanOption)
+                    setPage(1)
+                  }}
+                  className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900"
+                >
+                  <option value="">All plans</option>
+                  {PLAN_OPTIONS.map((planOption) => (
+                    <option key={planOption} value={planOption}>
+                      {planOption}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label htmlFor="sort-users" className="mb-2 block text-sm font-medium text-slate-700">
+                  Sort by
+                </label>
+                <select
+                  id="sort-users"
+                  value={sort}
+                  onChange={(event) => {
+                    setSort(event.target.value as SortOption)
+                    setPage(1)
+                  }}
+                  className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900"
+                >
+                  {SORT_OPTIONS.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
             {successMessage ? (
               <div className="border-b border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
                 {successMessage}
@@ -474,8 +559,8 @@ export default function AdminUsersPage() {
                   <th className="px-4 py-3 font-medium">Email</th>
                   <th className="px-4 py-3 font-medium">UID</th>
                   <th className="px-4 py-3 font-medium">Role</th>
-                  <th className="px-4 py-3 font-medium">Plan</th>
-                  <th className="px-4 py-3 font-medium">Reason</th>
+                  <th className="px-4 py-3 font-medium">Effective plan</th>
+                  <th className="px-4 py-3 font-medium">Plan reason</th>
                   <th className="px-4 py-3 font-medium">Created</th>
                   <th className="px-4 py-3 font-medium">Action</th>
                 </tr>
@@ -520,6 +605,7 @@ export default function AdminUsersPage() {
                         </span>
                       ) : (
                         <select
+                          aria-label={`Effective plan for ${user.email || user.uid}`}
                           value={planDrafts[user.uid] ?? normalisePlan(user.effectivePlan ?? user.plan)}
                           onChange={(event) =>
                             setPlanDrafts((current) => ({
@@ -543,12 +629,14 @@ export default function AdminUsersPage() {
                     </td>
                     <td className="px-4 py-3 text-slate-600">
                       {user.role === "super_admin" ? (
-                        normalisePlan(user.effectivePlan ?? user.plan) === "pro" ? user.proReason || "—" : "—"
+                        normalisePlan(user.effectivePlan ?? user.plan) === "pro"
+                          ? getUserPlanReason(user) || "—"
+                          : "—"
                       ) : (planDrafts[user.uid] ?? normalisePlan(user.effectivePlan ?? user.plan)) === "pro" ? (
                         <div className="flex min-w-[12rem] flex-col gap-2">
                           <select
-                            aria-label={`Reason for ${user.email || user.uid}`}
-                            value={reasonDrafts[user.uid] ?? resolveReasonOption(user.proReason)}
+                            aria-label={`Plan reason for ${user.email || user.uid}`}
+                            value={reasonDrafts[user.uid] ?? resolveReasonOption(getUserPlanReason(user))}
                             onChange={(event) =>
                               setReasonDrafts((current) => ({
                                 ...current,
@@ -563,13 +651,15 @@ export default function AdminUsersPage() {
                               </option>
                             ))}
                           </select>
-                          {(reasonDrafts[user.uid] ?? resolveReasonOption(user.proReason)) === "other" ? (
+                          {(reasonDrafts[user.uid] ?? resolveReasonOption(getUserPlanReason(user))) === "other" ? (
                             <Input
                               aria-label={`Custom reason for ${user.email || user.uid}`}
                               placeholder="Custom reason"
                               value={
                                 customReasonDrafts[user.uid] ??
-                                (resolveReasonOption(user.proReason) === "other" ? user.proReason ?? "" : "")
+                                (resolveReasonOption(getUserPlanReason(user)) === "other"
+                                  ? getUserPlanReason(user) ?? ""
+                                  : "")
                               }
                               onChange={(event) =>
                                 setCustomReasonDrafts((current) => ({
@@ -600,8 +690,39 @@ export default function AdminUsersPage() {
                     </td>
                   </tr>
                 ))}
+                {users.length === 0 ? (
+                  <tr>
+                    <td colSpan={7} className="px-4 py-8 text-center text-sm text-slate-500">
+                      No users match the current filters.
+                    </td>
+                  </tr>
+                ) : null}
               </tbody>
             </table>
+            <div className="flex flex-col gap-3 border-t border-slate-200 px-4 py-4 text-sm text-slate-600 sm:flex-row sm:items-center sm:justify-between">
+              <div>{totalLabel}</div>
+              <div className="flex items-center gap-3">
+                <span>
+                  Page {page} of {totalPages}
+                </span>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={page <= 1}
+                  onClick={() => setPage((current) => Math.max(1, current - 1))}
+                >
+                  Previous
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={page >= totalPages}
+                  onClick={() => setPage((current) => Math.min(totalPages, current + 1))}
+                >
+                  Next
+                </Button>
+              </div>
+            </div>
           </div>
         </div>
       )}

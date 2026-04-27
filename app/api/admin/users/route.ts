@@ -3,6 +3,11 @@ import { NextResponse } from "next/server"
 import { authorizeFirebaseRequest, FirebaseAuthorizationError } from "@/lib/firebase/server"
 import { getUserProfile } from "@/lib/auth/get-user-role"
 import { canAssignRoles, type ZazaRole } from "@/lib/auth/roles"
+import {
+  buildSchoolLicencesByDomain,
+  resolveAdminUserPlan,
+  type AdminPlanSource,
+} from "@/lib/admin/user-plan"
 import { assertZazaDraftProject, FirebaseProjectSafetyError } from "@/lib/firebase/project-policy"
 
 type AdminUserRecord = {
@@ -12,11 +17,23 @@ type AdminUserRecord = {
   plan: string
   effectivePlan: string
   planStatus: string
+  planReason: string | null
   proReason: string | null
+  planSource: AdminPlanSource
   schoolId: string | null
   createdAt: number
   updatedAt: number
 }
+
+type SortOption = "created_desc" | "created_asc" | "email_asc" | "email_desc"
+
+const VALID_ROLES = new Set<ZazaRole>([
+  "super_admin",
+  "admin",
+  "school_admin",
+  "teacher",
+  "teacher_free",
+])
 
 function toTimestamp(value: unknown) {
   if (typeof value === "number" && Number.isFinite(value)) {
@@ -41,17 +58,36 @@ function toTimestamp(value: unknown) {
 }
 
 function normaliseRole(value: unknown): ZazaRole {
+  return VALID_ROLES.has(value as ZazaRole) ? (value as ZazaRole) : "teacher_free"
+}
+
+function parsePositiveInt(value: string | null, fallback: number, max: number) {
+  const parsed = Number.parseInt(value ?? "", 10)
+  if (!Number.isFinite(parsed) || parsed < 1) {
+    return fallback
+  }
+  return Math.min(parsed, max)
+}
+
+function normaliseSort(value: string | null): SortOption {
   if (
-    value === "super_admin" ||
-    value === "admin" ||
-    value === "school_admin" ||
-    value === "teacher" ||
-    value === "teacher_free"
+    value === "created_desc" ||
+    value === "created_asc" ||
+    value === "email_asc" ||
+    value === "email_desc"
   ) {
     return value
   }
 
-  return "teacher_free"
+  return "created_desc"
+}
+
+function normaliseRoleFilter(value: string | null) {
+  return VALID_ROLES.has(value as ZazaRole) ? (value as ZazaRole) : ""
+}
+
+function normalisePlanFilter(value: string | null) {
+  return value === "free" || value === "pro" ? value : ""
 }
 
 function mergeAdminUser(
@@ -63,13 +99,34 @@ function mergeAdminUser(
     email: source.email ?? existing?.email ?? "",
     role: source.role ?? existing?.role ?? "teacher_free",
     plan: source.plan ?? existing?.plan ?? "free",
-    effectivePlan: source.effectivePlan ?? existing?.effectivePlan ?? source.plan ?? existing?.plan ?? "free",
+    effectivePlan:
+      source.effectivePlan ?? existing?.effectivePlan ?? source.plan ?? existing?.plan ?? "free",
     planStatus: source.planStatus ?? existing?.planStatus ?? "free",
-    proReason: source.proReason ?? existing?.proReason ?? null,
+    planReason: source.planReason ?? existing?.planReason ?? null,
+    proReason: source.proReason ?? existing?.proReason ?? source.planReason ?? existing?.planReason ?? null,
+    planSource: source.planSource ?? existing?.planSource ?? "free_fallback",
     schoolId: source.schoolId ?? existing?.schoolId ?? null,
     createdAt: source.createdAt ?? existing?.createdAt ?? 0,
     updatedAt: source.updatedAt ?? existing?.updatedAt ?? 0,
   }
+}
+
+function sortUsers(users: AdminUserRecord[], sort: SortOption) {
+  const collator = new Intl.Collator("en", { sensitivity: "base" })
+
+  return [...users].sort((left, right) => {
+    switch (sort) {
+      case "created_asc":
+        return left.createdAt - right.createdAt || collator.compare(left.email, right.email)
+      case "email_asc":
+        return collator.compare(left.email, right.email) || (right.createdAt - left.createdAt)
+      case "email_desc":
+        return collator.compare(right.email, left.email) || (right.createdAt - left.createdAt)
+      case "created_desc":
+      default:
+        return right.createdAt - left.createdAt || collator.compare(left.email, right.email)
+    }
+  })
 }
 
 export async function GET(request: Request) {
@@ -90,7 +147,6 @@ export async function GET(request: Request) {
 
     const requesterProfile = await getUserProfile(authContext.uid, firestore)
     const requesterRole = requesterProfile?.role ?? "teacher_free"
-
     if (!canAssignRoles(requesterRole)) {
       return NextResponse.json(
         {
@@ -101,9 +157,18 @@ export async function GET(request: Request) {
       )
     }
 
-    const [profileSnapshot, userSnapshot, authUserPages] = await Promise.all([
+    const url = new URL(request.url)
+    const search = url.searchParams.get("search")?.trim().toLowerCase() ?? ""
+    const roleFilter = normaliseRoleFilter(url.searchParams.get("role"))
+    const planFilter = normalisePlanFilter(url.searchParams.get("plan"))
+    const sort = normaliseSort(url.searchParams.get("sort"))
+    const page = parsePositiveInt(url.searchParams.get("page"), 1, 10_000)
+    const pageSize = parsePositiveInt(url.searchParams.get("pageSize"), 25, 100)
+
+    const [profileSnapshot, userSnapshot, schoolLicenceSnapshot, authUserPages] = await Promise.all([
       firestore.collection("user_profiles").get(),
       firestore.collection("users").get(),
+      firestore.collection("schoolLicences").get(),
       (async () => {
         if (!auth) {
           return []
@@ -113,22 +178,24 @@ export async function GET(request: Request) {
         let nextPageToken: string | undefined
 
         do {
-          const page = await auth.listUsers(1000, nextPageToken)
+          const pageResult = await auth.listUsers(1000, nextPageToken)
           users.push(
-            ...page.users.map((user) => ({
+            ...pageResult.users.map((user) => ({
               uid: user.uid,
               email: user.email ?? "",
-              createdAt: user.metadata.creationTime
-                ? Date.parse(user.metadata.creationTime) || 0
-                : 0,
+              createdAt: user.metadata.creationTime ? Date.parse(user.metadata.creationTime) || 0 : 0,
             })),
           )
-          nextPageToken = page.pageToken
+          nextPageToken = pageResult.pageToken
         } while (nextPageToken)
 
         return users
       })(),
     ])
+
+    const schoolLicencesByDomain = buildSchoolLicencesByDomain(
+      schoolLicenceSnapshot.docs as Array<{ id: string; data: () => Record<string, unknown> }>,
+    )
 
     const userMap = new Map<string, AdminUserRecord>()
 
@@ -141,7 +208,6 @@ export async function GET(request: Request) {
             uid: doc.id,
             email: typeof data.email === "string" ? data.email : "",
             role: normaliseRole(data.role),
-            plan: typeof data.planStatus === "string" ? data.planStatus : "free",
             planStatus: typeof data.planStatus === "string" ? data.planStatus : "free",
             schoolId: typeof data.schoolId === "string" ? data.schoolId : null,
             createdAt: toTimestamp(data.createdAt),
@@ -154,37 +220,24 @@ export async function GET(request: Request) {
 
     for (const doc of userSnapshot.docs) {
       const data = doc.data() as Record<string, unknown>
-      const entitlementOverride =
-        typeof data.entitlements === "object" &&
-        data.entitlements !== null &&
-        typeof (data.entitlements as Record<string, unknown>).planOverride === "string"
-          ? (data.entitlements as Record<string, unknown>).planOverride as string
-          : null
-      const plan =
-        typeof data.plan === "string"
-          ? data.plan
-          : typeof data.accountType === "string"
-            ? data.accountType
-            : "free"
-      const effectivePlan = entitlementOverride === "pro" ? "pro" : plan
-      const entitlementsReason =
-        typeof data.entitlements === "object" &&
-        data.entitlements !== null &&
-        typeof (data.entitlements as Record<string, unknown>).reason === "string"
-          ? (data.entitlements as Record<string, unknown>).reason as string
-          : typeof data.reason === "string"
-            ? data.reason
-            : null
+      const resolvedPlan = resolveAdminUserPlan({
+        uid: doc.id,
+        userData: data,
+        schoolLicencesByDomain,
+      })
+
       userMap.set(
         doc.id,
         mergeAdminUser(
           {
             uid: doc.id,
             email: typeof data.email === "string" ? data.email : undefined,
-            plan,
-            effectivePlan,
-            planStatus: typeof data.planStatus === "string" ? data.planStatus : plan,
-            proReason: effectivePlan === "pro" ? entitlementsReason : null,
+            plan: resolvedPlan.plan,
+            effectivePlan: resolvedPlan.effectivePlan,
+            planReason: resolvedPlan.planReason,
+            proReason: resolvedPlan.planReason,
+            planSource: resolvedPlan.planSource,
+            planStatus: typeof data.planStatus === "string" ? data.planStatus : resolvedPlan.plan,
             createdAt: toTimestamp(data.createdAt),
             updatedAt: toTimestamp(data.updatedAt),
           },
@@ -207,10 +260,47 @@ export async function GET(request: Request) {
       )
     }
 
-    const users = Array.from(userMap.values())
-      .sort((a, b) => b.createdAt - a.createdAt)
+    const filteredUsers = Array.from(userMap.values()).filter((user) => {
+      if (search) {
+        const haystacks = [user.email.toLowerCase(), user.uid.toLowerCase()]
+        if (!haystacks.some((value) => value.includes(search))) {
+          return false
+        }
+      }
 
-    return NextResponse.json({ success: true, users })
+      if (roleFilter && user.role !== roleFilter) {
+        return false
+      }
+
+      if (planFilter && user.effectivePlan !== planFilter) {
+        return false
+      }
+
+      return true
+    })
+
+    const sortedUsers = sortUsers(filteredUsers, sort)
+    const total = sortedUsers.length
+    const totalPages = Math.max(1, Math.ceil(total / pageSize))
+    const currentPage = Math.min(page, totalPages)
+    const start = (currentPage - 1) * pageSize
+    const items = sortedUsers.slice(start, start + pageSize)
+
+    return NextResponse.json({
+      success: true,
+      items,
+      users: items,
+      page: currentPage,
+      pageSize,
+      total,
+      totalPages,
+      sort,
+      filters: {
+        search: search || "",
+        role: roleFilter || "",
+        plan: planFilter || "",
+      },
+    })
   } catch (error) {
     if (error instanceof FirebaseProjectSafetyError) {
       return NextResponse.json(
