@@ -138,8 +138,7 @@ export default function AdminUsersPage() {
       })
 
       if (!response.ok) {
-        const payload = await response.json().catch(() => null)
-        throw new Error(payload?.error?.message ?? "Unable to save role.")
+        throw new Error("Could not update this user. Please try again or check their profile.")
       }
 
       setUsers((currentUsers) =>
@@ -148,7 +147,10 @@ export default function AdminUsersPage() {
         ),
       )
     } catch (saveError) {
-      setError((saveError as Error)?.message ?? "Unable to save role.")
+      setError(
+        (saveError as Error)?.message ??
+          "Could not update this user. Please try again or check their profile.",
+      )
     } finally {
       setSavingUid(null)
     }
@@ -250,6 +252,9 @@ export default function AdminUsersPage() {
           </section>
 
           <div className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
+            <div className="border-b border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">
+              Users may appear here from Firebase Auth, app user records, or admin profiles.
+            </div>
             <table className="min-w-full divide-y divide-slate-200 text-sm">
               <thead className="bg-slate-50">
                 <tr className="text-left text-slate-600">

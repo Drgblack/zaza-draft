@@ -22,7 +22,7 @@ function fail(status: number, message: string) {
 export async function PATCH(request: Request) {
   try {
     const authContext = await authorizeFirebaseRequest(request)
-    const firestore = authContext.firestore
+    const { auth, firestore } = authContext
     if (!firestore) {
       return fail(500, "Firestore unavailable")
     }
@@ -63,15 +63,48 @@ export async function PATCH(request: Request) {
 
     const targetRef = firestore.collection("user_profiles").doc(body.targetUid)
     const targetSnapshot = await targetRef.get()
+    const targetUserDoc = await firestore.collection("users").doc(body.targetUid).get()
+
+    let targetProfileData = targetSnapshot.data()
+    let targetProfilePatch: Record<string, unknown> | null = null
+
     if (!targetSnapshot.exists) {
-      return fail(404, "Target user profile not found")
+      let email: string | undefined
+      const userDocData = targetUserDoc.data()
+      if (typeof userDocData?.email === "string" && userDocData.email.trim()) {
+        email = userDocData.email.trim().toLowerCase()
+      } else if (auth) {
+        try {
+          const authUser = await auth.getUser(body.targetUid)
+          email = authUser.email?.trim().toLowerCase() || undefined
+        } catch (error) {
+          if (!targetUserDoc.exists) {
+            return fail(404, "Target user profile not found")
+          }
+        }
+      } else if (!targetUserDoc.exists) {
+        return fail(404, "Target user profile not found")
+      }
+
+      const now = Date.now()
+      targetProfileData = {
+        email,
+        role: body.newRole,
+        createdAt: now,
+        updatedAt: now,
+      }
+      targetProfilePatch = targetProfileData
     }
 
     if (
       body.newRole === "school_admin" &&
-      typeof targetSnapshot.data()?.schoolId !== "string"
+      typeof targetProfileData?.schoolId !== "string"
     ) {
       return fail(400, "school_admin requires an existing schoolId")
+    }
+
+    if (targetProfilePatch) {
+      await targetRef.set(targetProfilePatch, { merge: true })
     }
 
     await targetRef.set(
