@@ -1,10 +1,10 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import Link from "next/link"
 import { useRouter } from "next/navigation"
 
 import { Button } from "@/components/ui/button"
+import { AdminNav } from "@/components/admin/admin-nav"
 import { useAuth } from "@/hooks/use-auth"
 import type {
   AdminAnalyticsSummary,
@@ -218,11 +218,7 @@ export default function AdminAnalyticsPage() {
           <Button variant="outline" onClick={() => void handleExport()} disabled={exporting}>
             {exporting ? "Exporting..." : "Export CSV"}
           </Button>
-          {viewer?.role === "super_admin" ? (
-            <Link href="/admin/users">
-              <Button variant="secondary">Users</Button>
-            </Link>
-          ) : null}
+          <AdminNav active="analytics" canManageUsers={viewer?.role === "super_admin"} />
         </div>
       </header>
 

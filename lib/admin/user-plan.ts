@@ -1,10 +1,12 @@
 import { isForcedProUser } from "@/lib/dev/forced-pro-users"
+import { isActiveLicenceRecord, type LicenceRecord } from "@/lib/admin/licences"
 
 export type AdminPlanValue = "free" | "pro"
 export type AdminPlanSource =
   | "manual_override"
-  | "school_domain_licence"
   | "subscription"
+  | "school_licence"
+  | "school_domain_licence"
   | "development_override"
   | "free_fallback"
 
@@ -78,6 +80,7 @@ function parseEntitlements(raw: unknown) {
     ),
     expiresAt: normalizeTimestamp(entitlements?.expiresAt ?? null),
     reason: typeof entitlements?.reason === "string" ? entitlements.reason.trim() || null : null,
+    planSource: typeof entitlements?.planSource === "string" ? entitlements.planSource : null,
   }
 }
 
@@ -106,6 +109,23 @@ function deriveStoredPlan(userData: Record<string, unknown> | undefined): AdminP
   return "free"
 }
 
+function hasActiveSubscription(userData: Record<string, unknown> | undefined) {
+  if (!userData) {
+    return false
+  }
+
+  if (userData.plan === "pro" || userData.accountType === "pro") {
+    return true
+  }
+
+  const subscriptionStatus =
+    typeof userData.subscriptionStatus === "string"
+      ? userData.subscriptionStatus.trim().toLowerCase()
+      : ""
+
+  return Boolean(subscriptionStatus && ACTIVE_SUBSCRIPTION_STATUSES.has(subscriptionStatus))
+}
+
 function getEmailDomain(userData: Record<string, unknown> | undefined) {
   const rawEmail = typeof userData?.email === "string" ? userData.email : null
   if (!rawEmail) {
@@ -123,9 +143,11 @@ function getEmailDomain(userData: Record<string, unknown> | undefined) {
 export function resolveAdminUserPlan(options: {
   uid?: string | null
   userData?: Record<string, unknown>
+  activeMembership?: { schoolId: string; licenceId: string; status: "active" | "removed" } | null
+  activeLicence?: LicenceRecord | null
   schoolLicencesByDomain?: Map<string, SchoolLicenceRecord>
 }): ResolvedAdminUserPlan {
-  const { uid, userData, schoolLicencesByDomain } = options
+  const { uid, userData, schoolLicencesByDomain, activeMembership, activeLicence } = options
   const storedPlan = deriveStoredPlan(userData)
   const entitlements = parseEntitlements(userData?.entitlements)
   const planOverrideActive =
@@ -166,6 +188,28 @@ export function resolveAdminUserPlan(options: {
     }
   }
 
+  if (hasActiveSubscription(userData)) {
+    return {
+      plan: "pro",
+      effectivePlan: "pro",
+      planReason: entitlements.reason,
+      planSource: "subscription",
+    }
+  }
+
+  if (
+    activeMembership?.status === "active" &&
+    activeLicence &&
+    isActiveLicenceRecord(activeLicence)
+  ) {
+    return {
+      plan: storedPlan,
+      effectivePlan: "pro",
+      planReason: "school licence",
+      planSource: "school_licence",
+    }
+  }
+
   if (matchingSchoolLicence) {
     return {
       plan: storedPlan,
@@ -175,17 +219,8 @@ export function resolveAdminUserPlan(options: {
     }
   }
 
-  if (storedPlan === "pro") {
-    return {
-      plan: "pro",
-      effectivePlan: "pro",
-      planReason: entitlements.reason,
-      planSource: "subscription",
-    }
-  }
-
   return {
-    plan: "free",
+    plan: storedPlan,
     effectivePlan: "free",
     planReason: null,
     planSource: "free_fallback",

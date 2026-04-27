@@ -13,10 +13,15 @@ export interface ZazaUserProfile {
   role: ZazaRole
   email: string
   schoolId?: string
+  licenceId?: string
   createdAt: number
   updatedAt: number
   stripeCustomerId?: string
   planStatus: ZazaPlanStatus
+  effectivePlan?: "free" | "pro"
+  planReason?: string | null
+  planSource?: string | null
+  lastActiveAt?: number | null
 }
 
 export function hasAdminAccess(role: ZazaRole): boolean {

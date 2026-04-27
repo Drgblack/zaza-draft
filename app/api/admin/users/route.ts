@@ -8,6 +8,7 @@ import {
   resolveAdminUserPlan,
   type AdminPlanSource,
 } from "@/lib/admin/user-plan"
+import type { LicenceRecord, SchoolMembershipRecord, SchoolRecord } from "@/lib/admin/licences"
 import { assertZazaDraftProject, FirebaseProjectSafetyError } from "@/lib/firebase/project-policy"
 
 type AdminUserRecord = {
@@ -21,6 +22,9 @@ type AdminUserRecord = {
   proReason: string | null
   planSource: AdminPlanSource
   schoolId: string | null
+  schoolName: string | null
+  licenceId: string | null
+  licenceStatus: string | null
   createdAt: number
   updatedAt: number
 }
@@ -106,6 +110,9 @@ function mergeAdminUser(
     proReason: source.proReason ?? existing?.proReason ?? source.planReason ?? existing?.planReason ?? null,
     planSource: source.planSource ?? existing?.planSource ?? "free_fallback",
     schoolId: source.schoolId ?? existing?.schoolId ?? null,
+    schoolName: source.schoolName ?? existing?.schoolName ?? null,
+    licenceId: source.licenceId ?? existing?.licenceId ?? null,
+    licenceStatus: source.licenceStatus ?? existing?.licenceStatus ?? null,
     createdAt: source.createdAt ?? existing?.createdAt ?? 0,
     updatedAt: source.updatedAt ?? existing?.updatedAt ?? 0,
   }
@@ -165,10 +172,13 @@ export async function GET(request: Request) {
     const page = parsePositiveInt(url.searchParams.get("page"), 1, 10_000)
     const pageSize = parsePositiveInt(url.searchParams.get("pageSize"), 25, 100)
 
-    const [profileSnapshot, userSnapshot, schoolLicenceSnapshot, authUserPages] = await Promise.all([
+    const [profileSnapshot, userSnapshot, schoolLicenceSnapshot, licencesSnapshot, schoolsSnapshot, membershipsSnapshot, authUserPages] = await Promise.all([
       firestore.collection("user_profiles").get(),
       firestore.collection("users").get(),
       firestore.collection("schoolLicences").get(),
+      firestore.collection("licences").get(),
+      firestore.collection("schools").get(),
+      firestore.collection("school_memberships").get(),
       (async () => {
         if (!auth) {
           return []
@@ -196,11 +206,64 @@ export async function GET(request: Request) {
     const schoolLicencesByDomain = buildSchoolLicencesByDomain(
       schoolLicenceSnapshot.docs as Array<{ id: string; data: () => Record<string, unknown> }>,
     )
+    const licencesById = new Map<string, LicenceRecord>()
+    for (const doc of licencesSnapshot.docs) {
+      const data = doc.data() as Record<string, unknown>
+      licencesById.set(doc.id, {
+        schoolId: typeof data.schoolId === "string" ? data.schoolId : "",
+        licenceType: data.licenceType === "district" ? "district" : "school",
+        seatLimit: typeof data.seatLimit === "number" ? data.seatLimit : 0,
+        seatsUsed: typeof data.seatsUsed === "number" ? data.seatsUsed : 0,
+        status:
+          data.status === "active" || data.status === "expired" || data.status === "cancelled"
+            ? data.status
+            : "trial",
+        startDate: toTimestamp(data.startDate),
+        endDate: toTimestamp(data.endDate),
+        createdAt: toTimestamp(data.createdAt),
+        updatedAt: toTimestamp(data.updatedAt),
+      })
+    }
+    const schoolsById = new Map<string, SchoolRecord>()
+    for (const doc of schoolsSnapshot.docs) {
+      const data = doc.data() as Record<string, unknown>
+      schoolsById.set(doc.id, {
+        schoolName: typeof data.schoolName === "string" ? data.schoolName : "",
+        contactEmail: typeof data.contactEmail === "string" ? data.contactEmail : "",
+        domains: Array.isArray(data.domains) ? data.domains.filter((value) => typeof value === "string") as string[] : [],
+        licenceType: data.licenceType === "district" ? "district" : "school",
+        seatLimit: typeof data.seatLimit === "number" ? data.seatLimit : 0,
+        seatsUsed: typeof data.seatsUsed === "number" ? data.seatsUsed : 0,
+        status:
+          data.status === "active" || data.status === "expired" || data.status === "cancelled"
+            ? data.status
+            : "trial",
+        startDate: toTimestamp(data.startDate),
+        endDate: toTimestamp(data.endDate),
+        notes: typeof data.notes === "string" ? data.notes : "",
+        createdAt: toTimestamp(data.createdAt),
+        updatedAt: toTimestamp(data.updatedAt),
+        createdBy: typeof data.createdBy === "string" ? data.createdBy : "",
+      })
+    }
+    const membershipsByUid = new Map<string, SchoolMembershipRecord>()
+    for (const doc of membershipsSnapshot.docs) {
+      const data = doc.data() as Record<string, unknown>
+      membershipsByUid.set(doc.id, {
+        schoolId: typeof data.schoolId === "string" ? data.schoolId : "",
+        licenceId: typeof data.licenceId === "string" ? data.licenceId : "",
+        assignedAt: toTimestamp(data.assignedAt),
+        assignedBy: typeof data.assignedBy === "string" ? data.assignedBy : "",
+        status: data.status === "removed" ? "removed" : "active",
+      })
+    }
 
     const userMap = new Map<string, AdminUserRecord>()
 
     for (const doc of profileSnapshot.docs) {
       const data = doc.data() as Record<string, unknown>
+      const profileSchoolId = typeof data.schoolId === "string" ? data.schoolId : null
+      const profileLicenceId = typeof data.licenceId === "string" ? data.licenceId : null
       userMap.set(
         doc.id,
         mergeAdminUser(
@@ -209,7 +272,10 @@ export async function GET(request: Request) {
             email: typeof data.email === "string" ? data.email : "",
             role: normaliseRole(data.role),
             planStatus: typeof data.planStatus === "string" ? data.planStatus : "free",
-            schoolId: typeof data.schoolId === "string" ? data.schoolId : null,
+            schoolId: profileSchoolId,
+            schoolName: profileSchoolId ? schoolsById.get(profileSchoolId)?.schoolName ?? null : null,
+            licenceId: profileLicenceId,
+            licenceStatus: profileLicenceId ? licencesById.get(profileLicenceId)?.status ?? null : null,
             createdAt: toTimestamp(data.createdAt),
             updatedAt: toTimestamp(data.updatedAt),
           },
@@ -220,11 +286,17 @@ export async function GET(request: Request) {
 
     for (const doc of userSnapshot.docs) {
       const data = doc.data() as Record<string, unknown>
+      const membership = membershipsByUid.get(doc.id) ?? null
+      const activeLicence = membership ? licencesById.get(membership.licenceId) ?? null : null
       const resolvedPlan = resolveAdminUserPlan({
         uid: doc.id,
         userData: data,
+        activeMembership: membership,
+        activeLicence,
         schoolLicencesByDomain,
       })
+      const membershipSchoolId = membership?.status === "active" ? membership.schoolId : null
+      const membershipLicenceId = membership?.status === "active" ? membership.licenceId : null
 
       userMap.set(
         doc.id,
@@ -238,6 +310,16 @@ export async function GET(request: Request) {
             proReason: resolvedPlan.planReason,
             planSource: resolvedPlan.planSource,
             planStatus: typeof data.planStatus === "string" ? data.planStatus : resolvedPlan.plan,
+            schoolId: membershipSchoolId ?? userMap.get(doc.id)?.schoolId ?? null,
+            schoolName:
+              (membershipSchoolId ? schoolsById.get(membershipSchoolId)?.schoolName : null) ??
+              userMap.get(doc.id)?.schoolName ??
+              null,
+            licenceId: membershipLicenceId ?? userMap.get(doc.id)?.licenceId ?? null,
+            licenceStatus:
+              (membershipLicenceId ? licencesById.get(membershipLicenceId)?.status : null) ??
+              userMap.get(doc.id)?.licenceStatus ??
+              null,
             createdAt: toTimestamp(data.createdAt),
             updatedAt: toTimestamp(data.updatedAt),
           },
