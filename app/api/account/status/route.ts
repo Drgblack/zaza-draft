@@ -4,8 +4,27 @@ import { getUserEntitlements } from "@/lib/entitlements"
 import { isInternalQaUid } from "@/lib/auth/internal-qa"
 import { extractBearerToken } from "@/lib/auth/bearer"
 import { resolveDraftEntitlement } from "@/lib/draft-entitlements"
+import { assertZazaDraftProject, FirebaseProjectSafetyError } from "@/lib/firebase/project-policy"
 
 export async function GET(request: Request) {
+  try {
+    assertZazaDraftProject({ context: "GET /api/account/status" })
+  } catch (error) {
+    if (error instanceof FirebaseProjectSafetyError) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: {
+            code: error.code,
+            message: error.message,
+          },
+        },
+        { status: 500 },
+      )
+    }
+    throw error
+  }
+
   const idToken = extractBearerToken(request)
   if (!idToken) {
     return NextResponse.json(

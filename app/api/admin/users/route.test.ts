@@ -1,9 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
 
 import { GET } from "@/app/api/admin/users/route"
+import { FirebaseProjectSafetyError } from "@/lib/firebase/project-policy"
 
 const mockAuthorizeFirebaseRequest = vi.fn()
 const mockGetUserProfile = vi.fn()
+const mockAssertZazaDraftProject = vi.fn()
 
 vi.mock("@/lib/firebase/server", () => ({
   authorizeFirebaseRequest: (...args: unknown[]) => mockAuthorizeFirebaseRequest(...args),
@@ -21,6 +23,16 @@ vi.mock("@/lib/auth/get-user-role", async () => {
   return {
     ...actual,
     getUserProfile: (...args: unknown[]) => mockGetUserProfile(...args),
+  }
+})
+
+vi.mock("@/lib/firebase/project-policy", async () => {
+  const actual = await vi.importActual<typeof import("@/lib/firebase/project-policy")>(
+    "@/lib/firebase/project-policy",
+  )
+  return {
+    ...actual,
+    assertZazaDraftProject: (...args: unknown[]) => mockAssertZazaDraftProject(...args),
   }
 })
 
@@ -59,7 +71,12 @@ describe("GET /api/admin/users", () => {
   beforeEach(() => {
     mockAuthorizeFirebaseRequest.mockReset()
     mockGetUserProfile.mockReset()
+    mockAssertZazaDraftProject.mockReset()
     mockGetUserProfile.mockResolvedValue({ role: "super_admin" })
+    mockAssertZazaDraftProject.mockReturnValue({
+      projectId: "zaza-draft-app",
+      overrideApplied: false,
+    })
   })
 
   it("includes users granted Pro through users/{uid}", async () => {
@@ -69,7 +86,7 @@ describe("GET /api/admin/users", () => {
           email: "shoshoshaer@gmail.com",
           plan: "pro",
           monthlyDraftLimit: 999,
-          entitlements: { planOverride: "pro" },
+          entitlements: { planOverride: "pro", reason: "influencer" },
         },
       },
     })
@@ -92,6 +109,8 @@ describe("GET /api/admin/users", () => {
           uid: "target-uid",
           email: "shoshoshaer@gmail.com",
           plan: "pro",
+          effectivePlan: "pro",
+          proReason: "influencer",
         }),
       ]),
     )
@@ -143,6 +162,22 @@ describe("GET /api/admin/users", () => {
       email: "greg@zazatechnologies.com",
       role: "super_admin",
       plan: "pro",
+    })
+  })
+
+  it("fails closed when Firebase points to the wrong project", async () => {
+    mockAssertZazaDraftProject.mockImplementation(() => {
+      throw new FirebaseProjectSafetyError("wrong project", {
+        activeProjectId: "zaza-id-and-licences",
+        expectedProjectId: "zaza-draft-app",
+        context: "GET /api/admin/users",
+      })
+    })
+
+    const response = await GET(new Request("https://app.zazadraft.com/api/admin/users"))
+    expect(response.status).toBe(500)
+    await expect(response.json()).resolves.toMatchObject({
+      error: { code: "FIREBASE_PROJECT_MISMATCH" },
     })
   })
 })

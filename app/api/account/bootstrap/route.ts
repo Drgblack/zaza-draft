@@ -1,9 +1,28 @@
 import { NextResponse } from "next/server"
 import { authorizeFirebaseRequest } from "@/lib/firebase/server"
+import { assertZazaDraftProject, FirebaseProjectSafetyError } from "@/lib/firebase/project-policy"
 import { ensureUserDocument } from "@/lib/account-bootstrap"
 import type { Firestore } from "firebase-admin/firestore"
 
 export async function POST(request: Request) {
+  try {
+    assertZazaDraftProject({ context: "POST /api/account/bootstrap" })
+  } catch (error) {
+    if (error instanceof FirebaseProjectSafetyError) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: {
+            code: error.code,
+            message: error.message,
+          },
+        },
+        { status: 500 },
+      )
+    }
+    throw error
+  }
+
   let authContext
   try {
     authContext = await authorizeFirebaseRequest(request)

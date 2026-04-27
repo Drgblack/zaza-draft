@@ -1,7 +1,9 @@
-import { afterEach, describe, expect, it, vi } from "vitest"
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
+import { FirebaseProjectSafetyError } from "@/lib/firebase/project-policy"
 
 const mockAuthorizeFirebaseRequest = vi.fn()
 const mockFetchDraftEntitlement = vi.fn()
+const mockAssertZazaDraftProject = vi.fn()
 
 vi.mock("@/lib/firebase/server", () => ({
   authorizeFirebaseRequest: (...args: unknown[]) => mockAuthorizeFirebaseRequest(...args),
@@ -30,6 +32,16 @@ vi.mock("@/lib/zaza-id/client", () => ({
   },
 }))
 
+vi.mock("@/lib/firebase/project-policy", async () => {
+  const actual = await vi.importActual<typeof import("@/lib/firebase/project-policy")>(
+    "@/lib/firebase/project-policy",
+  )
+  return {
+    ...actual,
+    assertZazaDraftProject: (...args: unknown[]) => mockAssertZazaDraftProject(...args),
+  }
+})
+
 import { GET } from "@/app/api/entitlements/route"
 import { FirebaseAuthorizationError } from "@/lib/firebase/server"
 import { ZazaIdClientError } from "@/lib/zaza-id/client"
@@ -44,6 +56,14 @@ const entitledPayload = {
   sourceOrgId: null,
   licenceId: "lic_1",
 }
+
+beforeEach(() => {
+  mockAssertZazaDraftProject.mockReset()
+  mockAssertZazaDraftProject.mockReturnValue({
+    projectId: "zaza-draft-app",
+    overrideApplied: false,
+  })
+})
 
 afterEach(() => {
   vi.clearAllMocks()
@@ -125,5 +145,29 @@ describe("/api/entitlements proxy", () => {
         }),
       }),
     )
+  })
+
+  it("fails closed when Firebase points to the wrong project", async () => {
+    mockAssertZazaDraftProject.mockImplementation(() => {
+      throw new FirebaseProjectSafetyError("wrong project", {
+        activeProjectId: "zaza-id-and-licences",
+        expectedProjectId: "zaza-draft-app",
+        context: "GET /api/entitlements",
+      })
+    })
+
+    const response = await GET(
+      new Request("http://localhost/api/entitlements", {
+        headers: {
+          Authorization: "Bearer token-123",
+        },
+      }),
+    )
+
+    expect(response.status).toBe(500)
+    await expect(response.json()).resolves.toMatchObject({
+      error: { code: "FIREBASE_PROJECT_MISMATCH" },
+    })
+    expect(mockAuthorizeFirebaseRequest).not.toHaveBeenCalled()
   })
 })

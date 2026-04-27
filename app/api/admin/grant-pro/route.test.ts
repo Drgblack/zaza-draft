@@ -1,11 +1,13 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
 
 import { POST } from "@/app/api/admin/grant-pro/route"
+import { FirebaseProjectSafetyError } from "@/lib/firebase/project-policy"
 
 const mockAuthorizeFirebaseRequest = vi.fn()
 const mockGetUserProfile = vi.fn()
 const mockCanAssignRoles = vi.fn()
 const mockGetUserByEmail = vi.fn()
+const mockAssertZazaDraftProject = vi.fn()
 
 vi.mock("@/lib/firebase/server", () => ({
   authorizeFirebaseRequest: (...args: unknown[]) => mockAuthorizeFirebaseRequest(...args),
@@ -23,6 +25,16 @@ vi.mock("@/lib/auth/get-user-role", () => ({
 vi.mock("@/lib/auth/roles", () => ({
   canAssignRoles: (...args: unknown[]) => mockCanAssignRoles(...args),
 }))
+
+vi.mock("@/lib/firebase/project-policy", async () => {
+  const actual = await vi.importActual<typeof import("@/lib/firebase/project-policy")>(
+    "@/lib/firebase/project-policy",
+  )
+  return {
+    ...actual,
+    assertZazaDraftProject: (...args: unknown[]) => mockAssertZazaDraftProject(...args),
+  }
+})
 
 function createFirestore(options?: { setError?: Error }) {
   const users = new Map<string, Record<string, unknown>>()
@@ -78,8 +90,13 @@ describe("POST /api/admin/grant-pro", () => {
     mockGetUserProfile.mockReset()
     mockCanAssignRoles.mockReset()
     mockGetUserByEmail.mockReset()
+    mockAssertZazaDraftProject.mockReset()
     mockGetUserProfile.mockResolvedValue({ role: "super_admin" })
     mockCanAssignRoles.mockReturnValue(true)
+    mockAssertZazaDraftProject.mockReturnValue({
+      projectId: "zaza-draft-app",
+      overrideApplied: false,
+    })
   })
 
   it("grants Pro access for a valid super admin request", async () => {
@@ -93,6 +110,7 @@ describe("POST /api/admin/grant-pro", () => {
     expect(payload).toEqual({
       success: true,
       uid: "target-uid",
+      reason: "manual upgrade",
     })
 
     expect(mockGetUserByEmail).toHaveBeenCalledWith("teacher@example.com")
@@ -103,6 +121,30 @@ describe("POST /api/admin/grant-pro", () => {
         planOverride: "pro",
         reason: "manual upgrade",
         expiresAt: null,
+      },
+    })
+  })
+
+  it("grants Pro access with a custom influencer reason", async () => {
+    const { firestore, users } = createFirestore()
+    mockGetUserByEmail.mockResolvedValue({ uid: "target-uid", email: "teacher@example.com" })
+
+    const response = await callPost(
+      { email: "teacher@example.com", reason: "influencer" },
+      { firestore },
+    )
+    expect(response.status).toBe(200)
+
+    await expect(response.json()).resolves.toEqual({
+      success: true,
+      uid: "target-uid",
+      reason: "influencer",
+    })
+
+    expect(users.get("target-uid")).toMatchObject({
+      entitlements: {
+        planOverride: "pro",
+        reason: "influencer",
       },
     })
   })
@@ -145,5 +187,22 @@ describe("POST /api/admin/grant-pro", () => {
 
     const payload = await response.json()
     expect(payload.error.code).toBe("FIRESTORE_UPDATE_FAILED")
+  })
+
+  it("fails closed when Firebase points to the wrong project", async () => {
+    mockAssertZazaDraftProject.mockImplementation(() => {
+      throw new FirebaseProjectSafetyError("wrong project", {
+        activeProjectId: "zaza-id-and-licences",
+        expectedProjectId: "zaza-draft-app",
+        context: "POST /api/admin/grant-pro",
+      })
+    })
+
+    const response = await callPost({ email: "teacher@example.com" })
+    expect(response.status).toBe(500)
+    await expect(response.json()).resolves.toMatchObject({
+      error: { code: "FIREBASE_PROJECT_MISMATCH" },
+    })
+    expect(mockAuthorizeFirebaseRequest).not.toHaveBeenCalled()
   })
 })

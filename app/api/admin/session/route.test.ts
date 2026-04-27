@@ -9,6 +9,7 @@ import AdminLoginPage from "@/app/admin/login/page"
 import { GET, POST } from "@/app/api/admin/session/route"
 import middleware, { shouldRequireAdminSession } from "@/middleware"
 import { ADMIN_SESSION_COOKIE_NAME } from "@/lib/auth/admin-session"
+import { FirebaseProjectSafetyError } from "@/lib/firebase/project-policy"
 
 const mockGetUserRole = vi.fn()
 const mockGetFirebaseAdmin = vi.fn()
@@ -17,6 +18,7 @@ const mockSendPasswordResetEmail = vi.fn()
 const mockSignOut = vi.fn()
 const mockRouterPush = vi.fn()
 const mockRouterReplace = vi.fn()
+const mockAssertZazaDraftProject = vi.fn()
 
 vi.mock("@/lib/auth/get-user-role", () => ({
   getUserRole: (...args: unknown[]) => mockGetUserRole(...args),
@@ -25,6 +27,16 @@ vi.mock("@/lib/auth/get-user-role", () => ({
 vi.mock("@/lib/firebase/admin", () => ({
   getFirebaseAdmin: () => mockGetFirebaseAdmin(),
 }))
+
+vi.mock("@/lib/firebase/project-policy", async () => {
+  const actual = await vi.importActual<typeof import("@/lib/firebase/project-policy")>(
+    "@/lib/firebase/project-policy",
+  )
+  return {
+    ...actual,
+    assertZazaDraftProject: (...args: unknown[]) => mockAssertZazaDraftProject(...args),
+  }
+})
 
 vi.mock("firebase/auth", () => ({
   signInWithEmailAndPassword: (...args: unknown[]) => mockSignInWithEmailAndPassword(...args),
@@ -60,8 +72,13 @@ describe("/api/admin/session", () => {
     mockSignOut.mockReset()
     mockRouterPush.mockReset()
     mockRouterReplace.mockReset()
+    mockAssertZazaDraftProject.mockReset()
     vi.restoreAllMocks()
     vi.unstubAllGlobals()
+    mockAssertZazaDraftProject.mockReturnValue({
+      projectId: "zaza-draft-app",
+      overrideApplied: false,
+    })
   })
 
   it("returns 200 with a session cookie for admins", async () => {
@@ -186,6 +203,23 @@ describe("/api/admin/session", () => {
         headers: { "Content-Type": "application/json" },
       }),
     )
+  })
+
+  it("fails closed when Firebase points to the wrong project", async () => {
+    mockAssertZazaDraftProject.mockImplementation(() => {
+      throw new FirebaseProjectSafetyError("wrong project", {
+        activeProjectId: "zaza-id-and-licences",
+        expectedProjectId: "zaza-draft-app",
+        context: "POST /api/admin/session",
+      })
+    })
+
+    const response = await POST(createRequest({ idToken: "valid-token" }))
+    expect(response.status).toBe(500)
+    await expect(response.json()).resolves.toMatchObject({
+      error: { code: "FIREBASE_PROJECT_MISMATCH" },
+    })
+    expect(mockGetFirebaseAdmin).not.toHaveBeenCalled()
   })
 
   it("sends a password reset email from the login page", async () => {

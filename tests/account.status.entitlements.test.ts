@@ -1,9 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import { refreshForcedProUserIds } from "@/lib/dev/forced-pro-users"
+import { FirebaseProjectSafetyError } from "@/lib/firebase/project-policy"
 
 const mockAuthorizeFirebaseRequest = vi.fn()
 const mockGetUserEntitlements = vi.fn()
 const mockIsInternalQaUid = vi.fn()
+const mockAssertZazaDraftProject = vi.fn()
 
 vi.mock("@/lib/firebase/server", () => ({
   authorizeFirebaseRequest: (...args: unknown[]) => mockAuthorizeFirebaseRequest(...args),
@@ -25,6 +27,16 @@ vi.mock("@/lib/entitlements", () => ({
 vi.mock("@/lib/auth/internal-qa", () => ({
   isInternalQaUid: (...args: unknown[]) => mockIsInternalQaUid(...args),
 }))
+
+vi.mock("@/lib/firebase/project-policy", async () => {
+  const actual = await vi.importActual<typeof import("@/lib/firebase/project-policy")>(
+    "@/lib/firebase/project-policy",
+  )
+  return {
+    ...actual,
+    assertZazaDraftProject: (...args: unknown[]) => mockAssertZazaDraftProject(...args),
+  }
+})
 
 import { GET } from "@/app/api/account/status/route"
 
@@ -106,6 +118,11 @@ describe("/api/account/status Zaza ID entitlement wiring", () => {
     global.fetch = vi.fn()
     mockIsInternalQaUid.mockReturnValue(false)
     mockGetUserEntitlements.mockResolvedValue(localEntitlements)
+    mockAssertZazaDraftProject.mockReset()
+    mockAssertZazaDraftProject.mockReturnValue({
+      projectId: "zaza-draft-app",
+      overrideApplied: false,
+    })
     mockAuthorizeFirebaseRequest.mockResolvedValue({
       uid: "uid-1",
       auth: null,
@@ -216,5 +233,22 @@ describe("/api/account/status Zaza ID entitlement wiring", () => {
       }),
     )
     expect(global.fetch).not.toHaveBeenCalled()
+  })
+
+  it("fails closed when Firebase points to the wrong project", async () => {
+    mockAssertZazaDraftProject.mockImplementation(() => {
+      throw new FirebaseProjectSafetyError("wrong project", {
+        activeProjectId: "zaza-id-and-licences",
+        expectedProjectId: "zaza-draft-app",
+        context: "GET /api/account/status",
+      })
+    })
+
+    const response = await GET(buildRequest(true))
+    expect(response.status).toBe(500)
+    await expect(response.json()).resolves.toMatchObject({
+      error: { code: "FIREBASE_PROJECT_MISMATCH" },
+    })
+    expect(mockAuthorizeFirebaseRequest).not.toHaveBeenCalled()
   })
 })

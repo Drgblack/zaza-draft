@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { authorizeFirebaseRequest, FirebaseAuthorizationError } from "@/lib/firebase/server"
 import { fetchDraftEntitlement, ZazaIdClientError } from "@/lib/zaza-id/client"
+import { assertZazaDraftProject, FirebaseProjectSafetyError } from "@/lib/firebase/project-policy"
 
 function extractBearerToken(request: Request) {
   const authHeader = request.headers.get("authorization") || request.headers.get("Authorization")
@@ -12,6 +13,24 @@ function extractBearerToken(request: Request) {
 }
 
 export async function GET(request: Request) {
+  try {
+    assertZazaDraftProject({ context: "GET /api/entitlements" })
+  } catch (error) {
+    if (error instanceof FirebaseProjectSafetyError) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: {
+            code: error.code,
+            message: error.message,
+          },
+        },
+        { status: 500 },
+      )
+    }
+    throw error
+  }
+
   try {
     await authorizeFirebaseRequest(request)
   } catch (error) {

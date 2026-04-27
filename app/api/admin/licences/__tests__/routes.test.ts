@@ -1,6 +1,7 @@
 import type { Firestore } from "firebase-admin/firestore"
 
 import { beforeEach, describe, expect, it, vi } from "vitest"
+import { FirebaseProjectSafetyError } from "@/lib/firebase/project-policy"
 
 import * as internalQa from "@/lib/auth/internal-qa"
 
@@ -8,6 +9,7 @@ import { POST as grantRoute } from "@/app/api/admin/licences/grant/route"
 import { POST as revokeRoute } from "@/app/api/admin/licences/revoke/route"
 
 const mockAuthorize = vi.fn()
+const mockAssertZazaDraftProject = vi.fn()
 
 vi.mock("@/lib/firebase/server", () => ({
   authorizeFirebaseRequest: () => mockAuthorize(),
@@ -21,6 +23,16 @@ vi.mock("@/lib/firebase/server", () => ({
 vi.mock("@/lib/auth/internal-qa", () => ({
   isAdminUid: vi.fn(),
 }))
+
+vi.mock("@/lib/firebase/project-policy", async () => {
+  const actual = await vi.importActual<typeof import("@/lib/firebase/project-policy")>(
+    "@/lib/firebase/project-policy",
+  )
+  return {
+    ...actual,
+    assertZazaDraftProject: (...args: unknown[]) => mockAssertZazaDraftProject(...args),
+  }
+})
 
 function createMockFirestore() {
   const docMap = new Map<
@@ -61,6 +73,11 @@ async function callRoute(route: (request: Request) => Promise<Response>, body: R
 describe("admin licence routes", () => {
   beforeEach(() => {
     mockAuthorize.mockReset()
+    mockAssertZazaDraftProject.mockReset()
+    mockAssertZazaDraftProject.mockReturnValue({
+      projectId: "zaza-draft-app",
+      overrideApplied: false,
+    })
     vi.mocked(internalQa.isAdminUid).mockReset()
   })
 
@@ -199,5 +216,23 @@ describe("admin licence routes", () => {
     expect(response.status).toBe(200)
     const doc = docMap.get("schoolLicences/school.edu")
     expect(doc?.delete).toHaveBeenCalled()
+  })
+
+  it("fails closed when Firebase points to the wrong project", async () => {
+    mockAssertZazaDraftProject.mockImplementation(() => {
+      throw new FirebaseProjectSafetyError("wrong project", {
+        activeProjectId: "zaza-id-and-licences",
+        expectedProjectId: "zaza-draft-app",
+        context: "POST /api/admin/licences/grant",
+      })
+    })
+
+    const response = await callRoute(grantRoute, { type: "uid", uid: "teacher", plan: "pro" })
+    expect(response.status).toBe(500)
+    await expect(response.json()).resolves.toMatchObject({
+      ok: false,
+      error: { code: "FIREBASE_PROJECT_MISMATCH" },
+    })
+    expect(mockAuthorize).not.toHaveBeenCalled()
   })
 })

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server"
 import { authorizeFirebaseRequest, FirebaseAuthorizationError } from "@/lib/firebase/server"
+import { assertZazaDraftProject, FirebaseProjectSafetyError } from "@/lib/firebase/project-policy"
 import { getUserEntitlements } from "@/lib/entitlements"
 import { getConfiguredModelNames } from "@/lib/ai/provider"
 import {
@@ -9,6 +10,24 @@ import {
 } from "@/lib/diagnostics/merge-last-run"
 
 export async function GET(request: Request) {
+  try {
+    assertZazaDraftProject({ context: "GET /api/diagnostics" })
+  } catch (error) {
+    if (error instanceof FirebaseProjectSafetyError) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: {
+            code: error.code,
+            message: error.message,
+          },
+        },
+        { status: 500 },
+      )
+    }
+    throw error
+  }
+
   let authContext
   try {
     authContext = await authorizeFirebaseRequest(request)

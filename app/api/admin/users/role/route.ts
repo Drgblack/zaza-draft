@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 
 import { getUserProfile, invalidateUserRoleCache } from "@/lib/auth/get-user-role"
 import { canAssignRoles, type ZazaRole } from "@/lib/auth/roles"
+import { assertZazaDraftProject, FirebaseProjectSafetyError } from "@/lib/firebase/project-policy"
 import { authorizeFirebaseRequest, FirebaseAuthorizationError } from "@/lib/firebase/server"
 
 const ASSIGNABLE_ROLES: ZazaRole[] = ["admin", "school_admin", "teacher", "teacher_free"]
@@ -21,6 +22,8 @@ function fail(status: number, message: string) {
 
 export async function PATCH(request: Request) {
   try {
+    assertZazaDraftProject({ context: "PATCH /api/admin/users/role" })
+
     const authContext = await authorizeFirebaseRequest(request)
     const { auth, firestore } = authContext
     if (!firestore) {
@@ -124,6 +127,19 @@ export async function PATCH(request: Request) {
 
     return NextResponse.json({ success: true, updated: true })
   } catch (error) {
+    if (error instanceof FirebaseProjectSafetyError) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: {
+            code: error.code,
+            message: error.message,
+          },
+        },
+        { status: 500 },
+      )
+    }
+
     const status = error instanceof FirebaseAuthorizationError ? error.statusCode : 500
     return fail(status, (error as Error)?.message ?? "Unable to update user role")
   }

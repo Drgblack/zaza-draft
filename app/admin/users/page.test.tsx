@@ -51,7 +51,10 @@ describe("AdminUsersPage grant Pro action", () => {
                 uid: "teacher-uid",
                 email: "teacher@example.com",
                 role: "teacher",
+                plan: "free",
+                effectivePlan: "free",
                 planStatus: "free",
+                proReason: null,
                 schoolId: null,
                 createdAt: 1710000000000,
               },
@@ -80,6 +83,9 @@ describe("AdminUsersPage grant Pro action", () => {
     fireEvent.change(screen.getByLabelText("User email"), {
       target: { value: "teacher@example.com" },
     })
+    fireEvent.change(screen.getByLabelText("Reason"), {
+      target: { value: "influencer" },
+    })
     fireEvent.click(screen.getByRole("button", { name: "Grant Pro" }))
 
     await waitFor(() => {
@@ -89,7 +95,7 @@ describe("AdminUsersPage grant Pro action", () => {
             url === "/api/admin/grant-pro" &&
             (options as RequestInit | undefined)?.method === "POST" &&
             (options as RequestInit | undefined)?.body ===
-              JSON.stringify({ email: "teacher@example.com" }) &&
+              JSON.stringify({ email: "teacher@example.com", reason: "influencer" }) &&
             (options as RequestInit | undefined)?.headers &&
             (options as { headers?: Record<string, string> }).headers?.Authorization ===
               "Bearer firebase-token",
@@ -97,5 +103,121 @@ describe("AdminUsersPage grant Pro action", () => {
       ).toBe(true)
     })
     expect(await screen.findByText("Pro access granted")).toBeInTheDocument()
+  })
+
+  it("saves a plan change through the set-plan endpoint", async () => {
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockImplementation(async (input, init) => {
+      const url = typeof input === "string" ? input : input instanceof Request ? input.url : ""
+      if (url === "/api/admin/users") {
+        return {
+          ok: true,
+          json: async () => ({
+            success: true,
+            users: [
+              {
+                uid: "teacher-uid",
+                email: "teacher@example.com",
+                role: "teacher",
+                plan: "free",
+                effectivePlan: "free",
+                planStatus: "free",
+                proReason: null,
+                schoolId: null,
+                createdAt: 1710000000000,
+              },
+            ],
+          }),
+        } as Response
+      }
+
+      if (url === "/api/admin/set-plan") {
+        return {
+          ok: true,
+          json: async () => ({
+            success: true,
+            uid: "teacher-uid",
+            plan: "pro",
+          }),
+        } as Response
+      }
+
+      throw new Error(`Unexpected fetch call: ${url} (${(init as RequestInit | undefined)?.method ?? "GET"})`)
+    })
+
+    render(<AdminUsersPage />)
+
+    await screen.findByText("teacher@example.com")
+
+    fireEvent.change(screen.getByDisplayValue("free"), {
+      target: { value: "pro" },
+    })
+    fireEvent.change(screen.getByLabelText("Reason for teacher@example.com"), {
+      target: { value: "school pilot" },
+    })
+    fireEvent.click(screen.getByRole("button", { name: "Save" }))
+
+    await waitFor(() => {
+      expect(
+        fetchMock.mock.calls.some(
+          ([url, options]) =>
+            url === "/api/admin/set-plan" &&
+            (options as RequestInit | undefined)?.method === "PATCH" &&
+            (options as RequestInit | undefined)?.body ===
+              JSON.stringify({
+                email: "teacher@example.com",
+                plan: "pro",
+                reason: "school pilot",
+              }),
+        ),
+      ).toBe(true)
+    })
+
+    expect(await screen.findByText("Plan updated")).toBeInTheDocument()
+  })
+
+  it("shows the Pro reason in the table and shows an em dash for free users", async () => {
+    vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
+      const url = typeof input === "string" ? input : input instanceof Request ? input.url : ""
+      if (url === "/api/admin/users") {
+        return {
+          ok: true,
+          json: async () => ({
+            success: true,
+            users: [
+              {
+                uid: "pro-uid",
+                email: "pro@example.com",
+                role: "teacher",
+                plan: "pro",
+                effectivePlan: "pro",
+                planStatus: "pro",
+                proReason: "early supporter",
+                schoolId: null,
+                createdAt: 1710000000000,
+              },
+              {
+                uid: "free-uid",
+                email: "free@example.com",
+                role: "teacher",
+                plan: "free",
+                effectivePlan: "free",
+                planStatus: "free",
+                proReason: null,
+                schoolId: null,
+                createdAt: 1710000000000,
+              },
+            ],
+          }),
+        } as Response
+      }
+
+      throw new Error(`Unexpected fetch call: ${url}`)
+    })
+
+    render(<AdminUsersPage />)
+
+    await screen.findByText("pro@example.com")
+    expect(screen.getByDisplayValue("early supporter")).toBeInTheDocument()
+    expect(screen.getAllByText("—").length).toBeGreaterThan(0)
   })
 })

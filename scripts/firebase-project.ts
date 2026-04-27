@@ -1,5 +1,5 @@
 import {
-  isZazaDraftProductionProject,
+  assertZazaDraftProject,
   ZAZA_DRAFT_PRODUCTION_FIREBASE_PROJECT_ID,
 } from "../lib/firebase/project-policy"
 
@@ -21,15 +21,14 @@ export function prepareFirebaseScriptEnvironment(options: {
   const projectId = process.env.FIREBASE_PROJECT_ID.trim()
   const allowProjectOverride = hasFlag("--allow-project-override")
 
-  if (options.mutatesProtectedUserState && !isZazaDraftProductionProject(projectId)) {
-    const warning =
-      `[firebase-project] ${options.scriptName} is about to modify users, roles, entitlements, or user_profiles in ${projectId}. ` +
-      `This is blocked by default. Re-run with --allow-project-override only if you intentionally need a non-production project.`
-
-    console.error(warning)
-    if (!allowProjectOverride) {
-      throw new Error("Blocked by Firebase project safety guard.")
-    }
+  if (options.mutatesProtectedUserState) {
+    assertZazaDraftProject({
+      context: options.scriptName,
+      mode: "script",
+      allowOverrideFlag: allowProjectOverride,
+      mutatesProtectedUserState: options.mutatesProtectedUserState,
+      projectId,
+    })
   }
 
   return {

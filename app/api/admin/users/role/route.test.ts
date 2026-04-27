@@ -1,8 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
 
 import { PATCH } from "@/app/api/admin/users/role/route"
+import { FirebaseProjectSafetyError } from "@/lib/firebase/project-policy"
 
 const mockAuthorizeFirebaseRequest = vi.fn()
+const mockAssertZazaDraftProject = vi.fn()
 
 vi.mock("@/lib/firebase/server", () => ({
   authorizeFirebaseRequest: (...args: unknown[]) => mockAuthorizeFirebaseRequest(...args),
@@ -12,6 +14,16 @@ vi.mock("@/lib/firebase/server", () => ({
     }
   },
 }))
+
+vi.mock("@/lib/firebase/project-policy", async () => {
+  const actual = await vi.importActual<typeof import("@/lib/firebase/project-policy")>(
+    "@/lib/firebase/project-policy",
+  )
+  return {
+    ...actual,
+    assertZazaDraftProject: (...args: unknown[]) => mockAssertZazaDraftProject(...args),
+  }
+})
 
 function createFirestore(options?: {
   profiles?: Record<string, Record<string, unknown>>
@@ -67,6 +79,11 @@ async function callPatch(
 describe("PATCH /api/admin/users/role", () => {
   beforeEach(() => {
     mockAuthorizeFirebaseRequest.mockReset()
+    mockAssertZazaDraftProject.mockReset()
+    mockAssertZazaDraftProject.mockReturnValue({
+      projectId: "zaza-draft-app",
+      overrideApplied: false,
+    })
   })
 
   it("updates a role when user_profiles/{uid} already exists", async () => {
@@ -156,5 +173,30 @@ describe("PATCH /api/admin/users/role", () => {
       firestore,
     )
     expect(response.status).toBe(400)
+  })
+
+  it("fails closed when Firebase points to the wrong project", async () => {
+    const { firestore } = createFirestore({
+      profiles: {
+        "super-admin": { role: "super_admin", email: "greg@zazadraft.com" },
+      },
+    })
+    mockAssertZazaDraftProject.mockImplementation(() => {
+      throw new FirebaseProjectSafetyError("wrong project", {
+        activeProjectId: "zaza-id-and-licences",
+        expectedProjectId: "zaza-draft-app",
+        context: "PATCH /api/admin/users/role",
+      })
+    })
+
+    const response = await callPatch(
+      { targetUid: "target", newRole: "teacher_free" },
+      firestore,
+    )
+
+    expect(response.status).toBe(500)
+    await expect(response.json()).resolves.toMatchObject({
+      error: { code: "FIREBASE_PROJECT_MISMATCH" },
+    })
   })
 })

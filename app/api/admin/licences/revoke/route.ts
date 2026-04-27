@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server"
 
-import { authorizeFirebaseRequest, FirebaseAuthorizationError } from "@/lib/firebase/server"
 import { isAdminUid } from "@/lib/auth/internal-qa"
+import { assertZazaDraftProject, FirebaseProjectSafetyError } from "@/lib/firebase/project-policy"
+import { authorizeFirebaseRequest, FirebaseAuthorizationError } from "@/lib/firebase/server"
 
 interface RevokeByUid {
   type: "uid"
@@ -60,6 +61,24 @@ async function authorizeAdmin(request: Request) {
 }
 
 export async function POST(request: Request) {
+  try {
+    assertZazaDraftProject({ context: "POST /api/admin/licences/revoke" })
+  } catch (error) {
+    if (error instanceof FirebaseProjectSafetyError) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error: {
+            code: error.code,
+            message: error.message,
+          },
+        },
+        { status: 500 },
+      )
+    }
+    throw error
+  }
+
   const authResult = await authorizeAdmin(request)
   if (authResult instanceof NextResponse) {
     return authResult

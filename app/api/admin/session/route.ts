@@ -7,6 +7,7 @@ import {
 } from "@/lib/auth/admin-session"
 import { getUserRole } from "@/lib/auth/get-user-role"
 import { hasAdminAccess } from "@/lib/auth/roles"
+import { assertZazaDraftProject, FirebaseProjectSafetyError } from "@/lib/firebase/project-policy"
 import { getFirebaseAdmin } from "@/lib/firebase/admin"
 
 function fail(status: number, code: string, message: string) {
@@ -27,6 +28,15 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
+  try {
+    assertZazaDraftProject({ context: "POST /api/admin/session" })
+  } catch (error) {
+    if (error instanceof FirebaseProjectSafetyError) {
+      return fail(500, error.code, error.message)
+    }
+    throw error
+  }
+
   const body = (await request.json().catch(() => null)) as { idToken?: string } | null
   if (!body?.idToken || typeof body.idToken !== "string") {
     return fail(400, "ID_TOKEN_REQUIRED", "A Firebase ID token is required.")

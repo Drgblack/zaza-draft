@@ -3,13 +3,16 @@ import { NextResponse } from "next/server"
 import { authorizeFirebaseRequest, FirebaseAuthorizationError } from "@/lib/firebase/server"
 import { getUserProfile } from "@/lib/auth/get-user-role"
 import { canAssignRoles, type ZazaRole } from "@/lib/auth/roles"
+import { assertZazaDraftProject, FirebaseProjectSafetyError } from "@/lib/firebase/project-policy"
 
 type AdminUserRecord = {
   uid: string
   email: string
   role: ZazaRole
   plan: string
+  effectivePlan: string
   planStatus: string
+  proReason: string | null
   schoolId: string | null
   createdAt: number
   updatedAt: number
@@ -60,7 +63,9 @@ function mergeAdminUser(
     email: source.email ?? existing?.email ?? "",
     role: source.role ?? existing?.role ?? "teacher_free",
     plan: source.plan ?? existing?.plan ?? "free",
+    effectivePlan: source.effectivePlan ?? existing?.effectivePlan ?? source.plan ?? existing?.plan ?? "free",
     planStatus: source.planStatus ?? existing?.planStatus ?? "free",
+    proReason: source.proReason ?? existing?.proReason ?? null,
     schoolId: source.schoolId ?? existing?.schoolId ?? null,
     createdAt: source.createdAt ?? existing?.createdAt ?? 0,
     updatedAt: source.updatedAt ?? existing?.updatedAt ?? 0,
@@ -69,6 +74,8 @@ function mergeAdminUser(
 
 export async function GET(request: Request) {
   try {
+    assertZazaDraftProject({ context: "GET /api/admin/users" })
+
     const authContext = await authorizeFirebaseRequest(request)
     const { auth, firestore } = authContext
     if (!firestore) {
@@ -147,12 +154,27 @@ export async function GET(request: Request) {
 
     for (const doc of userSnapshot.docs) {
       const data = doc.data() as Record<string, unknown>
+      const entitlementOverride =
+        typeof data.entitlements === "object" &&
+        data.entitlements !== null &&
+        typeof (data.entitlements as Record<string, unknown>).planOverride === "string"
+          ? (data.entitlements as Record<string, unknown>).planOverride as string
+          : null
       const plan =
         typeof data.plan === "string"
           ? data.plan
           : typeof data.accountType === "string"
             ? data.accountType
             : "free"
+      const effectivePlan = entitlementOverride === "pro" ? "pro" : plan
+      const entitlementsReason =
+        typeof data.entitlements === "object" &&
+        data.entitlements !== null &&
+        typeof (data.entitlements as Record<string, unknown>).reason === "string"
+          ? (data.entitlements as Record<string, unknown>).reason as string
+          : typeof data.reason === "string"
+            ? data.reason
+            : null
       userMap.set(
         doc.id,
         mergeAdminUser(
@@ -160,7 +182,9 @@ export async function GET(request: Request) {
             uid: doc.id,
             email: typeof data.email === "string" ? data.email : undefined,
             plan,
+            effectivePlan,
             planStatus: typeof data.planStatus === "string" ? data.planStatus : plan,
+            proReason: effectivePlan === "pro" ? entitlementsReason : null,
             createdAt: toTimestamp(data.createdAt),
             updatedAt: toTimestamp(data.updatedAt),
           },
@@ -188,6 +212,19 @@ export async function GET(request: Request) {
 
     return NextResponse.json({ success: true, users })
   } catch (error) {
+    if (error instanceof FirebaseProjectSafetyError) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: {
+            code: error.code,
+            message: error.message,
+          },
+        },
+        { status: 500 },
+      )
+    }
+
     const status = error instanceof FirebaseAuthorizationError ? error.statusCode : 500
     return NextResponse.json(
       {
