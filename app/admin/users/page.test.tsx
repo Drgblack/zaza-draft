@@ -47,6 +47,7 @@ describe("AdminUsersPage", () => {
     getIdTokenMock.mockResolvedValue("firebase-token")
     useAuthMock.mockReturnValue({
       status: "authenticated",
+      role: "super_admin",
       getIdToken: getIdTokenMock,
     })
   })
@@ -69,6 +70,8 @@ describe("AdminUsersPage", () => {
                 planReason: null,
                 proReason: null,
                 schoolId: null,
+                schoolName: null,
+                licenceStatus: null,
                 createdAt: 1710000000000,
               },
             ]),
@@ -134,6 +137,8 @@ describe("AdminUsersPage", () => {
                 planReason: null,
                 proReason: null,
                 schoolId: null,
+                schoolName: null,
+                licenceStatus: null,
                 createdAt: 1710000000000,
               },
             ]),
@@ -204,6 +209,8 @@ describe("AdminUsersPage", () => {
                 planReason: "early supporter",
                 proReason: "early supporter",
                 schoolId: null,
+                schoolName: null,
+                licenceStatus: null,
                 createdAt: 1710000000000,
               },
               {
@@ -216,6 +223,8 @@ describe("AdminUsersPage", () => {
                 planReason: null,
                 proReason: null,
                 schoolId: null,
+                schoolName: null,
+                licenceStatus: null,
                 createdAt: 1710000000000,
               },
             ]),
@@ -253,6 +262,8 @@ describe("AdminUsersPage", () => {
                   planReason: null,
                   proReason: null,
                   schoolId: null,
+                  schoolName: null,
+                  licenceStatus: null,
                   createdAt: 1710000000000 + page,
                 },
               ],
@@ -306,5 +317,44 @@ describe("AdminUsersPage", () => {
 
     await waitFor(() => expect(screen.getByText("Page 2 of 2")).toBeInTheDocument())
     await waitFor(() => expect(screen.getByText("teacher2@example.com")).toBeInTheDocument())
+  })
+
+  it("shows the Licences nav link and renders school and licence columns", async () => {
+    vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
+      const url = typeof input === "string" ? input : input instanceof Request ? input.url : ""
+      if (url.startsWith("/api/admin/users?")) {
+        return {
+          ok: true,
+          json: async () =>
+            buildUsersResponse([
+              {
+                uid: "teacher-uid",
+                email: "teacher@example.com",
+                role: "teacher",
+                plan: "free",
+                effectivePlan: "free",
+                planStatus: "free",
+                planReason: null,
+                proReason: null,
+                schoolId: "school-1",
+                schoolName: "North High",
+                licenceStatus: "active",
+                createdAt: 1710000000000,
+              },
+            ]),
+        } as Response
+      }
+
+      throw new Error(`Unexpected fetch call: ${url}`)
+    })
+
+    render(<AdminUsersPage />)
+
+    expect(await screen.findByText("teacher@example.com")).toBeInTheDocument()
+    expect(screen.getByRole("link", { name: "Licences" })).toBeInTheDocument()
+    expect(screen.getByRole("columnheader", { name: "School" })).toBeInTheDocument()
+    expect(screen.getByRole("columnheader", { name: "Licence" })).toBeInTheDocument()
+    expect(screen.getByText("North High")).toBeInTheDocument()
+    expect(screen.getByText("active")).toBeInTheDocument()
   })
 })

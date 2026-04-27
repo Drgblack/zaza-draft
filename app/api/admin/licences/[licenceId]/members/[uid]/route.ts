@@ -8,9 +8,13 @@ function fail(status: number, code: string, message: string) {
   return NextResponse.json({ success: false, error: { code, message } }, { status })
 }
 
+type LicenceMemberRouteContext = {
+  params: Promise<{ licenceId: string; uid: string }>
+}
+
 export async function DELETE(
   request: Request,
-  { params }: { params: { licenceId: string; uid: string } },
+  { params }: LicenceMemberRouteContext,
 ) {
   try {
     assertZazaDraftProject({ context: "DELETE /api/admin/licences/:licenceId/members/:uid" })
@@ -19,11 +23,13 @@ export async function DELETE(
       return authResult.response
     }
 
+    const { licenceId, uid } = await params
+
     try {
       await removeUserFromLicence({
         firestore: authResult.firestore,
-        targetUid: params.uid,
-        licenceId: params.licenceId,
+        targetUid: uid,
+        licenceId,
       })
     } catch (error) {
       const message = (error as Error).message
@@ -36,7 +42,7 @@ export async function DELETE(
       throw error
     }
 
-    return NextResponse.json({ success: true, licenceId: params.licenceId, uid: params.uid })
+    return NextResponse.json({ success: true, licenceId, uid })
   } catch (error) {
     if (error instanceof FirebaseProjectSafetyError) {
       return fail(500, error.code, error.message)

@@ -1,9 +1,9 @@
 "use client"
 
 import { useEffect, useMemo, useState } from "react"
-import Link from "next/link"
 import { useRouter } from "next/navigation"
 
+import { AdminNav } from "@/components/admin/admin-nav"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { useAuth } from "@/hooks/use-auth"
@@ -19,6 +19,8 @@ type AdminUser = {
   planReason?: string | null
   proReason?: string | null
   schoolId: string | null
+  schoolName?: string | null
+  licenceStatus?: string | null
   createdAt: number
 }
 
@@ -115,7 +117,7 @@ function getUserPlanReason(user: AdminUser) {
 
 export default function AdminUsersPage() {
   const router = useRouter()
-  const { status, getIdToken } = useAuth()
+  const { status, getIdToken, role } = useAuth()
 
   const [users, setUsers] = useState<AdminUser[]>([])
   const [page, setPage] = useState(1)
@@ -390,14 +392,7 @@ export default function AdminUsersPage() {
             Super admin only. Assign internal and school roles here.
           </p>
         </div>
-        <nav className="flex items-center gap-3">
-          <Link href="/admin/analytics">
-            <Button variant="outline">Analytics</Button>
-          </Link>
-          <Link href="/admin/users">
-            <Button variant="secondary">Users</Button>
-          </Link>
-        </nav>
+        <AdminNav active="users" canManageUsers={role === "super_admin"} />
       </header>
 
       {loading ? (
@@ -561,6 +556,8 @@ export default function AdminUsersPage() {
                   <th className="px-4 py-3 font-medium">Role</th>
                   <th className="px-4 py-3 font-medium">Effective plan</th>
                   <th className="px-4 py-3 font-medium">Plan reason</th>
+                  <th className="px-4 py-3 font-medium">School</th>
+                  <th className="px-4 py-3 font-medium">Licence</th>
                   <th className="px-4 py-3 font-medium">Created</th>
                   <th className="px-4 py-3 font-medium">Action</th>
                 </tr>
@@ -674,6 +671,8 @@ export default function AdminUsersPage() {
                         "—"
                       )}
                     </td>
+                    <td className="px-4 py-3 text-slate-600">{user.schoolName ?? "—"}</td>
+                    <td className="px-4 py-3 text-slate-600">{user.licenceStatus ?? "—"}</td>
                     <td className="px-4 py-3 text-slate-600">{formatDate(user.createdAt)}</td>
                     <td className="px-4 py-3">
                       {user.role === "super_admin" ? (
@@ -692,7 +691,7 @@ export default function AdminUsersPage() {
                 ))}
                 {users.length === 0 ? (
                   <tr>
-                    <td colSpan={7} className="px-4 py-8 text-center text-sm text-slate-500">
+                    <td colSpan={9} className="px-4 py-8 text-center text-sm text-slate-500">
                       No users match the current filters.
                     </td>
                   </tr>

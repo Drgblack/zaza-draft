@@ -4,11 +4,15 @@ import { authorizeAdminRequest } from "@/lib/admin/api-auth"
 import { assignUserToLicence } from "@/lib/admin/licences"
 import { assertZazaDraftProject, FirebaseProjectSafetyError } from "@/lib/firebase/project-policy"
 
+type LicenceMembersRouteContext = {
+  params: Promise<{ licenceId: string }>
+}
+
 function fail(status: number, code: string, message: string) {
   return NextResponse.json({ success: false, error: { code, message } }, { status })
 }
 
-export async function POST(request: Request, { params }: { params: { licenceId: string } }) {
+export async function POST(request: Request, { params }: LicenceMembersRouteContext) {
   try {
     assertZazaDraftProject({ context: "POST /api/admin/licences/:licenceId/members" })
     const authResult = await authorizeAdminRequest(request, "super_admin")
@@ -23,12 +27,13 @@ export async function POST(request: Request, { params }: { params: { licenceId: 
     }
 
     const authUser = authResult.auth ? await authResult.auth.getUser(targetUid).catch(() => null) : null
+    const { licenceId } = await params
 
     try {
       const result = await assignUserToLicence({
         firestore: authResult.firestore,
         targetUid,
-        licenceId: params.licenceId,
+        licenceId,
         adminUid: authResult.uid,
         fallbackEmail: authUser?.email ?? null,
       })
@@ -36,7 +41,7 @@ export async function POST(request: Request, { params }: { params: { licenceId: 
       return NextResponse.json({
         success: true,
         targetUid,
-        licenceId: params.licenceId,
+        licenceId,
         alreadyAssigned: result.alreadyAssigned,
       })
     } catch (error) {

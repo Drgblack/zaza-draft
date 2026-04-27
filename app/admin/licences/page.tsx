@@ -38,7 +38,7 @@ function formatDate(timestamp: number) {
 
 export default function AdminLicencesPage() {
   const router = useRouter()
-  const { status, getIdToken } = useAuth()
+  const { status, getIdToken, role } = useAuth()
 
   const [items, setItems] = useState<LicenceListItem[]>([])
   const [page, setPage] = useState(1)
@@ -47,7 +47,6 @@ export default function AdminLicencesPage() {
   const [loading, setLoading] = useState(true)
   const [creating, setCreating] = useState(false)
   const [successMessage, setSuccessMessage] = useState<string | null>(null)
-  const [canManage, setCanManage] = useState(false)
   const [form, setForm] = useState({
     schoolName: "",
     contactEmail: "",
@@ -66,6 +65,8 @@ export default function AdminLicencesPage() {
     params.set("pageSize", "25")
     return params.toString()
   }, [page])
+
+  const canManage = role === "super_admin"
 
   useEffect(() => {
     if (status === "unauthenticated") {
@@ -109,7 +110,6 @@ export default function AdminLicencesPage() {
         setItems(payload.items)
         setPage(payload.page)
         setTotalPages(payload.totalPages)
-        setCanManage(true)
       } catch (loadError) {
         if (active) {
           setError((loadError as Error)?.message ?? "Unable to load school licences.")
@@ -188,35 +188,37 @@ export default function AdminLicencesPage() {
         <AdminNav active="licences" canManageUsers={canManage} />
       </header>
 
-      <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-        <h2 className="text-lg font-semibold text-slate-950">Create school licence</h2>
-        <div className="mt-4 grid gap-3 md:grid-cols-2">
-          <Input aria-label="School name" placeholder="School name" value={form.schoolName} onChange={(event) => setForm((current) => ({ ...current, schoolName: event.target.value }))} />
-          <Input aria-label="Contact email" placeholder="Contact email" value={form.contactEmail} onChange={(event) => setForm((current) => ({ ...current, contactEmail: event.target.value }))} />
-          <Input aria-label="Domains" placeholder="Domains (comma separated)" value={form.domains} onChange={(event) => setForm((current) => ({ ...current, domains: event.target.value }))} />
-          <Input aria-label="Seat limit" placeholder="Seat limit" value={form.seatLimit} onChange={(event) => setForm((current) => ({ ...current, seatLimit: event.target.value }))} />
-          <select aria-label="Licence type" value={form.licenceType} onChange={(event) => setForm((current) => ({ ...current, licenceType: event.target.value as "school" | "district" }))} className="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900">
-            <option value="school">school</option>
-            <option value="district">district</option>
-          </select>
-          <select aria-label="Status" value={form.status} onChange={(event) => setForm((current) => ({ ...current, status: event.target.value as "trial" | "active" | "expired" | "cancelled" }))} className="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900">
-            <option value="trial">trial</option>
-            <option value="active">active</option>
-            <option value="expired">expired</option>
-            <option value="cancelled">cancelled</option>
-          </select>
-          <Input aria-label="Start date" type="date" value={form.startDate} onChange={(event) => setForm((current) => ({ ...current, startDate: event.target.value }))} />
-          <Input aria-label="End date" type="date" value={form.endDate} onChange={(event) => setForm((current) => ({ ...current, endDate: event.target.value }))} />
-          <Input aria-label="Notes" placeholder="Notes" value={form.notes} onChange={(event) => setForm((current) => ({ ...current, notes: event.target.value }))} />
-        </div>
-        <div className="mt-4">
-          <Button onClick={() => void handleCreate()} disabled={creating}>
-            {creating ? "Creating..." : "Create licence"}
-          </Button>
-        </div>
-        {successMessage ? <p className="mt-3 text-sm text-emerald-700">{successMessage}</p> : null}
-        {error ? <p className="mt-3 text-sm text-rose-700">{error}</p> : null}
-      </section>
+      {canManage ? (
+        <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+          <h2 className="text-lg font-semibold text-slate-950">Create school licence</h2>
+          <div className="mt-4 grid gap-3 md:grid-cols-2">
+            <Input aria-label="School name" placeholder="School name" value={form.schoolName} onChange={(event) => setForm((current) => ({ ...current, schoolName: event.target.value }))} />
+            <Input aria-label="Contact email" placeholder="Contact email" value={form.contactEmail} onChange={(event) => setForm((current) => ({ ...current, contactEmail: event.target.value }))} />
+            <Input aria-label="Domains" placeholder="Domains (comma separated)" value={form.domains} onChange={(event) => setForm((current) => ({ ...current, domains: event.target.value }))} />
+            <Input aria-label="Seat limit" placeholder="Seat limit" value={form.seatLimit} onChange={(event) => setForm((current) => ({ ...current, seatLimit: event.target.value }))} />
+            <select aria-label="Licence type" value={form.licenceType} onChange={(event) => setForm((current) => ({ ...current, licenceType: event.target.value as "school" | "district" }))} className="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900">
+              <option value="school">school</option>
+              <option value="district">district</option>
+            </select>
+            <select aria-label="Status" value={form.status} onChange={(event) => setForm((current) => ({ ...current, status: event.target.value as "trial" | "active" | "expired" | "cancelled" }))} className="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900">
+              <option value="trial">trial</option>
+              <option value="active">active</option>
+              <option value="expired">expired</option>
+              <option value="cancelled">cancelled</option>
+            </select>
+            <Input aria-label="Start date" type="date" value={form.startDate} onChange={(event) => setForm((current) => ({ ...current, startDate: event.target.value }))} />
+            <Input aria-label="End date" type="date" value={form.endDate} onChange={(event) => setForm((current) => ({ ...current, endDate: event.target.value }))} />
+            <Input aria-label="Notes" placeholder="Notes" value={form.notes} onChange={(event) => setForm((current) => ({ ...current, notes: event.target.value }))} />
+          </div>
+          <div className="mt-4">
+            <Button onClick={() => void handleCreate()} disabled={creating}>
+              {creating ? "Creating..." : "Create licence"}
+            </Button>
+          </div>
+          {successMessage ? <p className="mt-3 text-sm text-emerald-700">{successMessage}</p> : null}
+          {error ? <p className="mt-3 text-sm text-rose-700">{error}</p> : null}
+        </section>
+      ) : null}
 
       <div className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
         {loading ? (

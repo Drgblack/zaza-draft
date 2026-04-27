@@ -225,6 +225,9 @@ export async function updateSchoolAndLicence(options: {
     }
     if (options.input.seatLimit !== undefined) {
       const seatLimit = normalizeSeatLimit(options.input.seatLimit)
+      if (seatLimit < licence!.seatsUsed) {
+        throw new Error("SEAT_LIMIT_BELOW_USAGE")
+      }
       schoolPatch.seatLimit = seatLimit
       licencePatch.seatLimit = seatLimit
     }
@@ -320,7 +323,6 @@ export async function assignUserToLicence(options: {
       throw new Error("SEAT_LIMIT_REACHED")
     }
 
-    const school = snapshotData<SchoolRecord>(schoolSnap)!
     transaction.set(
       membershipRef,
       {
@@ -382,7 +384,7 @@ export async function assignUserToLicence(options: {
       { merge: true },
     )
 
-    return { alreadyAssigned: false, schoolId: school.schoolName ? licence.schoolId : licence.schoolId }
+    return { alreadyAssigned: false, schoolId: licence.schoolId }
   })
 }
 

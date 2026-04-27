@@ -4,11 +4,15 @@ import { authorizeAdminRequest } from "@/lib/admin/api-auth"
 import { updateSchoolAndLicence, type LicenceRecord, type SchoolMembershipRecord, type SchoolRecord } from "@/lib/admin/licences"
 import { assertZazaDraftProject, FirebaseProjectSafetyError } from "@/lib/firebase/project-policy"
 
+type LicenceRouteContext = {
+  params: Promise<{ licenceId: string }>
+}
+
 function fail(status: number, code: string, message: string) {
   return NextResponse.json({ success: false, error: { code, message } }, { status })
 }
 
-export async function GET(request: Request, { params }: { params: { licenceId: string } }) {
+export async function GET(request: Request, { params }: LicenceRouteContext) {
   try {
     assertZazaDraftProject({ context: "GET /api/admin/licences/:licenceId" })
     const authResult = await authorizeAdminRequest(request, "admin")
@@ -16,7 +20,8 @@ export async function GET(request: Request, { params }: { params: { licenceId: s
       return authResult.response
     }
 
-    const licenceSnap = await authResult.firestore.collection("licences").doc(params.licenceId).get()
+    const { licenceId } = await params
+    const licenceSnap = await authResult.firestore.collection("licences").doc(licenceId).get()
     if (!licenceSnap.exists) {
       return fail(404, "LICENCE_NOT_FOUND", "Licence not found.")
     }
@@ -24,7 +29,7 @@ export async function GET(request: Request, { params }: { params: { licenceId: s
     const licence = licenceSnap.data() as LicenceRecord
     const [schoolSnap, membershipsSnap] = await Promise.all([
       authResult.firestore.collection("schools").doc(licence.schoolId).get(),
-      authResult.firestore.collection("school_memberships").where("licenceId", "==", params.licenceId).get(),
+      authResult.firestore.collection("school_memberships").where("licenceId", "==", licenceId).get(),
     ])
 
     if (!schoolSnap.exists) {
@@ -73,7 +78,7 @@ export async function GET(request: Request, { params }: { params: { licenceId: s
   }
 }
 
-export async function PATCH(request: Request, { params }: { params: { licenceId: string } }) {
+export async function PATCH(request: Request, { params }: LicenceRouteContext) {
   try {
     assertZazaDraftProject({ context: "PATCH /api/admin/licences/:licenceId" })
     const authResult = await authorizeAdminRequest(request, "super_admin")
@@ -86,10 +91,12 @@ export async function PATCH(request: Request, { params }: { params: { licenceId:
       return fail(400, "INVALID_PAYLOAD", "Invalid payload.")
     }
 
+    const { licenceId } = await params
+
     try {
       await updateSchoolAndLicence({
         firestore: authResult.firestore,
-        licenceId: params.licenceId,
+        licenceId,
         input: body,
       })
     } catch (error) {
@@ -100,10 +107,13 @@ export async function PATCH(request: Request, { params }: { params: { licenceId:
       if (message === "SCHOOL_NOT_FOUND") {
         return fail(404, "SCHOOL_NOT_FOUND", "School not found.")
       }
+      if (message === "SEAT_LIMIT_BELOW_USAGE") {
+        return fail(409, "SEAT_LIMIT_BELOW_USAGE", "Seat limit cannot be lower than seats used.")
+      }
       throw error
     }
 
-    return NextResponse.json({ success: true, licenceId: params.licenceId })
+    return NextResponse.json({ success: true, licenceId })
   } catch (error) {
     if (error instanceof FirebaseProjectSafetyError) {
       return fail(500, error.code, error.message)
