@@ -66,6 +66,7 @@ Expected local config:
 FIREBASE_PROJECT_ID=zaza-draft-app
 NEXT_PUBLIC_FIREBASE_PROJECT_ID=zaza-draft-app
 GOOGLE_APPLICATION_CREDENTIALS=C:\Users\User\Secrets\zaza-draft\firebase-adminsdk.json
+FIREBASE_STORAGE_BUCKET=zaza-draft-app.firebasestorage.app
 ```
 
 ## 4b. Safe local migration checklist
