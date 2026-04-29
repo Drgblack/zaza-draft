@@ -414,6 +414,31 @@ export const localeMessages: Record<Locale, LocaleMessages> = {
     "auth.password.resetTitle": "Check your inbox",
     "auth.password.resetSent": "We’ve sent a password reset email to {email}.",
     "auth.password.resetHint": "Use the link in that email to set a password, then sign in here.",
+    "auth.passwordReset.eyebrow": "Password reset",
+    "auth.passwordReset.title": "Set a new password",
+    "auth.passwordReset.checking": "Checking your password reset link...",
+    "auth.passwordReset.helper":
+      "Choose a new password for this account, then sign in on your phone or computer.",
+    "auth.passwordReset.emailHint": "Resetting password for {email}",
+    "auth.passwordReset.newPassword": "New password",
+    "auth.passwordReset.confirmPassword": "Confirm new password",
+    "auth.passwordReset.minLength": "Use at least 8 characters for your new password.",
+    "auth.passwordReset.mismatch": "Passwords do not match.",
+    "auth.passwordReset.submit": "Save new password",
+    "auth.passwordReset.submitting": "Saving new password...",
+    "auth.passwordReset.expired": "This link has expired. Please request a new password reset.",
+    "auth.passwordReset.failure": "We couldn’t update your password. Please request a new password reset.",
+    "auth.passwordReset.weakPassword":
+      "Choose a stronger password with at least 8 characters.",
+    "auth.passwordReset.success": "Password updated. Sign in with your new password.",
+    "auth.passwordReset.successTitle": "Password updated",
+    "auth.passwordReset.signInPrompt": "Your password has been updated. Sign in with your new password.",
+    "auth.passwordReset.backToSignIn": "Back to sign in",
+    "auth.actionLink.noticeTitle": "Account action",
+    "auth.actionLink.verifyEmailNotice":
+      "This email verification link should open the sign-in screen. If it has expired, request a fresh sign-in or password reset.",
+    "auth.actionLink.recoverEmailNotice":
+      "This account recovery link should open the sign-in screen. If it has expired, request a fresh password reset.",
     "auth.error.invalidEmail": "Enter a valid email address.",
     "auth.error.linkExpired": "This sign-in link is no longer valid. Request a new one.",
     "auth.error.linkFailed":
@@ -1389,6 +1414,31 @@ export const localeMessages: Record<Locale, LocaleMessages> = {
     "auth.password.resetTitle": "Check your inbox",
     "auth.password.resetSent": "We’ve sent a password reset email to {email}.",
     "auth.password.resetHint": "Use the link in that email to set a password, then sign in here.",
+    "auth.passwordReset.eyebrow": "Password reset",
+    "auth.passwordReset.title": "Set a new password",
+    "auth.passwordReset.checking": "Checking your password reset link...",
+    "auth.passwordReset.helper":
+      "Choose a new password for this account, then sign in on your phone or computer.",
+    "auth.passwordReset.emailHint": "Resetting password for {email}",
+    "auth.passwordReset.newPassword": "New password",
+    "auth.passwordReset.confirmPassword": "Confirm new password",
+    "auth.passwordReset.minLength": "Use at least 8 characters for your new password.",
+    "auth.passwordReset.mismatch": "Passwords do not match.",
+    "auth.passwordReset.submit": "Save new password",
+    "auth.passwordReset.submitting": "Saving new password...",
+    "auth.passwordReset.expired": "This link has expired. Please request a new password reset.",
+    "auth.passwordReset.failure": "We couldn’t update your password. Please request a new password reset.",
+    "auth.passwordReset.weakPassword":
+      "Choose a stronger password with at least 8 characters.",
+    "auth.passwordReset.success": "Password updated. Sign in with your new password.",
+    "auth.passwordReset.successTitle": "Password updated",
+    "auth.passwordReset.signInPrompt": "Your password has been updated. Sign in with your new password.",
+    "auth.passwordReset.backToSignIn": "Back to sign in",
+    "auth.actionLink.noticeTitle": "Account action",
+    "auth.actionLink.verifyEmailNotice":
+      "This email verification link should open the sign-in screen. If it has expired, request a fresh sign-in or password reset.",
+    "auth.actionLink.recoverEmailNotice":
+      "This account recovery link should open the sign-in screen. If it has expired, request a fresh password reset.",
     "auth.error.invalidEmail": "Enter a valid email address.",
     "auth.error.linkExpired": "This sign-in link is no longer valid. Request a new one.",
     "auth.error.linkFailed":
@@ -2427,6 +2477,35 @@ export const localeMessages: Record<Locale, LocaleMessages> = {
     "auth.password.resetTitle": "Posteingang prüfen",
     "auth.password.resetSent": "Wir haben eine E-Mail zum Zurücksetzen des Passworts an {email} gesendet.",
     "auth.password.resetHint": "Verwenden Sie den Link in dieser E-Mail, legen Sie ein Passwort fest und melden Sie sich dann hier an.",
+    "auth.passwordReset.eyebrow": "Passwort zurücksetzen",
+    "auth.passwordReset.title": "Neues Passwort festlegen",
+    "auth.passwordReset.checking": "Ihr Link zum Zurücksetzen des Passworts wird geprüft...",
+    "auth.passwordReset.helper":
+      "Wählen Sie ein neues Passwort für dieses Konto und melden Sie sich danach auf Ihrem Telefon oder Computer an.",
+    "auth.passwordReset.emailHint": "Passwort wird für {email} zurückgesetzt",
+    "auth.passwordReset.newPassword": "Neues Passwort",
+    "auth.passwordReset.confirmPassword": "Neues Passwort bestätigen",
+    "auth.passwordReset.minLength": "Verwenden Sie mindestens 8 Zeichen für Ihr neues Passwort.",
+    "auth.passwordReset.mismatch": "Die Passwörter stimmen nicht überein.",
+    "auth.passwordReset.submit": "Neues Passwort speichern",
+    "auth.passwordReset.submitting": "Neues Passwort wird gespeichert...",
+    "auth.passwordReset.expired":
+      "Dieser Link ist abgelaufen. Bitte fordern Sie eine neue Passwort-Zurücksetzung an.",
+    "auth.passwordReset.failure":
+      "Ihr Passwort konnte nicht aktualisiert werden. Bitte fordern Sie eine neue Passwort-Zurücksetzung an.",
+    "auth.passwordReset.weakPassword":
+      "Wählen Sie ein stärkeres Passwort mit mindestens 8 Zeichen.",
+    "auth.passwordReset.success":
+      "Passwort aktualisiert. Melden Sie sich mit Ihrem neuen Passwort an.",
+    "auth.passwordReset.successTitle": "Passwort aktualisiert",
+    "auth.passwordReset.signInPrompt":
+      "Ihr Passwort wurde aktualisiert. Melden Sie sich mit Ihrem neuen Passwort an.",
+    "auth.passwordReset.backToSignIn": "Zurück zur Anmeldung",
+    "auth.actionLink.noticeTitle": "Kontenaktion",
+    "auth.actionLink.verifyEmailNotice":
+      "Dieser Bestätigungslink sollte die Anmeldeseite öffnen. Wenn er abgelaufen ist, fordern Sie einen neuen Anmeldelink oder eine neue Passwort-Zurücksetzung an.",
+    "auth.actionLink.recoverEmailNotice":
+      "Dieser Wiederherstellungslink sollte die Anmeldeseite öffnen. Wenn er abgelaufen ist, fordern Sie eine neue Passwort-Zurücksetzung an.",
     "auth.error.invalidEmail": "Bitte geben Sie eine gültige E-Mail-Adresse ein.",
     "auth.error.linkExpired":
       "Dieser Anmeldelink ist nicht mehr gültig. Fordern Sie bitte einen neuen an.",

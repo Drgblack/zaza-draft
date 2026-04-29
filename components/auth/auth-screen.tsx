@@ -17,7 +17,22 @@ const GOOGLE_ERROR_MAP: Record<string, string> = {
     "This domain isn't authorized for Google sign-in. Contact the admin for help.",
 }
 
-export function AuthScreen() {
+interface AuthScreenBanner {
+  title?: string
+  message: string
+}
+
+interface AuthScreenProps {
+  initialMode?: "email_link" | "password"
+  initialEmail?: string
+  banner?: AuthScreenBanner
+}
+
+export function AuthScreen({
+  initialMode = "email_link",
+  initialEmail,
+  banner,
+}: AuthScreenProps = {}) {
   const {
     status,
     emailLinkStatus,
@@ -29,13 +44,13 @@ export function AuthScreen() {
     signInWithGoogle,
   } = useAuth()
   const { t } = useLocale()
-  const [email, setEmail] = useState("")
+  const [email, setEmail] = useState(initialEmail ?? "")
   const [password, setPassword] = useState("")
   const [successEmail, setSuccessEmail] = useState<string | null>(null)
   const [passwordResetEmail, setPasswordResetEmail] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
-  const [authMode, setAuthMode] = useState<"email_link" | "password">("email_link")
+  const [authMode, setAuthMode] = useState<"email_link" | "password">(initialMode)
   const isAwaitingEmail = emailLinkStatus === "awaiting_email"
   const isRecoveryState = emailLinkStatus === "recovery"
   const isProcessingEmailLink = emailLinkStatus === "processing"
@@ -49,6 +64,22 @@ export function AuthScreen() {
 
     setEmail((current) => current || emailLinkKnownEmail)
   }, [emailLinkKnownEmail])
+
+  useEffect(() => {
+    if (!initialEmail) {
+      return
+    }
+
+    setEmail((current) => current || initialEmail)
+  }, [initialEmail])
+
+  useEffect(() => {
+    if (isAwaitingEmail || isRecoveryState) {
+      return
+    }
+
+    setAuthMode(initialMode)
+  }, [initialMode, isAwaitingEmail, isRecoveryState])
 
   useEffect(() => {
     if (isAwaitingEmail || isRecoveryState) {
@@ -272,6 +303,13 @@ export function AuthScreen() {
               </p>
               <p className="text-sm leading-6 text-white/92">{formDescription}</p>
             </div>
+
+            {banner && (
+              <div className="rounded-2xl border border-white/18 bg-white/10 p-3 text-sm text-white/92">
+                {banner.title && <p className="font-semibold text-white">{banner.title}</p>}
+                <p className={banner.title ? "mt-1" : undefined}>{banner.message}</p>
+              </div>
+            )}
 
             {!isAwaitingEmail && !isRecoveryState && (
               <div className="grid grid-cols-2 gap-2 rounded-2xl border border-white/12 bg-white/6 p-1">
