@@ -1,7 +1,7 @@
 "use client"
 
 import { ChangeEvent, useEffect, useMemo, useRef, useState } from "react"
-import { useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { AuthScreen } from "@/components/auth/auth-screen"
@@ -13,6 +13,7 @@ const SUPPORTED_FORMATS = ["JPG", "PNG", "HEIC"]
 
 export default function PanicScanPage() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const { status, getIdToken } = useAuth()
   const { t, locale } = useLocale()
   const [file, setFile] = useState<File | null>(null)
@@ -81,6 +82,7 @@ export default function PanicScanPage() {
   const buttonDisabled = Boolean(disableReason)
   const debugHint =
     isDebugEnabled() && disableReason ? `${t("debug.disableHintPrefix")} ${disableReason}` : null
+  const deletedNoticeVisible = searchParams.get("deleted") === "1"
 
   const handleFileChange = (event: ChangeEvent<HTMLInputElement>) => {
     const nextFile = event.target.files?.[0] ?? null
@@ -287,6 +289,14 @@ export default function PanicScanPage() {
           <h1 className="text-3xl font-semibold">{t("panicScanTitle")}</h1>
           <p className="text-sm text-white/70">{t("panicScanDescription")}</p>
         </div>
+        {deletedNoticeVisible && (
+          <div
+            className="rounded-2xl border border-emerald-300/60 bg-emerald-500/10 p-4 text-sm text-emerald-100"
+            role="alert"
+          >
+            {t("panicScanDeleteSuccess")}
+          </div>
+        )}
         {!aiConfigured && (
           <div className="rounded-2xl border border-amber-300/80 bg-amber-200/10 p-3 text-xs text-amber-200">
             {t("config.aiMissingBanner")}

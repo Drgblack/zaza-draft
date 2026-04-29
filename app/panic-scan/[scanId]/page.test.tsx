@@ -2,16 +2,18 @@
 
 import "@testing-library/jest-dom"
 import { fireEvent, render, screen, waitFor } from "@testing-library/react"
+import type { ReactNode } from "react"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
 import PanicScanResultPage from "./page"
 
 const pushMock = vi.fn()
+const replaceMock = vi.fn()
 const getIdTokenMock = vi.fn().mockResolvedValue("firebase-token")
 const fetchMock = vi.fn()
 
 vi.mock("next/navigation", () => ({
-  useRouter: () => ({ push: pushMock }),
+  useRouter: () => ({ push: pushMock, replace: replaceMock }),
   useParams: () => ({ scanId: "scan-123" }),
 }))
 
@@ -52,6 +54,13 @@ vi.mock("@/hooks/use-locale", () => ({
         panicScanDeleting: "Deleting...",
         panicScanDeleteSuccess: "Scan deleted.",
         panicScanDeleteFailure: "Could not delete scan. Please try again.",
+        panicScanDeleteTrustHelper:
+          "This scan is stored temporarily and can be deleted at any time.",
+        panicScanDeleteConfirmTitle: "Delete this scan?",
+        panicScanDeleteConfirmDescription:
+          "Are you sure you want to delete this scan? This cannot be undone.",
+        panicScanDeleteCancel: "Cancel",
+        panicScanDeleteConfirmAction: "Delete scan",
         panicScanResultRawLabel: "Show raw OCR",
         panicScanResultRawSummary: "Raw OCR may include UI chrome and navigation text.",
         panicScanResultAnalysisTitle: "Analysis",
@@ -62,10 +71,29 @@ vi.mock("@/hooks/use-locale", () => ({
   }),
 }))
 
+vi.mock("@/components/ui/alert-dialog", () => ({
+  AlertDialog: ({ children }: { children: ReactNode }) => <div>{children}</div>,
+  AlertDialogTrigger: ({ children }: { children: ReactNode }) => <div>{children}</div>,
+  AlertDialogContent: ({ children }: { children: ReactNode }) => <div>{children}</div>,
+  AlertDialogHeader: ({ children }: { children: ReactNode }) => <div>{children}</div>,
+  AlertDialogFooter: ({ children }: { children: ReactNode }) => <div>{children}</div>,
+  AlertDialogTitle: ({ children }: { children: ReactNode }) => <div>{children}</div>,
+  AlertDialogDescription: ({ children }: { children: ReactNode }) => <div>{children}</div>,
+  AlertDialogCancel: ({ children }: { children: ReactNode }) => <button>{children}</button>,
+  AlertDialogAction: ({
+    children,
+    onClick,
+  }: {
+    children: ReactNode
+    onClick?: () => void
+  }) => <button onClick={onClick}>{children}</button>,
+}))
+
 describe("PanicScanResultPage", () => {
   beforeEach(() => {
     fetchMock.mockReset()
     pushMock.mockReset()
+    replaceMock.mockReset()
     getIdTokenMock.mockReset()
     getIdTokenMock.mockResolvedValue("firebase-token")
     window.sessionStorage.clear()
@@ -118,11 +146,77 @@ describe("PanicScanResultPage", () => {
     expect(helpButton).toBeDisabled()
   })
 
-  it("renders a Delete now control for the stored scan", async () => {
+  it("renders a visible delete control with trust helper copy", async () => {
     mockCompletedScan()
 
     render(<PanicScanResultPage />)
 
     expect(await screen.findByRole("button", { name: "Delete now" })).toBeInTheDocument()
+    expect(
+      screen.getByText("This scan is stored temporarily and can be deleted at any time."),
+    ).toBeInTheDocument()
+  })
+
+  it("confirms deletion and redirects back to Panic Scan home on success", async () => {
+    fetchMock.mockImplementation(async (url: string, options?: RequestInit) => {
+      if (options?.method === "DELETE") {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({
+            success: true,
+          }),
+        }
+      }
+
+      return {
+        ok: true,
+        status: 200,
+        json: async () => ({
+          success: true,
+          data: {
+            scanId: "scan-123",
+            status: "completed",
+            extractedText: "Raw OCR line with watermark",
+            extractedTextClean: "Please call me after school.",
+            cleanConfidence: 0.82,
+            classification: {
+              messageType: "parent_complaint",
+              confidenceScore: 84,
+            },
+            analysis: {
+              summary: "Parent wants a follow-up call.",
+            },
+            processingTimeMs: 1800,
+          },
+        }),
+      }
+    })
+
+    render(<PanicScanResultPage />)
+
+    fireEvent.click(await screen.findByRole("button", { name: "Delete now" }))
+
+    fireEvent.click(screen.getByRole("button", { name: "Delete scan" }))
+
+    await waitFor(() => {
+      expect(fetchMock.mock.calls).toEqual(
+        expect.arrayContaining([
+          [
+            "/api/panic-scan/scan-123",
+            {
+              method: "DELETE",
+              headers: {
+                Authorization: "Bearer firebase-token",
+              },
+            },
+          ],
+        ]),
+      )
+    })
+
+    await waitFor(() => {
+      expect(replaceMock).toHaveBeenCalledWith("/panic-scan?deleted=1")
+    })
   })
 })

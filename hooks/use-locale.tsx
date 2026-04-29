@@ -162,6 +162,12 @@ export const localeMessages: Record<Locale, LocaleMessages> = {
     panicScanDeleting: "Deleting...",
     panicScanDeleteSuccess: "Scan deleted.",
     panicScanDeleteFailure: "Could not delete scan. Please try again.",
+    panicScanDeleteTrustHelper: "This scan is stored temporarily and can be deleted at any time.",
+    panicScanDeleteConfirmTitle: "Delete this scan?",
+    panicScanDeleteConfirmDescription:
+      "Are you sure you want to delete this scan? This cannot be undone.",
+    panicScanDeleteCancel: "Cancel",
+    panicScanDeleteConfirmAction: "Delete scan",
     panicScanResultProfessionalRisk: "Professional risk: {risk}",
     panicScanResultSuggestedResponse: "Suggested response: {response}",
     "panicScan.error.chooseFile": "Choose an image to scan.",
@@ -2164,6 +2170,13 @@ export const localeMessages: Record<Locale, LocaleMessages> = {
     panicScanDeleting: "Wird gelöscht...",
     panicScanDeleteSuccess: "Scan gelöscht.",
     panicScanDeleteFailure: "Scan konnte nicht gelöscht werden. Bitte versuchen Sie es erneut.",
+    panicScanDeleteTrustHelper:
+      "Dieser Scan wird nur temporär gespeichert und kann jederzeit gelöscht werden.",
+    panicScanDeleteConfirmTitle: "Diesen Scan löschen?",
+    panicScanDeleteConfirmDescription:
+      "Möchten Sie diesen Scan wirklich löschen? Dies kann nicht rückgängig gemacht werden.",
+    panicScanDeleteCancel: "Abbrechen",
+    panicScanDeleteConfirmAction: "Scan löschen",
     panicScanResultProfessionalRisk: "Berufliches Risiko: {risk}",
     panicScanResultSuggestedResponse: "Vorgeschlagene Antwort: {response}",
     "panicScan.error.chooseFile": "Wählen Sie ein Bild zum Scannen aus.",

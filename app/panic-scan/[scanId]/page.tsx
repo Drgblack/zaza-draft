@@ -4,6 +4,17 @@ import { ChangeEvent, useEffect, useMemo, useRef, useState } from "react"
 import { useRouter, useParams } from "next/navigation"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog"
 import { ChevronDown, ChevronLeft } from "lucide-react"
 import { useAuth } from "@/hooks/use-auth"
 import { AuthScreen } from "@/components/auth/auth-screen"
@@ -212,10 +223,8 @@ export default function PanicScanResultPage() {
   const [rawOcrOpen, setRawOcrOpen] = useState(false)
   const [reviewedText, setReviewedText] = useState("")
   const [reviewAcknowledged, setReviewAcknowledged] = useState(false)
-  const [deleteMessage, setDeleteMessage] = useState<string | null>(null)
   const [deleteError, setDeleteError] = useState<string | null>(null)
   const [isDeleting, setIsDeleting] = useState(false)
-  const [scanDeleted, setScanDeleted] = useState(false)
   const copyTimeoutRef = useRef<number | null>(null)
   const reviewSourceRef = useRef("")
 
@@ -248,10 +257,8 @@ export default function PanicScanResultPage() {
         const payload = await response.json()
         if (response.status === 410 || payload?.error?.code === "DELETED") {
           if (!cancelled) {
-            setScan(null)
-            setScanDeleted(true)
             setError(null)
-            setDeleteMessage(t("panicScanDeleteSuccess"))
+            router.replace("/panic-scan?deleted=1")
           }
           return
         }
@@ -261,7 +268,6 @@ export default function PanicScanResultPage() {
 
         if (!cancelled) {
           setScan(payload.data)
-          setScanDeleted(false)
           setError(null)
         }
       } catch (fetchError) {
@@ -281,7 +287,7 @@ export default function PanicScanResultPage() {
       cancelled = true
       window.clearInterval(interval)
     }
-  }, [scanId, getIdToken, t])
+  }, [scanId, getIdToken, router, t])
 
   const classificationList = useMemo<ClassificationTile[]>(() => {
     if (!scan?.classification) {
@@ -391,8 +397,7 @@ export default function PanicScanResultPage() {
       : displayedCleanMessage
   const reviewedMessage = reviewedText.trim()
   const handoffMessage = reviewedMessage || (cleanedIncomplete ? fallbackCandidate : displayedCleanMessage)
-  const helpButtonDisabled =
-    !isCompleted || !reviewAcknowledged || !handoffMessage || isDeleting || scanDeleted
+  const helpButtonDisabled = !isCompleted || !reviewAcknowledged || !handoffMessage || isDeleting
 
   useEffect(() => {
     const nextSource = displayedCleanMessage || ""
@@ -445,7 +450,6 @@ export default function PanicScanResultPage() {
 
     setIsDeleting(true)
     setDeleteError(null)
-    setDeleteMessage(null)
     try {
       const token = await getIdToken()
       if (!token) {
@@ -463,10 +467,7 @@ export default function PanicScanResultPage() {
         throw new Error(payload?.error?.message || t("panicScanDeleteFailure"))
       }
 
-      setScan(null)
-      setScanDeleted(true)
-      setDeleteMessage(t("panicScanDeleteSuccess"))
-      setError(null)
+      router.replace("/panic-scan?deleted=1")
     } catch (deleteScanError) {
       setDeleteError(
         deleteScanError instanceof Error ? deleteScanError.message : t("panicScanDeleteFailure"),
@@ -514,27 +515,9 @@ export default function PanicScanResultPage() {
           </div>
         )}
 
-        {deleteMessage && (
-          <div className="rounded-2xl border border-emerald-300/60 bg-emerald-500/10 p-4 text-sm text-emerald-100">
-            {deleteMessage}
-          </div>
-        )}
-
         {deleteError && (
           <div className="rounded-2xl border border-rose-300/70 bg-rose-500/10 p-4 text-sm text-rose-200">
             {deleteError}
-          </div>
-        )}
-
-        {scanDeleted && (
-          <div className="rounded-[28px] border border-white/15 bg-white/5 px-6 py-6 space-y-4 shadow-[0_20px_60px_rgba(15,4,50,0.45)]">
-            <p className="text-sm text-white/80">{t("panicScanDeleteSuccess")}</p>
-            <Link
-              href="/panic-scan"
-              className="inline-flex items-center gap-1 text-sm font-semibold text-white/80 underline"
-            >
-              {t("panicScanResultBackLink")}
-            </Link>
           </div>
         )}
 
@@ -560,15 +543,6 @@ export default function PanicScanResultPage() {
                   >
                     {statusBadgeLabel}
                   </span>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={handleDeleteScan}
-                    disabled={isDeleting}
-                    className="border-rose-300/50 bg-rose-500/10 text-rose-100 hover:bg-rose-500/20"
-                  >
-                    {isDeleting ? t("panicScanDeleting") : t("panicScanDeleteNow")}
-                  </Button>
                 </div>
               </div>
               {scan.processingTimeMs && (
@@ -581,6 +555,49 @@ export default function PanicScanResultPage() {
                   {t("panicScanResultFailureLabel", { reason: scan.failureReason })}
                 </p>
               )}
+              <div className="rounded-2xl border border-rose-300/30 bg-rose-500/10 p-4">
+                <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="space-y-1">
+                    <p className="text-sm font-semibold text-rose-50">{t("panicScanDeleteNow")}</p>
+                    <p className="text-sm text-rose-100/85">
+                      {t("panicScanDeleteTrustHelper")}
+                    </p>
+                  </div>
+                  <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        disabled={isDeleting}
+                        className="w-full border-rose-300/60 bg-rose-500/15 text-rose-50 hover:bg-rose-500/25 sm:w-auto"
+                      >
+                        {isDeleting ? t("panicScanDeleting") : t("panicScanDeleteNow")}
+                      </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent className="border-rose-200/40 bg-slate-950 text-white">
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>
+                          {t("panicScanDeleteConfirmTitle")}
+                        </AlertDialogTitle>
+                        <AlertDialogDescription className="text-slate-300">
+                          {t("panicScanDeleteConfirmDescription")}
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel className="border-white/20 bg-transparent text-white hover:bg-white/10">
+                          {t("panicScanDeleteCancel")}
+                        </AlertDialogCancel>
+                        <AlertDialogAction
+                          onClick={handleDeleteScan}
+                          className="bg-rose-600 text-white hover:bg-rose-500"
+                        >
+                          {t("panicScanDeleteConfirmAction")}
+                        </AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
+                </div>
+              </div>
             </div>
 
             {displayedCleanMessage && (
