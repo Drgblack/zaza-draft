@@ -16,6 +16,7 @@ import { performVisionOcr } from "@/lib/panic-scan/ocr"
 import { cleanOcrText } from "@/lib/panic-scan/clean-ocr"
 import { analyzePanicMessage, buildHeuristicPanicAnalysis } from "@/lib/panic-scan/analysis"
 import { OPENAI_BUSY_MESSAGE, OpenAIRequestError } from "@/lib/ai/openai-retry"
+import type { VisionOcrResult } from "@/lib/panic-scan/ocr"
 
 const storageSave = vi.fn().mockResolvedValue(undefined)
 const firestoreSet = vi.fn().mockResolvedValue(undefined)
@@ -30,6 +31,30 @@ const firestore = {
 }
 
 describe("panic scan upload route", () => {
+  function createVisionOcrResult(text: string): VisionOcrResult {
+    return {
+      text,
+      paragraphs: text
+        .split(/\n+/)
+        .map((line) => line.trim())
+        .filter(Boolean)
+        .map((line) => ({
+          text: line,
+          confidence: 0.9,
+          boundingBox: {
+            left: 0.2,
+            top: 0.1,
+            right: 0.8,
+            bottom: 0.2,
+            width: 0.6,
+            height: 0.1,
+            centerX: 0.5,
+            centerY: 0.15,
+          },
+        })),
+    }
+  }
+
   function createFakeFile() {
     return {
       arrayBuffer: async () => Buffer.from("data"),
@@ -76,11 +101,13 @@ describe("panic scan upload route", () => {
     })
     vi.mocked(enforcePerUserRateLimit).mockResolvedValue(undefined)
     vi.mocked(performVisionOcr).mockResolvedValue(
+      createVisionOcrResult(
       [
         "Sehr geehrte Eltern,",
         "Die Hausaufgabenmenge ist zuletzt gestiegen und die Schülerin arbeitet engagiert weiter.",
         "Wir möchten gemeinsam einen klaren Plan entwickeln und die Unterstützung transparent machen.",
       ].join("\n"),
+      ),
     )
     vi.mocked(cleanOcrText).mockReturnValue({
       cleanText: "text",
@@ -188,7 +215,9 @@ describe("panic scan upload route", () => {
 
   it("returns insufficient OCR when only UI chrome and a greeting are found", async () => {
     vi.mocked(performVisionOcr).mockResolvedValue(
-      ["Gmail", "Inbox", "99+", "Sehr geehrte Eltern,", "Mit freundlichen Grüßen"].join("\n"),
+      createVisionOcrResult(
+        ["Gmail", "Inbox", "99+", "Sehr geehrte Eltern,", "Mit freundlichen Grüßen"].join("\n"),
+      ),
     )
     const request = {
       formData: async () => createFakeFormData(),
@@ -264,12 +293,14 @@ describe("panic scan upload route", () => {
 
   it("uses the active German UI locale for German analysis", async () => {
     vi.mocked(performVisionOcr).mockResolvedValue(
+      createVisionOcrResult(
       [
         "Dear parents,",
         "I am very concerned about the homework situation this week.",
         "My son said he was overwhelmed after class, confused about the instructions, and worried about completing everything tonight.",
         "I would appreciate a clear explanation and some reassurance about what is expected next.",
       ].join("\n"),
+      ),
     )
     vi.mocked(cleanOcrText).mockReturnValue({
       cleanText:
@@ -324,11 +355,13 @@ describe("panic scan upload route", () => {
 
   it("keeps an English screenshot in German analysis when the active UI locale is German", async () => {
     vi.mocked(performVisionOcr).mockResolvedValue(
+      createVisionOcrResult(
       [
         "My child came home upset after maths and said the class felt unfair.",
         "She told me the lesson moved too quickly, the worksheet was confusing, and she felt embarrassed asking for help in front of the group.",
         "I need to understand what happened and how this will be handled tomorrow.",
       ].join(" "),
+      ),
     )
     vi.mocked(cleanOcrText).mockReturnValue({
       cleanText:
@@ -385,18 +418,22 @@ describe("panic scan upload route", () => {
   it("does not reuse a previous locale across Panic Scan runs or sessions", async () => {
     vi.mocked(performVisionOcr)
       .mockResolvedValueOnce(
+        createVisionOcrResult(
         [
           "My child was very upset after science today.",
           "He said the group work broke down, he felt blamed by the class, and he did not understand why the task changed so quickly.",
           "Please explain what happened and what support he will have tomorrow.",
         ].join(" "),
+        ),
       )
       .mockResolvedValueOnce(
+        createVisionOcrResult(
         [
           "Mein Kind war nach dem Unterricht heute sehr aufgebracht.",
           "Er sagte, dass die Gruppenarbeit chaotisch war, die Aufgabe plötzlich geändert wurde und er sich vor der Klasse bloßgestellt gefühlt hat.",
           "Bitte erklären Sie mir, was passiert ist und wie Sie morgen weiter vorgehen.",
         ].join(" "),
+        ),
       )
     vi.mocked(cleanOcrText)
       .mockReturnValueOnce({

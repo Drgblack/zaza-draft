@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useMemo, useRef, useState } from "react"
+import { ChangeEvent, useEffect, useMemo, useRef, useState } from "react"
 import { useRouter, useParams } from "next/navigation"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
@@ -12,7 +12,6 @@ import { resolveGreeting } from "@/lib/draft/greeting-resolution"
 import { sanitizeCleanedMessage } from "@/lib/panic-scan/sanitize-cleaned-message"
 
 const PREFILL_KEY = "zazaDraftPrefill"
-const CLEAN_MESSAGE_COLLAPSE_THRESHOLD = 420
 const MIN_CLEANED_CHARS = 120
 const MIN_CLEANED_LINES = 2
 const MIN_CLEAN_CONFIDENCE = 0.6
@@ -179,7 +178,7 @@ const getClassificationAccent = (
     badgeText: undefined,
   }
 }
-type ScanStatus = "processing" | "completed" | "failed"
+type ScanStatus = "processing" | "completed" | "failed" | "deleted" | "insufficient_input"
 
 interface PanicScanAnalysis {
   summary?: string | null
@@ -209,10 +208,16 @@ export default function PanicScanResultPage() {
   const [scan, setScan] = useState<ScanResponse | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-    const [cleanExpanded, setCleanExpanded] = useState(false)
-    const [copiedCleanMessage, setCopiedCleanMessage] = useState(false)
-    const [rawOcrOpen, setRawOcrOpen] = useState(false)
+  const [copiedCleanMessage, setCopiedCleanMessage] = useState(false)
+  const [rawOcrOpen, setRawOcrOpen] = useState(false)
+  const [reviewedText, setReviewedText] = useState("")
+  const [reviewAcknowledged, setReviewAcknowledged] = useState(false)
+  const [deleteMessage, setDeleteMessage] = useState<string | null>(null)
+  const [deleteError, setDeleteError] = useState<string | null>(null)
+  const [isDeleting, setIsDeleting] = useState(false)
+  const [scanDeleted, setScanDeleted] = useState(false)
   const copyTimeoutRef = useRef<number | null>(null)
+  const reviewSourceRef = useRef("")
 
   const isCompleted = scan?.status === "completed"
 
@@ -241,12 +246,22 @@ export default function PanicScanResultPage() {
         })
 
         const payload = await response.json()
+        if (response.status === 410 || payload?.error?.code === "DELETED") {
+          if (!cancelled) {
+            setScan(null)
+            setScanDeleted(true)
+            setError(null)
+            setDeleteMessage(t("panicScanDeleteSuccess"))
+          }
+          return
+        }
         if (!response.ok || !payload?.success) {
           throw new Error(payload?.error?.message || t("panicScanResultLoadError"))
         }
 
         if (!cancelled) {
           setScan(payload.data)
+          setScanDeleted(false)
           setError(null)
         }
       } catch (fetchError) {
@@ -293,16 +308,20 @@ export default function PanicScanResultPage() {
     if (scan.status === "completed") {
       return t("panicScanResultStatusReady")
     }
+    if (scan.status === "deleted") {
+      return t("panicScanResultStatusDeleted")
+    }
     return t("panicScanResultStatusFailed")
   }, [scan?.status, t])
 
   const greetingLocale = locale?.toLowerCase().startsWith("de") ? "de" : "en"
   const handleUseDraft = () => {
-    if (!handoffMessage) {
+    const reviewedMessage = reviewedText.trim()
+    if (!reviewAcknowledged || !reviewedMessage) {
       return
     }
-    const extractedRaw = scan?.extractedText ?? ""
-    const normalizedText = extractedRaw || (scan?.extractedTextClean ?? "")
+    const extractedRaw = scan?.extractedText ?? reviewedMessage
+    const normalizedText = reviewedMessage || extractedRaw || (scan?.extractedTextClean ?? "")
     const messageTypeField = scan?.classification?.messageType
     const messageTypeValue: string | undefined =
       typeof messageTypeField === "string" ? messageTypeField : undefined
@@ -326,7 +345,7 @@ export default function PanicScanResultPage() {
     sessionStorage.setItem(
       PREFILL_KEY,
       JSON.stringify({
-        cleaned: handoffMessage,
+        cleaned: reviewedMessage,
         raw: extractedRaw,
         greeting: greetingPayload,
       }),
@@ -370,14 +389,25 @@ export default function PanicScanResultPage() {
       : cleanedIncomplete
       ? ""
       : displayedCleanMessage
-  const handoffMessage = cleanedIncomplete ? fallbackCandidate : displayedCleanMessage
-  const helpButtonDisabled = !isCompleted || !handoffMessage
-  const cleanMessageIsLong =
-    showCleanMessage && displayedCleanMessage.length > CLEAN_MESSAGE_COLLAPSE_THRESHOLD
+  const reviewedMessage = reviewedText.trim()
+  const handoffMessage = reviewedMessage || (cleanedIncomplete ? fallbackCandidate : displayedCleanMessage)
+  const helpButtonDisabled =
+    !isCompleted || !reviewAcknowledged || !handoffMessage || isDeleting || scanDeleted
 
   useEffect(() => {
-    setCleanExpanded(false)
-  }, [cleanMessage])
+    const nextSource = displayedCleanMessage || ""
+    if (!nextSource) {
+      return
+    }
+
+    if (!reviewSourceRef.current || reviewedText === reviewSourceRef.current) {
+      setReviewedText(nextSource)
+    }
+    if (reviewSourceRef.current !== nextSource) {
+      reviewSourceRef.current = nextSource
+      setReviewAcknowledged(false)
+    }
+  }, [displayedCleanMessage, reviewedText])
 
   useEffect(() => {
     return () => {
@@ -388,11 +418,11 @@ export default function PanicScanResultPage() {
   }, [])
 
   const handleCopyCleanMessage = async () => {
-    if (!displayedCleanMessage || typeof navigator === "undefined" || !navigator.clipboard) {
+    if (!reviewedText || typeof navigator === "undefined" || !navigator.clipboard) {
       return
     }
     try {
-      await navigator.clipboard.writeText(displayedCleanMessage)
+      await navigator.clipboard.writeText(reviewedText)
       setCopiedCleanMessage(true)
       if (copyTimeoutRef.current && typeof window !== "undefined") {
         window.clearTimeout(copyTimeoutRef.current)
@@ -402,6 +432,50 @@ export default function PanicScanResultPage() {
       console.error("[panic-scan] copy failed", copyError)
     }
   }
+
+  const handleReviewedTextChange = (event: ChangeEvent<HTMLTextAreaElement>) => {
+    setReviewedText(event.target.value)
+    setReviewAcknowledged(false)
+  }
+
+  const handleDeleteScan = async () => {
+    if (!scanId || isDeleting) {
+      return
+    }
+
+    setIsDeleting(true)
+    setDeleteError(null)
+    setDeleteMessage(null)
+    try {
+      const token = await getIdToken()
+      if (!token) {
+        throw new Error(t("panicScanResultAuthError"))
+      }
+
+      const response = await fetch(`/api/panic-scan/${scanId}`, {
+        method: "DELETE",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      })
+      const payload = await response.json().catch(() => null)
+      if (!response.ok || !payload?.success) {
+        throw new Error(payload?.error?.message || t("panicScanDeleteFailure"))
+      }
+
+      setScan(null)
+      setScanDeleted(true)
+      setDeleteMessage(t("panicScanDeleteSuccess"))
+      setError(null)
+    } catch (deleteScanError) {
+      setDeleteError(
+        deleteScanError instanceof Error ? deleteScanError.message : t("panicScanDeleteFailure"),
+      )
+    } finally {
+      setIsDeleting(false)
+    }
+  }
+
   if (status === "loading") {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -440,27 +514,62 @@ export default function PanicScanResultPage() {
           </div>
         )}
 
+        {deleteMessage && (
+          <div className="rounded-2xl border border-emerald-300/60 bg-emerald-500/10 p-4 text-sm text-emerald-100">
+            {deleteMessage}
+          </div>
+        )}
+
+        {deleteError && (
+          <div className="rounded-2xl border border-rose-300/70 bg-rose-500/10 p-4 text-sm text-rose-200">
+            {deleteError}
+          </div>
+        )}
+
+        {scanDeleted && (
+          <div className="rounded-[28px] border border-white/15 bg-white/5 px-6 py-6 space-y-4 shadow-[0_20px_60px_rgba(15,4,50,0.45)]">
+            <p className="text-sm text-white/80">{t("panicScanDeleteSuccess")}</p>
+            <Link
+              href="/panic-scan"
+              className="inline-flex items-center gap-1 text-sm font-semibold text-white/80 underline"
+            >
+              {t("panicScanResultBackLink")}
+            </Link>
+          </div>
+        )}
+
         {scan && (
           <div className="space-y-6">
             <div className="rounded-[28px] border border-white/15 bg-white/5 px-6 py-6 space-y-3 shadow-[0_20px_60px_rgba(15,4,50,0.6)]">
-              <div className="flex items-center justify-between">
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                 <div>
                   <p className="text-xs uppercase tracking-[0.3em] text-white/60">
                     {t("panicScanResultStatusLabel")}
                   </p>
                   <p className="text-xl font-semibold">{statusLabel}</p>
                 </div>
-                <span
-                  className={`rounded-full px-3 py-1 text-xs font-semibold ${
-                    scan.status === "processing"
-                      ? "bg-yellow-500/20 text-yellow-200"
-                      : scan.status === "completed"
-                      ? "bg-emerald-500/20 text-emerald-300"
-                      : "bg-rose-500/20 text-rose-200"
-                  }`}
-                >
-                  {statusBadgeLabel}
-                </span>
+                <div className="flex flex-wrap items-center gap-3">
+                  <span
+                    className={`rounded-full px-3 py-1 text-xs font-semibold ${
+                      scan.status === "processing"
+                        ? "bg-yellow-500/20 text-yellow-200"
+                        : scan.status === "completed"
+                        ? "bg-emerald-500/20 text-emerald-300"
+                        : "bg-rose-500/20 text-rose-200"
+                    }`}
+                  >
+                    {statusBadgeLabel}
+                  </span>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={handleDeleteScan}
+                    disabled={isDeleting}
+                    className="border-rose-300/50 bg-rose-500/10 text-rose-100 hover:bg-rose-500/20"
+                  >
+                    {isDeleting ? t("panicScanDeleting") : t("panicScanDeleteNow")}
+                  </Button>
+                </div>
               </div>
               {scan.processingTimeMs && (
                 <p className="text-xs text-white/50">
@@ -478,7 +587,7 @@ export default function PanicScanResultPage() {
               <div className="rounded-[28px] border border-white/15 bg-white/5 px-6 py-5 space-y-4 shadow-[0_20px_60px_rgba(15,4,50,0.55)]">
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                   <p className="text-sm uppercase tracking-[0.3em] text-white/60">
-                    {t("panicScanResultMessageLabel")}
+                    {t("panicScanResultReviewLabel")}
                   </p>
                   <div className="flex flex-wrap items-center gap-3 text-xs text-white/70">
                     {displayConfidence !== null && (
@@ -499,24 +608,23 @@ export default function PanicScanResultPage() {
                     )}
                   </div>
                 </div>
-                <div
-                  className={`rounded-2xl border border-white/5 bg-slate-900/70 p-4 text-sm text-white/90 whitespace-pre-wrap transition-[max-height] duration-200 overflow-y-auto ${
-                    cleanExpanded ? "max-h-[900px]" : "max-h-80"
-                  }`}
-                >
-                  {displayedCleanMessage}
-                </div>
-                {cleanMessageIsLong && (
-                  <button
-                    type="button"
-                    onClick={() => setCleanExpanded((prev) => !prev)}
-                    className="text-xs text-purple-200 underline transition hover:text-purple-100"
-                  >
-                    {cleanExpanded
-                      ? t("panicScanResultCollapseLabel")
-                      : t("panicScanResultExpandLabel")}
-                  </button>
-                )}
+                <p className="text-sm text-white/80">{t("panicScanResultReviewHelper")}</p>
+                <textarea
+                  value={reviewedText}
+                  onChange={handleReviewedTextChange}
+                  className="min-h-[240px] w-full rounded-2xl border border-white/10 bg-slate-900/70 p-4 text-sm text-white outline-none focus:border-white/40 focus:ring-2 focus:ring-white/20"
+                  aria-label={t("panicScanResultReviewFieldLabel")}
+                />
+                <label className="flex items-start gap-3 text-sm text-white/80">
+                  <input
+                    type="checkbox"
+                    checked={reviewAcknowledged}
+                    onChange={(event) => setReviewAcknowledged(event.target.checked)}
+                    disabled={!reviewedText.trim()}
+                    className="mt-1 h-4 w-4 rounded border-white/30 bg-slate-900 text-white"
+                  />
+                  <span>{t("panicScanResultReviewCheckbox")}</span>
+                </label>
                 {showCleanWarning && (
                   <p className="text-xs text-amber-200">
                     {t("panicScanResultCleanLowWarning")}

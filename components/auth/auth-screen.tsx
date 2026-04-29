@@ -24,17 +24,23 @@ export function AuthScreen() {
     emailLinkKnownEmail,
     sendEmailLink,
     completeEmailLinkSignIn,
+    signInWithPassword,
+    sendPasswordReset,
     signInWithGoogle,
   } = useAuth()
   const { t } = useLocale()
   const [email, setEmail] = useState("")
+  const [password, setPassword] = useState("")
   const [successEmail, setSuccessEmail] = useState<string | null>(null)
+  const [passwordResetEmail, setPasswordResetEmail] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [authMode, setAuthMode] = useState<"email_link" | "password">("email_link")
   const isAwaitingEmail = emailLinkStatus === "awaiting_email"
   const isRecoveryState = emailLinkStatus === "recovery"
   const isProcessingEmailLink = emailLinkStatus === "processing"
   const isResend = Boolean(successEmail) || isRecoveryState
+  const isPasswordMode = authMode === "password" && !isAwaitingEmail && !isRecoveryState
 
   useEffect(() => {
     if (!emailLinkKnownEmail) {
@@ -43,6 +49,12 @@ export function AuthScreen() {
 
     setEmail((current) => current || emailLinkKnownEmail)
   }, [emailLinkKnownEmail])
+
+  useEffect(() => {
+    if (isAwaitingEmail || isRecoveryState) {
+      setAuthMode("email_link")
+    }
+  }, [isAwaitingEmail, isRecoveryState])
 
   const getFriendlyEmailLinkError = (err: unknown) => {
     const code = (err as { code?: string })?.code
@@ -76,13 +88,23 @@ export function AuthScreen() {
     setIsSubmitting(true)
     setError(null)
     console.info("[auth] submit start", {
-      flow: isAwaitingEmail ? "complete_email_link" : isRecoveryState ? "recover_email_link" : "send_email_link",
+      flow: isPasswordMode
+        ? "password_sign_in"
+        : isAwaitingEmail
+        ? "complete_email_link"
+        : isRecoveryState
+        ? "recover_email_link"
+        : "send_email_link",
       email: email.trim(),
     })
 
     try {
       const normalizedEmail = email.trim()
-      if (isAwaitingEmail) {
+      setPasswordResetEmail(null)
+      if (isPasswordMode) {
+        await signInWithPassword(normalizedEmail, password)
+        logClientEvent("auth_login_success", { provider: "password" })
+      } else if (isAwaitingEmail) {
         await completeEmailLinkSignIn(normalizedEmail)
         logClientEvent("auth_login_success", { provider: "email_link" })
       } else {
@@ -100,17 +122,45 @@ export function AuthScreen() {
     } catch (err) {
       console.error("[auth] auth screen submit error", err)
       setSuccessEmail(null)
-      if (!isAwaitingEmail) {
+      if (isPasswordMode) {
+        if ((err as { code?: string })?.code === "auth/invalid-email") {
+          setError(t("auth.error.invalidEmail"))
+        } else {
+          setError(t("auth.error.passwordSignInFailed"))
+        }
+      } else {
         logClientEvent(TRUST_FUNNEL_EVENTS.magicLinkRequestFailed, {
           surface: "auth_screen",
           resend: isResend,
           code: (err as { code?: string })?.code ?? "unknown",
         })
+        if (classifyEmailLinkError(err) === "expired_or_used") {
+          setError(null)
+        } else {
+          setError(getFriendlyEmailLinkError(err))
+        }
       }
-      if (classifyEmailLinkError(err) === "expired_or_used") {
-        setError(null)
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
+  const handlePasswordReset = async () => {
+    setIsSubmitting(true)
+    setError(null)
+    setSuccessEmail(null)
+    setPasswordResetEmail(null)
+
+    try {
+      const normalizedEmail = email.trim()
+      await sendPasswordReset(normalizedEmail)
+      setPasswordResetEmail(normalizedEmail)
+    } catch (err) {
+      const code = (err as { code?: string })?.code
+      if (code === "auth/invalid-email" || (err instanceof Error && err.message.includes("Email is required"))) {
+        setError(t("auth.error.invalidEmail"))
       } else {
-        setError(getFriendlyEmailLinkError(err))
+        setError(t("auth.error.passwordResetFailed"))
       }
     } finally {
       setIsSubmitting(false)
@@ -158,6 +208,8 @@ export function AuthScreen() {
       )
     : isAwaitingEmail
     ? t("auth.emailLink.confirmDescription")
+    : isPasswordMode
+    ? t("auth.password.helper")
     : t("auth.emailLink.helper")
   const inputHelper = isRecoveryState
     ? t(
@@ -167,7 +219,26 @@ export function AuthScreen() {
       )
     : isAwaitingEmail
     ? t("auth.emailLink.confirmHelper")
+    : isPasswordMode
+    ? t("auth.password.inputHelper")
     : t("auth.emailLink.inputHelper")
+  const submitLabel = isProcessingEmailLink
+    ? t("auth.emailLink.processing")
+    : isSubmitting
+    ? isPasswordMode
+      ? t("auth.password.processing")
+      : isAwaitingEmail
+      ? t("auth.processing.completeLink")
+      : t("auth.processing.sendLink")
+    : isPasswordMode
+    ? t("auth.password.cta")
+    : isAwaitingEmail
+    ? t("auth.cta.completeEmailLink")
+    : isRecoveryState
+    ? t("auth.cta.sendNewLink")
+    : successEmail
+    ? t("auth.cta.resendLink")
+    : t("auth.cta.sendLink")
 
   return (
     <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-gradient-to-br from-[#5b36a6] via-[#3b63b8] to-[#264f96] px-4 py-12 text-white">
@@ -202,6 +273,41 @@ export function AuthScreen() {
               <p className="text-sm leading-6 text-white/92">{formDescription}</p>
             </div>
 
+            {!isAwaitingEmail && !isRecoveryState && (
+              <div className="grid grid-cols-2 gap-2 rounded-2xl border border-white/12 bg-white/6 p-1">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setAuthMode("email_link")
+                    setError(null)
+                    setPasswordResetEmail(null)
+                  }}
+                  className={`rounded-xl px-3 py-2 text-sm font-semibold transition ${
+                    !isPasswordMode
+                      ? "bg-white text-slate-950"
+                      : "text-white/80 hover:bg-white/10"
+                  }`}
+                >
+                  {t("auth.mode.emailLink")}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setAuthMode("password")
+                    setError(null)
+                    setSuccessEmail(null)
+                  }}
+                  className={`rounded-xl px-3 py-2 text-sm font-semibold transition ${
+                    isPasswordMode
+                      ? "bg-white text-slate-950"
+                      : "text-white/80 hover:bg-white/10"
+                  }`}
+                >
+                  {t("auth.mode.password")}
+                </button>
+              </div>
+            )}
+
             <div className="space-y-2">
               <Label htmlFor="email" className="text-sm font-semibold text-white">
                 {t("auth.emailLabel")}
@@ -225,6 +331,40 @@ export function AuthScreen() {
               <p className="text-[13px] leading-5 text-white/86">{inputHelper}</p>
             </div>
 
+            {isPasswordMode && (
+              <div className="space-y-2">
+                <Label htmlFor="password" className="text-sm font-semibold text-white">
+                  {t("auth.passwordLabel")}
+                </Label>
+                <Input
+                  id="password"
+                  type="password"
+                  required
+                  value={password}
+                  onChange={(event) => {
+                    setPassword(event.target.value)
+                    if (error) {
+                      setError(null)
+                    }
+                  }}
+                  placeholder={t("auth.passwordPlaceholder")}
+                  autoComplete="current-password"
+                  disabled={isSubmitting}
+                  className="h-11 rounded-xl border-white/30 bg-white/95 px-4 text-slate-900 shadow-[inset_0_1px_0_rgba(255,255,255,0.55)] placeholder:text-slate-400 focus-visible:border-white/50 focus-visible:ring-white/25"
+                />
+                <div className="flex justify-end">
+                  <button
+                    type="button"
+                    onClick={handlePasswordReset}
+                    disabled={isSubmitting}
+                    className="text-sm font-semibold text-white/88 underline underline-offset-4 hover:text-white"
+                  >
+                    {t("auth.cta.forgot")}
+                  </button>
+                </div>
+              </div>
+            )}
+
             {successEmail && !isAwaitingEmail && !error && (
               <div className="rounded-xl border border-emerald-200/28 bg-[linear-gradient(180deg,rgba(20,83,45,0.34),rgba(14,116,144,0.28))] px-3 py-3 text-sm text-emerald-50">
                 <p className="font-semibold">{t("auth.emailLink.successTitle")}</p>
@@ -240,6 +380,14 @@ export function AuthScreen() {
               </div>
             )}
 
+            {passwordResetEmail && !error && (
+              <div className="rounded-xl border border-emerald-200/28 bg-[linear-gradient(180deg,rgba(20,83,45,0.34),rgba(14,116,144,0.28))] px-3 py-3 text-sm text-emerald-50">
+                <p className="font-semibold">{t("auth.password.resetTitle")}</p>
+                <p className="mt-1">{t("auth.password.resetSent", { email: passwordResetEmail })}</p>
+                <p className="mt-1 text-emerald-50/90">{t("auth.password.resetHint")}</p>
+              </div>
+            )}
+
             {error && (
               <p className="rounded-xl border border-rose-200/35 bg-rose-500/12 px-3 py-2 text-sm text-rose-50">
                 {error}
@@ -251,19 +399,7 @@ export function AuthScreen() {
               className="h-11 w-full rounded-xl bg-white text-slate-950 shadow-[0_16px_34px_rgba(15,23,42,0.24)] hover:bg-white/96"
               disabled={isSubmitting || isProcessingEmailLink}
             >
-              {isProcessingEmailLink
-                ? t("auth.emailLink.processing")
-                : isSubmitting
-                ? isAwaitingEmail
-                  ? t("auth.processing.completeLink")
-                  : t("auth.processing.sendLink")
-                : isAwaitingEmail
-                ? t("auth.cta.completeEmailLink")
-                : isRecoveryState
-                ? t("auth.cta.sendNewLink")
-                : successEmail
-                ? t("auth.cta.resendLink")
-                : t("auth.cta.sendLink")}
+              {submitLabel}
             </Button>
           </form>
 

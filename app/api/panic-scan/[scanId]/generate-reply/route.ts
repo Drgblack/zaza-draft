@@ -76,6 +76,13 @@ export async function POST(request: NextRequest) {
     )
   }
 
+  if (data?.status === "deleted") {
+    return NextResponse.json(
+      { success: false, error: { code: "DELETED", message: "Scan deleted." } },
+      { status: 410 },
+    )
+  }
+
   if (data.status !== "completed" || (!data.extractedTextClean && !data.extractedText)) {
     return NextResponse.json(
       {

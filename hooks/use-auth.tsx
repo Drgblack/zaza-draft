@@ -4,7 +4,9 @@ import { createContext, useContext, useEffect, useRef, useState } from "react"
 import {
   isSignInWithEmailLink,
   onIdTokenChanged,
+  sendPasswordResetEmail,
   sendSignInLinkToEmail,
+  signInWithEmailAndPassword,
   signInWithEmailLink,
   signInWithPopup,
   signOut as firebaseSignOut,
@@ -40,6 +42,8 @@ interface AuthContextValue {
   emailLinkRecoveryReason: EmailLinkRecoveryReason | null
   sendEmailLink: (email: string) => Promise<void>
   completeEmailLinkSignIn: (email: string) => Promise<void>
+  signInWithPassword: (email: string, password: string) => Promise<void>
+  sendPasswordReset: (email: string) => Promise<void>
   signInWithGoogle: () => Promise<void>
   signOut: () => Promise<void>
   getIdToken: (forceRefresh?: boolean) => Promise<string | null>
@@ -326,6 +330,36 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     })
   }
 
+  const signInWithPassword = async (email: string, password: string) => {
+    if (!auth) {
+      throw new Error("Firebase Auth is not configured.")
+    }
+
+    const normalizedEmail = email.trim()
+    if (!normalizedEmail || !password) {
+      throw new Error("Email and password are required to sign in.")
+    }
+
+    const result = await signInWithEmailAndPassword(auth, normalizedEmail, password)
+    await resolveIdToken(result.user, {
+      forceRefresh: true,
+      reason: "password_sign_in",
+    })
+  }
+
+  const sendPasswordReset = async (email: string) => {
+    if (!auth) {
+      throw new Error("Firebase Auth is not configured.")
+    }
+
+    const normalizedEmail = email.trim()
+    if (!normalizedEmail) {
+      throw new Error("Email is required to reset the password.")
+    }
+
+    await sendPasswordResetEmail(auth, normalizedEmail)
+  }
+
   const signOut = async () => {
     if (!auth) {
       return
@@ -355,6 +389,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     emailLinkRecoveryReason,
     sendEmailLink,
     completeEmailLinkSignIn,
+    signInWithPassword,
+    sendPasswordReset,
     signInWithGoogle,
     signOut,
     getIdToken,

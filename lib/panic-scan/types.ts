@@ -1,4 +1,9 @@
-export type PanicScanStatus = "processing" | "completed" | "failed"
+export type PanicScanStatus =
+  | "processing"
+  | "completed"
+  | "failed"
+  | "deleted"
+  | "insufficient_input"
 
 export type MessageType =
   | "parent_complaint"
@@ -61,4 +66,7 @@ export interface PanicScanDocument {
   expiresAt: string
   sessionId?: string
   failureReason?: string
+  deletedAt?: string
+  mediaDeletedAt?: string | null
+  deletionStatus?: "storage_deleted" | "pending_storage_cleanup"
 }

@@ -61,6 +61,7 @@ export default function PanicScanPage() {
       t("panicScanInstructionUpload"),
       t("panicScanInstructionAuto"),
       t("panicScanInstructionTTL"),
+      t("panicScanDeleteNote"),
     ],
     [t],
   )
@@ -396,6 +397,7 @@ export default function PanicScanPage() {
 
         <div className="space-y-1 text-sm text-white/70">
           <p>{t("panicScanExpiryNote")}</p>
+          <p>{t("panicScanDeleteNote")}</p>
         </div>
 
       </div>

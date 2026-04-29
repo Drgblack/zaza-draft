@@ -50,6 +50,13 @@ export async function GET(request: NextRequest) {
     )
   }
 
+  if (data?.status === "deleted") {
+    return NextResponse.json(
+      { success: false, error: { code: "DELETED", message: "Scan deleted." } },
+      { status: 410 },
+    )
+  }
+
   return NextResponse.json({
     success: true,
     data: {

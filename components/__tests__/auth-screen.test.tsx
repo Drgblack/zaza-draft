@@ -20,12 +20,15 @@ vi.mock("@/hooks/use-locale", () => ({
         "auth.marketingEyebrow": "Teacher-safe writing",
         "auth.title": "Welcome back",
         "auth.description":
-          "Enter your school or preferred email. We’ll send you a secure sign-in link. No password required.",
+          "Enter your school or preferred email. We’ll send you a secure sign-in link. If your account already exists, no new activation code is needed.",
         "auth.title.signin": "Email sign-in",
         "auth.emailLabel": "Email",
+        "auth.mode.emailLink": "Email link",
+        "auth.mode.password": "Password",
         "auth.emailLink.helper":
-          "Enter your school or preferred email. We’ll send you a secure sign-in link. No password required.",
-        "auth.emailLink.inputHelper": "We’ll email a one-time sign-in link to this address.",
+          "Enter your school or preferred email. We’ll send you a secure sign-in link. If your account already exists, no new activation code is needed.",
+        "auth.emailLink.inputHelper":
+          "We’ll email a one-time sign-in link to this address. If the old link expired, use the same email again.",
         "auth.emailLink.successTitle": "Check your inbox",
         "auth.emailLink.sent": `We've sent a secure sign-in link to ${vars?.email ?? ""}.`,
         "auth.emailLink.sentHint": "Open it on this device to continue.",
@@ -45,10 +48,23 @@ vi.mock("@/hooks/use-locale", () => ({
         "auth.emailLink.recoveryNotice":
           "The sign-in link you opened can only be used once and may have expired.",
         "auth.emailLink.processing": "Checking your secure sign-in link...",
+        "auth.passwordLabel": "Password",
+        "auth.password.helper":
+          "Use your password if you already have one. If not, choose Forgot password? to set a fresh one for this account.",
+        "auth.password.inputHelper":
+          "Account already exists? Sign in with your password or reset it. No new activation code is needed.",
+        "auth.passwordPlaceholder": "Enter your password",
+        "auth.password.cta": "Sign in with password",
+        "auth.password.processing": "Signing you in...",
+        "auth.password.resetTitle": "Check your inbox",
+        "auth.password.resetSent": `We’ve sent a password reset email to ${vars?.email ?? ""}.`,
+        "auth.password.resetHint":
+          "Use the link in that email to set a password, then sign in here.",
         "auth.cta.sendLink": "Send sign-in link",
         "auth.cta.sendNewLink": "Send a new sign-in link",
         "auth.cta.resendLink": "Resend sign-in link",
         "auth.cta.completeEmailLink": "Complete sign in",
+        "auth.cta.forgot": "Forgot password?",
         "auth.processing.sendLink": "Sending secure link...",
         "auth.processing.completeLink": "Signing you in...",
         "auth.error.invalidEmail": "Enter a valid email address.",
@@ -59,6 +75,10 @@ vi.mock("@/hooks/use-locale", () => ({
           "We couldn’t send the sign-in link right now. Please try again.",
         "auth.error.linkConfig":
           "Email-link sign-in isn’t configured correctly for this deployment.",
+        "auth.error.passwordSignInFailed":
+          "We couldn’t sign you in with that password. Check your details or reset your password.",
+        "auth.error.passwordResetFailed":
+          "We couldn’t send the password reset email right now. Please try again.",
         "auth.orContinue": "Or continue with",
         "auth.continueWithGoogle": "Continue with Google",
         "auth.loading": "Signing you in...",
@@ -101,6 +121,8 @@ describe("AuthScreen", () => {
       emailLinkRecoveryReason: null,
       sendEmailLink: vi.fn(),
       completeEmailLinkSignIn: vi.fn(),
+      signInWithPassword: vi.fn(),
+      sendPasswordReset: vi.fn(),
       signInWithGoogle: vi.fn(),
       ...overrides,
     }
@@ -115,6 +137,11 @@ describe("AuthScreen", () => {
     expect(screen.getByLabelText("Email")).toBeInTheDocument()
     expect(screen.queryByLabelText("Password")).not.toBeInTheDocument()
     expect(screen.getByText("Continue with Google")).toBeInTheDocument()
+    expect(
+      screen.getAllByText(
+        "Enter your school or preferred email. We’ll send you a secure sign-in link. If your account already exists, no new activation code is needed.",
+      ).length,
+    ).toBeGreaterThan(0)
   })
 
   it("sends a login link and shows the success state", async () => {
@@ -288,6 +315,34 @@ describe("AuthScreen", () => {
       surface: "auth_screen",
       resend: true,
     })
-    expect(screen.getByText("Check your inbox")).toBeInTheDocument()
+    await waitFor(() => {
+      expect(
+        screen.getByText("We've sent a secure sign-in link to teacher@example.com."),
+      ).toBeInTheDocument()
+    })
+  })
+
+  it("supports password reset from password mode", async () => {
+    const sendPasswordReset = vi.fn().mockResolvedValue(undefined)
+
+    useAuthMock.mockReturnValue(baseAuthState({ sendPasswordReset }))
+
+    render(<AuthScreen />)
+
+    fireEvent.click(screen.getByRole("button", { name: "Password" }))
+    fireEvent.input(screen.getByLabelText("Email"), {
+      target: { value: "teacher@example.com" },
+    })
+    fireEvent.click(screen.getByRole("button", { name: "Forgot password?" }))
+
+    await waitFor(() => {
+      expect(sendPasswordReset).toHaveBeenCalledWith("teacher@example.com")
+    })
+
+    await waitFor(() => {
+      expect(
+        screen.getByText("We’ve sent a password reset email to teacher@example.com."),
+      ).toBeInTheDocument()
+    })
   })
 })

@@ -11,6 +11,7 @@ import {
 import { cleanOcrText } from "@/lib/panic-scan/clean-ocr"
 import { canonicalizeLocaleIdentifier } from "@/lib/draft/language"
 import { resolvePanicScanLocale } from "@/lib/panic-scan/locale"
+import { filterVisionOcrForeground } from "@/lib/panic-scan/filter-vision-ocr"
 import { sanitizeEmailText } from "@/lib/text/email-sanitizer"
 import { performVisionOcr } from "@/lib/panic-scan/ocr"
 import type { PanicScanDocument } from "@/lib/panic-scan/types"
@@ -458,9 +459,11 @@ export async function POST(request: Request) {
     try {
       diagnostics.ocrPerformed = true
       const ocrStartedAt = Date.now()
-      const extractedText = await performVisionOcr(buffer)
+      const ocrResult = await performVisionOcr(buffer)
+      const extractedText = ocrResult.text
+      const foregroundText = filterVisionOcrForeground(ocrResult).text || extractedText
       const ocrElapsedMs = Date.now() - ocrStartedAt
-      const sanitized = sanitizeEmailText(extractedText)
+      const sanitized = sanitizeEmailText(foregroundText)
       logPanicScanStructured("step", {
         requestId,
         uploadAttemptId,
@@ -468,6 +471,7 @@ export async function POST(request: Request) {
         status: "ok",
         elapsedMs: ocrElapsedMs,
         extractedChars: extractedText.length,
+        filteredChars: foregroundText.length,
         sanitizedWordCount: sanitized.wordCount,
         sanitizedGreetingOnly: sanitized.greetingOrSignatureOnly,
       })

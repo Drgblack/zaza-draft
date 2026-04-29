@@ -86,6 +86,7 @@ export const localeMessages: Record<Locale, LocaleMessages> = {
     panicScanInstructionUpload: "Upload a screenshot or camera photo of the original message.",
     panicScanInstructionAuto: "We automatically OCR, classify tone/risk, and propose a calm reply.",
     panicScanInstructionTTL: "No media is stored long-term: screenshots expire after 24 hours.",
+    panicScanDeleteNote: "Scans are temporary. You can delete them at any time.",
     panicScanUploadLabel: "Upload screenshot/photo",
     panicScanSelected: "Selected",
     panicScanExpiryNote: "Images expire after 24 hours. We never keep copies beyond that window.",
@@ -105,6 +106,10 @@ export const localeMessages: Record<Locale, LocaleMessages> = {
     panicScanResultProcessingTime: "Processing time: {ms} ms",
     panicScanResultFailureLabel: "Reason: {reason}",
     panicScanResultMessageLabel: "Message (cleaned)",
+    panicScanResultReviewLabel: "Review scanned text",
+    panicScanResultReviewHelper: "Please check the scanned text before generating.",
+    panicScanResultReviewFieldLabel: "Scanned text for review",
+    panicScanResultReviewCheckbox: "I checked the scanned text and want to use this version.",
     panicScanResultCleanConfidence: "OCR confidence: {confidence}%",
 
     "panicScan.classification.riskLevel.high": "High",
@@ -141,7 +146,7 @@ export const localeMessages: Record<Locale, LocaleMessages> = {
     panicScanResultExtractedTitle: "Extracted text",
     panicScanResultAnalysisTitle: "Analysis",
     panicScanResultHelpButton: "Help me reply safely",
-    panicScanResultHelpNote: "We’ll open the editor with a ready-to-edit draft.",
+    panicScanResultHelpNote: "We’ll open the editor with your reviewed text in a ready-to-edit draft.",
     panicScanResultCopyButton: "Copy cleaned message",
     panicScanResultExpandLabel: "Expand message",
     panicScanResultCollapseLabel: "Collapse message",
@@ -152,6 +157,11 @@ export const localeMessages: Record<Locale, LocaleMessages> = {
     panicScanResultStatusProcessing: "Processing",
     panicScanResultStatusReady: "Ready to reply",
     panicScanResultStatusFailed: "Failed",
+    panicScanResultStatusDeleted: "Deleted",
+    panicScanDeleteNow: "Delete now",
+    panicScanDeleting: "Deleting...",
+    panicScanDeleteSuccess: "Scan deleted.",
+    panicScanDeleteFailure: "Could not delete scan. Please try again.",
     panicScanResultProfessionalRisk: "Professional risk: {risk}",
     panicScanResultSuggestedResponse: "Suggested response: {response}",
     "panicScan.error.chooseFile": "Choose an image to scan.",
@@ -341,7 +351,7 @@ export const localeMessages: Record<Locale, LocaleMessages> = {
     "auth.msg.passwordMismatch": "Passwords do not match",
     "auth.title": "Welcome back",
     "auth.description":
-      "Enter your school or preferred email. We’ll send you a secure sign-in link. No password required.",
+      "Enter your school or preferred email. We’ll send you a secure sign-in link. If your account already exists, no new activation code is needed.",
     "auth.marketingEyebrow": "Teacher-safe writing",
     "auth.emailLabel": "Email",
     "auth.passwordLabel": "Password",
@@ -349,6 +359,8 @@ export const localeMessages: Record<Locale, LocaleMessages> = {
     "auth.processing": "Processing...",
     "auth.processing.sendLink": "Sending secure link...",
     "auth.processing.completeLink": "Signing you in...",
+    "auth.mode.emailLink": "Email link",
+    "auth.mode.password": "Password",
     "auth.noAccount": "Don't have an account yet?",
     "auth.alreadyHaveAccount": "Already have an account?",
     "auth.orContinue": "Or continue with",
@@ -361,8 +373,9 @@ export const localeMessages: Record<Locale, LocaleMessages> = {
     "auth.cta.resendLink": "Resend sign-in link",
     "auth.cta.completeEmailLink": "Complete sign in",
     "auth.emailLink.helper":
-      "Enter your school or preferred email. We’ll send you a secure sign-in link. No password required.",
-    "auth.emailLink.inputHelper": "We’ll email a one-time sign-in link to this address.",
+      "Enter your school or preferred email. We’ll send you a secure sign-in link. If your account already exists, no new activation code is needed.",
+    "auth.emailLink.inputHelper":
+      "We’ll email a one-time sign-in link to this address. If the old link expired, use the same email again.",
     "auth.emailLink.successTitle": "Check your inbox",
     "auth.emailLink.sent": "We've sent a secure sign-in link to {email}.",
     "auth.emailLink.sentHint": "Open it on this device to continue.",
@@ -382,6 +395,16 @@ export const localeMessages: Record<Locale, LocaleMessages> = {
     "auth.emailLink.recoveryNotice":
       "The sign-in link you opened can only be used once and may have expired.",
     "auth.emailLink.processing": "Checking your secure sign-in link...",
+    "auth.password.helper":
+      "Use your password if you already have one. If not, choose Forgot password? to set a fresh one for this account.",
+    "auth.password.inputHelper":
+      "Account already exists? Sign in with your password or reset it. No new activation code is needed.",
+    "auth.passwordPlaceholder": "Enter your password",
+    "auth.password.cta": "Sign in with password",
+    "auth.password.processing": "Signing you in...",
+    "auth.password.resetTitle": "Check your inbox",
+    "auth.password.resetSent": "We’ve sent a password reset email to {email}.",
+    "auth.password.resetHint": "Use the link in that email to set a password, then sign in here.",
     "auth.error.invalidEmail": "Enter a valid email address.",
     "auth.error.linkExpired": "This sign-in link is no longer valid. Request a new one.",
     "auth.error.linkFailed":
@@ -390,6 +413,10 @@ export const localeMessages: Record<Locale, LocaleMessages> = {
       "We couldn’t send the sign-in link right now. Please try again.",
     "auth.error.linkConfig":
       "Email-link sign-in isn’t configured correctly for this deployment.",
+    "auth.error.passwordSignInFailed":
+      "We couldn’t sign you in with that password. Check your details or reset your password.",
+    "auth.error.passwordResetFailed":
+      "We couldn’t send the password reset email right now. Please try again.",
     "auth.instant.badge": "Instant Draft Test",
     "auth.instant.title": "Try Draft instantly",
     "auth.instant.description":
@@ -1299,7 +1326,7 @@ export const localeMessages: Record<Locale, LocaleMessages> = {
       "Password must contain at least one uppercase letter, one lowercase letter, and one number",
     "auth.msg.passwordMismatch": "Passwords do not match",
     "auth.description":
-      "Enter your school or preferred email. We’ll send you a secure sign-in link. No password required.",
+      "Enter your school or preferred email. We’ll send you a secure sign-in link. If your account already exists, no new activation code is needed.",
     "auth.marketingEyebrow": "Teacher-safe writing",
     "auth.emailLabel": "Email",
     "auth.passwordLabel": "Password",
@@ -1307,6 +1334,8 @@ export const localeMessages: Record<Locale, LocaleMessages> = {
     "auth.processing": "Processing...",
     "auth.processing.sendLink": "Sending secure link...",
     "auth.processing.completeLink": "Signing you in...",
+    "auth.mode.emailLink": "Email link",
+    "auth.mode.password": "Password",
     "auth.noAccount": "Don't have an account yet?",
     "auth.alreadyHaveAccount": "Already have an account?",
     "auth.orContinue": "Or continue with",
@@ -1319,8 +1348,9 @@ export const localeMessages: Record<Locale, LocaleMessages> = {
     "auth.cta.resendLink": "Resend sign-in link",
     "auth.cta.completeEmailLink": "Complete sign in",
     "auth.emailLink.helper":
-      "Enter your school or preferred email. We’ll send you a secure sign-in link. No password required.",
-    "auth.emailLink.inputHelper": "We’ll email a one-time sign-in link to this address.",
+      "Enter your school or preferred email. We’ll send you a secure sign-in link. If your account already exists, no new activation code is needed.",
+    "auth.emailLink.inputHelper":
+      "We’ll email a one-time sign-in link to this address. If the old link expired, use the same email again.",
     "auth.emailLink.successTitle": "Check your inbox",
     "auth.emailLink.sent": "We've sent a secure sign-in link to {email}.",
     "auth.emailLink.sentHint": "Open it on this device to continue.",
@@ -1340,6 +1370,16 @@ export const localeMessages: Record<Locale, LocaleMessages> = {
     "auth.emailLink.recoveryNotice":
       "The sign-in link you opened can only be used once and may have expired.",
     "auth.emailLink.processing": "Checking your secure sign-in link...",
+    "auth.password.helper":
+      "Use your password if you already have one. If not, choose Forgot password? to set a fresh one for this account.",
+    "auth.password.inputHelper":
+      "Account already exists? Sign in with your password or reset it. No new activation code is needed.",
+    "auth.passwordPlaceholder": "Enter your password",
+    "auth.password.cta": "Sign in with password",
+    "auth.password.processing": "Signing you in...",
+    "auth.password.resetTitle": "Check your inbox",
+    "auth.password.resetSent": "We’ve sent a password reset email to {email}.",
+    "auth.password.resetHint": "Use the link in that email to set a password, then sign in here.",
     "auth.error.invalidEmail": "Enter a valid email address.",
     "auth.error.linkExpired": "This sign-in link is no longer valid. Request a new one.",
     "auth.error.linkFailed":
@@ -1348,6 +1388,10 @@ export const localeMessages: Record<Locale, LocaleMessages> = {
       "We couldn’t send the sign-in link right now. Please try again.",
     "auth.error.linkConfig":
       "Email-link sign-in isn’t configured correctly for this deployment.",
+    "auth.error.passwordSignInFailed":
+      "We couldn’t sign you in with that password. Check your details or reset your password.",
+    "auth.error.passwordResetFailed":
+      "We couldn’t send the password reset email right now. Please try again.",
     "billing.title": "Billing & Subscription",
     "billing.signinRequired": "Please sign in to view billing.",
     "billing.usageThisMonth": "{used} / {limit} drafts used this month",
@@ -2043,6 +2087,7 @@ export const localeMessages: Record<Locale, LocaleMessages> = {
     panicScanInstructionUpload: "Laden Sie einen Screenshot oder ein Foto der ursprünglichen Nachricht hoch.",
     panicScanInstructionAuto: "Wir führen automatisch OCR durch, analysieren Ton/Risiko und schlagen eine ruhige Antwort vor.",
     panicScanInstructionTTL: "Medien werden nicht dauerhaft gespeichert: Screenshots laufen nach 24 Stunden ab.",
+    panicScanDeleteNote: "Scans sind temporär. Sie können sie jederzeit löschen.",
     panicScanUploadLabel: "Screenshot/Foto hochladen",
     panicScanSelected: "Ausgewählt",
     panicScanExpiryNote: "Bilder verfallen nach 24 Stunden. Wir speichern keine Kopien länger.",
@@ -2062,6 +2107,10 @@ export const localeMessages: Record<Locale, LocaleMessages> = {
     panicScanResultProcessingTime: "Verarbeitungszeit: {ms} ms",
     panicScanResultFailureLabel: "Grund: {reason}",
     panicScanResultMessageLabel: "Nachricht (bereinigt)",
+    panicScanResultReviewLabel: "Erkannten Text prüfen",
+    panicScanResultReviewHelper: "Bitte prüfen Sie den erkannten Text, bevor Sie einen Entwurf erstellen.",
+    panicScanResultReviewFieldLabel: "Erkannter Text zur Prüfung",
+    panicScanResultReviewCheckbox: "Ich habe den erkannten Text geprüft und möchte diese Version verwenden.",
     panicScanResultCleanConfidence: "OCR-Genauigkeit: {confidence}%",
 
     "panicScan.classification.riskLevel.high": "Hoch",
@@ -2099,7 +2148,7 @@ export const localeMessages: Record<Locale, LocaleMessages> = {
     panicScanResultExtractedTitle: "Erkannter Text",
     panicScanResultAnalysisTitle: "Analyse",
     panicScanResultHelpButton: "Hilf mir sicher zu antworten",
-    panicScanResultHelpNote: "Wir öffnen den Editor mit einem sofort editierbaren Entwurf.",
+    panicScanResultHelpNote: "Wir öffnen den Editor mit Ihrem geprüften Text in einem sofort editierbaren Entwurf.",
     panicScanResultCopyButton: "Bereinigte Nachricht kopieren",
     panicScanResultExpandLabel: "Nachricht erweitern",
     panicScanResultCollapseLabel: "Nachricht einklappen",
@@ -2110,6 +2159,11 @@ export const localeMessages: Record<Locale, LocaleMessages> = {
     panicScanResultStatusProcessing: "Verarbeitung",
     panicScanResultStatusReady: "Antwort bereit",
     panicScanResultStatusFailed: "Fehlgeschlagen",
+    panicScanResultStatusDeleted: "Gelöscht",
+    panicScanDeleteNow: "Jetzt löschen",
+    panicScanDeleting: "Wird gelöscht...",
+    panicScanDeleteSuccess: "Scan gelöscht.",
+    panicScanDeleteFailure: "Scan konnte nicht gelöscht werden. Bitte versuchen Sie es erneut.",
     panicScanResultProfessionalRisk: "Berufliches Risiko: {risk}",
     panicScanResultSuggestedResponse: "Vorgeschlagene Antwort: {response}",
     "panicScan.error.chooseFile": "Wählen Sie ein Bild zum Scannen aus.",
@@ -2299,7 +2353,7 @@ export const localeMessages: Record<Locale, LocaleMessages> = {
     "auth.msg.passwordMismatch": "Passwörter stimmen nicht überein.",
     "auth.title": "Willkommen zurück",
     "auth.description":
-      "Geben Sie Ihre Schul- oder bevorzugte E-Mail-Adresse ein. Wir senden Ihnen einen sicheren Anmeldelink. Kein Passwort erforderlich.",
+      "Geben Sie Ihre Schul- oder bevorzugte E-Mail-Adresse ein. Wir senden Ihnen einen sicheren Anmeldelink. Wenn Ihr Konto bereits existiert, brauchen Sie keinen neuen Aktivierungscode.",
     "auth.marketingEyebrow": "Sichere Kommunikation für Lehrkräfte",
     "auth.emailLabel": "E-Mail",
     "auth.passwordLabel": "Passwort",
@@ -2307,6 +2361,8 @@ export const localeMessages: Record<Locale, LocaleMessages> = {
     "auth.processing": "Verarbeite…",
     "auth.processing.sendLink": "Sicherer Link wird gesendet...",
     "auth.processing.completeLink": "Anmeldung wird abgeschlossen...",
+    "auth.mode.emailLink": "E-Mail-Link",
+    "auth.mode.password": "Passwort",
     "auth.noAccount": "Noch keinen Account?",
     "auth.alreadyHaveAccount": "Schon einen Account?",
     "auth.orContinue": "Oder mit",
@@ -2319,8 +2375,9 @@ export const localeMessages: Record<Locale, LocaleMessages> = {
     "auth.cta.resendLink": "Anmeldelink erneut senden",
     "auth.cta.completeEmailLink": "Anmeldung abschließen",
     "auth.emailLink.helper":
-      "Geben Sie Ihre Schul- oder bevorzugte E-Mail-Adresse ein. Wir senden Ihnen einen sicheren Anmeldelink. Kein Passwort erforderlich.",
-    "auth.emailLink.inputHelper": "Wir senden einen einmaligen Anmeldelink an diese Adresse.",
+      "Geben Sie Ihre Schul- oder bevorzugte E-Mail-Adresse ein. Wir senden Ihnen einen sicheren Anmeldelink. Wenn Ihr Konto bereits existiert, brauchen Sie keinen neuen Aktivierungscode.",
+    "auth.emailLink.inputHelper":
+      "Wir senden einen einmaligen Anmeldelink an diese Adresse. Wenn der alte Link abgelaufen ist, verwenden Sie dieselbe E-Mail erneut.",
     "auth.emailLink.successTitle": "Posteingang prüfen",
     "auth.emailLink.sent": "Wir haben einen sicheren Anmeldelink an {email} gesendet.",
     "auth.emailLink.sentHint": "Öffnen Sie ihn auf diesem Gerät, um fortzufahren.",
@@ -2341,6 +2398,16 @@ export const localeMessages: Record<Locale, LocaleMessages> = {
     "auth.emailLink.recoveryNotice":
       "Der geöffnete Anmeldelink kann nur einmal verwendet werden und ist möglicherweise bereits abgelaufen.",
     "auth.emailLink.processing": "Ihr Anmeldelink wird geprüft...",
+    "auth.password.helper":
+      "Verwenden Sie Ihr Passwort, wenn Sie bereits eines haben. Falls nicht, wählen Sie Passwort vergessen?, um für dieses Konto ein neues festzulegen.",
+    "auth.password.inputHelper":
+      "Konto bereits vorhanden? Melden Sie sich mit Ihrem Passwort an oder setzen Sie es zurück. Kein neuer Aktivierungscode nötig.",
+    "auth.passwordPlaceholder": "Passwort eingeben",
+    "auth.password.cta": "Mit Passwort anmelden",
+    "auth.password.processing": "Anmeldung läuft...",
+    "auth.password.resetTitle": "Posteingang prüfen",
+    "auth.password.resetSent": "Wir haben eine E-Mail zum Zurücksetzen des Passworts an {email} gesendet.",
+    "auth.password.resetHint": "Verwenden Sie den Link in dieser E-Mail, legen Sie ein Passwort fest und melden Sie sich dann hier an.",
     "auth.error.invalidEmail": "Bitte geben Sie eine gültige E-Mail-Adresse ein.",
     "auth.error.linkExpired":
       "Dieser Anmeldelink ist nicht mehr gültig. Fordern Sie bitte einen neuen an.",
@@ -2350,6 +2417,10 @@ export const localeMessages: Record<Locale, LocaleMessages> = {
       "Der Anmeldelink konnte gerade nicht gesendet werden. Bitte versuchen Sie es noch einmal.",
     "auth.error.linkConfig":
       "Die Anmeldung per E-Mail-Link ist für diese Bereitstellung nicht korrekt konfiguriert.",
+    "auth.error.passwordSignInFailed":
+      "Die Anmeldung mit diesem Passwort hat nicht geklappt. Prüfen Sie Ihre Angaben oder setzen Sie das Passwort zurück.",
+    "auth.error.passwordResetFailed":
+      "Die E-Mail zum Zurücksetzen des Passworts konnte gerade nicht gesendet werden. Bitte versuchen Sie es noch einmal.",
     "auth.instant.badge": "Sofort testen",
     "auth.instant.title": "Try Draft instantly",
     "auth.instant.description":
