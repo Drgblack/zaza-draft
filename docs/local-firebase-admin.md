@@ -65,8 +65,22 @@ Expected local config:
 ```env
 FIREBASE_PROJECT_ID=zaza-draft-app
 NEXT_PUBLIC_FIREBASE_PROJECT_ID=zaza-draft-app
-GOOGLE_APPLICATION_CREDENTIALS=C:\Users\User\Secrets\zaza-draft\zaza-draft-service-account.json
+GOOGLE_APPLICATION_CREDENTIALS=C:\Users\User\Secrets\zaza-draft\firebase-adminsdk.json
 ```
+
+## 4b. Safe local migration checklist
+
+1. Close any running `pnpm dev`, test runners, or admin scripts that may have loaded the old env.
+2. Update `.env.local` so `FIREBASE_PROJECT_ID=zaza-draft-app`.
+3. Update `.env.local` so `NEXT_PUBLIC_FIREBASE_PROJECT_ID=zaza-draft-app`.
+4. Update `.env.local` so `NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=zaza-draft-app.firebaseapp.com`.
+5. Point `GOOGLE_APPLICATION_CREDENTIALS` at the local `zaza-draft-app` admin SDK JSON.
+6. If `FIREBASE_SERVICE_ACCOUNT_JSON` is used instead of a file path, make sure its `project_id` is `zaza-draft-app`.
+7. Restart the shell or dev server so Next.js reloads the new env values.
+8. Run a read-only check before admin/auth diagnosis:
+   * `FIREBASE_PROJECT_ID` resolves to `zaza-draft-app`
+   * `NEXT_PUBLIC_FIREBASE_PROJECT_ID` resolves to `zaza-draft-app`
+   * the service account JSON `project_id` resolves to `zaza-draft-app`
 
 ## 5. Authorize Vercel domains for Google sign-in
 

@@ -20,6 +20,7 @@ firebase-debug.log
 # env files
 .env*
 !.env.example
+!.env.local.example
 
 # vercel
 .vercel
