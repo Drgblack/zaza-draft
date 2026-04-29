@@ -1,9 +1,11 @@
 "use client"
 
-import { ChangeEvent, useEffect, useMemo, useRef, useState } from "react"
+import { ChangeEvent, Suspense, useEffect, useMemo, useRef, useState } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import Link from "next/link"
+import { ShieldCheck } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { Badge } from "@/components/ui/badge"
 import { AuthScreen } from "@/components/auth/auth-screen"
 import { useAuth } from "@/hooks/use-auth"
 import { useLocale } from "@/hooks/use-locale"
@@ -11,7 +13,7 @@ import { isDebugEnabled } from "@/lib/debug"
 
 const SUPPORTED_FORMATS = ["JPG", "PNG", "HEIC"]
 
-export default function PanicScanPage() {
+function PanicScanPageContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const { status, getIdToken } = useAuth()
@@ -336,6 +338,17 @@ export default function PanicScanPage() {
         </div>
 
         <div className="rounded-2xl border border-white/20 bg-white/10 p-6 shadow-lg shadow-purple-900/60">
+          <div className="mb-4 space-y-2">
+            <Badge
+              variant="outline"
+              title={t("panicScanPrivacyHelper")}
+              className="border-emerald-300/35 bg-emerald-400/10 px-2.5 py-1 text-[11px] font-medium text-emerald-100"
+            >
+              <ShieldCheck className="h-3.5 w-3.5" aria-hidden="true" />
+              {t("panicScanPrivacyBadge")}
+            </Badge>
+            <p className="text-xs text-white/65">{t("panicScanPrivacyHelper")}</p>
+          </div>
           <label className="block text-sm font-semibold text-white mb-2">
             {t("panicScanUploadLabel")}
           </label>
@@ -412,6 +425,14 @@ export default function PanicScanPage() {
 
       </div>
     </div>
+  )
+}
+
+export default function PanicScanPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-gradient-to-b from-purple-900 via-purple-950 to-black" />}>
+      <PanicScanPageContent />
+    </Suspense>
   )
 }
 

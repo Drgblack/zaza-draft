@@ -36,6 +36,9 @@ vi.mock("@/hooks/use-locale", () => ({
         panicScanInstructionAuto: "We automatically OCR, classify tone/risk, and propose a calm reply.",
         panicScanInstructionTTL: "No media is stored long-term: screenshots expire after 24 hours.",
         panicScanDeleteNote: "Scans are temporary. You can delete them at any time.",
+        panicScanPrivacyBadge: "Temporary scan · delete anytime",
+        panicScanPrivacyHelper:
+          "Scans are stored temporarily for processing. You can delete a scan whenever you want.",
         panicScanUploadLabel: "Upload screenshot/photo",
         panicScanButton: "Analyze screenshot",
         "panicScan.helper.selectFile": "Select a file to enable analysis.",
@@ -73,5 +76,17 @@ describe("PanicScanPage", () => {
     render(<PanicScanPage />)
 
     expect(await screen.findByText("Scan deleted.")).toBeInTheDocument()
+  })
+
+  it("renders the privacy badge near the upload section without exposing a raw locale key", async () => {
+    render(<PanicScanPage />)
+
+    expect(await screen.findByText("Temporary scan · delete anytime")).toBeInTheDocument()
+    expect(
+      screen.getByText(
+        "Scans are stored temporarily for processing. You can delete a scan whenever you want.",
+      ),
+    ).toBeInTheDocument()
+    expect(screen.queryByText("panicScanPrivacyBadge")).not.toBeInTheDocument()
   })
 })

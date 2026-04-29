@@ -87,6 +87,9 @@ export const localeMessages: Record<Locale, LocaleMessages> = {
     panicScanInstructionAuto: "We automatically OCR, classify tone/risk, and propose a calm reply.",
     panicScanInstructionTTL: "No media is stored long-term: screenshots expire after 24 hours.",
     panicScanDeleteNote: "Scans are temporary. You can delete them at any time.",
+    panicScanPrivacyBadge: "Temporary scan · delete anytime",
+    panicScanPrivacyHelper:
+      "Scans are stored temporarily for processing. You can delete a scan whenever you want.",
     panicScanUploadLabel: "Upload screenshot/photo",
     panicScanSelected: "Selected",
     panicScanExpiryNote: "Images expire after 24 hours. We never keep copies beyond that window.",
@@ -2094,6 +2097,9 @@ export const localeMessages: Record<Locale, LocaleMessages> = {
     panicScanInstructionAuto: "Wir führen automatisch OCR durch, analysieren Ton/Risiko und schlagen eine ruhige Antwort vor.",
     panicScanInstructionTTL: "Medien werden nicht dauerhaft gespeichert: Screenshots laufen nach 24 Stunden ab.",
     panicScanDeleteNote: "Scans sind temporär. Sie können sie jederzeit löschen.",
+    panicScanPrivacyBadge: "Temporärer Scan · jederzeit löschbar",
+    panicScanPrivacyHelper:
+      "Scans werden zur Verarbeitung nur vorübergehend gespeichert. Sie können einen Scan jederzeit löschen.",
     panicScanUploadLabel: "Screenshot/Foto hochladen",
     panicScanSelected: "Ausgewählt",
     panicScanExpiryNote: "Bilder verfallen nach 24 Stunden. Wir speichern keine Kopien länger.",

@@ -54,6 +54,9 @@ vi.mock("@/hooks/use-locale", () => ({
         panicScanDeleting: "Deleting...",
         panicScanDeleteSuccess: "Scan deleted.",
         panicScanDeleteFailure: "Could not delete scan. Please try again.",
+        panicScanPrivacyBadge: "Temporary scan · delete anytime",
+        panicScanPrivacyHelper:
+          "Scans are stored temporarily for processing. You can delete a scan whenever you want.",
         panicScanDeleteTrustHelper:
           "This scan is stored temporarily and can be deleted at any time.",
         panicScanDeleteConfirmTitle: "Delete this scan?",
@@ -155,6 +158,15 @@ describe("PanicScanResultPage", () => {
     expect(
       screen.getByText("This scan is stored temporarily and can be deleted at any time."),
     ).toBeInTheDocument()
+  })
+
+  it("renders the privacy badge in the top status card without exposing a raw locale key", async () => {
+    mockCompletedScan()
+
+    render(<PanicScanResultPage />)
+
+    expect(await screen.findByText("Temporary scan · delete anytime")).toBeInTheDocument()
+    expect(screen.queryByText("panicScanPrivacyBadge")).not.toBeInTheDocument()
   })
 
   it("confirms deletion and redirects back to Panic Scan home on success", async () => {

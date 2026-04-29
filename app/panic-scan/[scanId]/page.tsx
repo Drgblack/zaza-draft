@@ -3,6 +3,7 @@
 import { ChangeEvent, useEffect, useMemo, useRef, useState } from "react"
 import { useRouter, useParams } from "next/navigation"
 import Link from "next/link"
+import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import {
   AlertDialog,
@@ -15,7 +16,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
-import { ChevronDown, ChevronLeft } from "lucide-react"
+import { ChevronDown, ChevronLeft, ShieldCheck } from "lucide-react"
 import { useAuth } from "@/hooks/use-auth"
 import { AuthScreen } from "@/components/auth/auth-screen"
 import { useLocale } from "@/hooks/use-locale"
@@ -525,11 +526,19 @@ export default function PanicScanResultPage() {
           <div className="space-y-6">
             <div className="rounded-[28px] border border-white/15 bg-white/5 px-6 py-6 space-y-3 shadow-[0_20px_60px_rgba(15,4,50,0.6)]">
               <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-                <div>
+                <div className="space-y-3">
                   <p className="text-xs uppercase tracking-[0.3em] text-white/60">
                     {t("panicScanResultStatusLabel")}
                   </p>
                   <p className="text-xl font-semibold">{statusLabel}</p>
+                  <Badge
+                    variant="outline"
+                    title={t("panicScanPrivacyHelper")}
+                    className="border-emerald-300/35 bg-emerald-400/10 px-2.5 py-1 text-[11px] font-medium text-emerald-100"
+                  >
+                    <ShieldCheck className="h-3.5 w-3.5" aria-hidden="true" />
+                    {t("panicScanPrivacyBadge")}
+                  </Badge>
                 </div>
                 <div className="flex flex-wrap items-center gap-3">
                   <span
