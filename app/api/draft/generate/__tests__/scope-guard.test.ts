@@ -28,6 +28,22 @@ const GERMAN_REJECTED_PROMPTS = [
   "Was ist die Hauptstadt von Frankreich?",
 ]
 
+const SCHOOL_CONTEXT_ACCEPTED_PROMPTS = [
+  "Adam had shown disruptive behaviour leading to waste almost 22 minutes of today's online session. Urgent action needs to be taken. Online sessions must be observed by a guardian to guarantee the avoidance of abrupt stop.",
+  "Adam had shown disruptive behayiour leading to waste almost 22 minutes of today's online session. Urgent action needs to be taken. Online sessions must be observed by a guardian to guarantee the avoidance of abrupt stop.",
+  "Mia was disruptive in our session this morning. Her guardian needs to be informed about today's incident.",
+  "I want to follow up about Lukas's progress. He has been struggling with attendance and his work is showing the impact.",
+  "Sarah is a hardworking pupil who consistently engages in lessons. Her marking shows steady improvement this term.",
+]
+
+const NON_SCHOOL_REJECTED_PROMPTS = [
+  "What is the best recipe for chocolate cake with vanilla frosting?",
+  "What is the weather like in London tomorrow?",
+  "Write me a Python function to sort a list of integers in ascending order.",
+  "I need to write a difficult message to my brother about our father's will.",
+  "Buy our amazing new product today and save 50% with code SUMMER.",
+]
+
 describe("out-of-scope redirect guard", () => {
   it("matches known non-teaching queries", () => {
     OUT_OF_SCOPE_PROMPTS.forEach((prompt) => {
@@ -113,5 +129,45 @@ describe("out-of-scope redirect guard", () => {
       expect(isValidDraftRequest(prompt, "parent_message")).toBe(false)
       expect(isOutOfScopeQuery(prompt)).toBe(true)
     })
+  })
+
+  it("accepts the Adam note with exact school wording", () => {
+    expect(isValidDraftRequest(SCHOOL_CONTEXT_ACCEPTED_PROMPTS[0], "parent_message")).toBe(true)
+  })
+
+  it("accepts the Adam note when OCR corrupts behaviour", () => {
+    expect(isValidDraftRequest(SCHOOL_CONTEXT_ACCEPTED_PROMPTS[1], "parent_message")).toBe(true)
+  })
+
+  it("accepts school notes that rely on multiple context signals", () => {
+    expect(isValidDraftRequest(SCHOOL_CONTEXT_ACCEPTED_PROMPTS[2], "parent_message")).toBe(true)
+  })
+
+  it("accepts sensitive parent communication about progress and attendance", () => {
+    expect(isValidDraftRequest(SCHOOL_CONTEXT_ACCEPTED_PROMPTS[3], "parent_message")).toBe(true)
+  })
+
+  it("accepts report comments grounded in pupil progress and marking", () => {
+    expect(isValidDraftRequest(SCHOOL_CONTEXT_ACCEPTED_PROMPTS[4], "report_comment")).toBe(true)
+  })
+
+  it("rejects recipe prompts", () => {
+    expect(isValidDraftRequest(NON_SCHOOL_REJECTED_PROMPTS[0], "parent_message")).toBe(false)
+  })
+
+  it("rejects weather prompts", () => {
+    expect(isValidDraftRequest(NON_SCHOOL_REJECTED_PROMPTS[1], "parent_message")).toBe(false)
+  })
+
+  it("rejects code-writing prompts", () => {
+    expect(isValidDraftRequest(NON_SCHOOL_REJECTED_PROMPTS[2], "parent_message")).toBe(false)
+  })
+
+  it("rejects unrelated personal relationship prompts", () => {
+    expect(isValidDraftRequest(NON_SCHOOL_REJECTED_PROMPTS[3], "parent_message")).toBe(false)
+  })
+
+  it("rejects marketing copy prompts", () => {
+    expect(isValidDraftRequest(NON_SCHOOL_REJECTED_PROMPTS[4], "parent_message")).toBe(false)
   })
 })

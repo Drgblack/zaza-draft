@@ -51,6 +51,34 @@ const ALLOWLIST_TERMS = [
   "school",
   "excursion",
   "museum",
+  "guardian",
+  "guardians",
+  "classroom",
+  "session",
+  "sessions",
+  "online session",
+  "disruptive",
+  "pastoral",
+  "sen",
+  "iep",
+  "marking",
+  "detention",
+  "tutor",
+  "head of year",
+  "intervention",
+  "attendance",
+  "safeguarding",
+  "pupil",
+  "pupils",
+  "learner",
+  "learners",
+  "key stage",
+  "year group",
+  "form group",
+  "assembly",
+  "playground",
+  "pe lesson",
+  "assignment",
 ]
 
 const ALLOWLIST_REGEX = ALLOWLIST_TERMS.map((term) =>
@@ -75,20 +103,40 @@ const SCHOOL_TARGETS = [
 const SCHOOL_INTENT_TERMS = [
   "parent",
   "carer",
+  "guardian",
+  "guardians",
   "student",
   "pupil",
+  "pupils",
+  "learner",
+  "learners",
   "class",
+  "classroom",
   "lesson",
+  "session",
+  "sessions",
   "school",
   "report",
   "progress",
   "behaviour",
   "behavior",
+  "disruptive",
   "attendance",
   "homework",
   "assessment",
   "wellbeing",
   "teacher",
+  "pastoral",
+  "sen",
+  "iep",
+  "marking",
+  "detention",
+  "tutor",
+  "intervention",
+  "safeguarding",
+  "assignment",
+  "assembly",
+  "playground",
   "eltern",
   "schueler",
   "schule",
@@ -111,6 +159,12 @@ const SCHOOL_INTENT_PHRASES = [
   "zeugniskommentar",
   "berichtskommentar",
   "schuelerbericht",
+  "online session",
+  "head of year",
+  "key stage",
+  "year group",
+  "form group",
+  "pe lesson",
 ]
 
 const REPORT_INTENT_TERMS = [
@@ -137,17 +191,103 @@ const IMPLICIT_SCHOOL_PHRASES = [
   "student progress",
   "behaviour note",
   "behavior note",
+  "behaviour update",
   "wellbeing concern",
   "incident report",
   "excursion note",
   "school update",
   "parent email",
+  "parent communication",
+  "progress report",
+  "parent meeting",
+  "guardian meeting",
+  "urgent action",
+  "needs to be taken",
+  "guardian to guarantee",
   "elternnachricht",
   "berichtskommentar",
   "lernstandsbericht",
   "lernfortschritt",
   "ausflug",
 ]
+
+const SCHOOL_SIGNAL_CATEGORIES = {
+  person: ["student", "students", "pupil", "pupils", "learner", "learners", "child", "children", "kid", "kids"],
+  action: [
+    "lesson",
+    "lessons",
+    "session",
+    "sessions",
+    "class",
+    "classes",
+    "meeting",
+    "meetings",
+    "assembly",
+    "detention",
+    "intervention",
+    "marking",
+    "assignment",
+  ],
+  authority: [
+    "guardian",
+    "guardians",
+    "parent",
+    "parents",
+    "carer",
+    "carers",
+    "teacher",
+    "teachers",
+    "tutor",
+    "tutors",
+    "head",
+    "headteacher",
+    "head of year",
+  ],
+  concern: [
+    "behaviour",
+    "behavior",
+    "disruptive",
+    "urgent",
+    "action",
+    "concern",
+    "concerns",
+    "support",
+    "incident",
+  ],
+} as const
+
+const NAME_LIKE_PATTERN = /\b([A-Z][a-z]{2,})(?:'s)?\b/
+const NON_NAME_TOKENS = new Set([
+  "After",
+  "Before",
+  "Buy",
+  "Create",
+  "Draft",
+  "Form",
+  "Generate",
+  "He",
+  "Her",
+  "His",
+  "How",
+  "I",
+  "If",
+  "Improve",
+  "In",
+  "It",
+  "Need",
+  "Online",
+  "Please",
+  "Rewrite",
+  "Session",
+  "She",
+  "The",
+  "This",
+  "Today",
+  "Urgent",
+  "We",
+  "What",
+  "Write",
+])
 
 const DIAGNOSTIC_SPECULATION_PATTERNS = [
   /\badhd\b/i,
@@ -177,6 +317,39 @@ function hasSchoolIntentSignal(normalized: string) {
   )
 }
 
+function hasNameLikeStudentSignal(text: string) {
+  const matches = text.match(/\b([A-Z][a-z]{2,})(?:'s)?\b/g) ?? []
+  return matches.some((match) => {
+    const normalizedToken = match.replace(/'s$/i, "")
+    return NAME_LIKE_PATTERN.test(match) && !NON_NAME_TOKENS.has(normalizedToken)
+  })
+}
+
+function hasMultiSignalSchoolContext(text: string, normalized: string) {
+  const matchedCategories = new Set<string>()
+
+  if (
+    containsAnyWord(normalized, SCHOOL_SIGNAL_CATEGORIES.person) ||
+    hasNameLikeStudentSignal(text)
+  ) {
+    matchedCategories.add("person")
+  }
+
+  if (containsAnyWord(normalized, SCHOOL_SIGNAL_CATEGORIES.action)) {
+    matchedCategories.add("action")
+  }
+
+  if (containsAnyWord(normalized, SCHOOL_SIGNAL_CATEGORIES.authority)) {
+    matchedCategories.add("authority")
+  }
+
+  if (containsAnyWord(normalized, SCHOOL_SIGNAL_CATEGORIES.concern)) {
+    matchedCategories.add("concern")
+  }
+
+  return matchedCategories.size >= 2
+}
+
 function hasReportIntentSignal(normalized: string) {
   return (
     containsAnyWord(normalized, REPORT_INTENT_TERMS) ||
@@ -192,7 +365,7 @@ function containsWord(text: string, word: string) {
   return new RegExp(`\\b${word.replace(/[-/\\^$*+?.()|[\]{}]/g, "\\$&")}\\b`, "i").test(text)
 }
 
-function containsAnyWord(text: string, words: string[]) {
+function containsAnyWord(text: string, words: readonly string[]) {
   return words.some((word) => containsWord(text, word))
 }
 
@@ -205,6 +378,9 @@ If you'd like help with report comments, parent emails, behaviour or wellbeing n
 export function isOutOfScopeQuery(text: string) {
   const normalized = normalizeQuery(text)
   if (hasDiagnosticSpeculationSignal(normalized)) {
+    return false
+  }
+  if (hasMultiSignalSchoolContext(text, normalized)) {
     return false
   }
   if (hasSchoolIntentSignal(normalized) || hasReportIntentSignal(normalized)) {
@@ -229,17 +405,18 @@ export function isValidDraftRequest(text: string, mode?: string) {
 
   const hasSchoolIntent = hasSchoolIntentSignal(normalized)
   const hasReportIntent = hasReportIntentSignal(normalized)
+  const hasMultiSignalContext = hasMultiSignalSchoolContext(text, normalized)
 
-  const hasIntent = hasSchoolIntent || hasReportIntent
+  const hasIntent = hasSchoolIntent || hasReportIntent || hasMultiSignalContext
   const explicitEligible = hasExplicitVerb && hasSchoolTarget && hasIntent
   const implicitEligible = IMPLICIT_SCHOOL_PHRASES.some((phrase) => normalized.includes(phrase))
 
   if (mode === "parent_message") {
-    return hasSchoolIntent || explicitEligible || implicitEligible
+    return hasSchoolIntent || hasMultiSignalContext || explicitEligible || implicitEligible
   }
 
   if (mode === "report_comment") {
-    return hasReportIntent || hasSchoolIntent || explicitEligible || implicitEligible
+    return hasReportIntent || hasSchoolIntent || hasMultiSignalContext || explicitEligible || implicitEligible
   }
 
   return hasIntent || implicitEligible
