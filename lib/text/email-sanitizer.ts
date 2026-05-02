@@ -45,6 +45,8 @@ const GREETING_REGEX = /^(?:dear|hi|hello|hey|guten\s+tag|hallo|liebe[rn]?|sehr\
 const SIGNATURE_REGEX = /^(?:kind regards|regards|best regards|sincerely|yours sincerely|thanks|thank you),?$/i
 const SIGNOFF_REGEX = /^(?:kind regards|regards|best regards|sincerely|yours sincerely|yours faithfully|mit freundlichen grüßen|freundliche grüße|viele grüße|beste grüße|hochachtungsvoll)\b/i
 const SIGNATURE_NAME_REGEX = /^(?:mr|mrs|ms|miss|dr)\b.*$/i
+const EMAIL_ADDRESS_HEADER_REGEX = /^(?:from|to|cc|bcc):\s*.*@.*$/i
+const QUOTED_REPLY_REGEX = /^\s*>/
 
 const UI_LINE_KEYWORDS = [
   "sans serif",
@@ -115,6 +117,12 @@ function isGreetingOrSignature(line: string) {
 function shouldDropLine(line: string) {
   if (!line) {
     return false
+  }
+  if (EMAIL_ADDRESS_HEADER_REGEX.test(line)) {
+    return true
+  }
+  if (QUOTED_REPLY_REGEX.test(line)) {
+    return true
   }
   if (UI_LINE_PATTERNS.some((pattern) => pattern.test(line))) {
     return true

@@ -78,6 +78,8 @@ const SIGNATURE_NAME_REGEX = /^(?:mr|mrs|ms|miss|dr)\b.*$/i
 
 const DATE_PREFIX_REGEX = /^(?:mon|tue|wed|thu|fri|sat|sun)\b/i
 const TIME_INDICATOR_REGEX = /(ago|am|pm|:\d{2})/i
+const EMAIL_HEADER_REGEX = /^(?:from|to|cc|bcc|subject):\s+/i
+const MOBILE_SIGNOFF_REGEX = /^(?:sent from|gesendet von)\b/i
 
 function dropIfUiChrome(line: string): string | null {
   const lower = line.toLowerCase().trim()
@@ -136,6 +138,31 @@ function shouldForceParagraphBreak(prev: string, current: string) {
   const prevEndsWithPunctuation = /[.!?]$/.test(prev)
   const currentStartsWithCapital = /^[A-Z]/.test(current)
   return prev.length < 50 && prevEndsWithPunctuation && currentStartsWithCapital
+}
+
+function looksLikeEmailShapedContent(lines: LineEntry[]) {
+  let hasGreeting = false
+  let hasSignature = false
+  let hasHeader = false
+
+  for (const line of lines) {
+    if (GREETING_REGEX.test(line.text) || NAME_GREETING_REGEX.test(line.text) || TITLE_GREETING_REGEX.test(line.text)) {
+      hasGreeting = true
+    }
+    if (
+      SIGNATURE_REGEX.test(line.text) ||
+      SIGNOFF_REGEX.test(line.text) ||
+      SIGNATURE_NAME_REGEX.test(line.text) ||
+      MOBILE_SIGNOFF_REGEX.test(line.text)
+    ) {
+      hasSignature = true
+    }
+    if (EMAIL_HEADER_REGEX.test(line.text)) {
+      hasHeader = true
+    }
+  }
+
+  return hasGreeting || hasSignature || hasHeader
 }
 
 function computeStart(kept: LineEntry[]): DetectionResult {
@@ -270,36 +297,42 @@ export function cleanOcrText(raw: string): CleanOcrResult {
 
   const startDetection = computeStart(keptLines)
   const endDetection = computeEnd(keptLines)
-  let startIndex = Math.min(startDetection.index, keptLines.length - 1)
-  let endIndex = Math.max(Math.min(endDetection.index, keptLines.length - 1), startIndex)
   const greetingDetected = startDetection.type === "greeting"
   const signatureDetected = endDetection.type === "signature"
-  const earliestStartIndex = greetingDetected ? startDetection.index : 0
+  const emailShaped = looksLikeEmailShapedContent(keptLines)
+  let startIndex = 0
+  let endIndex = keptLines.length - 1
 
-  const expandSlice = () => {
-    const selection = keptLines.slice(startIndex, endIndex + 1)
-    const length = selection.reduce((acc, entry) => acc + entry.text.length, 0)
-    if (length >= 200) return false
+  if (emailShaped) {
+    startIndex = Math.min(startDetection.index, keptLines.length - 1)
+    endIndex = Math.max(Math.min(endDetection.index, keptLines.length - 1), startIndex)
+    const earliestStartIndex = greetingDetected ? startDetection.index : 0
 
-    let expanded = false
-    if (startIndex > earliestStartIndex && isContentLike(keptLines[startIndex - 1].text)) {
-      startIndex -= 1
-      expanded = true
+    const expandSlice = () => {
+      const selection = keptLines.slice(startIndex, endIndex + 1)
+      const length = selection.reduce((acc, entry) => acc + entry.text.length, 0)
+      if (length >= 200) return false
+
+      let expanded = false
+      if (startIndex > earliestStartIndex && isContentLike(keptLines[startIndex - 1].text)) {
+        startIndex -= 1
+        expanded = true
+      }
+      if (endIndex < keptLines.length - 1 && isContentLike(keptLines[endIndex + 1].text)) {
+        endIndex += 1
+        expanded = true
+      }
+      return expanded
     }
-    if (endIndex < keptLines.length - 1 && isContentLike(keptLines[endIndex + 1].text)) {
-      endIndex += 1
-      expanded = true
+
+    while (expandSlice()) {
+      // keep expanding until we reach >= 200 chars or run out of content
     }
-    return expanded
-  }
 
-  while (expandSlice()) {
-    // keep expanding until we reach >= 200 chars or run out of content
-  }
-
-  if (endIndex < startIndex) {
-    startIndex = 0
-    endIndex = keptLines.length - 1
+    if (endIndex < startIndex) {
+      startIndex = 0
+      endIndex = keptLines.length - 1
+    }
   }
 
   const selectedLines = keptLines.slice(startIndex, endIndex + 1)

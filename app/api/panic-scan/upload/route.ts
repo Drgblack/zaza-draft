@@ -459,7 +459,7 @@ export async function POST(request: Request) {
     try {
       diagnostics.ocrPerformed = true
       const ocrStartedAt = Date.now()
-      const ocrResult = await performVisionOcr(buffer)
+      const ocrResult = await performVisionOcr(buffer, uiLocale)
       const extractedText = ocrResult.text
       const foregroundText = filterVisionOcrForeground(ocrResult).text || extractedText
       const ocrElapsedMs = Date.now() - ocrStartedAt
@@ -475,7 +475,7 @@ export async function POST(request: Request) {
         sanitizedWordCount: sanitized.wordCount,
         sanitizedGreetingOnly: sanitized.greetingOrSignatureOnly,
       })
-      if (sanitized.wordCount < 20 || sanitized.greetingOrSignatureOnly) {
+      if (sanitized.wordCount < 10 || sanitized.greetingOrSignatureOnly) {
         diagnostics.ocrSucceeded = false
         await scanRef.set(
           {

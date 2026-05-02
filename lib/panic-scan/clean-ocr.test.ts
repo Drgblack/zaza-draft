@@ -80,6 +80,47 @@ Ms Lee
     expect(result.cleanText).toContain("Jamie Powell is attending tutoring regularly")
     expect(result.cleanText).not.toContain("Inbox")
   })
+
+  it("preserves full non-email note content without slicing away short first lines", () => {
+    const raw = `
+Adam
+had shown disruptive behaviour leading to waste almost 22 minutes of today's online session.
+Urgent action needs to be taken.
+Online sessions must be observed by a guardian to guarantee the avoidance of abrupt stop.
+`
+
+    const result = cleanOcrText(raw)
+
+    expect(result.cleanText.startsWith("Adam")).toBe(true)
+    expect(result.cleanText).toContain(
+      "had shown disruptive behaviour leading to waste almost 22 minutes of today's online session.",
+    )
+    expect(result.cleanText).toContain(
+      "Online sessions must be observed by a guardian to guarantee the avoidance of abrupt stop.",
+    )
+  })
+
+  it("keeps email-aware slicing for email-shaped input", () => {
+    const raw = `From: parent@example.com
+To: teacher@school.edu
+Subject: Question
+
+Dear Mr Smith,
+
+I'm concerned about my son's progress.
+
+Best regards,
+A Parent`
+
+    const result = cleanOcrText(raw)
+
+    expect(result.cleanText).toContain("Dear Mr Smith,")
+    expect(result.cleanText).toContain("I'm concerned about my son's progress.")
+    expect(result.cleanText).toContain("Best regards,")
+    expect(result.cleanText).not.toContain("From: parent@example.com")
+    expect(result.cleanText).not.toContain("To: teacher@school.edu")
+    expect(result.cleanText).not.toContain("Subject: Question")
+  })
 })
 
 it("strips Gmail UI chrome from OCR text", () => {

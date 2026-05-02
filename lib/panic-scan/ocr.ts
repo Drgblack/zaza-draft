@@ -48,17 +48,32 @@ function getApiKey() {
   return process.env.GOOGLE_VISION_API_KEY
 }
 
-export async function performVisionOcr(imageBuffer: Buffer) {
+function resolveVisionLanguageHints(uiLocale?: string | null) {
+  const normalized = uiLocale?.trim().toLowerCase() ?? ""
+  if (normalized.startsWith("de")) {
+    return ["de", "en"]
+  }
+  if (normalized.startsWith("en")) {
+    return ["en-GB", "en"]
+  }
+  return ["en-GB", "en"]
+}
+
+export async function performVisionOcr(imageBuffer: Buffer, uiLocale?: string | null) {
   const apiKey = getApiKey()
   if (!apiKey) {
     throw new Error("Missing Google Vision API key (GOOGLE_VISION_API_KEY)")
   }
 
+  const languageHints = resolveVisionLanguageHints(uiLocale)
   const payload = {
     requests: [
       {
         image: {
           content: imageBuffer.toString("base64"),
+        },
+        imageContext: {
+          languageHints,
         },
         features: [
           {

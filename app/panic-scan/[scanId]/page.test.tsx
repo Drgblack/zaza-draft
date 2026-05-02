@@ -46,7 +46,6 @@ vi.mock("@/hooks/use-locale", () => ({
         panicScanResultReviewCheckbox:
           "I checked the scanned text and want to use this version.",
         panicScanResultCopyButton: "Copy cleaned message",
-        panicScanResultCleanConfidence: `OCR confidence: ${vars?.confidence ?? 0}%`,
         panicScanResultHelpButton: "Help me reply safely",
         panicScanResultHelpNote:
           "We’ll open the editor with your reviewed text in a ready-to-edit draft.",
@@ -101,7 +100,9 @@ describe("PanicScanResultPage", () => {
     getIdTokenMock.mockResolvedValue("firebase-token")
     window.sessionStorage.clear()
     vi.stubGlobal("fetch", fetchMock)
-    vi.spyOn(window, "setInterval").mockReturnValue(1 as unknown as number)
+    vi.spyOn(window, "setInterval").mockReturnValue(
+      1 as unknown as ReturnType<typeof setInterval>,
+    )
     vi.spyOn(window, "clearInterval").mockImplementation(() => undefined)
   })
 
@@ -147,6 +148,16 @@ describe("PanicScanResultPage", () => {
     })
     expect(screen.getByRole("checkbox")).toBeEnabled()
     expect(helpButton).toBeDisabled()
+  })
+
+  it("does not render a numeric OCR confidence percentage", async () => {
+    mockCompletedScan()
+
+    render(<PanicScanResultPage />)
+
+    await screen.findByLabelText("Scanned text for review")
+    expect(screen.queryByText(/OCR confidence:/i)).not.toBeInTheDocument()
+    expect(screen.getByText("Please check the scanned text before generating.")).toBeInTheDocument()
   })
 
   it("renders a visible delete control with trust helper copy", async () => {

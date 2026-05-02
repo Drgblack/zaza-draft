@@ -18,6 +18,9 @@ import { analyzePanicMessage, buildHeuristicPanicAnalysis } from "@/lib/panic-sc
 import { OPENAI_BUSY_MESSAGE, OpenAIRequestError } from "@/lib/ai/openai-retry"
 import type { VisionOcrResult } from "@/lib/panic-scan/ocr"
 
+type AuthorizedRequestContext = Awaited<ReturnType<typeof authorizeFirebaseRequest>>
+type AuthorizedStorage = NonNullable<AuthorizedRequestContext["storage"]>
+
 const storageSave = vi.fn().mockResolvedValue(undefined)
 const firestoreSet = vi.fn().mockResolvedValue(undefined)
 const mockDocRef = {
@@ -92,12 +95,17 @@ describe("panic scan upload route", () => {
     process.env.FIREBASE_STORAGE_BUCKET = "panic-bucket"
     vi.mocked(authorizeFirebaseRequest).mockResolvedValue({
       uid: "test-user",
-      firestore,
+      decodedToken: { uid: "test-user" } as AuthorizedRequestContext["decodedToken"],
+      auth: {} as AuthorizedRequestContext["auth"],
+      firestore: firestore as unknown as AuthorizedRequestContext["firestore"],
       storage: {
         bucket: () => ({
-          file: () => ({ save: storageSave }),
+          file: () =>
+            ({
+              save: storageSave,
+            }) as unknown as ReturnType<AuthorizedStorage["bucket"]>["file"],
         }),
-      },
+      } as unknown as AuthorizedStorage,
     })
     vi.mocked(enforcePerUserRateLimit).mockResolvedValue(undefined)
     vi.mocked(performVisionOcr).mockResolvedValue(
@@ -234,6 +242,49 @@ describe("panic scan upload route", () => {
     expect(response.headers.get("x-request-id")).toBe(body.requestId)
   })
 
+  it("accepts a short handwritten note with at least ten words", async () => {
+    vi.mocked(performVisionOcr).mockResolvedValue(
+      createVisionOcrResult(
+        "Mia was off task in today's session. Please discuss with her guardian.",
+      ),
+    )
+    vi.mocked(cleanOcrText).mockReturnValue({
+      cleanText: "Mia was off task in today's session. Please discuss with her guardian.",
+      confidence: 0.18,
+      removedLines: 0,
+    })
+    vi.mocked(analyzePanicMessage).mockResolvedValue({
+      classification: {
+        messageType: "student_concern",
+        emotionalTone: "neutral",
+        riskLevel: "low",
+        urgency: "low",
+        confidenceScore: 74,
+      },
+      analysis: {
+        summary: "Teacher note about a classroom concern.",
+        emotionalInterpretation: "The tone is factual.",
+        professionalRisk: "Low professional risk.",
+        likelyMeaning: "A calm follow-up is needed.",
+        suggestedResponse: "provide_info",
+      },
+    })
+
+    const request = {
+      formData: async () => createFakeFormData(),
+      headers: new Headers({
+        Authorization: "Bearer token",
+      }),
+    } as unknown as Request
+
+    const response = await POST(request)
+    const body = await response.json()
+
+    expect(response.status).toBe(200)
+    expect(body.ok).toBe(true)
+    expect(body.error).toBeUndefined()
+  })
+
   it("stores cleaned OCR, confidence, and classification on successful processing", async () => {
     vi.mocked(cleanOcrText).mockReturnValue({
       cleanText: "My child came home upset about the homework load.",
@@ -311,7 +362,7 @@ describe("panic scan upload route", () => {
     vi.mocked(analyzePanicMessage).mockResolvedValue({
       classification: {
         messageType: "parent_complaint",
-        emotionalTone: "concerned",
+        emotionalTone: "anxious",
         riskLevel: "low",
         urgency: "medium",
         confidenceScore: 72,
@@ -321,7 +372,7 @@ describe("panic scan upload route", () => {
         emotionalInterpretation: "Die Nachricht klingt besorgt.",
         professionalRisk: "Geringes Eskalationsrisiko.",
         likelyMeaning: "Die Eltern wünschen sich Klarheit.",
-        suggestedResponse: "offer_clarification",
+        suggestedResponse: "provide_info",
       },
     })
 

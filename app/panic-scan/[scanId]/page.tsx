@@ -367,10 +367,6 @@ export default function PanicScanResultPage() {
       ? scan.analysis.suggestedResponse.replaceAll("_", " ")
       : scan?.analysis?.suggestedResponse ?? ""
   const cleanMessage = scan?.extractedTextClean ?? scan?.extractedText
-  const showCleanConfidence = typeof scan?.cleanConfidence === "number"
-  const displayConfidence = showCleanConfidence
-    ? Math.round((scan?.cleanConfidence ?? 0) * 100)
-    : null
   const sanitizedCleanMessage = useMemo(
     () => sanitizeCleanedMessage(cleanMessage),
     [cleanMessage],
@@ -387,7 +383,7 @@ export default function PanicScanResultPage() {
       sanitizedTrimmed.length < MIN_CLEANED_CHARS ||
       sanitizedLineCount < MIN_CLEANED_LINES)
   const lowConfidenceWarning =
-    showCleanConfidence && (scan?.cleanConfidence ?? 0) < MIN_CLEAN_CONFIDENCE
+    typeof scan?.cleanConfidence === "number" && (scan.cleanConfidence ?? 0) < MIN_CLEAN_CONFIDENCE
   const showCleanWarning = showCleanMessage && (cleanedIncomplete || lowConfidenceWarning)
   const rawFallbackText = scan?.extractedText?.trim() ?? ""
   const fallbackCandidate =
@@ -616,11 +612,6 @@ export default function PanicScanResultPage() {
                     {t("panicScanResultReviewLabel")}
                   </p>
                   <div className="flex flex-wrap items-center gap-3 text-xs text-white/70">
-                    {displayConfidence !== null && (
-                      <span className="font-semibold text-white">
-                        {t("panicScanResultCleanConfidence", { confidence: displayConfidence })}
-                      </span>
-                    )}
                     <Button
                       onClick={handleCopyCleanMessage}
                       size="sm"
