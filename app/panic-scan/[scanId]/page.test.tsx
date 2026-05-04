@@ -11,6 +11,7 @@ const pushMock = vi.fn()
 const replaceMock = vi.fn()
 const getIdTokenMock = vi.fn().mockResolvedValue("firebase-token")
 const fetchMock = vi.fn()
+let mockLocale: "en-GB" | "de-DE" = "en-GB"
 
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ push: pushMock, replace: replaceMock }),
@@ -26,7 +27,7 @@ vi.mock("@/hooks/use-auth", () => ({
 
 vi.mock("@/hooks/use-locale", () => ({
   useLocale: () => ({
-    locale: "en-GB",
+    locale: mockLocale,
     t: (key: string, vars?: Record<string, string | number>) => {
       const messages: Record<string, string> = {
         loading: "Loading...",
@@ -98,6 +99,7 @@ describe("PanicScanResultPage", () => {
     replaceMock.mockReset()
     getIdTokenMock.mockReset()
     getIdTokenMock.mockResolvedValue("firebase-token")
+    mockLocale = "en-GB"
     window.sessionStorage.clear()
     vi.stubGlobal("fetch", fetchMock)
     vi.spyOn(window, "setInterval").mockReturnValue(
@@ -148,6 +150,22 @@ describe("PanicScanResultPage", () => {
     })
     expect(screen.getByRole("checkbox")).toBeEnabled()
     expect(helpButton).toBeDisabled()
+    expect(textarea).toHaveAttribute("lang", "en-GB")
+  })
+
+  it("uses German spellcheck for the OCR review textarea when the UI locale is German", async () => {
+    mockLocale = "de-DE"
+    mockCompletedScan()
+
+    render(<PanicScanResultPage />)
+
+    const textarea = await screen.findByLabelText("Scanned text for review")
+
+    await waitFor(() => {
+      expect((textarea as HTMLTextAreaElement).value).toBe("Please call me after school.")
+    })
+
+    expect(textarea).toHaveAttribute("lang", "de")
   })
 
   it("does not render a numeric OCR confidence percentage", async () => {

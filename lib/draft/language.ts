@@ -52,6 +52,10 @@ export function resolveLanguageChoiceFromLocale(locale?: string | null): Languag
   return normalized === "de" ? "de" : "en"
 }
 
+export function resolveEditableTextLang(locale?: string | null): "de" | "en-GB" {
+  return resolveLanguageChoiceFromLocale(locale) === "de" ? "de" : "en-GB"
+}
+
 export interface ResolveOutputLanguageOptions {
   explicit?: string
   preferred?: string

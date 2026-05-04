@@ -2,9 +2,10 @@
 
 import "@testing-library/jest-dom"
 import { act, fireEvent, render, screen, within } from "@testing-library/react"
-import { vi } from "vitest"
+import { afterEach, describe, expect, it, vi } from "vitest"
 import { DraftOutput, classifyEditDistance } from "@/components/draft-output"
 import type { DraftStructure } from "@/lib/draft/format"
+import type { DraftMode } from "@/lib/types"
 
 let mockSearchParams = new URLSearchParams()
 const setMockSearchParams = (search = "") => {
@@ -173,7 +174,7 @@ const baseProps = {
   metadata: {
     generationTime: 1050,
     wordCount: 46,
-    modeUsed: "parent_message",
+    modeUsed: "parent_message" as DraftMode,
   },
   onSave: vi.fn(),
   onEdit: vi.fn(),
@@ -187,6 +188,7 @@ const baseProps = {
 afterEach(() => {
   setMockLocale("en-GB")
   setMockSearchParams()
+  vi.unstubAllGlobals()
 })
 
 describe("DraftOutput formatting", () => {
@@ -355,6 +357,124 @@ Dear Parent/Carer,
 I wanted to give you a clear update about today's maths lesson.
 Kind regards,
 Dr Greg Blackburn`)
+  })
+
+  it("exports PDF using the literal draft text and preserves a typed signature", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response("pdf-data", {
+        status: 200,
+        headers: {
+          "content-disposition": 'attachment; filename="draft.pdf"',
+        },
+      }),
+    )
+
+    vi.stubGlobal("fetch", fetchMock)
+    Object.defineProperty(window.URL, "createObjectURL", {
+      value: vi.fn(() => "blob:test"),
+      configurable: true,
+    })
+    Object.defineProperty(window.URL, "revokeObjectURL", {
+      value: vi.fn(),
+      configurable: true,
+    })
+    Object.defineProperty(HTMLAnchorElement.prototype, "click", {
+      value: vi.fn(),
+      configurable: true,
+    })
+
+    const rawDraft = `Subject: Homework update
+
+Dear Parent/Carer,
+
+Thank you for your message.
+
+Kind regards,
+Shereen P.`
+
+    render(
+      <DraftOutput
+        {...baseProps}
+        draftText={rawDraft}
+        metadata={{
+          ...baseProps.metadata,
+          signatureBlock: "Persian Shirazi",
+        }}
+        draftAttribution="Drafted with the help of Zaza Draft."
+        getIdToken={vi.fn().mockResolvedValue("token-123")}
+      />,
+    )
+
+    fireEvent.click(screen.getAllByRole("button", { name: "More actions" })[0])
+
+    await act(async () => {
+      fireEvent.click(screen.getAllByRole("button", { name: "Export as PDF" })[0])
+      await Promise.resolve()
+      await Promise.resolve()
+    })
+
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    const payload = JSON.parse(String(fetchMock.mock.calls[0]?.[1]?.body))
+    expect(payload.draftText).toBe(rawDraft)
+    expect(payload.draftText).toContain("Kind regards,\nShereen P.")
+    expect(payload.draftText).not.toContain("Persian Shirazi")
+    expect(payload.draftText).not.toContain("Drafted with the help of Zaza Draft.")
+  })
+
+  it("does not append metadata signature fields to the PDF export payload", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response("pdf-data", {
+        status: 200,
+        headers: {
+          "content-disposition": 'attachment; filename="draft.pdf"',
+        },
+      }),
+    )
+
+    vi.stubGlobal("fetch", fetchMock)
+    Object.defineProperty(window.URL, "createObjectURL", {
+      value: vi.fn(() => "blob:test"),
+      configurable: true,
+    })
+    Object.defineProperty(window.URL, "revokeObjectURL", {
+      value: vi.fn(),
+      configurable: true,
+    })
+    Object.defineProperty(HTMLAnchorElement.prototype, "click", {
+      value: vi.fn(),
+      configurable: true,
+    })
+
+    const rawDraft = `Subject: Homework update
+
+Dear Parent/Carer,
+
+Thank you for your message.`
+
+    render(
+      <DraftOutput
+        {...baseProps}
+        draftText={rawDraft}
+        metadata={{
+          ...baseProps.metadata,
+          signatureBlock: "Persian Shirazi",
+        }}
+        getIdToken={vi.fn().mockResolvedValue("token-123")}
+      />,
+    )
+
+    fireEvent.click(screen.getAllByRole("button", { name: "More actions" })[0])
+
+    await act(async () => {
+      fireEvent.click(screen.getAllByRole("button", { name: "Export as PDF" })[0])
+      await Promise.resolve()
+      await Promise.resolve()
+    })
+
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    const payload = JSON.parse(String(fetchMock.mock.calls[0]?.[1]?.body))
+    expect(payload.draftText).toBe(rawDraft)
+    expect(payload.draftText).not.toContain("Persian Shirazi")
   })
 
   it("renders the repaired unknown-recipient greeting as its own line in the final output", () => {

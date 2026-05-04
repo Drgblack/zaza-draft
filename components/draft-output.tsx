@@ -396,6 +396,7 @@ export function DraftOutput({
     try {
       const mode = metadata.modeUsed ?? DEFAULT_DRAFT_MODE
       const language = locale.startsWith("de") ? "de" : "en"
+      const exportDraftText = draftText.trim()
       const response = await fetch("/api/export/pdf", {
         method: "POST",
         headers: {
@@ -403,7 +404,7 @@ export function DraftOutput({
           Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
-          draftText: clipboardText,
+          draftText: exportDraftText,
           mode,
           tone,
           language,

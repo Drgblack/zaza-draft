@@ -385,6 +385,20 @@ function getInputTypeTablist() {
 }
 
 describe("MainEditor mode switching", () => {
+  it("uses British English spellcheck for the draft textarea when the UI locale is English", () => {
+    render(<MainEditor />)
+
+    expect(getTextarea()).toHaveAttribute("lang", "en-GB")
+  })
+
+  it("uses German spellcheck for the draft textarea when the UI locale is German", () => {
+    mockLocale = "de-DE"
+
+    render(<MainEditor />)
+
+    expect(getTextarea()).toHaveAttribute("lang", "de")
+  })
+
   it("switches from Message Mode to Documentation Mode with consistent visible mode state", async () => {
     render(<MainEditor />)
 
