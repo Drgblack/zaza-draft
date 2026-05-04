@@ -3792,19 +3792,19 @@ describe("/api/draft/generate light edit mode", () => {
     expect(json.data.generatedDraft).not.toContain("Dr Greg Blackburn")
   })
 
-  it("preserves a specific teacher-typed parent greeting verbatim instead of replacing it with a generic greeting", async () => {
+  it("deduplicates an inline teacher signoff on the rewritten output path while preserving the typed greeting", async () => {
     const teacherDraft =
-      "Dear Mrs Smith, Tom forgot his homework again today during maths. Could you remind him to bring it tomorrow? Thanks, Greg"
+      "Dear Mrs Smith, Tom forgot his homework again today. Could you remind him to bring it tomorrow? Thanks, Greg"
 
     fallbackGenerator.mockResolvedValueOnce(
       buildFallbackResult(
         [
           "Dear Parent/Carer,",
           "",
-          "Tom forgot his homework again today during maths. Could you remind him to bring it tomorrow? Thanks, Greg",
+          "I wanted to let you know that Tom's homework wasn't handed in today. I'll remind him about tomorrow's deadline and check he has everything he needs. Thanks, Greg",
           "",
-          "Kind regards,",
-          "Dr Greg Blackburn",
+          "Thanks,",
+          "Greg",
         ].join("\n"),
       ),
     )
@@ -3817,7 +3817,7 @@ describe("/api/draft/generate light edit mode", () => {
       },
       body: JSON.stringify({
         situation: teacherDraft,
-        tone: "professional",
+        tone: "direct",
         language: "en",
         uiLocale: "en-GB",
         mode: "parent_message",
@@ -3829,11 +3829,12 @@ describe("/api/draft/generate light edit mode", () => {
     expect(response.status).toBe(200)
     const json = await response.json()
 
+    expect(fallbackGenerator).toHaveBeenCalled()
     expect(json.data.generatedDraft).toContain("Dear Mrs Smith,")
     expect(json.data.generatedDraft).not.toContain("Dear Parent/Carer,")
     expect(json.data.generatedDraft).toContain("Could you remind him to bring it tomorrow?")
-    expect(json.data.generatedDraft).not.toContain("Could you remind him to bring it tomorrow Thanks, Greg")
-    expect((json.data.generatedDraft.match(/Thanks,\s*Greg/g) ?? []).length).toBe(1)
+    expect(json.data.generatedDraft).not.toContain("Could you remind him to bring it tomorrow? Thanks, Greg")
+    expect((json.data.generatedDraft.match(/Thanks,\s*(?:\n| )Greg/g) ?? []).length).toBe(1)
   })
 
   it.each([

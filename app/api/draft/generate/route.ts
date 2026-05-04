@@ -643,15 +643,11 @@ function preserveTeacherDraftSignature(
     return candidateDraft
   }
 
-  const candidateTeacherClosing = extractTeacherDraftClosing(candidateDraft, language)
-  if (
-    normalizeSignatureBlockForComparison(candidateTeacherClosing?.closingBlock ?? null) ===
-    normalizeSignatureBlockForComparison(sourceClosingBlock)
-  ) {
-    return candidateDraft
-  }
-
-  const candidateDraftWithoutMatchingClosing = candidateTeacherClosing?.bodyText.trimEnd() ?? candidateDraft.trimEnd()
+  const candidateDraftWithoutMatchingClosing = stripAllMatchingTeacherDraftClosings(
+    candidateDraft,
+    sourceClosing,
+    language,
+  )
   const candidateClosing = extractTrailingClosingBlock(candidateDraftWithoutMatchingClosing)
   if (
     normalizeSignatureBlockForComparison(candidateClosing.closingBlock) ===
@@ -721,6 +717,23 @@ function stripMatchingTeacherDraftClosing(
   }
 
   return normalizedText
+}
+
+function stripAllMatchingTeacherDraftClosings(
+  text: string,
+  sourceClosing: TeacherDraftClosing | null,
+  language: DraftLanguage,
+) {
+  let previous = text.replace(/\r\n/g, "\n").trimEnd()
+
+  while (true) {
+    const next = stripMatchingTeacherDraftClosing(previous, sourceClosing, language)
+    if (next === previous) {
+      return next
+    }
+
+    previous = next
+  }
 }
 
 function collapseRepeatedTrailingClosingBlock(text: string, closingBlock: string) {
@@ -2461,7 +2474,7 @@ export async function POST(request: Request) {
 
   let currentSituation =
     preserveDraftSignatureFromInput
-      ? stripMatchingTeacherDraftClosing(sanitizedSituation, sourceTeacherDraftClosing, language)
+      ? stripAllMatchingTeacherDraftClosings(sanitizedSituation, sourceTeacherDraftClosing, language)
       : sanitizedSituation
   const sourceTeacherDraftClosingLine = sourceTeacherDraftClosing?.closingLine ?? null
   const sourceTeacherDraftSignatureLines = sourceTeacherDraftClosing?.signatureLines ?? []
