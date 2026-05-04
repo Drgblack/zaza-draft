@@ -3697,6 +3697,7 @@ describe("/api/draft/generate light edit mode", () => {
 
     expect(json.data.generatedDraft).toContain("Thanks,\nGreg")
     expect(json.data.generatedDraft).not.toContain("Kind regards,\nDr Greg Blackburn")
+    expect((json.data.generatedDraft.match(/Thanks,\s*Greg/g) ?? []).length).toBe(1)
   })
 
   it("preserves a typed Best regards sign-off in My draft mode", async () => {
@@ -3743,6 +3744,8 @@ describe("/api/draft/generate light edit mode", () => {
 
     expect(json.data.generatedDraft).toContain("Best regards,\nGreg")
     expect(json.data.generatedDraft).not.toContain("Kind regards,\nDr Greg Blackburn")
+    expect(json.data.generatedDraft).toContain("Dear Mrs Smith,")
+    expect(json.data.generatedDraft).not.toContain("Dear Parent/Carer,")
   })
 
   it("does not inject a profile signature into My draft mode when the teacher did not type one", async () => {
@@ -3787,6 +3790,99 @@ describe("/api/draft/generate light edit mode", () => {
 
     expect(json.data.generatedDraft).not.toContain("Kind regards,\nDr Greg Blackburn")
     expect(json.data.generatedDraft).not.toContain("Dr Greg Blackburn")
+  })
+
+  it("preserves a specific teacher-typed parent greeting verbatim instead of replacing it with a generic greeting", async () => {
+    const teacherDraft =
+      "Dear Mrs Smith, Tom forgot his homework again today during maths. Could you remind him to bring it tomorrow? Thanks, Greg"
+
+    fallbackGenerator.mockResolvedValueOnce(
+      buildFallbackResult(
+        [
+          "Dear Parent/Carer,",
+          "",
+          "Tom forgot his homework again today during maths. Could you remind him to bring it tomorrow? Thanks, Greg",
+          "",
+          "Kind regards,",
+          "Dr Greg Blackburn",
+        ].join("\n"),
+      ),
+    )
+
+    const request = new Request("https://example.com/api/draft/generate", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: "Bearer token",
+      },
+      body: JSON.stringify({
+        situation: teacherDraft,
+        tone: "professional",
+        language: "en",
+        uiLocale: "en-GB",
+        mode: "parent_message",
+        inputIntent: "teacher_draft",
+      }),
+    })
+
+    const response = await POST(request)
+    expect(response.status).toBe(200)
+    const json = await response.json()
+
+    expect(json.data.generatedDraft).toContain("Dear Mrs Smith,")
+    expect(json.data.generatedDraft).not.toContain("Dear Parent/Carer,")
+    expect((json.data.generatedDraft.match(/Thanks,\s*Greg/g) ?? []).length).toBe(1)
+  })
+
+  it.each([
+    "Dear Mr Patel,",
+    "Dear Mrs Smith,",
+    "Dear Ms Parker,",
+    "Dear Dr Brown,",
+  ])("preserves titled greetings in My draft mode: %s", async (typedGreeting) => {
+    const teacherDraft = [
+      typedGreeting,
+      "",
+      "I wanted to let you know that Tom has been struggling to focus during reading time this week.",
+      "",
+      "Best regards, Greg",
+    ].join("\n")
+
+    fallbackGenerator.mockResolvedValueOnce(
+      buildFallbackResult(
+        [
+          "Dear Parent/Carer,",
+          "",
+          "I wanted to let you know that Tom has been struggling to focus during reading time this week.",
+          "",
+          "Kind regards,",
+          "Dr Greg Blackburn",
+        ].join("\n"),
+      ),
+    )
+
+    const request = new Request("https://example.com/api/draft/generate", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: "Bearer token",
+      },
+      body: JSON.stringify({
+        situation: teacherDraft,
+        tone: "professional",
+        language: "en",
+        uiLocale: "en-GB",
+        mode: "parent_message",
+        inputIntent: "teacher_draft",
+      }),
+    })
+
+    const response = await POST(request)
+    expect(response.status).toBe(200)
+    const json = await response.json()
+
+    expect(json.data.generatedDraft).toContain(typedGreeting)
+    expect(json.data.generatedDraft).not.toContain("Dear Parent/Carer,")
   })
 })
 
