@@ -3698,6 +3698,96 @@ describe("/api/draft/generate light edit mode", () => {
     expect(json.data.generatedDraft).toContain("Thanks,\nGreg")
     expect(json.data.generatedDraft).not.toContain("Kind regards,\nDr Greg Blackburn")
   })
+
+  it("preserves a typed Best regards sign-off in My draft mode", async () => {
+    const teacherDraft = [
+      "Dear Mrs Smith,",
+      "",
+      "Tom forgot his homework again today.",
+      "",
+      "Best regards, Greg",
+    ].join("\n")
+
+    fallbackGenerator.mockResolvedValueOnce(
+      buildFallbackResult(
+        [
+          "Dear Mrs Smith,",
+          "",
+          "Tom forgot his homework again today.",
+          "",
+          "Kind regards,",
+          "Dr Greg Blackburn",
+        ].join("\n"),
+      ),
+    )
+
+    const request = new Request("https://example.com/api/draft/generate", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: "Bearer token",
+      },
+      body: JSON.stringify({
+        situation: teacherDraft,
+        tone: "professional",
+        language: "en",
+        uiLocale: "en-GB",
+        mode: "parent_message",
+        inputIntent: "teacher_draft",
+      }),
+    })
+
+    const response = await POST(request)
+    expect(response.status).toBe(200)
+    const json = await response.json()
+
+    expect(json.data.generatedDraft).toContain("Best regards,\nGreg")
+    expect(json.data.generatedDraft).not.toContain("Kind regards,\nDr Greg Blackburn")
+  })
+
+  it("does not inject a profile signature into My draft mode when the teacher did not type one", async () => {
+    const teacherDraft = [
+      "Dear Mrs Smith,",
+      "",
+      "Tom forgot his homework again today during maths and did not have it with him in class.",
+    ].join("\n")
+
+    fallbackGenerator.mockResolvedValueOnce(
+      buildFallbackResult(
+        [
+          "Dear Mrs Smith,",
+          "",
+          "Tom forgot his homework again today during maths and did not have it with him in class.",
+          "",
+          "Kind regards,",
+          "Dr Greg Blackburn",
+        ].join("\n"),
+      ),
+    )
+
+    const request = new Request("https://example.com/api/draft/generate", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: "Bearer token",
+      },
+      body: JSON.stringify({
+        situation: teacherDraft,
+        tone: "professional",
+        language: "en",
+        uiLocale: "en-GB",
+        mode: "parent_message",
+        inputIntent: "teacher_draft",
+      }),
+    })
+
+    const response = await POST(request)
+    expect(response.status).toBe(200)
+    const json = await response.json()
+
+    expect(json.data.generatedDraft).not.toContain("Kind regards,\nDr Greg Blackburn")
+    expect(json.data.generatedDraft).not.toContain("Dr Greg Blackburn")
+  })
 })
 
 describe("/api/draft/generate closing normalization", () => {

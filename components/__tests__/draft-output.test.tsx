@@ -314,7 +314,32 @@ I wanted to give you a clear update about today's maths lesson.`}
     expect(within(body).queryByText(/Dr Greg Blackburn/)).not.toBeInTheDocument()
   })
 
-  it("rebuilds the signature from metadata when the draft text is empty", () => {
+  it("renders the typed inline teacher sign-off exactly in the preview", () => {
+    const staleStructure: DraftStructure = {
+      subject: "Homework update",
+      paragraphs: [
+        "Dear Parent/Carer,",
+        "Tom forgot his homework today.",
+      ],
+    }
+    const rawDraft = `Subject: Homework update
+
+Dear Parent/Carer,
+
+Tom forgot his homework today.
+
+Thanks,
+Greg`
+
+    render(<DraftOutput {...baseProps} draftText={rawDraft} structure={staleStructure} />)
+
+    const body = screen.getByTestId("draft-output-body")
+    const signature = within(body).getByText((text) => text.includes("Thanks,") && text.includes("Greg"))
+    expect(signature).toBeInTheDocument()
+    expect(within(body).queryByText(/Dr Greg Blackburn/)).not.toBeInTheDocument()
+  })
+
+  it("does not rebuild a signature from metadata when the draft text is empty", () => {
     const staleStructure: DraftStructure = {
       subject: "Homework update",
       paragraphs: [
@@ -336,11 +361,11 @@ I wanted to give you a clear update about today's maths lesson.`}
     )
 
     const body = screen.getByTestId("draft-output-body")
-    const signature = within(body).getByText((text) => text.includes("Kind regards,") && text.includes("Dr Greg Blackburn"))
-    expect(signature).toBeInTheDocument()
+    expect(within(body).queryByText(/Kind regards,/)).not.toBeInTheDocument()
+    expect(within(body).queryByText(/Dr Greg Blackburn/)).not.toBeInTheDocument()
   })
 
-  it("copies the fully assembled parent-message draft including the final teacher sign-off when the draft text is empty", async () => {
+  it("copies the assembled parent-message draft without injecting a metadata signature when the draft text is empty", async () => {
     const writeText = vi.fn().mockResolvedValue(undefined)
     Object.defineProperty(navigator, "clipboard", {
       value: { writeText },
@@ -376,9 +401,7 @@ I wanted to give you a clear update about today's maths lesson.`}
 
 Dear Parent/Carer,
 
-I wanted to give you a clear update about today's maths lesson.
-Kind regards,
-Dr Greg Blackburn`)
+I wanted to give you a clear update about today's maths lesson.`)
   })
 
   it("exports PDF using the literal draft text and preserves a typed signature", async () => {
@@ -441,6 +464,66 @@ Shereen P.`
     expect(payload.draftText).toContain("Kind regards,\nShereen P.")
     expect(payload.draftText).not.toContain("Persian Shirazi")
     expect(payload.draftText).not.toContain("Drafted with the help of Zaza Draft.")
+  })
+
+  it("exports the exact typed Thanks, Greg sign-off to PDF", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response("pdf-data", {
+        status: 200,
+        headers: {
+          "content-disposition": 'attachment; filename="draft.pdf"',
+        },
+      }),
+    )
+
+    vi.stubGlobal("fetch", fetchMock)
+    Object.defineProperty(window.URL, "createObjectURL", {
+      value: vi.fn(() => "blob:test"),
+      configurable: true,
+    })
+    Object.defineProperty(window.URL, "revokeObjectURL", {
+      value: vi.fn(),
+      configurable: true,
+    })
+    Object.defineProperty(HTMLAnchorElement.prototype, "click", {
+      value: vi.fn(),
+      configurable: true,
+    })
+
+    const rawDraft = `Subject: Homework update
+
+Dear Mrs Smith,
+
+Tom forgot his homework.
+
+Thanks,
+Greg`
+
+    render(
+      <DraftOutput
+        {...baseProps}
+        draftText={rawDraft}
+        metadata={{
+          ...baseProps.metadata,
+          signatureBlock: "Dr Greg Blackburn",
+        }}
+        getIdToken={vi.fn().mockResolvedValue("token-123")}
+      />,
+    )
+
+    fireEvent.click(screen.getAllByRole("button", { name: "More actions" })[0])
+
+    await act(async () => {
+      fireEvent.click(screen.getAllByRole("button", { name: "Export as PDF" })[0])
+      await Promise.resolve()
+      await Promise.resolve()
+    })
+
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    const payload = JSON.parse(String(fetchMock.mock.calls[0]?.[1]?.body))
+    expect(payload.draftText).toBe(rawDraft)
+    expect(payload.draftText).toContain("Thanks,\nGreg")
+    expect(payload.draftText).not.toContain("Dr Greg Blackburn")
   })
 
   it("does not append metadata signature fields to the PDF export payload", async () => {

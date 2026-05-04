@@ -62,7 +62,6 @@ import {
   applySignatureToDraft,
   resolveSignature,
   SignaturePayload,
-  type ResolvedSignature,
 } from "@/lib/draft/signature"
 import { resolveTeacherSignatureName } from "@/lib/draft/teacher-signature"
 import { normalizeClosingBlock } from "@/lib/draft/ensure-single-signoff"
@@ -2098,31 +2097,44 @@ export async function POST(request: Request) {
     normalizeName(
       (authContext as { decodedToken?: { name?: string | null } })?.decodedToken?.name ?? null,
     ) || undefined
-  const preserveDraftSignatureFromInput =
-    mode === "parent_message" && inputIntent === "teacher_draft" && !requestedSignatureName
+  const preserveDraftSignatureFromInput = mode === "parent_message" && inputIntent === "teacher_draft"
+  const sourceTeacherDraftClosing = preserveDraftSignatureFromInput
+    ? extractTeacherDraftClosing(teacherDraftSourceText, language)
+    : null
   const teacherDraftSignatureName = preserveDraftSignatureFromInput
-    ? extractTeacherDraftSignatureName(teacherDraftSourceText, language)
+    ? sourceTeacherDraftClosing?.signatureLines.at(-1)
     : undefined
   const teacherSignatureName = preserveDraftSignatureFromInput
     ? teacherDraftSignatureName
     : resolveTeacherSignatureName(teacherProfileDisplayName, requestedSignatureName)
-  const teacherSignatureSource =
-    requestedSignatureName && teacherSignatureName === requestedSignatureName
+  const teacherSignatureSource = preserveDraftSignatureFromInput
+    ? teacherDraftSignatureName
+      ? "source_draft_signature"
+      : "none"
+    : requestedSignatureName && teacherSignatureName === requestedSignatureName
       ? "request_signature_line1"
-      : teacherDraftSignatureName && teacherSignatureName === teacherDraftSignatureName
-        ? "source_draft_signature"
       : teacherProfileDisplayName && teacherSignatureName === teacherProfileDisplayName
         ? "auth_display_name"
         : "fallback_placeholder"
-  const shouldForceParentMessageSignoff = mode === "parent_message"
-  const resolvedSignature = resolveSignature({
-    ...payload.signature,
-    line1: teacherSignatureName,
-    fallbackName: teacherSignatureName,
-    autoAppendParentMessage: shouldForceParentMessageSignoff
-      ? true
-      : payload.signature?.autoAppendParentMessage,
-  })
+  const shouldForceParentMessageSignoff = mode === "parent_message" && !preserveDraftSignatureFromInput
+  const resolvedSignature = preserveDraftSignatureFromInput
+    ? resolveSignature({
+        line1: sourceTeacherDraftClosing?.signatureLines[0],
+        line2: sourceTeacherDraftClosing?.signatureLines[1],
+        line3: sourceTeacherDraftClosing?.signatureLines[2],
+        autoAppendParentMessage: Boolean(
+          sourceTeacherDraftClosing?.closingLine && sourceTeacherDraftClosing.signatureLines.length > 0,
+        ),
+        autoAppendReportComment: false,
+      })
+    : resolveSignature({
+        ...payload.signature,
+        line1: teacherSignatureName,
+        fallbackName: teacherSignatureName,
+        autoAppendParentMessage: shouldForceParentMessageSignoff
+          ? true
+          : payload.signature?.autoAppendParentMessage,
+      })
   logDraftStructured("profile_lookup", {
     ...baseDraftLog(),
     uidHash,
@@ -2302,12 +2314,9 @@ export async function POST(request: Request) {
   }
 
   let currentSituation = sanitizedSituation
-  const sourceTeacherDraftClosingLine = preserveDraftSignatureFromInput
-    ? extractTeacherDraftClosingLine(teacherDraftSourceText, language)
-    : null
-  const sourceTeacherDraftSignatureLines = preserveDraftSignatureFromInput
-    ? extractTeacherDraftSignatureLines(teacherDraftSourceText, language)
-    : []
+  const sourceTeacherDraftClosingLine = sourceTeacherDraftClosing?.closingLine ?? null
+  const sourceTeacherDraftSignatureLines = sourceTeacherDraftClosing?.signatureLines ?? []
+  const sourceTeacherDraftClosingBlock = sourceTeacherDraftClosing?.closingBlock ?? null
   if (!isValidDraftRequest(currentSituation, mode)) {
     return fail(422, "OUT_OF_SCOPE", OUT_OF_SCOPE_REDIRECT_MESSAGE)
   }
@@ -2432,7 +2441,7 @@ export async function POST(request: Request) {
         : undefined,
     lengthTarget: teacherDraftLengthTarget,
     resolvedPronounPreference,
-    signatureBlock: resolvedSignature.block,
+    signatureBlock: sourceTeacherDraftClosingBlock ?? resolvedSignature.block,
     teacherSignatureName,
     greeting: providerGreeting,
     greetingFinal: hasFinalGreeting,
@@ -3778,7 +3787,7 @@ export async function POST(request: Request) {
     generatedAt: new Date().toISOString(),
     requestedAt: requestedAt.toISOString(),
     contextUsed: sanitizedContext,
-    signatureBlock: resolvedSignature.block,
+    signatureBlock: sourceTeacherDraftClosingBlock ?? resolvedSignature.block,
     teacherIntent,
     forwardSafeRewrite: Boolean(payload.forwardSafeRewrite && payload.rewrite),
     sanitizedInput: {
@@ -3909,7 +3918,7 @@ export async function POST(request: Request) {
     usage: usageAfterGeneration,
     createdAt: new Date().toISOString(),
     requestId: snippetDoc.id,
-    signatureBlock: resolvedSignature.block,
+    signatureBlock: sourceTeacherDraftClosingBlock ?? resolvedSignature.block,
     recoverySource: recoveryTrace.finalSource,
     recoveryTemplateFamily: recoveryTrace.templateFamily,
     recoveryReasons: Array.from(new Set(recoveryTrace.triggerReasons)),
