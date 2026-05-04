@@ -399,18 +399,6 @@ function normalizeSignatureBlockForComparison(value: string | null | undefined) 
   return value?.replace(/\s+/g, " ").trim().toLowerCase() ?? ""
 }
 
-const TEACHER_INLINE_SIGNOFF_STARTERS = [
-  "kind regards",
-  "best regards",
-  "regards",
-  "best wishes",
-  "with thanks",
-  "many thanks",
-  "thanks",
-  "thank you",
-  "cheers",
-] as const
-
 type TeacherDraftClosing = {
   bodyText: string
   closingLine: string
@@ -451,67 +439,29 @@ function isTeacherDraftSignatureNameCandidate(value: string, language: DraftLang
   }
 
   const tokens = normalized.split(/\s+/).filter(Boolean)
-  if (tokens.length !== 1) {
+  if (tokens.length === 0 || tokens.length > 3) {
     return false
   }
 
-  const token = tokens[0]
-  if (!/^[A-ZÄÖÜ][\p{L}'’-]+$/u.test(token)) {
+  const initialTokenPattern = /^[A-ZÄÖÜ]\.$/u
+  const nameTokenPattern = /^[A-ZÄÖÜ][\p{L}'’-]+$/u
+  let hasFullNameToken = false
+
+  for (const token of tokens) {
+    if (initialTokenPattern.test(token)) {
+      continue
+    }
+    if (!nameTokenPattern.test(token)) {
+      return false
+    }
+    hasFullNameToken = true
+  }
+
+  if (!hasFullNameToken) {
     return false
   }
 
-  return !TEACHER_SIGNATURE_ROLE_ONLY_TOKENS.has(token.toLowerCase())
-}
-
-function extractInlineTeacherDraftClosing(
-  sourceDraft: string,
-  language: DraftLanguage,
-): TeacherDraftClosing | null {
-  const trimmedSource = sourceDraft.trim()
-  if (!trimmedSource) {
-    return null
-  }
-
-  const lastLine = trimmedSource
-    .split(/\r?\n/)
-    .map((line) => line.trim())
-    .filter(Boolean)
-    .at(-1)
-  if (!lastLine) {
-    return null
-  }
-
-  const starterPattern = TEACHER_INLINE_SIGNOFF_STARTERS.map((starter) =>
-    starter.replace(/[.*+?^${}()|[\]\\]/g, "\\$&").replace(/\s+/g, "\\s+"),
-  ).join("|")
-  const inlinePattern = new RegExp(
-    `(?:^|(?<boundary>[.!?])\\s+)(?<closing>${starterPattern})(?<punctuation>[,:;.!?]?)\\s+(?<name>[\\p{L}][\\p{L}'.’ -]{0,79})$`,
-    "iu",
-  )
-  const match = inlinePattern.exec(lastLine)
-  if (!match) {
-    return null
-  }
-  const rawName = match?.groups?.name?.trim()
-  if (!rawName || !isTeacherDraftSignatureNameCandidate(rawName, language)) {
-    return null
-  }
-
-  const closingStarter = match?.groups?.closing?.replace(/\s+/g, " ").trim()
-  if (!closingStarter) {
-    return null
-  }
-
-  const punctuation = match?.groups?.punctuation?.trim() || ","
-  const boundary = match?.groups?.boundary?.trim() || ""
-  const bodyPrefix = trimmedSource.slice(0, match.index).trimEnd()
-  const bodyText = boundary ? `${bodyPrefix}${boundary}` : bodyPrefix
-  return {
-    bodyText,
-    closingLine: `${closingStarter}${punctuation}`,
-    signatureLines: [normalizeName(rawName)],
-    closingBlock: `${closingStarter}${punctuation}\n${normalizeName(rawName)}`,
-  }
+  return tokens.every((token) => !TEACHER_SIGNATURE_ROLE_ONLY_TOKENS.has(token.toLowerCase()))
 }
 
 function extractTeacherDraftClosing(sourceDraft: string, language: DraftLanguage): TeacherDraftClosing | null {
@@ -536,7 +486,7 @@ function extractTeacherDraftClosing(sourceDraft: string, language: DraftLanguage
     }
   }
 
-  return extractInlineTeacherDraftClosing(sourceDraft, language)
+  return null
 }
 
 function extractTeacherDraftSignatureLines(sourceDraft: string, language: DraftLanguage) {

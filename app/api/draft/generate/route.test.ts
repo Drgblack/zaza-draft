@@ -3651,7 +3651,7 @@ describe("/api/draft/generate light edit mode", () => {
     expect(json.data.generatedDraft).not.toContain("Kind regards,\nDr Greg Blackburn")
   })
 
-  it("preserves an inline teacher sign-off in My draft mode when no explicit profile signature was supplied", async () => {
+  it("does not extract or inject an inline teacher sign-off in My draft mode", async () => {
     const teacherDraft = [
       "Dear Parent/Carer,",
       "",
@@ -3695,18 +3695,18 @@ describe("/api/draft/generate light edit mode", () => {
     expect(response.status).toBe(200)
     const json = await response.json()
 
-    expect(json.data.generatedDraft).toContain("Thanks,\nGreg")
+    expect((json.data.generatedDraft.match(/Thanks,\s*(?:\n| )Greg/g) ?? []).length).toBeLessThanOrEqual(1)
     expect(json.data.generatedDraft).not.toContain("Kind regards,\nDr Greg Blackburn")
-    expect((json.data.generatedDraft.match(/Thanks,\s*Greg/g) ?? []).length).toBe(1)
   })
 
-  it("preserves a typed Best regards sign-off in My draft mode", async () => {
+  it("preserves a typed multi-line Best regards sign-off in My draft mode", async () => {
     const teacherDraft = [
       "Dear Mrs Smith,",
       "",
       "Tom forgot his homework again today.",
       "",
-      "Best regards, Greg",
+      "Best regards,",
+      "Greg",
     ].join("\n")
 
     fallbackGenerator.mockResolvedValueOnce(
@@ -3746,6 +3746,53 @@ describe("/api/draft/generate light edit mode", () => {
     expect(json.data.generatedDraft).not.toContain("Kind regards,\nDr Greg Blackburn")
     expect(json.data.generatedDraft).toContain("Dear Mrs Smith,")
     expect(json.data.generatedDraft).not.toContain("Dear Parent/Carer,")
+  })
+
+  it("preserves a typed multi-line Kind regards sign-off with an abbreviated surname in My draft mode", async () => {
+    const teacherDraft = [
+      "Dear Mrs Chen,",
+      "",
+      "I wanted to let you know that Sally has found it difficult to settle to tasks this week and has disrupted learning during lessons.",
+      "",
+      "Kind regards,",
+      "Shereen P.",
+    ].join("\n")
+
+    fallbackGenerator.mockResolvedValueOnce(
+      buildFallbackResult(
+        [
+          "Dear Mrs Chen,",
+          "",
+          "I wanted to let you know that Sally has found it difficult to settle to tasks this week and has disrupted learning during lessons.",
+          "",
+          "Kind regards,",
+          "Dr Greg Blackburn",
+        ].join("\n"),
+      ),
+    )
+
+    const request = new Request("https://example.com/api/draft/generate", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: "Bearer token",
+      },
+      body: JSON.stringify({
+        situation: teacherDraft,
+        tone: "professional",
+        language: "en",
+        uiLocale: "en-GB",
+        mode: "parent_message",
+        inputIntent: "teacher_draft",
+      }),
+    })
+
+    const response = await POST(request)
+    expect(response.status).toBe(200)
+    const json = await response.json()
+
+    expect(json.data.generatedDraft).toContain("Kind regards,\nShereen P.")
+    expect(json.data.generatedDraft).not.toContain("Kind regards,\nDr Greg Blackburn")
   })
 
   it("does not inject a profile signature into My draft mode when the teacher did not type one", async () => {
@@ -3792,7 +3839,7 @@ describe("/api/draft/generate light edit mode", () => {
     expect(json.data.generatedDraft).not.toContain("Dr Greg Blackburn")
   })
 
-  it("deduplicates an inline teacher signoff on the rewritten output path while preserving the typed greeting", async () => {
+  it("does not extract or duplicate an inline teacher signoff on the rewritten output path", async () => {
     const teacherDraft =
       "Dear Mrs Smith, Tom forgot his homework again today. Could you remind him to bring it tomorrow? Thanks, Greg"
 
@@ -3833,8 +3880,8 @@ describe("/api/draft/generate light edit mode", () => {
     expect(json.data.generatedDraft).toContain("Dear Mrs Smith,")
     expect(json.data.generatedDraft).not.toContain("Dear Parent/Carer,")
     expect(json.data.generatedDraft).toContain("Could you remind him to bring it tomorrow?")
-    expect(json.data.generatedDraft).not.toContain("Could you remind him to bring it tomorrow? Thanks, Greg")
-    expect((json.data.generatedDraft.match(/Thanks,\s*(?:\n| )Greg/g) ?? []).length).toBe(1)
+    expect((json.data.generatedDraft.match(/Thanks,\s*(?:\n| )Greg/g) ?? []).length).toBeLessThanOrEqual(1)
+    expect(json.data.generatedDraft).not.toContain("Thanks,\nGreg\n\nThanks,\nGreg")
   })
 
   it.each([
