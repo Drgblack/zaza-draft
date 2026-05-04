@@ -284,7 +284,7 @@ Dr Greg Blackburn`
     expect(signature).toBeInTheDocument()
   })
 
-  it("rebuilds the signature from metadata when neither the structure nor raw text exposes it cleanly", () => {
+  it("does not inject metadata signature blocks into the preview when draft text is already present", () => {
     const staleStructure: DraftStructure = {
       subject: "Homework update",
       paragraphs: [
@@ -310,11 +310,37 @@ I wanted to give you a clear update about today's maths lesson.`}
     )
 
     const body = screen.getByTestId("draft-output-body")
+    expect(within(body).queryByText(/Kind regards,/)).not.toBeInTheDocument()
+    expect(within(body).queryByText(/Dr Greg Blackburn/)).not.toBeInTheDocument()
+  })
+
+  it("rebuilds the signature from metadata when the draft text is empty", () => {
+    const staleStructure: DraftStructure = {
+      subject: "Homework update",
+      paragraphs: [
+        "Dear Parent/Carer,",
+        "I wanted to give you a clear update about today's maths lesson.",
+      ],
+    }
+
+    render(
+      <DraftOutput
+        {...baseProps}
+        draftText=""
+        structure={staleStructure}
+        metadata={{
+          ...baseProps.metadata,
+          signatureBlock: "Dr Greg Blackburn",
+        }}
+      />,
+    )
+
+    const body = screen.getByTestId("draft-output-body")
     const signature = within(body).getByText((text) => text.includes("Kind regards,") && text.includes("Dr Greg Blackburn"))
     expect(signature).toBeInTheDocument()
   })
 
-  it("copies the fully assembled parent-message draft including the final teacher sign-off", async () => {
+  it("copies the fully assembled parent-message draft including the final teacher sign-off when the draft text is empty", async () => {
     const writeText = vi.fn().mockResolvedValue(undefined)
     Object.defineProperty(navigator, "clipboard", {
       value: { writeText },
@@ -332,11 +358,7 @@ I wanted to give you a clear update about today's maths lesson.`}
     render(
       <DraftOutput
         {...baseProps}
-        draftText={`Subject: Homework update
-
-Dear Parent/Carer,
-
-I wanted to give you a clear update about today's maths lesson.`}
+        draftText=""
         structure={staleStructure}
         metadata={{
           ...baseProps.metadata,

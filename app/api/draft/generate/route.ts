@@ -400,6 +400,24 @@ function normalizeSignatureBlockForComparison(value: string | null | undefined) 
   return value?.replace(/\s+/g, " ").trim().toLowerCase() ?? ""
 }
 
+const TEACHER_INLINE_SIGNOFF_STARTERS = [
+  "kind regards",
+  "best regards",
+  "regards",
+  "best wishes",
+  "with thanks",
+  "many thanks",
+  "thanks",
+  "thank you",
+  "cheers",
+] as const
+
+type TeacherDraftClosing = {
+  closingLine: string
+  signatureLines: string[]
+  closingBlock: string
+}
+
 const TEACHER_SIGNATURE_ROLE_ONLY_TOKENS = new Set([
   "dad",
   "mum",
@@ -445,32 +463,88 @@ function isTeacherDraftSignatureNameCandidate(value: string, language: DraftLang
   return !TEACHER_SIGNATURE_ROLE_ONLY_TOKENS.has(token.toLowerCase())
 }
 
-function extractTeacherDraftSignatureLines(sourceDraft: string, language: DraftLanguage) {
-  const closingBlock = extractTrailingClosingBlock(sourceDraft).closingBlock
-  if (!closingBlock) {
-    return []
+function extractInlineTeacherDraftClosing(
+  sourceDraft: string,
+  language: DraftLanguage,
+): TeacherDraftClosing | null {
+  const trimmedSource = sourceDraft.trim()
+  if (!trimmedSource) {
+    return null
   }
 
-  const lines = closingBlock
-    .split("\n")
-    .map((line) => normalizeName(line))
+  const lastLine = trimmedSource
+    .split(/\r?\n/)
+    .map((line) => line.trim())
     .filter(Boolean)
-
-  if (lines.length < 2) {
-    return []
+    .at(-1)
+  if (!lastLine) {
+    return null
   }
 
-  const signatureLines = lines.slice(1)
-  const signatureName = signatureLines.at(-1)
-  if (!signatureName || !isTeacherDraftSignatureNameCandidate(signatureName, language)) {
-    return []
+  const starterPattern = TEACHER_INLINE_SIGNOFF_STARTERS.map((starter) =>
+    starter.replace(/[.*+?^${}()|[\]\\]/g, "\\$&").replace(/\s+/g, "\\s+"),
+  ).join("|")
+  const inlinePattern = new RegExp(
+    `(?:^|[.!?]\\s+)(?<closing>${starterPattern})(?<punctuation>[,:;.!?]?)\\s+(?<name>[\\p{L}][\\p{L}'.’ -]{0,79})$`,
+    "iu",
+  )
+  const match = inlinePattern.exec(lastLine)
+  const rawName = match?.groups?.name?.trim()
+  if (!rawName || !isTeacherDraftSignatureNameCandidate(rawName, language)) {
+    return null
   }
 
-  return signatureLines
+  const closingStarter = match?.groups?.closing?.replace(/\s+/g, " ").trim()
+  if (!closingStarter) {
+    return null
+  }
+
+  const punctuation = match?.groups?.punctuation?.trim() || ","
+  return {
+    closingLine: `${closingStarter}${punctuation}`,
+    signatureLines: [normalizeName(rawName)],
+    closingBlock: `${closingStarter}${punctuation}\n${normalizeName(rawName)}`,
+  }
+}
+
+function extractTeacherDraftClosing(sourceDraft: string, language: DraftLanguage): TeacherDraftClosing | null {
+  const structuredClosingBlock = extractTrailingClosingBlock(sourceDraft).closingBlock
+  if (structuredClosingBlock) {
+    const lines = structuredClosingBlock
+      .split("\n")
+      .map((line) => normalizeName(line))
+      .filter(Boolean)
+
+    if (lines.length >= 2) {
+      const signatureLines = lines.slice(1)
+      const signatureName = signatureLines.at(-1)
+      if (signatureName && isTeacherDraftSignatureNameCandidate(signatureName, language)) {
+        return {
+          closingLine: lines[0],
+          signatureLines,
+          closingBlock: structuredClosingBlock,
+        }
+      }
+    }
+  }
+
+  return extractInlineTeacherDraftClosing(sourceDraft, language)
+}
+
+function extractTeacherDraftSignatureLines(sourceDraft: string, language: DraftLanguage) {
+  return extractTeacherDraftClosing(sourceDraft, language)?.signatureLines ?? []
+}
+
+function extractTeacherDraftClosingBlock(sourceDraft: string, language: DraftLanguage) {
+  return extractTeacherDraftClosing(sourceDraft, language)?.closingBlock ?? null
+}
+
+function extractTeacherDraftClosingLine(sourceDraft: string, language: DraftLanguage) {
+  return extractTeacherDraftClosing(sourceDraft, language)?.closingLine ?? null
 }
 
 function extractTeacherDraftSignatureName(sourceDraft: string, language: DraftLanguage) {
-  return extractTeacherDraftSignatureLines(sourceDraft, language).at(-1)
+  return extractTeacherDraftClosing(sourceDraft, language)?.signatureLines.at(-1)
 }
 
 function extractSignatureLinesForComparison(text: string) {
@@ -498,8 +572,9 @@ function preserveTeacherDraftSignature(
   candidateDraft: string,
   language: DraftLanguage,
 ) {
-  const sourceClosing = extractTrailingClosingBlock(sourceDraft)
-  if (!sourceClosing.closingBlock) {
+  const sourceClosingBlock = extractTeacherDraftClosingBlock(sourceDraft, language)
+  const sourceClosingLine = extractTeacherDraftClosingLine(sourceDraft, language)
+  if (!sourceClosingBlock || !sourceClosingLine) {
     return candidateDraft
   }
 
@@ -511,24 +586,26 @@ function preserveTeacherDraftSignature(
   const candidateClosing = extractTrailingClosingBlock(candidateDraft)
   if (
     normalizeSignatureBlockForComparison(candidateClosing.closingBlock) ===
-    normalizeSignatureBlockForComparison(sourceClosing.closingBlock)
+    normalizeSignatureBlockForComparison(sourceClosingBlock)
   ) {
     return candidateDraft
   }
 
   const nextBody = candidateClosing.body.trimEnd()
   if (!nextBody) {
-    return normalizeClosingBlock(sourceClosing.closingBlock, {
+    return normalizeClosingBlock(sourceClosingBlock, {
       locale: language,
       omit: false,
+      closingLineOverride: sourceClosingLine,
       signatureLines,
       fallbackName: language === "de" ? "Ihre Klassenlehrkraft" : "Your child's teacher",
     })
   }
 
-  return normalizeClosingBlock(`${nextBody}\n\n${sourceClosing.closingBlock}`, {
+  return normalizeClosingBlock(`${nextBody}\n\n${sourceClosingBlock}`, {
     locale: language,
     omit: false,
+    closingLineOverride: sourceClosingLine,
     signatureLines,
     fallbackName: language === "de" ? "Ihre Klassenlehrkraft" : "Your child's teacher",
   })
@@ -2225,6 +2302,9 @@ export async function POST(request: Request) {
   }
 
   let currentSituation = sanitizedSituation
+  const sourceTeacherDraftClosingLine = preserveDraftSignatureFromInput
+    ? extractTeacherDraftClosingLine(teacherDraftSourceText, language)
+    : null
   const sourceTeacherDraftSignatureLines = preserveDraftSignatureFromInput
     ? extractTeacherDraftSignatureLines(teacherDraftSourceText, language)
     : []
@@ -2552,6 +2632,7 @@ export async function POST(request: Request) {
     normalizeClosingBlock(text, {
       locale: language,
       omit: mode === "report_comment" || !resolvedSignature.appendForMode[mode],
+      closingLineOverride: sourceTeacherDraftClosingLine ?? undefined,
       signatureLines:
         sourceTeacherDraftSignatureLines.length > 0
           ? sourceTeacherDraftSignatureLines

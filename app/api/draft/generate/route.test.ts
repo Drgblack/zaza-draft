@@ -2454,7 +2454,7 @@ describe("/api/draft/generate light edit mode", () => {
     expect(generatedDraft).not.toContain("support coordinator")
     expect(generatedDraft).not.toContain("meeting")
     expect(generatedDraft).not.toContain("Kind regards,\nDr Greg Blackburn")
-    expect(generatedDraft).toContain("Kind regards,\nGreg")
+    expect(generatedDraft).toContain("Regards,\nGreg")
   })
 
   it("retries fabricated teacher-draft context and returns a concise boundary-preserving rewrite", async () => {
@@ -3648,6 +3648,54 @@ describe("/api/draft/generate light edit mode", () => {
     const json = await response.json()
 
     expect(json.data.generatedDraft).toContain("Kind regards,\nGreg")
+    expect(json.data.generatedDraft).not.toContain("Kind regards,\nDr Greg Blackburn")
+  })
+
+  it("preserves an inline teacher sign-off in My draft mode when no explicit profile signature was supplied", async () => {
+    const teacherDraft = [
+      "Dear Parent/Carer,",
+      "",
+      "Thank you for getting in touch and for sharing your concerns.",
+      "",
+      "I'm sorry to hear that Lucy felt uncomfortable after the lesson. Thanks, Greg",
+    ].join("\n")
+
+    fallbackGenerator.mockResolvedValueOnce(
+      buildFallbackResult(
+        [
+          "Dear Parent/Carer,",
+          "",
+          "Thank you for getting in touch and for sharing your concerns.",
+          "",
+          "I'm sorry to hear that Lucy felt uncomfortable after the lesson.",
+          "",
+          "Kind regards,",
+          "Dr Greg Blackburn",
+        ].join("\n"),
+      ),
+    )
+
+    const request = new Request("https://example.com/api/draft/generate", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: "Bearer token",
+      },
+      body: JSON.stringify({
+        situation: teacherDraft,
+        tone: "professional",
+        language: "en",
+        uiLocale: "en-GB",
+        mode: "parent_message",
+        inputIntent: "teacher_draft",
+      }),
+    })
+
+    const response = await POST(request)
+    expect(response.status).toBe(200)
+    const json = await response.json()
+
+    expect(json.data.generatedDraft).toContain("Thanks,\nGreg")
     expect(json.data.generatedDraft).not.toContain("Kind regards,\nDr Greg Blackburn")
   })
 })

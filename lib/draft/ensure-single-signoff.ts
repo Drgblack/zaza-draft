@@ -13,6 +13,7 @@ const SIGNOFF_STARTERS = [
 const STARTER_PATTERN = SIGNOFF_STARTERS.map((starter) => starter.replace(/\s+/g, "\\s+")).join("|")
 
 interface EnsureSingleSignOffOptions {
+  closingLineOverride?: string
   fallbackName?: string
   locale?: string
   omit?: boolean
@@ -150,7 +151,9 @@ export function normalizeClosingBlock(raw: string | undefined | null, options: E
   }
 
   const resolvedSignatureLines = signatureLines.length ? signatureLines : [fallbackName]
-  const closing = normalizedLocale.startsWith("de") ? "Mit freundlichen Grüßen," : "Kind regards,"
+  const closing =
+    options.closingLineOverride?.trim() ||
+    (normalizedLocale.startsWith("de") ? "Mit freundlichen Grüßen," : "Kind regards,")
   const closingBlock = [closing, ...resolvedSignatureLines].join("\n")
   const separator = content ? "\n\n" : ""
   return `${content}${separator}${closingBlock}`.trimEnd()

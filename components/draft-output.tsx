@@ -309,7 +309,7 @@ export function DraftOutput({
       signature = extractTrailingClosingBlock(draftText).closingBlock ?? undefined
     }
 
-    if (!signature && modeKey === "parent_message" && metadata.signatureBlock?.trim()) {
+    if (!signature && modeKey === "parent_message" && !draftText.trim() && metadata.signatureBlock?.trim()) {
       const closingLine = locale?.toLowerCase().startsWith("de")
         ? "Mit freundlichen Grüßen,"
         : "Kind regards,"
