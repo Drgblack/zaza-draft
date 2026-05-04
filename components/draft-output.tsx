@@ -309,19 +309,12 @@ export function DraftOutput({
       signature = extractTrailingClosingBlock(draftText).closingBlock ?? undefined
     }
 
-    if (!signature && modeKey === "parent_message" && metadata.signatureBlock?.trim()) {
-      const closingLine = locale?.toLowerCase().startsWith("de")
-        ? "Mit freundlichen Grüßen,"
-        : "Kind regards,"
-      signature = `${closingLine}\n${metadata.signatureBlock.trim()}`
-    }
-
     return {
       displaySubject: subject,
       displayParagraphs: paragraphs,
       signatureParagraph: signature,
     }
-  }, [structure, draftText, modeKey, locale, metadata.signatureBlock])
+  }, [structure, draftText, modeKey])
   const clipboardText = useMemo(() => {
     const segments: string[] = []
     if (displaySubject) {
@@ -396,6 +389,7 @@ export function DraftOutput({
     try {
       const mode = metadata.modeUsed ?? DEFAULT_DRAFT_MODE
       const language = locale.startsWith("de") ? "de" : "en"
+      const exportDraftText = draftText.trim()
       const response = await fetch("/api/export/pdf", {
         method: "POST",
         headers: {
@@ -403,7 +397,7 @@ export function DraftOutput({
           Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
-          draftText: clipboardText,
+          draftText: exportDraftText,
           mode,
           tone,
           language,

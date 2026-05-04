@@ -20,6 +20,7 @@ import { ChevronDown, ChevronLeft, ShieldCheck } from "lucide-react"
 import { useAuth } from "@/hooks/use-auth"
 import { AuthScreen } from "@/components/auth/auth-screen"
 import { useLocale } from "@/hooks/use-locale"
+import { resolveEditableTextLang } from "@/lib/draft/language"
 import { resolveGreeting } from "@/lib/draft/greeting-resolution"
 import { sanitizeCleanedMessage } from "@/lib/panic-scan/sanitize-cleaned-message"
 
@@ -322,6 +323,7 @@ export default function PanicScanResultPage() {
   }, [scan?.status, t])
 
   const greetingLocale = locale?.toLowerCase().startsWith("de") ? "de" : "en"
+  const editableTextLang = useMemo(() => resolveEditableTextLang(locale), [locale])
   const handleUseDraft = () => {
     const reviewedMessage = reviewedText.trim()
     if (!reviewAcknowledged || !reviewedMessage) {
@@ -629,6 +631,7 @@ export default function PanicScanResultPage() {
                 <textarea
                   value={reviewedText}
                   onChange={handleReviewedTextChange}
+                  lang={editableTextLang}
                   className="min-h-[240px] w-full rounded-2xl border border-white/10 bg-slate-900/70 p-4 text-sm text-white outline-none focus:border-white/40 focus:ring-2 focus:ring-white/20"
                   aria-label={t("panicScanResultReviewFieldLabel")}
                 />

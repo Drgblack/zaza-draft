@@ -62,7 +62,6 @@ import {
   applySignatureToDraft,
   resolveSignature,
   SignaturePayload,
-  type ResolvedSignature,
 } from "@/lib/draft/signature"
 import { resolveTeacherSignatureName } from "@/lib/draft/teacher-signature"
 import { normalizeClosingBlock } from "@/lib/draft/ensure-single-signoff"
@@ -400,6 +399,13 @@ function normalizeSignatureBlockForComparison(value: string | null | undefined) 
   return value?.replace(/\s+/g, " ").trim().toLowerCase() ?? ""
 }
 
+type TeacherDraftClosing = {
+  bodyText: string
+  closingLine: string
+  signatureLines: string[]
+  closingBlock: string
+}
+
 const TEACHER_SIGNATURE_ROLE_ONLY_TOKENS = new Set([
   "dad",
   "mum",
@@ -433,44 +439,121 @@ function isTeacherDraftSignatureNameCandidate(value: string, language: DraftLang
   }
 
   const tokens = normalized.split(/\s+/).filter(Boolean)
-  if (tokens.length !== 1) {
+  if (tokens.length === 0 || tokens.length > 3) {
     return false
   }
 
-  const token = tokens[0]
-  if (!/^[A-ZÄÖÜ][\p{L}'’-]+$/u.test(token)) {
+  const initialTokenPattern = /^[A-ZÄÖÜ]\.$/u
+  const nameTokenPattern = /^[A-ZÄÖÜ][\p{L}'’-]+$/u
+  let hasFullNameToken = false
+
+  for (const token of tokens) {
+    if (initialTokenPattern.test(token)) {
+      continue
+    }
+    if (!nameTokenPattern.test(token)) {
+      return false
+    }
+    hasFullNameToken = true
+  }
+
+  if (!hasFullNameToken) {
     return false
   }
 
-  return !TEACHER_SIGNATURE_ROLE_ONLY_TOKENS.has(token.toLowerCase())
+  return tokens.every((token) => !TEACHER_SIGNATURE_ROLE_ONLY_TOKENS.has(token.toLowerCase()))
+}
+
+function extractTeacherDraftClosing(sourceDraft: string, language: DraftLanguage): TeacherDraftClosing | null {
+  const structuredClosingBlock = extractTrailingClosingBlock(sourceDraft).closingBlock
+  if (structuredClosingBlock) {
+    const lines = structuredClosingBlock
+      .split("\n")
+      .map((line) => normalizeName(line))
+      .filter(Boolean)
+
+    if (lines.length >= 2) {
+      const signatureLines = lines.slice(1)
+      const signatureName = signatureLines.at(-1)
+      if (signatureName && isTeacherDraftSignatureNameCandidate(signatureName, language)) {
+        return {
+          bodyText: extractTrailingClosingBlock(sourceDraft).body.trimEnd(),
+          closingLine: lines[0],
+          signatureLines,
+          closingBlock: structuredClosingBlock,
+        }
+      }
+    }
+  }
+
+  return null
 }
 
 function extractTeacherDraftSignatureLines(sourceDraft: string, language: DraftLanguage) {
-  const closingBlock = extractTrailingClosingBlock(sourceDraft).closingBlock
-  if (!closingBlock) {
-    return []
-  }
+  return extractTeacherDraftClosing(sourceDraft, language)?.signatureLines ?? []
+}
 
-  const lines = closingBlock
-    .split("\n")
-    .map((line) => normalizeName(line))
-    .filter(Boolean)
+function extractTeacherDraftClosingBlock(sourceDraft: string, language: DraftLanguage) {
+  return extractTeacherDraftClosing(sourceDraft, language)?.closingBlock ?? null
+}
 
-  if (lines.length < 2) {
-    return []
-  }
-
-  const signatureLines = lines.slice(1)
-  const signatureName = signatureLines.at(-1)
-  if (!signatureName || !isTeacherDraftSignatureNameCandidate(signatureName, language)) {
-    return []
-  }
-
-  return signatureLines
+function extractTeacherDraftClosingLine(sourceDraft: string, language: DraftLanguage) {
+  return extractTeacherDraftClosing(sourceDraft, language)?.closingLine ?? null
 }
 
 function extractTeacherDraftSignatureName(sourceDraft: string, language: DraftLanguage) {
-  return extractTeacherDraftSignatureLines(sourceDraft, language).at(-1)
+  return extractTeacherDraftClosing(sourceDraft, language)?.signatureLines.at(-1)
+}
+
+function extractTeacherDraftGreetingLine(sourceDraft: string, language: DraftLanguage) {
+  const normalized = sourceDraft.replace(/\r\n/g, "\n").trim()
+  if (!normalized) {
+    return null
+  }
+
+  const paragraphs = normalized
+    .split(/\n\s*\n+/)
+    .map((paragraph) => paragraph.trim())
+    .filter(Boolean)
+  const firstParagraph = paragraphs.find((paragraph) => !/^(subject|betreff):/i.test(paragraph))
+  if (!firstParagraph) {
+    return null
+  }
+
+  const mergedFirstParagraph = firstParagraph
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .join(" ")
+  const greetingLocale: GreetingLocale = language?.toLowerCase().startsWith("de") ? "de" : "en"
+  const greetingStartPattern =
+    greetingLocale === "de"
+      ? /^(guten tag|hallo|liebe|lieber|sehr geehrte|sehr geehrter)\b/i
+      : /^(dear|hi|hello)\b/i
+  if (!greetingStartPattern.test(mergedFirstParagraph)) {
+    return null
+  }
+
+  const firstCommaIndex = mergedFirstParagraph.indexOf(",")
+  if (firstCommaIndex < 0) {
+    return null
+  }
+
+  let greetingEndIndex = firstCommaIndex + 1
+  const secondCommaIndex = mergedFirstParagraph.indexOf(",", greetingEndIndex)
+  if (secondCommaIndex > 0) {
+    const between = mergedFirstParagraph.slice(firstCommaIndex + 1, secondCommaIndex).trim()
+    const betweenWords = between.split(/\s+/).filter(Boolean)
+    const looksLikeName =
+      betweenWords.length > 0 &&
+      betweenWords.length <= 4 &&
+      /^[A-ZÄÖÜẞÀÁÂÃÄÅÆÇÈÉÊËÌÍÎÏÐÑÒÓÔÕÖØÙÚÛÜÝŸ]/.test(betweenWords[0])
+    if (looksLikeName) {
+      greetingEndIndex = secondCommaIndex + 1
+    }
+  }
+
+  return mergedFirstParagraph.slice(0, greetingEndIndex).trim() || null
 }
 
 function extractSignatureLinesForComparison(text: string) {
@@ -498,40 +581,124 @@ function preserveTeacherDraftSignature(
   candidateDraft: string,
   language: DraftLanguage,
 ) {
-  const sourceClosing = extractTrailingClosingBlock(sourceDraft)
-  if (!sourceClosing.closingBlock) {
+  const sourceClosing = extractTeacherDraftClosing(sourceDraft, language)
+  const sourceClosingBlock = sourceClosing?.closingBlock ?? null
+  const sourceClosingLine = sourceClosing?.closingLine ?? null
+  if (!sourceClosing || !sourceClosingBlock || !sourceClosingLine) {
     return candidateDraft
   }
 
-  const signatureLines = extractTeacherDraftSignatureLines(sourceDraft, language)
+  const signatureLines = sourceClosing.signatureLines
   if (signatureLines.length === 0) {
     return candidateDraft
   }
 
-  const candidateClosing = extractTrailingClosingBlock(candidateDraft)
+  const candidateDraftWithoutMatchingClosing = stripAllMatchingTeacherDraftClosings(
+    candidateDraft,
+    sourceClosing,
+    language,
+  )
+  const candidateClosing = extractTrailingClosingBlock(candidateDraftWithoutMatchingClosing)
   if (
     normalizeSignatureBlockForComparison(candidateClosing.closingBlock) ===
-    normalizeSignatureBlockForComparison(sourceClosing.closingBlock)
+    normalizeSignatureBlockForComparison(sourceClosingBlock)
   ) {
-    return candidateDraft
+    return candidateDraftWithoutMatchingClosing
   }
 
-  const nextBody = candidateClosing.body.trimEnd()
+  const nextBody = (candidateClosing.body || candidateDraftWithoutMatchingClosing).trimEnd()
   if (!nextBody) {
-    return normalizeClosingBlock(sourceClosing.closingBlock, {
+    const preserved = normalizeClosingBlock(sourceClosingBlock, {
       locale: language,
       omit: false,
+      closingLineOverride: sourceClosingLine,
       signatureLines,
       fallbackName: language === "de" ? "Ihre Klassenlehrkraft" : "Your child's teacher",
     })
+    return collapseRepeatedTrailingClosingBlock(preserved, sourceClosingBlock)
   }
 
-  return normalizeClosingBlock(`${nextBody}\n\n${sourceClosing.closingBlock}`, {
+  const preserved = normalizeClosingBlock(`${nextBody}\n\n${sourceClosingBlock}`, {
     locale: language,
     omit: false,
+    closingLineOverride: sourceClosingLine,
     signatureLines,
     fallbackName: language === "de" ? "Ihre Klassenlehrkraft" : "Your child's teacher",
   })
+  return collapseRepeatedTrailingClosingBlock(preserved, sourceClosingBlock)
+}
+
+function stripMatchingTeacherDraftClosing(
+  text: string,
+  sourceClosing: TeacherDraftClosing | null,
+  language: DraftLanguage,
+) {
+  const normalizedText = text.replace(/\r\n/g, "\n").trimEnd()
+  if (!normalizedText || !sourceClosing) {
+    return normalizedText
+  }
+
+  const candidateClosing = extractTeacherDraftClosing(normalizedText, language)
+  if (!candidateClosing) {
+    return normalizedText
+  }
+
+  const sourceClosingKey = normalizeSignatureBlockForComparison(sourceClosing.closingBlock)
+  const candidateClosingKey = normalizeSignatureBlockForComparison(candidateClosing.closingBlock)
+  if (sourceClosingKey && candidateClosingKey && sourceClosingKey === candidateClosingKey) {
+    return candidateClosing.bodyText.trimEnd()
+  }
+
+  const sourceClosingStarter = sourceClosing.closingLine.replace(/[,:;.!?]+$/, "").trim().toLowerCase()
+  const candidateClosingStarter = candidateClosing.closingLine
+    .replace(/[,:;.!?]+$/, "")
+    .trim()
+    .toLowerCase()
+  const sourceSignatureName = normalizeName(sourceClosing.signatureLines.at(-1) ?? "")
+  const candidateSignatureName = normalizeName(candidateClosing.signatureLines.at(-1) ?? "")
+
+  if (
+    sourceClosingStarter &&
+    sourceClosingStarter === candidateClosingStarter &&
+    sourceSignatureName &&
+    sourceSignatureName === candidateSignatureName
+  ) {
+    return candidateClosing.bodyText.trimEnd()
+  }
+
+  return normalizedText
+}
+
+function stripAllMatchingTeacherDraftClosings(
+  text: string,
+  sourceClosing: TeacherDraftClosing | null,
+  language: DraftLanguage,
+) {
+  let previous = text.replace(/\r\n/g, "\n").trimEnd()
+
+  while (true) {
+    const next = stripMatchingTeacherDraftClosing(previous, sourceClosing, language)
+    if (next === previous) {
+      return next
+    }
+
+    previous = next
+  }
+}
+
+function collapseRepeatedTrailingClosingBlock(text: string, closingBlock: string) {
+  let normalizedText = text.replace(/\r\n/g, "\n").trimEnd()
+  const normalizedClosingBlock = closingBlock.replace(/\r\n/g, "\n").trim()
+  if (!normalizedText || !normalizedClosingBlock) {
+    return normalizedText
+  }
+
+  const repeatedSuffix = `\n\n${normalizedClosingBlock}`
+  while (normalizedText.endsWith(`${repeatedSuffix}${repeatedSuffix}`)) {
+    normalizedText = normalizedText.slice(0, -repeatedSuffix.length).trimEnd()
+  }
+
+  return normalizedText
 }
 
 type TeacherDraftQualityViolationType =
@@ -1768,6 +1935,24 @@ export async function POST(request: Request) {
   }
   let greetingFinal = Boolean(payload.greetingFinal && greetingText)
   const greetingLocale: GreetingLocale = language?.toLowerCase().startsWith("de") ? "de" : "en"
+  const sourceTeacherDraftGreetingLine =
+    mode === "parent_message" && inputIntent === "teacher_draft"
+      ? extractTeacherDraftGreetingLine(situation, language)
+      : null
+  if (sourceTeacherDraftGreetingLine) {
+    greetingText = sourceTeacherDraftGreetingLine
+    greetingConfidence = "HIGH"
+    greetingSource = "resolved-name"
+    greetingFinal = true
+    const sourceGreetingCandidate = extractNamedGreetingCandidate(sourceTeacherDraftGreetingLine, greetingLocale)
+    if (sourceGreetingCandidate) {
+      greetingName = normalizeName(sourceGreetingCandidate)
+      const recipient = summarizeRecipientName(sourceGreetingCandidate, greetingLocale)
+      greetingRecipientTitle = recipient.title
+      greetingRecipientSurname = recipient.surname
+      greetingRecipientDisplayName = recipient.displayName
+    }
+  }
   const requestGreetingCandidate = greetingName ?? extractNamedGreetingCandidate(greetingText, greetingLocale)
   const requestGreetingScore = requestGreetingCandidate
     ? scoreSafeName(requestGreetingCandidate, greetingLocale)
@@ -2021,31 +2206,44 @@ export async function POST(request: Request) {
     normalizeName(
       (authContext as { decodedToken?: { name?: string | null } })?.decodedToken?.name ?? null,
     ) || undefined
-  const preserveDraftSignatureFromInput =
-    mode === "parent_message" && inputIntent === "teacher_draft" && !requestedSignatureName
+  const preserveDraftSignatureFromInput = mode === "parent_message" && inputIntent === "teacher_draft"
+  const sourceTeacherDraftClosing = preserveDraftSignatureFromInput
+    ? extractTeacherDraftClosing(teacherDraftSourceText, language)
+    : null
   const teacherDraftSignatureName = preserveDraftSignatureFromInput
-    ? extractTeacherDraftSignatureName(teacherDraftSourceText, language)
+    ? sourceTeacherDraftClosing?.signatureLines.at(-1)
     : undefined
   const teacherSignatureName = preserveDraftSignatureFromInput
     ? teacherDraftSignatureName
     : resolveTeacherSignatureName(teacherProfileDisplayName, requestedSignatureName)
-  const teacherSignatureSource =
-    requestedSignatureName && teacherSignatureName === requestedSignatureName
+  const teacherSignatureSource = preserveDraftSignatureFromInput
+    ? teacherDraftSignatureName
+      ? "source_draft_signature"
+      : "none"
+    : requestedSignatureName && teacherSignatureName === requestedSignatureName
       ? "request_signature_line1"
-      : teacherDraftSignatureName && teacherSignatureName === teacherDraftSignatureName
-        ? "source_draft_signature"
       : teacherProfileDisplayName && teacherSignatureName === teacherProfileDisplayName
         ? "auth_display_name"
         : "fallback_placeholder"
-  const shouldForceParentMessageSignoff = mode === "parent_message"
-  const resolvedSignature = resolveSignature({
-    ...payload.signature,
-    line1: teacherSignatureName,
-    fallbackName: teacherSignatureName,
-    autoAppendParentMessage: shouldForceParentMessageSignoff
-      ? true
-      : payload.signature?.autoAppendParentMessage,
-  })
+  const shouldForceParentMessageSignoff = mode === "parent_message" && !preserveDraftSignatureFromInput
+  const resolvedSignature = preserveDraftSignatureFromInput
+    ? resolveSignature({
+        line1: sourceTeacherDraftClosing?.signatureLines[0],
+        line2: sourceTeacherDraftClosing?.signatureLines[1],
+        line3: sourceTeacherDraftClosing?.signatureLines[2],
+        autoAppendParentMessage: Boolean(
+          sourceTeacherDraftClosing?.closingLine && sourceTeacherDraftClosing.signatureLines.length > 0,
+        ),
+        autoAppendReportComment: false,
+      })
+    : resolveSignature({
+        ...payload.signature,
+        line1: teacherSignatureName,
+        fallbackName: teacherSignatureName,
+        autoAppendParentMessage: shouldForceParentMessageSignoff
+          ? true
+          : payload.signature?.autoAppendParentMessage,
+      })
   logDraftStructured("profile_lookup", {
     ...baseDraftLog(),
     uidHash,
@@ -2224,10 +2422,13 @@ export async function POST(request: Request) {
     })
   }
 
-  let currentSituation = sanitizedSituation
-  const sourceTeacherDraftSignatureLines = preserveDraftSignatureFromInput
-    ? extractTeacherDraftSignatureLines(teacherDraftSourceText, language)
-    : []
+  let currentSituation =
+    preserveDraftSignatureFromInput
+      ? stripAllMatchingTeacherDraftClosings(sanitizedSituation, sourceTeacherDraftClosing, language)
+      : sanitizedSituation
+  const sourceTeacherDraftClosingLine = sourceTeacherDraftClosing?.closingLine ?? null
+  const sourceTeacherDraftSignatureLines = sourceTeacherDraftClosing?.signatureLines ?? []
+  const sourceTeacherDraftClosingBlock = sourceTeacherDraftClosing?.closingBlock ?? null
   if (!isValidDraftRequest(currentSituation, mode)) {
     return fail(422, "OUT_OF_SCOPE", OUT_OF_SCOPE_REDIRECT_MESSAGE)
   }
@@ -2352,7 +2553,7 @@ export async function POST(request: Request) {
         : undefined,
     lengthTarget: teacherDraftLengthTarget,
     resolvedPronounPreference,
-    signatureBlock: resolvedSignature.block,
+    signatureBlock: sourceTeacherDraftClosingBlock ?? resolvedSignature.block,
     teacherSignatureName,
     greeting: providerGreeting,
     greetingFinal: hasFinalGreeting,
@@ -2552,6 +2753,7 @@ export async function POST(request: Request) {
     normalizeClosingBlock(text, {
       locale: language,
       omit: mode === "report_comment" || !resolvedSignature.appendForMode[mode],
+      closingLineOverride: sourceTeacherDraftClosingLine ?? undefined,
       signatureLines:
         sourceTeacherDraftSignatureLines.length > 0
           ? sourceTeacherDraftSignatureLines
@@ -2563,7 +2765,15 @@ export async function POST(request: Request) {
   const finalizeDraftWithSignature = (text: string) =>
     documentationModeActive
       ? finalizeDraft(text)
-      : normalizeClosingForMode(applySignatureToDraft(finalizeDraft(text), resolvedSignature, mode))
+      : normalizeClosingForMode(
+          applySignatureToDraft(
+            finalizeDraft(
+              stripMatchingTeacherDraftClosing(text, sourceTeacherDraftClosing, language),
+            ),
+            resolvedSignature,
+            mode,
+          ),
+        )
   const finalizeWithGreeting = (text: string) =>
     documentationModeActive
       ? finalizeDraftWithSignature(text)
@@ -2689,9 +2899,13 @@ export async function POST(request: Request) {
   let generatedDraft = ""
   let providerMeta: ProviderMeta
   let forcedLanguageAttempted = false
+  const teacherDraftCopyEditSource =
+    preserveDraftSignatureFromInput && sourceTeacherDraftClosing?.bodyText
+      ? sourceTeacherDraftClosing.bodyText
+      : currentSituation
 
   if (alreadyStrongTeacherDraft) {
-    generatedDraft = applyTeacherDraftRegisterNormalisation(finalizeWithGreeting(currentSituation))
+    generatedDraft = applyTeacherDraftRegisterNormalisation(finalizeWithGreeting(teacherDraftCopyEditSource))
     providerMeta = {
       modelUsed: "teacher-draft-copy-edit-only",
       latencyMs: 0,
@@ -2844,7 +3058,10 @@ export async function POST(request: Request) {
 
   finalizeAndFormatDraft(generatedDraft)
   const shouldUseGreetingRecoveryTemplate = Boolean(
-    !documentationModeActive && finalGreetingLine && greetingSource === "resolved-name",
+    !documentationModeActive &&
+      finalGreetingLine &&
+      greetingSource === "resolved-name" &&
+      inputIntent !== "teacher_draft",
   )
   const evaluateBodyNeedsRetry = () =>
     Boolean(
@@ -3573,6 +3790,14 @@ export async function POST(request: Request) {
     }
   }
 
+  if (requestedTeacherDraftMode && sourceTeacherDraftClosingBlock) {
+    const dedupedDraft = collapseRepeatedTrailingClosingBlock(generatedDraft, sourceTeacherDraftClosingBlock)
+    if (dedupedDraft !== generatedDraft) {
+      generatedDraft = dedupedDraft
+      finalizeAndFormatDraft(generatedDraft)
+    }
+  }
+
   if (!documentationModeActive && mode === "parent_message") {
     outputSafetyAnalysis = await runSafetyAnalysis(generatedDraft, "output_safety_analysis")
   }
@@ -3697,7 +3922,7 @@ export async function POST(request: Request) {
     generatedAt: new Date().toISOString(),
     requestedAt: requestedAt.toISOString(),
     contextUsed: sanitizedContext,
-    signatureBlock: resolvedSignature.block,
+    signatureBlock: sourceTeacherDraftClosingBlock ?? resolvedSignature.block,
     teacherIntent,
     forwardSafeRewrite: Boolean(payload.forwardSafeRewrite && payload.rewrite),
     sanitizedInput: {
@@ -3828,7 +4053,7 @@ export async function POST(request: Request) {
     usage: usageAfterGeneration,
     createdAt: new Date().toISOString(),
     requestId: snippetDoc.id,
-    signatureBlock: resolvedSignature.block,
+    signatureBlock: sourceTeacherDraftClosingBlock ?? resolvedSignature.block,
     recoverySource: recoveryTrace.finalSource,
     recoveryTemplateFamily: recoveryTrace.templateFamily,
     recoveryReasons: Array.from(new Set(recoveryTrace.triggerReasons)),

@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest"
 
 import {
   canonicalizeLocaleIdentifier,
+  resolveEditableTextLang,
   resolveLanguageChoiceFromLocale,
   resolveOutputLanguage,
 } from "@/lib/draft/language"
@@ -62,6 +63,20 @@ describe("resolveLanguageChoiceFromLocale", () => {
     expect(resolveLanguageChoiceFromLocale("en-GB")).toBe("en")
     expect(resolveLanguageChoiceFromLocale("")).toBe("en")
     expect(resolveLanguageChoiceFromLocale()).toBe("en")
+  })
+})
+
+describe("resolveEditableTextLang", () => {
+  it("returns de for German locales", () => {
+    expect(resolveEditableTextLang("de-DE")).toBe("de")
+    expect(resolveEditableTextLang("de_CH")).toBe("de")
+  })
+
+  it("returns en-GB for English and missing locales", () => {
+    expect(resolveEditableTextLang("en-GB")).toBe("en-GB")
+    expect(resolveEditableTextLang("en-US")).toBe("en-GB")
+    expect(resolveEditableTextLang("")).toBe("en-GB")
+    expect(resolveEditableTextLang()).toBe("en-GB")
   })
 })
 

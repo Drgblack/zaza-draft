@@ -34,6 +34,7 @@ const SCHOOL_CONTEXT_ACCEPTED_PROMPTS = [
   "Mia was disruptive in our session this morning. Her guardian needs to be informed about today's incident.",
   "I want to follow up about Lukas's progress. He has been struggling with attendance and his work is showing the impact.",
   "Sarah is a hardworking pupil who consistently engages in lessons. Her marking shows steady improvement this term.",
+  "Dear Mrs Smith, I wanted to let you know that Tom has been struggling to focus during reading time this week. He was distracted on three occasions. I wonder if anything is going on at home that might be affecting his concentration. Best regards, Greg",
 ]
 
 const NON_SCHOOL_REJECTED_PROMPTS = [
@@ -149,6 +150,10 @@ describe("out-of-scope redirect guard", () => {
 
   it("accepts report comments grounded in pupil progress and marking", () => {
     expect(isValidDraftRequest(SCHOOL_CONTEXT_ACCEPTED_PROMPTS[4], "report_comment")).toBe(true)
+  })
+
+  it("accepts classroom observation language about focus and concentration", () => {
+    expect(isValidDraftRequest(SCHOOL_CONTEXT_ACCEPTED_PROMPTS[5], "parent_message")).toBe(true)
   })
 
   it("rejects recipe prompts", () => {

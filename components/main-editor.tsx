@@ -40,7 +40,7 @@ import { FREE_TIER_LIMIT, type PlanType } from "@/lib/usage"
 import type { DeescalationSummary } from "@/lib/deescalation/types"
 import type { DraftStructure } from "@/lib/draft/format"
 import { cleanStudentName } from "@/lib/draft/student-name"
-import { resolveLanguageChoiceFromLocale } from "@/lib/draft/language"
+import { resolveEditableTextLang, resolveLanguageChoiceFromLocale } from "@/lib/draft/language"
 import type { DraftLanguage, DraftMode, PronounPreference } from "@/lib/types"
 import { MODE_LABEL_KEYS, DEFAULT_DRAFT_MODE } from "@/lib/draft-mode"
 import { isValidDraftRequest, OUT_OF_SCOPE_REDIRECT_MESSAGE } from "@/lib/draft/scope-guard"
@@ -489,6 +489,7 @@ export function MainEditor({ canExport = true }: MainEditorProps = {}) {
   const [languageChoice, setLanguageChoice] = useState<DraftLanguage>(
     () => resolveLanguageChoiceFromLocale(locale),
   )
+  const editableTextLang = useMemo(() => resolveEditableTextLang(locale), [locale])
   const [languageWasManuallySet, setLanguageWasManuallySet] = useState(false)
   useEffect(() => {
     if (languageWasManuallySet) {
@@ -2351,6 +2352,7 @@ Examples:
                 value={content}
                 onChange={(e) => handleContentChange(e.target.value)}
                 onInput={adjustTextareaHeight}
+                lang={editableTextLang}
                 placeholder={editorPlaceholder}
                 className="w-full min-h-[80px] max-h-[320px] text-base sm:text-lg text-gray-900 dark:text-white bg-transparent border-0 focus:outline-none focus:ring-0 resize-none placeholder:text-gray-600 dark:placeholder:text-white/60 leading-relaxed font-medium"
                 style={{

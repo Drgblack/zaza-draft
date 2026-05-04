@@ -15,6 +15,7 @@ import { ToneSelector } from "./zaza/tone-selector"
 import { UpgradeButton } from "./zaza/upgrade-button"
 import { useLocale } from "@/hooks/use-locale"
 import { FREE_TIER_LIMIT } from "@/lib/usage"
+import { resolveEditableTextLang } from "@/lib/draft/language"
 
 interface EditorProps {
   content: string
@@ -29,7 +30,8 @@ export function Editor({ content, onChange, rightPanelVisible, onToggleRightPane
   const editorRef = useRef<HTMLDivElement>(null)
   const { prefs } = useTeacherPrefs()
   const { user } = useAuth()
-  const { t } = useLocale()
+  const { t, locale } = useLocale()
+  const editableTextLang = resolveEditableTextLang(locale)
 
   const isFreeUser = true
   const draftsUsed = Math.max(FREE_TIER_LIMIT - 1, 0)
@@ -188,6 +190,7 @@ export function Editor({ content, onChange, rightPanelVisible, onToggleRightPane
             ref={editorRef}
             contentEditable
             onInput={handleInput}
+            lang={editableTextLang}
             className="min-h-[600px] focus:outline-none text-lg leading-relaxed"
             style={{ lineHeight: "1.8" }}
             suppressContentEditableWarning
