@@ -58,6 +58,16 @@ The follow-up should focus on pipeline completeness rather than a narrow string 
    - whether a late-stage retry replaced the full draft with a stub
    - the final recovery stage that last wrote `generatedDraft`
 
+## Relevant Shereen Follow-Up Context
+
+During the `fix/shereen-feedback` work, teacher-draft mode was explicitly excluded from the greeting-body recovery template trigger in [app/api/draft/generate/route.ts](</C:/Users/User/Projects/zaza-draft/app/api/draft/generate/route.ts:3090>). That change was made to preserve teacher-authored greetings verbatim rather than forcing already-authored drafts through the generic greeting-body retry path.
+
+This appears to have had a beneficial side effect for the Sally-style collapse case: teacher drafts are less likely to be rerouted through the deterministic greeting-body retry/fallback path that can overwrite source-grounded content with a generic stub. This is not a full fix for completeness, but it is relevant context for future Test C work because:
+
+- it changes one late-stage recovery branch that previously touched teacher drafts
+- it may explain why a previously empty-body production case began returning a fuller draft after the greeting-preservation work
+- any future completeness refactor should preserve the policy that teacher-draft mode must not be forced through the generic greeting-body template path unless there is a very strong reason
+
 ## Risk
 
 This is medium-to-high risk because it changes rewrite orchestration, not just rendering. It needs dedicated regression tests around:

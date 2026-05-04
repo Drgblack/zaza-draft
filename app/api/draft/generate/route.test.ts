@@ -3831,6 +3831,8 @@ describe("/api/draft/generate light edit mode", () => {
 
     expect(json.data.generatedDraft).toContain("Dear Mrs Smith,")
     expect(json.data.generatedDraft).not.toContain("Dear Parent/Carer,")
+    expect(json.data.generatedDraft).toContain("Could you remind him to bring it tomorrow?")
+    expect(json.data.generatedDraft).not.toContain("Could you remind him to bring it tomorrow Thanks, Greg")
     expect((json.data.generatedDraft.match(/Thanks,\s*Greg/g) ?? []).length).toBe(1)
   })
 

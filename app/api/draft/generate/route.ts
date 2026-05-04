@@ -485,7 +485,7 @@ function extractInlineTeacherDraftClosing(
     starter.replace(/[.*+?^${}()|[\]\\]/g, "\\$&").replace(/\s+/g, "\\s+"),
   ).join("|")
   const inlinePattern = new RegExp(
-    `(?:^|[.!?]\\s+)(?<closing>${starterPattern})(?<punctuation>[,:;.!?]?)\\s+(?<name>[\\p{L}][\\p{L}'.’ -]{0,79})$`,
+    `(?:^|(?<boundary>[.!?])\\s+)(?<closing>${starterPattern})(?<punctuation>[,:;.!?]?)\\s+(?<name>[\\p{L}][\\p{L}'.’ -]{0,79})$`,
     "iu",
   )
   const match = inlinePattern.exec(lastLine)
@@ -503,7 +503,9 @@ function extractInlineTeacherDraftClosing(
   }
 
   const punctuation = match?.groups?.punctuation?.trim() || ","
-  const bodyText = trimmedSource.slice(0, match.index).trimEnd()
+  const boundary = match?.groups?.boundary?.trim() || ""
+  const bodyPrefix = trimmedSource.slice(0, match.index).trimEnd()
+  const bodyText = boundary ? `${bodyPrefix}${boundary}` : bodyPrefix
   return {
     bodyText,
     closingLine: `${closingStarter}${punctuation}`,
@@ -2457,7 +2459,10 @@ export async function POST(request: Request) {
     })
   }
 
-  let currentSituation = sanitizedSituation
+  let currentSituation =
+    preserveDraftSignatureFromInput
+      ? stripMatchingTeacherDraftClosing(sanitizedSituation, sourceTeacherDraftClosing, language)
+      : sanitizedSituation
   const sourceTeacherDraftClosingLine = sourceTeacherDraftClosing?.closingLine ?? null
   const sourceTeacherDraftSignatureLines = sourceTeacherDraftClosing?.signatureLines ?? []
   const sourceTeacherDraftClosingBlock = sourceTeacherDraftClosing?.closingBlock ?? null
