@@ -489,6 +489,9 @@ function extractInlineTeacherDraftClosing(
     "iu",
   )
   const match = inlinePattern.exec(lastLine)
+  if (!match) {
+    return null
+  }
   const rawName = match?.groups?.name?.trim()
   if (!rawName || !isTeacherDraftSignatureNameCandidate(rawName, language)) {
     return null
