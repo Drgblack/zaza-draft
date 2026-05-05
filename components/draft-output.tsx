@@ -98,6 +98,7 @@ interface DraftOutputProps {
   safeToSend?: SafeToSendAssessment | null
   teacherDraftFeedback?: TeacherDraftFeedback | null
   suggestions?: TeacherDraftSuggestion[]
+  debugAdvisoryStateCount?: number
   onApplySuggestion?: (suggestionId: string) => void
   onDismissSuggestion?: (suggestionId: string) => void
   teacherDraftMode?: boolean
@@ -185,6 +186,7 @@ export function DraftOutput({
   safeToSend,
   teacherDraftFeedback = null,
   suggestions = [],
+  debugAdvisoryStateCount,
   onApplySuggestion,
   onDismissSuggestion,
   teacherDraftMode = false,
@@ -200,6 +202,7 @@ export function DraftOutput({
   const { locale, t } = useLocale()
   const searchParams = useSearchParams()
   const showDiagnostics = isDebugEnabled(searchParams)
+  const showAdvisoryDebug = searchParams.get("debugAdvisory") === "1"
   const displayedAtRef = useRef(Date.now())
   const terminalActionRecordedRef = useRef(false)
   const sendConfidenceOutcomeEmittedRef = useRef(false)
@@ -402,6 +405,10 @@ export function DraftOutput({
     [displayParagraphs, suggestions],
   )
   const showTeacherDraftSuggestions = suggestions.length > 0
+  const firstSuggestion = suggestions[0] ?? null
+  const firstSuggestionSnippet = firstSuggestion
+    ? firstSuggestion.original.replace(/\s+/g, " ").trim().slice(0, 100)
+    : null
   // Copy to clipboard with rich text support
   const handleCopy = async () => {
     try {
@@ -761,6 +768,22 @@ export function DraftOutput({
             <p className="text-sm font-semibold text-amber-950 dark:text-amber-100">
               {`⚠ ${suggestions.length} suggestion${suggestions.length === 1 ? "" : "s"} to reduce escalation risk`}
             </p>
+          </div>
+        ) : null}
+
+        {showAdvisoryDebug ? (
+          <div className="mb-4 rounded-xl border border-sky-300/70 bg-sky-50/95 px-4 py-3 text-xs text-sky-950 shadow-sm dark:border-sky-500/40 dark:bg-sky-950/30 dark:text-sky-100">
+            <p className="font-semibold uppercase tracking-[0.18em] text-sky-700 dark:text-sky-200">
+              Advisory debug
+            </p>
+            <div className="mt-2 space-y-1">
+              <p>Build: {buildSha ?? "unknown"}</p>
+              <p>Editor state suggestions: {debugAdvisoryStateCount ?? 0}</p>
+              <p>DraftOutput suggestions: {suggestions.length}</p>
+              <p>Render condition: {showTeacherDraftSuggestions ? "true" : "false"}</p>
+              <p>First suggestion type: {firstSuggestion?.type ?? "none"}</p>
+              <p>First suggestion snippet: {firstSuggestionSnippet ?? "none"}</p>
+            </div>
           </div>
         ) : null}
 

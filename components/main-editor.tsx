@@ -3280,6 +3280,7 @@ Examples:
               safeToSend={safeToSendAssessment}
               teacherDraftFeedback={teacherDraftFeedback}
               suggestions={teacherDraftSuggestions}
+              debugAdvisoryStateCount={teacherDraftSuggestions.length}
               onApplySuggestion={handleApplyTeacherDraftSuggestion}
               onDismissSuggestion={handleDismissTeacherDraftSuggestion}
               teacherDraftMode={parentInputMode === "teacher_draft"}
