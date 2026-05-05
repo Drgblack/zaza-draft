@@ -1467,7 +1467,7 @@ Examples:
   const shouldLogOnboardingPersistence = process.env.NODE_ENV !== "production"
 
   useEffect(() => {
-    if (!showWelcomeBox || !user?.uid || !onboardingState?.firstLogin) {
+    if (!showWelcomeBox || !user?.uid || onboardingState?.onboardingCompleted) {
       return
     }
 
@@ -1483,7 +1483,7 @@ Examples:
       },
       scopeKey: user.uid,
     })
-  }, [onboardingState?.firstLogin, showWelcomeBox, user?.uid])
+  }, [onboardingState?.onboardingCompleted, showWelcomeBox, user?.uid])
 
   const updateOnboardingField = useCallback(
     <K extends keyof OnboardingProfile>(key: K, value: OnboardingProfile[K]) => {

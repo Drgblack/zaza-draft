@@ -4096,7 +4096,9 @@ export async function POST(request: Request) {
         })
       : null
   const teacherDraftSuggestions = requestedTeacherDraftMode
-    ? buildTeacherDraftAdvisorySuggestions(generatedDraft, language)
+    ? buildTeacherDraftAdvisorySuggestions(currentSituation, language, {
+        visibleDraftText: generatedDraft,
+      })
     : []
 
   logDraftStructured("normalization", {

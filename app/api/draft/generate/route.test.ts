@@ -13,6 +13,7 @@ import { buildUsageResponse, getCurrentMonthKey, incrementUsage } from "@/lib/us
 import { getUserEntitlements } from "@/lib/entitlements"
 import { isInternalQaUid, shouldRespectUsageLimit } from "@/lib/auth/internal-qa"
 import { resolveDraftEntitlement } from "@/lib/draft-entitlements"
+import * as teacherDraftAdvisory from "@/lib/draft/teacher-draft-advisory"
 import { detectBlockedLanguage, reframeBlockedLanguage } from "@/lib/safety"
 import { runSafetyEngine } from "@/src/lib/safetyEngine"
 
@@ -2983,6 +2984,77 @@ describe("/api/draft/generate light edit mode", () => {
       },
     ])
     expect(generatedDraft).not.toContain("I wanted to let you know that Sally has found behaviour expectations difficult recently")
+  })
+
+  it("builds teacher-draft advisory suggestions from the source draft text", async () => {
+    const teacherDraft = [
+      "Dear Mrs Chen,",
+      "",
+      "I was appalled by Sally's tone when I asked her to start the task.",
+      "You need to recognise that Sally must bring her planner every day.",
+      "",
+      "Kind regards,",
+      "Shereen P.",
+    ].join("\n")
+
+    const finalDraft = [
+      "Dear Mrs Chen,",
+      "",
+      "I was concerned by Sally's tone when I asked her to start the task.",
+      "By tomorrow, you need to recognise that Sally must bring her planner every day.",
+      "",
+      "Kind regards,",
+      "Shereen P.",
+    ].join("\n")
+
+    const advisorySpy = vi
+      .spyOn(teacherDraftAdvisory, "buildTeacherDraftAdvisorySuggestions")
+      .mockReturnValue([
+        {
+          id: "teacher-draft-suggestion-1",
+          original: "You need to recognise that Sally must bring her planner every day.",
+          suggestion: "Please recognise that Sally must bring her planner every day.",
+          type: "professional_judgement",
+        },
+      ])
+
+    fallbackGenerator.mockResolvedValueOnce(buildFallbackResult(finalDraft))
+
+    const request = new Request("https://example.com/api/draft/generate", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: "Bearer token",
+      },
+      body: JSON.stringify({
+        situation: teacherDraft,
+        tone: "professional",
+        language: "en",
+        uiLocale: "en-GB",
+        mode: "parent_message",
+        inputIntent: "teacher_draft",
+      }),
+    })
+
+    const response = await POST(request)
+    expect(response.status).toBe(200)
+    const json = await response.json()
+    expect(advisorySpy).toHaveBeenCalledWith(
+      expect.stringContaining("I was appalled by Sally's tone when I asked her to start the task."),
+      "en",
+      expect.objectContaining({
+        visibleDraftText: expect.any(String),
+      }),
+    )
+    expect(json.data?.suggestions).toEqual([
+      {
+        id: "teacher-draft-suggestion-1",
+        original: "You need to recognise that Sally must bring her planner every day.",
+        suggestion: "Please recognise that Sally must bring her planner every day.",
+        type: "professional_judgement",
+      },
+    ])
+    advisorySpy.mockRestore()
   })
 
   it("returns the teacher draft instead of synthetic minimum-output fallback content in teacher_draft mode", async () => {

@@ -10,6 +10,10 @@ export interface TeacherDraftSuggestion {
   type: TeacherDraftSuggestionType
 }
 
+interface BuildTeacherDraftAdvisorySuggestionOptions {
+  visibleDraftText?: string
+}
+
 type SuggestionRule = {
   type: TeacherDraftSuggestionType
   matches: (sentence: string) => boolean
@@ -174,6 +178,19 @@ function extractSentences(text: string) {
   )
 }
 
+function normalizeComparableText(text: string) {
+  return text.replace(/\s+/g, " ").trim()
+}
+
+function includesComparableSentence(text: string, sentence: string) {
+  const normalizedText = normalizeComparableText(text)
+  const normalizedSentence = normalizeComparableText(sentence)
+  if (!normalizedText || !normalizedSentence) {
+    return false
+  }
+  return normalizedText.includes(normalizedSentence)
+}
+
 const SUGGESTION_RULES: SuggestionRule[] = [
   {
     type: "tone",
@@ -210,6 +227,7 @@ const SUGGESTION_RULES: SuggestionRule[] = [
 export function buildTeacherDraftAdvisorySuggestions(
   draftText: string,
   language: string,
+  options: BuildTeacherDraftAdvisorySuggestionOptions = {},
 ): TeacherDraftSuggestion[] {
   if (language !== "en") {
     return []
@@ -218,6 +236,9 @@ export function buildTeacherDraftAdvisorySuggestions(
   const suggestions: TeacherDraftSuggestion[] = []
   const seenOriginals = new Set<string>()
   const bodyText = getBodyParagraphs(draftText).join("\n\n")
+  const visibleBodyText = options.visibleDraftText
+    ? getBodyParagraphs(options.visibleDraftText).join("\n\n")
+    : null
 
   for (const sentence of extractSentences(bodyText)) {
     for (const rule of SUGGESTION_RULES) {
@@ -227,6 +248,14 @@ export function buildTeacherDraftAdvisorySuggestions(
 
       const suggestion = rule.rewrite(sentence)?.trim()
       if (!suggestion || suggestion === sentence || seenOriginals.has(sentence)) {
+        break
+      }
+
+      if (
+        visibleBodyText &&
+        !includesComparableSentence(visibleBodyText, sentence) &&
+        includesComparableSentence(visibleBodyText, suggestion)
+      ) {
         break
       }
 

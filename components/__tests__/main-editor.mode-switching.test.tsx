@@ -276,6 +276,10 @@ const fetchMock = vi.fn(async (input: RequestInfo, init?: RequestInit) => {
     }
 
     const documentationMode = Boolean(body.documentationMode)
+    const isAdvisoryTeacherDraft =
+      body.inputIntent === "teacher_draft" &&
+      (String(body.situation ?? "").includes("I was appalled") ||
+        String(body.situation ?? "").includes("Your daughter Sally has not been behaving well"))
     const teacherDraftBody = [
       "Subject: Classroom update",
       "",
@@ -290,7 +294,7 @@ const fetchMock = vi.fn(async (input: RequestInfo, init?: RequestInit) => {
     ].join("\n")
     const renderedBody = documentationMode
       ? `Documentation [${body.mode}]: ${body.situation}`
-      : body.inputIntent === "teacher_draft" && String(body.situation ?? "").includes("I was appalled")
+      : isAdvisoryTeacherDraft
         ? String(body.situation)
       : body.inputIntent === "teacher_draft"
         ? teacherDraftBody
@@ -330,9 +334,8 @@ const fetchMock = vi.fn(async (input: RequestInfo, init?: RequestInit) => {
                     reasons: ["preserved_tone", "maintained_boundaries", "risk_checked"],
                   }
                 : null,
-            suggestions:
-              body.inputIntent === "teacher_draft" &&
-              String(body.situation ?? "").includes("I was appalled")
+            suggestions: isAdvisoryTeacherDraft
+              ? String(body.situation ?? "").includes("I was appalled")
                 ? [
                     {
                       id: "teacher-draft-suggestion-1",
@@ -345,6 +348,23 @@ const fetchMock = vi.fn(async (input: RequestInfo, init?: RequestInit) => {
                       original: "You need to recognise that she must bring her planner tomorrow.",
                       suggestion: "Please recognise that she must bring her planner tomorrow.",
                       type: "professional_judgement",
+                    },
+                  ]
+                : [
+                    {
+                      id: "teacher-draft-suggestion-1",
+                      original: "Your daughter Sally has not been behaving well in my class at all.",
+                      suggestion:
+                        "Your daughter Sally has been finding it difficult to meet expectations in my class.",
+                      type: "tone",
+                    },
+                    {
+                      id: "teacher-draft-suggestion-2",
+                      original:
+                        "Her behaviour has been challenging, and I have realised that her attitude towards school has worsened considerably this term.",
+                      suggestion:
+                        "Her behaviour has been difficult recently, and I have become concerned that her attitude towards school has worsened this term.",
+                      type: "tone",
                     },
                   ]
                 : [],
@@ -802,6 +822,33 @@ describe("MainEditor mode switching", () => {
       screen.getAllByText((_, element) =>
         element?.textContent?.includes(
           "Please recognise that she must bring her planner tomorrow.",
+        ) ?? false,
+      ).length,
+    ).toBeGreaterThan(0)
+  })
+
+  it("renders the advisory panel for the Sally teacher draft case", async () => {
+    render(<MainEditor />)
+
+    fireEvent.click(within(getInputTypeTablist()).getByRole("tab", { name: "My draft" }))
+    fireEvent.change(getTextarea(), {
+      target: { value: SHEREEN_PARENT_FACING_DRAFT },
+    })
+
+    fireEvent.click(screen.getByRole("button", { name: "Improve my draft" }))
+
+    await waitFor(() => {
+      expect(screen.getByText("Suggestions before you send (2)")).toBeInTheDocument()
+    })
+    expect(screen.getByText("⚠ 2 suggestions to reduce escalation risk")).toBeInTheDocument()
+    expect(
+      screen.getAllByText("Your daughter Sally has not been behaving well in my class at all.")
+        .length,
+    ).toBeGreaterThan(0)
+    expect(
+      screen.getAllByText((_, element) =>
+        element?.textContent?.includes(
+          "Your daughter Sally has been finding it difficult to meet expectations in my class.",
         ) ?? false,
       ).length,
     ).toBeGreaterThan(0)

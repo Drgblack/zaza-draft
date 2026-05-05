@@ -85,4 +85,39 @@ describe("buildTeacherDraftAdvisorySuggestions", () => {
       },
     ])
   })
+
+  it("omits suggestions whose risky sentence has already been softened in the visible draft", () => {
+    const sourceDraft = [
+      "Dear Mrs Chen,",
+      "",
+      "I was appalled by Sally's tone when I asked her to start the task.",
+      "You need to recognise that Sally must bring her planner every day.",
+      "",
+      "Kind regards,",
+      "Shereen P.",
+    ].join("\n")
+
+    const visibleDraft = [
+      "Dear Mrs Chen,",
+      "",
+      "I was concerned by Sally's tone when I asked her to start the task.",
+      "Please make sure Sally brings her planner every day.",
+      "",
+      "Kind regards,",
+      "Shereen P.",
+    ].join("\n")
+
+    expect(
+      buildTeacherDraftAdvisorySuggestions(sourceDraft, "en", {
+        visibleDraftText: visibleDraft,
+      }),
+    ).toEqual([
+      {
+        id: "teacher-draft-suggestion-1",
+        original: "You need to recognise that Sally must bring her planner every day.",
+        suggestion: "Please recognise that Sally must bring her planner every day.",
+        type: "professional_judgement",
+      },
+    ])
+  })
 })
