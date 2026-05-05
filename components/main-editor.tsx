@@ -2192,7 +2192,7 @@ Examples:
 
         const nextDraft = currentDraft.replace(suggestion.original, suggestion.suggestion)
         setDraftStructure(null)
-        setDraftMetadata((currentMetadata) =>
+        setDraftMetadata((currentMetadata: any) =>
           currentMetadata
             ? {
                 ...currentMetadata,
