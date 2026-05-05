@@ -564,6 +564,22 @@ export function MainEditor({ canExport = true }: MainEditorProps = {}) {
       generatedDraftPreview?: string | null
       firstSuggestionType?: string | null
       firstSuggestionOriginal?: string | null
+      helper?: {
+        languageReceived?: string
+        normalizedLanguage?: string
+        languageGatePassed?: boolean
+        sentenceCount?: number
+        firstParsedSentences?: string[]
+        candidateCountBeforeVisibleFiltering?: number
+        candidateCountAfterVisibleFiltering?: number
+        filteredReasonCounts?: {
+          language_not_supported?: number
+          no_sentence_match?: number
+          filtered_already_resolved?: number
+          missing_visible_original?: number
+          unknown?: number
+        }
+      } | null
     } | null
   } | null>(null)
   const [draftStructure, setDraftStructure] = useState<DraftStructure | null>(null)

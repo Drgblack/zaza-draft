@@ -108,6 +108,22 @@ interface DraftOutputProps {
     generatedDraftPreview?: string | null
     firstSuggestionType?: string | null
     firstSuggestionOriginal?: string | null
+    helper?: {
+      languageReceived?: string
+      normalizedLanguage?: string
+      languageGatePassed?: boolean
+      sentenceCount?: number
+      firstParsedSentences?: string[]
+      candidateCountBeforeVisibleFiltering?: number
+      candidateCountAfterVisibleFiltering?: number
+      filteredReasonCounts?: {
+        language_not_supported?: number
+        no_sentence_match?: number
+        filtered_already_resolved?: number
+        missing_visible_original?: number
+        unknown?: number
+      }
+    } | null
   } | null
   onApplySuggestion?: (suggestionId: string) => void
   onDismissSuggestion?: (suggestionId: string) => void
@@ -797,16 +813,46 @@ export function DraftOutput({
               <p>Server inputIntent: {debugAdvisoryResponse?.inputIntent ?? "none"}</p>
               <p>Server advisorySourceLength: {debugAdvisoryResponse?.advisorySourceLength ?? 0}</p>
               <p>Server generatedDraftLength: {debugAdvisoryResponse?.generatedDraftLength ?? 0}</p>
-              <p>Server suggestionsLength: {debugAdvisoryResponse?.suggestionsLength ?? 0}</p>
-              <p>Server firstSuggestionType: {debugAdvisoryResponse?.firstSuggestionType ?? "none"}</p>
-              <p>
-                Server firstSuggestionOriginal:{" "}
-                {debugAdvisoryResponse?.firstSuggestionOriginal ?? "none"}
-              </p>
-              <p>
-                Server advisorySourcePreview:{" "}
-                {debugAdvisoryResponse?.advisorySourcePreview ?? "none"}
-              </p>
+                <p>Server suggestionsLength: {debugAdvisoryResponse?.suggestionsLength ?? 0}</p>
+                <p>Server firstSuggestionType: {debugAdvisoryResponse?.firstSuggestionType ?? "none"}</p>
+                <p>
+                  Server firstSuggestionOriginal:{" "}
+                  {debugAdvisoryResponse?.firstSuggestionOriginal ?? "none"}
+                </p>
+                <p>Helper languageReceived: {debugAdvisoryResponse?.helper?.languageReceived ?? "none"}</p>
+                <p>
+                  Helper normalizedLanguage:{" "}
+                  {debugAdvisoryResponse?.helper?.normalizedLanguage ?? "none"}
+                </p>
+                <p>
+                  Helper languageGatePassed:{" "}
+                  {debugAdvisoryResponse?.helper?.languageGatePassed == null
+                    ? "none"
+                    : debugAdvisoryResponse.helper.languageGatePassed
+                      ? "true"
+                      : "false"}
+                </p>
+                <p>Helper sentenceCount: {debugAdvisoryResponse?.helper?.sentenceCount ?? 0}</p>
+                <p>
+                  Helper candidateCountBeforeVisibleFiltering:{" "}
+                  {debugAdvisoryResponse?.helper?.candidateCountBeforeVisibleFiltering ?? 0}
+                </p>
+                <p>
+                  Helper candidateCountAfterVisibleFiltering:{" "}
+                  {debugAdvisoryResponse?.helper?.candidateCountAfterVisibleFiltering ?? 0}
+                </p>
+                <p>
+                  Helper filteredReasonCounts:{" "}
+                  {JSON.stringify(debugAdvisoryResponse?.helper?.filteredReasonCounts ?? null)}
+                </p>
+                <p>
+                  Helper firstParsedSentences:{" "}
+                  {debugAdvisoryResponse?.helper?.firstParsedSentences?.join(" || ") ?? "none"}
+                </p>
+                <p>
+                  Server advisorySourcePreview:{" "}
+                  {debugAdvisoryResponse?.advisorySourcePreview ?? "none"}
+                </p>
               <p>
                 Server generatedDraftPreview:{" "}
                 {debugAdvisoryResponse?.generatedDraftPreview ?? "none"}

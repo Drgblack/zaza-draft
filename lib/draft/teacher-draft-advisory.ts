@@ -10,8 +10,27 @@ export interface TeacherDraftSuggestion {
   type: TeacherDraftSuggestionType
 }
 
+export interface TeacherDraftAdvisoryDebugInfo {
+  languageReceived: string
+  normalizedLanguage: string
+  languageGatePassed: boolean
+  sentenceCount: number
+  firstParsedSentences: string[]
+  candidateCountBeforeVisibleFiltering: number
+  candidateCountAfterVisibleFiltering: number
+  filteredReasonCounts: {
+    language_not_supported: number
+    no_sentence_match: number
+    filtered_already_resolved: number
+    missing_visible_original: number
+    unknown: number
+  }
+}
+
 interface BuildTeacherDraftAdvisorySuggestionOptions {
   visibleDraftText?: string
+  debug?: boolean
+  onDebug?: (debug: TeacherDraftAdvisoryDebugInfo) => void
 }
 
 type SuggestionRule = {
@@ -230,34 +249,66 @@ export function buildTeacherDraftAdvisorySuggestions(
   options: BuildTeacherDraftAdvisorySuggestionOptions = {},
 ): TeacherDraftSuggestion[] {
   const normalizedLanguage = language.trim().toLowerCase()
-  if (!normalizedLanguage.startsWith("en")) {
+  const bodyText = getBodyParagraphs(draftText).join("\n\n")
+  const parsedSentences = extractSentences(bodyText)
+  const visibleBodyText = options.visibleDraftText
+    ? getBodyParagraphs(options.visibleDraftText).join("\n\n")
+    : null
+  const debugInfo: TeacherDraftAdvisoryDebugInfo = {
+    languageReceived: language,
+    normalizedLanguage,
+    languageGatePassed: normalizedLanguage.startsWith("en"),
+    sentenceCount: parsedSentences.length,
+    firstParsedSentences: parsedSentences.slice(0, 5),
+    candidateCountBeforeVisibleFiltering: 0,
+    candidateCountAfterVisibleFiltering: 0,
+    filteredReasonCounts: {
+      language_not_supported: 0,
+      no_sentence_match: 0,
+      filtered_already_resolved: 0,
+      missing_visible_original: 0,
+      unknown: 0,
+    },
+  }
+
+  if (!debugInfo.languageGatePassed) {
+    debugInfo.filteredReasonCounts.language_not_supported += 1
+    if (options.debug) {
+      options.onDebug?.(debugInfo)
+    }
     return []
   }
 
   const suggestions: TeacherDraftSuggestion[] = []
   const seenOriginals = new Set<string>()
-  const bodyText = getBodyParagraphs(draftText).join("\n\n")
-  const visibleBodyText = options.visibleDraftText
-    ? getBodyParagraphs(options.visibleDraftText).join("\n\n")
-    : null
 
-  for (const sentence of extractSentences(bodyText)) {
+  for (const sentence of parsedSentences) {
+    let matchedRule = false
+
     for (const rule of SUGGESTION_RULES) {
       if (!rule.matches(sentence)) {
         continue
       }
 
+      matchedRule = true
       const suggestion = rule.rewrite(sentence)?.trim()
       if (!suggestion || suggestion === sentence || seenOriginals.has(sentence)) {
+        debugInfo.filteredReasonCounts.unknown += 1
         break
       }
 
+      debugInfo.candidateCountBeforeVisibleFiltering += 1
+
       if (
         visibleBodyText &&
-        !includesComparableSentence(visibleBodyText, sentence) &&
-        includesComparableSentence(visibleBodyText, suggestion)
+        !includesComparableSentence(visibleBodyText, sentence)
       ) {
-        break
+        if (includesComparableSentence(visibleBodyText, suggestion)) {
+          debugInfo.filteredReasonCounts.filtered_already_resolved += 1
+          break
+        }
+
+        debugInfo.filteredReasonCounts.missing_visible_original += 1
       }
 
       seenOriginals.add(sentence)
@@ -267,8 +318,17 @@ export function buildTeacherDraftAdvisorySuggestions(
         suggestion,
         type: rule.type,
       })
+      debugInfo.candidateCountAfterVisibleFiltering += 1
       break
     }
+
+    if (!matchedRule) {
+      debugInfo.filteredReasonCounts.no_sentence_match += 1
+    }
+  }
+
+  if (options.debug) {
+    options.onDebug?.(debugInfo)
   }
 
   return suggestions

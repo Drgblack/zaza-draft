@@ -4098,9 +4098,14 @@ export async function POST(request: Request) {
           deescalationSummary,
         })
       : null
+  let teacherDraftAdvisoryHelperDebug: unknown = null
   const teacherDraftSuggestions = requestedTeacherDraftMode
     ? buildTeacherDraftAdvisorySuggestions(currentSituation, language, {
         visibleDraftText: generatedDraft,
+        debug: debugAdvisoryEnabled,
+        onDebug: (debugInfo) => {
+          teacherDraftAdvisoryHelperDebug = debugInfo
+        },
       })
     : []
   const advisoryDebug =
@@ -4114,6 +4119,7 @@ export async function POST(request: Request) {
           generatedDraftPreview: generatedDraft.replace(/\s+/g, " ").trim().slice(0, 200),
           firstSuggestionType: teacherDraftSuggestions[0]?.type ?? null,
           firstSuggestionOriginal: teacherDraftSuggestions[0]?.original ?? null,
+          helper: teacherDraftAdvisoryHelperDebug,
         }
       : undefined
 
