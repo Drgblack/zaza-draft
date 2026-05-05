@@ -39,6 +39,42 @@ describe("subject-policy", () => {
     ).toBe("Today's reading update")
   })
 
+  it("preserves a teacher-authored context subject in teacher_draft mode", () => {
+    expect(
+      resolveDraftSubject({
+        mode: "parent_message",
+        language: "en",
+        contextSubject: "Reading time this week",
+        existingSubject: "Classroom update",
+        situation: "Reading progress note.",
+        teacherDraftMode: true,
+        sourceSubject: "Homework follow-up",
+      } as never),
+    ).toBe("Reading time this week")
+  })
+
+  it("preserves a pasted teacher-draft subject when no context subject is provided", () => {
+    expect(
+      resolveDraftSubject({
+        mode: "parent_message",
+        language: "en",
+        teacherDraftMode: true,
+        sourceSubject: "Homework follow-up",
+      } as never),
+    ).toBe("Homework follow-up")
+  })
+
+  it("returns an empty string when no teacher-draft subject exists", () => {
+    expect(
+      resolveDraftSubject({
+        mode: "parent_message",
+        language: "en",
+        teacherDraftMode: true,
+        situation: "Dear Mrs Smith,\n\nTom forgot his homework again today.",
+      } as never),
+    ).toBe("")
+  })
+
   it("adds a subject line to parent-facing drafts that omit one", () => {
     const result = applyModeAwareSubjectLine(
       "Hello Jordan,\n\nI wanted to give you a clear update about today's maths lesson.\n\nKind regards,\nDr Greg Blackburn",
@@ -52,6 +88,20 @@ describe("subject-policy", () => {
 
     expect(result).toMatch(/^Subject: Update on Jordan's maths lesson/)
     expect(result).toContain("Hello Jordan,")
+  })
+
+  it("does not generate a subject line for teacher_draft mode when none exists", () => {
+    const result = applyModeAwareSubjectLine(
+      "Dear Mrs Smith,\n\nTom forgot his homework again today.",
+      {
+        mode: "parent_message",
+        language: "en",
+        situation: "Dear Mrs Smith,\n\nTom forgot his homework again today.",
+        teacherDraftMode: true,
+      } as never,
+    )
+
+    expect(result).toBe("Dear Mrs Smith,\n\nTom forgot his homework again today.")
   })
 
   it("removes subject lines from report comments", () => {

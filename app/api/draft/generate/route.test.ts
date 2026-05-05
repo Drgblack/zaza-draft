@@ -4419,6 +4419,107 @@ describe("/api/draft/generate subject policy", () => {
     expect(json.data?.formattedDraft?.subject).toBe("Update on Theo's homework")
   })
 
+  it("preserves a pasted Subject line verbatim in teacher_draft mode", async () => {
+    const teacherDraft = [
+      "Subject: Homework follow-up",
+      "",
+      "Dear Mrs Smith,",
+      "",
+      "Tom forgot his homework again today and did not have it with him in class.",
+      "Please remind him to bring it tomorrow so he can complete the task with the rest of the group.",
+    ].join("\n")
+
+    const request = new Request("https://example.com/api/draft/generate", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: "Bearer token",
+      },
+      body: JSON.stringify({
+        situation: teacherDraft,
+        tone: "professional",
+        language: "en",
+        uiLocale: "en-GB",
+        mode: "parent_message",
+        inputIntent: "teacher_draft",
+      }),
+    })
+
+    const response = await POST(request)
+    expect(response.status).toBe(200)
+    const json = await response.json()
+
+    expect(json.data?.generatedDraft).toContain("Subject: Homework follow-up")
+    expect(json.data?.formattedDraft?.subject).toBe("Homework follow-up")
+  })
+
+  it("preserves a contextSubject in teacher_draft mode", async () => {
+    const teacherDraft = [
+      "Dear Mrs Smith,",
+      "",
+      "Tom has been struggling to focus during reading time this week.",
+      "He was distracted on three occasions and found it difficult to settle to the task.",
+    ].join("\n")
+
+    const request = new Request("https://example.com/api/draft/generate", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: "Bearer token",
+      },
+      body: JSON.stringify({
+        situation: teacherDraft,
+        tone: "professional",
+        language: "en",
+        uiLocale: "en-GB",
+        mode: "parent_message",
+        inputIntent: "teacher_draft",
+        context: {
+          subject: "Reading time this week",
+        },
+      }),
+    })
+
+    const response = await POST(request)
+    expect(response.status).toBe(200)
+    const json = await response.json()
+
+    expect(json.data?.generatedDraft).toContain("Subject: Reading time this week")
+    expect(json.data?.formattedDraft?.subject).toBe("Reading time this week")
+  })
+
+  it("returns an empty subject string in teacher_draft mode when no subject exists", async () => {
+    const teacherDraft = [
+      "Dear Mrs Smith,",
+      "",
+      "Tom forgot his homework again today and did not have it with him in class.",
+      "Please remind him to bring it tomorrow so he can complete the task with the rest of the group.",
+    ].join("\n")
+
+    const request = new Request("https://example.com/api/draft/generate", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: "Bearer token",
+      },
+      body: JSON.stringify({
+        situation: teacherDraft,
+        tone: "professional",
+        language: "en",
+        uiLocale: "en-GB",
+        mode: "parent_message",
+        inputIntent: "teacher_draft",
+      }),
+    })
+
+    const response = await POST(request)
+    expect(response.status).toBe(200)
+    const json = await response.json()
+
+    expect(json.data?.generatedDraft).not.toContain("Subject:")
+    expect(json.data?.formattedDraft?.subject).toBe("")
+  })
+
   it("adds a default subject to panic scan parent replies", async () => {
     fallbackGenerator.mockResolvedValueOnce(
       buildFallbackResult(

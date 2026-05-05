@@ -67,7 +67,7 @@ import { resolveTeacherSignatureName } from "@/lib/draft/teacher-signature"
 import { normalizeClosingBlock } from "@/lib/draft/ensure-single-signoff"
 import { detectTeacherAuthenticityViolations, type TeacherAuthenticityViolation } from "@/lib/draft/teacher-authenticity"
 import { sanitizeReportCommentStructure, sanitizeReportCommentText } from "@/lib/draft/report-comment"
-import { applyModeAwareSubjectLine } from "@/lib/draft/subject-policy"
+import { applyModeAwareSubjectLine, normalizeDraftSubject } from "@/lib/draft/subject-policy"
 import { applyEnglishOutputSanity } from "@/lib/draft/english-output-sanity"
 import { detectTeacherNoteIssueClusters } from "@/lib/draft/teacher-note-issues"
 import {
@@ -2207,6 +2207,9 @@ export async function POST(request: Request) {
       (authContext as { decodedToken?: { name?: string | null } })?.decodedToken?.name ?? null,
     ) || undefined
   const preserveDraftSignatureFromInput = mode === "parent_message" && inputIntent === "teacher_draft"
+  const sourceTeacherDraftSubject = preserveDraftSignatureFromInput
+    ? normalizeDraftSubject(formatDraftText(teacherDraftSourceText, language).subject ?? null)
+    : undefined
   const sourceTeacherDraftClosing = preserveDraftSignatureFromInput
     ? extractTeacherDraftClosing(teacherDraftSourceText, language)
     : null
@@ -2994,17 +2997,17 @@ export async function POST(request: Request) {
       generatedDraft = applyGermanNormalization(generatedDraft)
     }
     generatedDraft = normalizeClosingForMode(generatedDraft)
-    if (!alreadyStrongTeacherDraft) {
-      generatedDraft = applyModeAwareSubjectLine(generatedDraft, {
-        mode,
-        language,
-        generationMode: generationMetadata.mode,
-        messageType: payload.messageType ?? undefined,
-        studentFirstName: studentNameForPayload || undefined,
-        situation: payload.situation,
-        contextSubject: payload.context?.subject,
-      })
-    }
+    generatedDraft = applyModeAwareSubjectLine(generatedDraft, {
+      mode,
+      teacherDraftMode: requestedTeacherDraftMode,
+      language,
+      generationMode: generationMetadata.mode,
+      messageType: payload.messageType ?? undefined,
+      studentFirstName: studentNameForPayload || undefined,
+      situation: payload.situation,
+      contextSubject: payload.context?.subject,
+      sourceSubject: sourceTeacherDraftSubject,
+    })
     const finalSanity = applyEnglishOutputSanity(generatedDraft, {
       language,
       mode,
@@ -3018,6 +3021,12 @@ export async function POST(request: Request) {
       mode === "report_comment"
         ? sanitizeReportCommentStructure(formatDraftText(generatedDraft, language), language)
         : formatDraftText(generatedDraft, language)
+    if (requestedTeacherDraftMode && !formattedDraftStructure.subject) {
+      formattedDraftStructure = {
+        ...formattedDraftStructure,
+        subject: "",
+      }
+    }
     bodyParagraphCount = getParagraphCountExcludingGreeting(formattedDraftStructure, finalGreetingLine)
     bodyWordCount =
       mode === "parent_message"
@@ -3052,6 +3061,12 @@ export async function POST(request: Request) {
 
     generatedDraft = normalizeClosingForMode(generatedDraft)
     formattedDraftStructure = formatDraftText(generatedDraft, language)
+    if (requestedTeacherDraftMode && !formattedDraftStructure.subject) {
+      formattedDraftStructure = {
+        ...formattedDraftStructure,
+        subject: "",
+      }
+    }
     bodyParagraphCount = getParagraphCountExcludingGreeting(formattedDraftStructure, finalGreetingLine)
     bodyWordCount = getMeaningfulParentBodyWordCount(formattedDraftStructure, finalGreetingLine)
   }

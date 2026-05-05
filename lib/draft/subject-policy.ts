@@ -5,6 +5,7 @@ type GenerationInputMode = "safe_draft" | "panic_scan" | "voice_to_calm"
 
 interface SubjectPolicyInput {
   mode: DraftMode
+  teacherDraftMode?: boolean
   language?: string | null
   generationMode?: GenerationInputMode | null
   messageType?: string | null
@@ -12,6 +13,7 @@ interface SubjectPolicyInput {
   situation?: string | null
   contextSubject?: string | null
   existingSubject?: string | null
+  sourceSubject?: string | null
 }
 
 const SUBJECT_PREFIX_RE = /^(?:Subject|Betreff)\s*[:\-–—|]+\s*/i
@@ -149,6 +151,20 @@ export function resolveDraftSubject(input: SubjectPolicyInput) {
     return undefined
   }
 
+  if (input.teacherDraftMode) {
+    const explicitContextSubject = normalizeDraftSubject(input.contextSubject)
+    if (explicitContextSubject) {
+      return truncateSubject(explicitContextSubject)
+    }
+
+    const explicitSourceSubject = normalizeDraftSubject(input.sourceSubject)
+    if (explicitSourceSubject) {
+      return truncateSubject(explicitSourceSubject)
+    }
+
+    return ""
+  }
+
   const explicitSubject = normalizeDraftSubject(input.contextSubject)
   if (explicitSubject) {
     return truncateSubject(explicitSubject)
@@ -188,6 +204,30 @@ export function applyModeAwareSubjectLine(text: string, input: SubjectPolicyInpu
 
   if (input.mode !== "parent_message") {
     return normalized
+  }
+
+  if (input.teacherDraftMode) {
+    const resolvedSubject = resolveDraftSubject({
+      ...input,
+      existingSubject: parsed.subject,
+    })
+    const body = parsed.paragraphs.join("\n\n").trim()
+
+    if (resolvedSubject === "") {
+      return body
+    }
+
+    if (!resolvedSubject) {
+      return normalized
+    }
+
+    const existingSubject = normalizeDraftSubject(parsed.subject)
+    if (existingSubject === resolvedSubject && parsed.subject) {
+      return normalized
+    }
+
+    const label = isGerman(input.language) ? "Betreff" : "Subject"
+    return body ? `${label}: ${resolvedSubject}\n\n${body}` : `${label}: ${resolvedSubject}`
   }
 
   const resolvedSubject = resolveDraftSubject({
