@@ -1886,6 +1886,9 @@ export async function POST(request: Request) {
   const analyticsConsentEnabled = payload?.analyticsConsent === true
   const debugEnabled =
     isDebugEnabled(requestUrl.searchParams) || request.headers.get("x-debug") === "1"
+  const debugAdvisoryEnabled =
+    requestUrl.searchParams.get("debugAdvisory") === "1" ||
+    request.headers.get("x-debug-advisory") === "1"
   const generationTrace = mode
     ? inputIntent && mode === "parent_message"
       ? buildGenerationTraceFromInputIntent({
@@ -4100,6 +4103,19 @@ export async function POST(request: Request) {
         visibleDraftText: generatedDraft,
       })
     : []
+  const advisoryDebug =
+    debugAdvisoryEnabled
+      ? {
+          inputIntent,
+          advisorySourceLength: currentSituation.length,
+          generatedDraftLength: generatedDraft.length,
+          suggestionsLength: teacherDraftSuggestions.length,
+          advisorySourcePreview: currentSituation.replace(/\s+/g, " ").trim().slice(0, 200),
+          generatedDraftPreview: generatedDraft.replace(/\s+/g, " ").trim().slice(0, 200),
+          firstSuggestionType: teacherDraftSuggestions[0]?.type ?? null,
+          firstSuggestionOriginal: teacherDraftSuggestions[0]?.original ?? null,
+        }
+      : undefined
 
   logDraftStructured("normalization", {
     ...baseDraftLog(),
@@ -4445,6 +4461,7 @@ export async function POST(request: Request) {
     outputSafetyAnalysis,
     documentationModeActive,
     suggestions: teacherDraftSuggestions,
+    advisoryDebug,
   })
   } catch (error) {
     logAttemptError("route_unhandled", error, {

@@ -528,6 +528,7 @@ export function MainEditor({ canExport = true }: MainEditorProps = {}) {
   const { t, locale } = useLocale()
   const searchParams = useSearchParams()
   const isReturningFromPanicScan = searchParams.get("panicScanReturn") === "1"
+  const debugAdvisoryEnabled = searchParams.get("debugAdvisory") === "1"
   const { user, getIdToken, signOut } = useAuth()
   const teacherSignatureName = useMemo(
     () => resolveTeacherSignatureName(user?.displayName, prefs.signatureLine1),
@@ -554,6 +555,16 @@ export function MainEditor({ canExport = true }: MainEditorProps = {}) {
     requestId?: string
     uidHash?: string
     professionalJudgement?: DraftProfessionalJudgementMeta | null
+    advisoryDebug?: {
+      inputIntent?: string | null
+      advisorySourceLength?: number
+      generatedDraftLength?: number
+      suggestionsLength?: number
+      advisorySourcePreview?: string | null
+      generatedDraftPreview?: string | null
+      firstSuggestionType?: string | null
+      firstSuggestionOriginal?: string | null
+    } | null
   } | null>(null)
   const [draftStructure, setDraftStructure] = useState<DraftStructure | null>(null)
   const [deescalationSummary, setDeescalationSummary] = useState<DeescalationSummary | null>(null)
@@ -1849,11 +1860,15 @@ Examples:
         })
       }
 
-      const response = await fetch("/api/draft/generate", {
+      const draftGenerateUrl = debugAdvisoryEnabled
+        ? "/api/draft/generate?debugAdvisory=1"
+        : "/api/draft/generate"
+      const response = await fetch(draftGenerateUrl, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
+          ...(debugAdvisoryEnabled ? { "x-debug-advisory": "1" } : {}),
         },
         body: JSON.stringify(payload),
       })
@@ -1872,7 +1887,16 @@ Examples:
         : Array.isArray(data?.suggestions)
           ? data.suggestions
           : []
-      const responseMeta = data?.data?.meta ?? null
+      const responseMeta = data?.data?.meta
+        ? {
+            ...data.data.meta,
+            advisoryDebug: data?.data?.advisoryDebug ?? data?.advisoryDebug ?? null,
+          }
+        : data?.data?.advisoryDebug || data?.advisoryDebug
+          ? {
+              advisoryDebug: data?.data?.advisoryDebug ?? data?.advisoryDebug ?? null,
+            }
+          : null
 
       if (response.status === 401) {
         setGenerationError("Session expired, please sign in again.")
@@ -3281,6 +3305,7 @@ Examples:
               teacherDraftFeedback={teacherDraftFeedback}
               suggestions={teacherDraftSuggestions}
               debugAdvisoryStateCount={teacherDraftSuggestions.length}
+              debugAdvisoryResponse={draftResponseMeta?.advisoryDebug ?? null}
               onApplySuggestion={handleApplyTeacherDraftSuggestion}
               onDismissSuggestion={handleDismissTeacherDraftSuggestion}
               teacherDraftMode={parentInputMode === "teacher_draft"}

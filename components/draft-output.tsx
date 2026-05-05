@@ -99,6 +99,16 @@ interface DraftOutputProps {
   teacherDraftFeedback?: TeacherDraftFeedback | null
   suggestions?: TeacherDraftSuggestion[]
   debugAdvisoryStateCount?: number
+  debugAdvisoryResponse?: {
+    inputIntent?: string | null
+    advisorySourceLength?: number
+    generatedDraftLength?: number
+    suggestionsLength?: number
+    advisorySourcePreview?: string | null
+    generatedDraftPreview?: string | null
+    firstSuggestionType?: string | null
+    firstSuggestionOriginal?: string | null
+  } | null
   onApplySuggestion?: (suggestionId: string) => void
   onDismissSuggestion?: (suggestionId: string) => void
   teacherDraftMode?: boolean
@@ -187,6 +197,7 @@ export function DraftOutput({
   teacherDraftFeedback = null,
   suggestions = [],
   debugAdvisoryStateCount,
+  debugAdvisoryResponse = null,
   onApplySuggestion,
   onDismissSuggestion,
   teacherDraftMode = false,
@@ -783,6 +794,23 @@ export function DraftOutput({
               <p>Render condition: {showTeacherDraftSuggestions ? "true" : "false"}</p>
               <p>First suggestion type: {firstSuggestion?.type ?? "none"}</p>
               <p>First suggestion snippet: {firstSuggestionSnippet ?? "none"}</p>
+              <p>Server inputIntent: {debugAdvisoryResponse?.inputIntent ?? "none"}</p>
+              <p>Server advisorySourceLength: {debugAdvisoryResponse?.advisorySourceLength ?? 0}</p>
+              <p>Server generatedDraftLength: {debugAdvisoryResponse?.generatedDraftLength ?? 0}</p>
+              <p>Server suggestionsLength: {debugAdvisoryResponse?.suggestionsLength ?? 0}</p>
+              <p>Server firstSuggestionType: {debugAdvisoryResponse?.firstSuggestionType ?? "none"}</p>
+              <p>
+                Server firstSuggestionOriginal:{" "}
+                {debugAdvisoryResponse?.firstSuggestionOriginal ?? "none"}
+              </p>
+              <p>
+                Server advisorySourcePreview:{" "}
+                {debugAdvisoryResponse?.advisorySourcePreview ?? "none"}
+              </p>
+              <p>
+                Server generatedDraftPreview:{" "}
+                {debugAdvisoryResponse?.generatedDraftPreview ?? "none"}
+              </p>
             </div>
           </div>
         ) : null}
