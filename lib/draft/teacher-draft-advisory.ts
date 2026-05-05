@@ -23,6 +23,18 @@ const DIRECTIVE_PATTERNS: Array<[RegExp, string]> = [
 ]
 
 const TONE_PATTERNS: Array<[RegExp, string]> = [
+  [
+    /\bYour daughter Sally has not been behaving well in my class at all\b/gi,
+    "Your daughter Sally has been finding it difficult to meet expectations in my class",
+  ],
+  [
+    /\bHer behaviour has been challenging, and I have realised that her attitude towards school has worsened considerably this term\b/gi,
+    "Her behaviour has been difficult recently, and I have become concerned that her attitude towards school has worsened this term",
+  ],
+  [
+    /\bHer behaviour has been challenging, and I was appalled by her attitude towards school last week\b/gi,
+    "Her behaviour has been difficult recently, and I was concerned by her attitude towards school last week",
+  ],
   [/\bI was appalled by\b/gi, "I was concerned by"],
   [
     /\bI can't make individual exceptions(?: in the moment)?(?:, as this would quickly become unmanageable across the class)?\b/gi,
@@ -96,14 +108,22 @@ function replaceFirstPattern(
 }
 
 function buildClaritySuggestion(sentence: string) {
-  if (countWords(sentence) <= 40 && (sentence.match(/[;,]/g) ?? []).length < 2) {
+  const wordCount = countWords(sentence)
+  const commaCount = (sentence.match(/,/g) ?? []).length
+  const semicolonCount = (sentence.match(/;/g) ?? []).length
+
+  if (wordCount <= 40 && semicolonCount === 0 && commaCount < 3) {
     return null
   }
 
   const punctuationMatch = sentence.match(/[.!?…]+$/)
   const punctuation = punctuationMatch?.[0] ?? "."
   const sentenceWithoutEnding = sentence.replace(/[.!?…]+$/, "").trim()
-  const splitPatterns = [/\s+and\s+/i, /\s+but\s+/i, /;\s+/, /,\s+(?=(?:which|while|so|because|although)\b)/i]
+  const splitPatterns = [
+    /;\s+/,
+    /,\s+(?=(?:which|while|so|because|although)\b)/i,
+    ...(wordCount > 40 ? [/\s+and\s+/i, /\s+but\s+/i] : []),
+  ]
 
   for (const pattern of splitPatterns) {
     const match = pattern.exec(sentenceWithoutEnding)

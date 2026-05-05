@@ -786,6 +786,8 @@ describe("MainEditor mode switching", () => {
         "I was appalled by Sally's tone when I asked her to begin the task.",
       )
     })
+    expect(screen.getByText("⚠ 2 suggestions to reduce escalation risk")).toBeInTheDocument()
+    expect(screen.getByText("Suggestions before you send (2)")).toBeInTheDocument()
     expect(
       screen.getAllByText((_, element) =>
         element?.textContent?.includes(

@@ -2965,6 +2965,23 @@ describe("/api/draft/generate light edit mode", () => {
     expect(generatedDraft).toContain("I was appalled by her attitude towards school last week.")
     expect(generatedDraft).toContain("these expectations will remain in place")
     expect(generatedDraft).toContain("Kind regards,\nShereen P.")
+    expect(json.data?.suggestions).toEqual([
+      {
+        id: "teacher-draft-suggestion-1",
+        original: "Your daughter Sally has not been behaving well in my class at all.",
+        suggestion:
+          "Your daughter Sally has been finding it difficult to meet expectations in my class.",
+        type: "tone",
+      },
+      {
+        id: "teacher-draft-suggestion-2",
+        original:
+          "Her behaviour has been challenging, and I was appalled by her attitude towards school last week.",
+        suggestion:
+          "Her behaviour has been difficult recently, and I was concerned by her attitude towards school last week.",
+        type: "tone",
+      },
+    ])
     expect(generatedDraft).not.toContain("I wanted to let you know that Sally has found behaviour expectations difficult recently")
   })
 
