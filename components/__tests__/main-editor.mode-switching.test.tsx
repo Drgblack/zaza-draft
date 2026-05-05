@@ -20,6 +20,17 @@ const LUCY_TEACHER_DRAFT = [
   "Greg",
 ].join("\n")
 
+const SHEREEN_PARENT_FACING_DRAFT = [
+  "Dear Mrs Chen,",
+  "",
+  "Your daughter Sally has not been behaving well in my class at all. Her behaviour has been challenging, and I have realised that her attitude towards school has worsened considerably this term.",
+  "",
+  "I would like your support in making it clear to Sally that she must arrive ready to learn, follow instructions the first time, and treat adults and classmates with respect.",
+  "",
+  "Kind regards,",
+  "Shereen P.",
+].join("\n")
+
 let mockLocale: Locale = "en-GB"
 let mockSearchParams = new URLSearchParams()
 let draftGenerateScenario: DraftGenerateScenario = "success"
@@ -626,22 +637,14 @@ describe("MainEditor mode switching", () => {
     )
   })
 
-  it("shows a gentle suggestion when my draft is selected but the text looks like a parent email", async () => {
+  it("shows a gentle suggestion when my draft is selected but the text looks like parent notes", async () => {
     render(<MainEditor />)
 
     fireEvent.click(within(getInputTypeTablist()).getByRole("tab", { name: "My draft" }))
     fireEvent.change(getTextarea(), {
       target: {
-        value: [
-          "Subject: Concern about Lucy",
-          "",
-          "Hello,",
-          "",
-          "My child came home upset and I would appreciate an explanation.",
-          "",
-          "Kind regards,",
-          "Lucy's Dad",
-        ].join("\n"),
+        value:
+          "My child came home upset after the lesson. I would appreciate an explanation and want to know what happened.",
       },
     })
 
@@ -679,6 +682,32 @@ describe("MainEditor mode switching", () => {
         "This looks like a teacher draft. Switch to My Draft mode to improve your message.",
       ),
     ).toBeNull()
+  })
+
+  it("does not show the parent message warning in My draft mode for a complete parent-facing draft", async () => {
+    render(<MainEditor />)
+
+    fireEvent.click(within(getInputTypeTablist()).getByRole("tab", { name: "My draft" }))
+    fireEvent.change(getTextarea(), {
+      target: { value: SHEREEN_PARENT_FACING_DRAFT },
+    })
+
+    expect(screen.queryByText("This looks like a parent message.")).toBeNull()
+    expect(screen.queryByRole("button", { name: "Switch to Parent message" })).toBeNull()
+  })
+
+  it("suggests switching to My Draft mode for the same complete parent-facing draft when Parent message is selected", async () => {
+    render(<MainEditor />)
+
+    fireEvent.change(getTextarea(), {
+      target: { value: SHEREEN_PARENT_FACING_DRAFT },
+    })
+
+    expect(
+      screen.getByText(
+        "This looks like a teacher draft. Switch to My Draft mode to improve your message.",
+      ),
+    ).toBeInTheDocument()
   })
 
   it("does not show the teacher draft warning for an actual parent message", async () => {

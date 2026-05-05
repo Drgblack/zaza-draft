@@ -96,6 +96,7 @@ import {
   type DraftInteractionWorkflowType,
 } from "@/lib/draft-interaction-events"
 import {
+  looksLikeIncomingParentMessage,
   looksLikeIncomingParentEmail,
   looksLikeTeacherAuthoredDraft,
   type ParentMessageInputType,
@@ -171,6 +172,56 @@ type InputModeMismatchSuggestion = {
   message: string
   action: string
   nextMode: ParentInputMode
+}
+
+function looksLikeCompleteTeacherDraftForModeSuggestion(text: string) {
+  const normalized = text.replace(/\r/g, "").trim()
+  if (!normalized) {
+    return false
+  }
+
+  if (looksLikeTeacherAuthoredDraft(normalized)) {
+    return true
+  }
+
+  const lines = normalized
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean)
+  if (!lines.length) {
+    return false
+  }
+
+  const firstLine = lines[0] ?? ""
+  const greetingLine = /^subject:|^betreff:/i.test(firstLine) ? (lines[1] ?? "") : firstLine
+  const lastLine = lines[lines.length - 1] ?? ""
+  const paragraphs = normalized
+    .split(/\n\s*\n/)
+    .map((paragraph) => paragraph.trim())
+    .filter(Boolean)
+
+  const hasGreeting = /^(?:dear|hello|hi|guten tag|liebe(?:r|n)?|sehr geehrte)\b/i.test(greetingLine)
+  const hasClosingBlock =
+    /(?:^|\n)\s*(?:Regards|Kind regards|Best regards|Best wishes|Yours sincerely|Sincerely|Mit freundlichen Gr[üu]ßen|Herzliche Gr[üu]ße|Freundliche Gr[üu]ße),?\s*\n\s*[\p{L}][\p{L}.' -]*\s*$/iu.test(
+      normalized,
+    )
+  const hasTeacherPerspectiveSignal =
+    /\b(?:your child|your son|your daughter|in my class|in class|at school|learning environment|i have|i wanted to let you know|i wanted to update you|i would like your support|please speak with|please remind|follow instructions|settled start)\b/i.test(
+      normalized,
+    )
+  const hasParentRelationshipSignoff =
+    /\b(?:dad|mum|mom|mother|father|parent|carer|guardian|grandma|grandmother|grandad|grandfather)\b/i.test(
+      lastLine,
+    ) || /\b[\p{L}]+['’]s\s+(?:dad|mum|mom|mother|father|parent|carer|guardian)\b/iu.test(lastLine)
+
+  return (
+    hasGreeting &&
+    hasClosingBlock &&
+    hasTeacherPerspectiveSignal &&
+    paragraphs.length >= 3 &&
+    !looksLikeIncomingParentMessage(normalized) &&
+    !hasParentRelationshipSignoff
+  )
 }
 
 const LOADING_MESSAGES = [
@@ -840,7 +891,8 @@ export function MainEditor({ canExport = true }: MainEditorProps = {}) {
 
     if (
       parentInputMode === "teacher_draft" &&
-      looksLikeIncomingParentEmail(trimmedContent)
+      !looksLikeCompleteTeacherDraftForModeSuggestion(trimmedContent) &&
+      (looksLikeIncomingParentEmail(trimmedContent) || looksLikeIncomingParentMessage(trimmedContent))
     ) {
       return {
         id: `parent_message:${parentInputMode}:${trimmedContent}`,
@@ -852,7 +904,7 @@ export function MainEditor({ canExport = true }: MainEditorProps = {}) {
 
     if (
       parentInputMode === "parent_message" &&
-      looksLikeTeacherAuthoredDraft(trimmedContent)
+      looksLikeCompleteTeacherDraftForModeSuggestion(trimmedContent)
     ) {
       return {
         id: `teacher_draft:${parentInputMode}:${trimmedContent}`,
