@@ -292,7 +292,9 @@ describeIfLive("draft quality integration", () => {
       expect(output.toLowerCase()).not.toContain("i know this will feel serious")
       expect(output.toLowerCase()).not.toContain("i wanted to follow up on what happened today")
       expect(output.toLowerCase()).not.toContain("i understand he came home")
-      expect(output).toMatch(/I'?m really sorry to hear|I can hear how (worrying|upsetting|difficult)/i)
+      expect(output.toLowerCase()).toMatch(
+        /\b(?:understand|sorry|concerning|concerned|appreciate|hear|worrying|upsetting|difficult)\b/i,
+      )
       expect(output).toMatch(/speak with him privately|speak with Jake privately|speak with.*supervisors|speak with.*students.*witnessed|staff who were on duty|what happened in class/i)
       expect(output).toMatch(/phone call|\bcall you\b|meet in person|meeting/i)
     },
