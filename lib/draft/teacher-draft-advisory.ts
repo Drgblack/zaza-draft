@@ -229,7 +229,8 @@ export function buildTeacherDraftAdvisorySuggestions(
   language: string,
   options: BuildTeacherDraftAdvisorySuggestionOptions = {},
 ): TeacherDraftSuggestion[] {
-  if (language !== "en") {
+  const normalizedLanguage = language.trim().toLowerCase()
+  if (!normalizedLanguage.startsWith("en")) {
     return []
   }
 
