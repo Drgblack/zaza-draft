@@ -60,4 +60,27 @@ describe("sanitizeEmailText", () => {
     expect(result.cleanText).toContain("happy to chat further")
     expect(result.removedLines).toEqual([])
   })
+
+  it("preserves teacher-authored blank lines when requested", () => {
+    const raw = [
+      "Dear Mrs Chen,",
+      "",
+      "Sally arrived upset this morning.",
+      "",
+      "She left her pencil case in the corridor.",
+      "",
+      "Kind regards,",
+      "Shereen P.",
+    ].join("\n")
+
+    const result = sanitizeEmailText(raw, { preserveBlankLines: true })
+
+    expect(result.cleanText).toContain("Dear Mrs Chen,\n\nSally arrived upset this morning.")
+    expect(result.cleanText).toContain(
+      "Sally arrived upset this morning.\n\nShe left her pencil case in the corridor.",
+    )
+    expect(result.cleanText).toContain(
+      "She left her pencil case in the corridor.\n\nKind regards,\nShereen P.",
+    )
+  })
 })

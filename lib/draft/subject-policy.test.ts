@@ -104,6 +104,30 @@ describe("subject-policy", () => {
     expect(result).toBe("Dear Mrs Smith,\n\nTom forgot his homework again today.")
   })
 
+  it("preserves teacher_draft paragraph breaks when no subject exists", () => {
+    const draft = [
+      "Dear Mrs Chen,",
+      "",
+      "Sally arrived upset this morning.",
+      "",
+      "She left her pencil case in the corridor.",
+      "",
+      "Please speak with her this evening.",
+      "",
+      "Kind regards,",
+      "Shereen P.",
+    ].join("\n")
+
+    const result = applyModeAwareSubjectLine(draft, {
+      mode: "parent_message",
+      language: "en",
+      situation: draft,
+      teacherDraftMode: true,
+    } as never)
+
+    expect(result).toBe(draft)
+  })
+
   it("removes subject lines from report comments", () => {
     const result = applyModeAwareSubjectLine(
       "Subject: Weekly report\n\nSam listens carefully in paired work and contributes more consistently during discussion.",

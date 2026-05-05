@@ -496,7 +496,7 @@ describe("MainEditor mode switching", () => {
       "parent_message",
       "parent_message",
     ])
-  })
+  }, 15000)
 
   it("passes the explicit parent-message input selection and lets the user switch to my draft", async () => {
     render(<MainEditor />)

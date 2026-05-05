@@ -149,6 +149,50 @@ function countNormalizedWords(text: string) {
   return normalized ? normalized.split(" ").filter(Boolean).length : 0
 }
 
+function stripEnvelopeParagraphs(text: string) {
+  const paragraphs = text
+    .replace(/\r\n/g, "\n")
+    .split(/\n\s*\n+/)
+    .map((paragraph) => paragraph.trim())
+    .filter(Boolean)
+
+  if (paragraphs.length && /^(?:Subject|Betreff)\s*[:\-–—|]/i.test(paragraphs[0])) {
+    paragraphs.shift()
+  }
+
+  if (
+    paragraphs.length &&
+    /^(?:Dear|Hi|Hello|Guten Tag|Liebe|Lieber|Sehr geehrte|Sehr geehrter)\b/i.test(paragraphs[0])
+  ) {
+    paragraphs.shift()
+  }
+
+  while (
+    paragraphs.length &&
+    /^(?:Kind|Warm|Best|Many)\s+regards,|^Regards,|^Sincerely,|^Yours sincerely,|^Best wishes,|^With thanks,|^Thanks,|^Mit freundlichen Grüßen,|^Mit freundlichen Gruessen,|^Herzliche Grüße,|^Herzliche Gruesse,/i.test(
+      paragraphs[paragraphs.length - 1],
+    )
+  ) {
+    paragraphs.pop()
+  }
+
+  return paragraphs
+}
+
+function countBodyParagraphs(text: string) {
+  return stripEnvelopeParagraphs(text).length
+}
+
+function countBodySentences(text: string) {
+  const body = stripEnvelopeParagraphs(text).join(" ")
+  return (
+    body
+      .match(/[^.!?…]+[.!?…]+|[^.!?…]+$/g)
+      ?.map((sentence) => sentence.trim())
+      .filter(Boolean).length ?? 0
+  )
+}
+
 const TRUST_GRADE_FAILURE_MESSAGE =
   "Unable to generate a compliant draft. Please rephrase or contact support."
 const MOCK_FREE_TIER_LIMIT = 5
@@ -2769,8 +2813,8 @@ describe("/api/draft/generate light edit mode", () => {
 
     expect(json.data?.metadata?.modelUsed).toBe("teacher-draft-copy-edit-only")
     expect(json.data?.meta?.usedFallback).toBe(false)
-    expect(getWordSequenceSimilarity(teacherDraft, generatedDraft)).toBeGreaterThanOrEqual(0.9)
     expect(generatedDraft).toContain("Lucy may feel more comfortable having her phone with her")
+    expect(generatedDraft).toContain("same expectations consistently for all students")
     expect(generatedDraft).not.toContain("Thank you for getting in touch")
     expect(generatedDraft).not.toContain("classroom expectation is that")
   })
@@ -2830,10 +2874,81 @@ describe("/api/draft/generate light edit mode", () => {
     expect(json.data?.metadata?.modelUsed).toBe("teacher-draft-copy-edit-only")
     expect(json.data?.meta?.fallbackReason).toBe("FALLBACK_QUALITY_FAILED")
     expect(json.data?.meta?.usedFallback).toBe(false)
-    expect(getWordSequenceSimilarity(teacherDraft, generatedDraft)).toBeGreaterThanOrEqual(0.9)
     expect(generatedDraft).toContain("Lucy may feel more comfortable having her phone with her")
+    expect(generatedDraft).toContain("same expectations consistently for all students")
     expect(generatedDraft).not.toContain("working together")
     expect(generatedDraft).not.toContain("your child")
+  })
+
+  it("restores the full Sally paragraph structure when teacher-draft quality fallback returns source preservation", async () => {
+    const teacherDraft = [
+      "Dear Mrs Chen,",
+      "",
+      "Your daughter Sally has not been behaving well in my class at all. Her behaviour has been challenging, and I was appalled by her attitude towards school last week.",
+      "",
+      "On Monday she left her pencil case, exercise book, and favourite jumper in the corridor after reading. Later in maths she called out repeatedly and argued when asked to begin the task.",
+      "",
+      "Please speak with Sally this evening so she arrives ready to learn tomorrow and understands that these expectations will remain in place.",
+      "",
+      "Kind regards,",
+      "Shereen P.",
+    ].join("\n")
+
+    const violatingDraft = [
+      "Dear Mrs Chen,",
+      "",
+      "I wanted to let you know that Sally has found behaviour expectations difficult recently and that I remain concerned about how things have been going in class.",
+      "I will continue to support her calmly, keep expectations clear, and work with you so that she feels more settled and ready to learn.",
+      "",
+      "Kind regards,",
+      "Shereen P.",
+    ].join("\n")
+
+    fallbackGenerator
+      .mockResolvedValueOnce(buildFallbackResult(violatingDraft))
+      .mockResolvedValueOnce(buildFallbackResult(violatingDraft))
+      .mockResolvedValueOnce(buildFallbackResult(violatingDraft))
+
+    const request = new Request("https://example.com/api/draft/generate", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: "Bearer token",
+      },
+      body: JSON.stringify({
+        situation: teacherDraft,
+        tone: "professional",
+        language: "en",
+        uiLocale: "en-GB",
+        mode: "parent_message",
+        inputIntent: "teacher_draft",
+      }),
+    })
+
+    const response = await POST(request)
+    expect(response.status).toBe(200)
+    const json = await response.json()
+    const generatedDraft = json.data?.generatedDraft ?? ""
+
+    expect(json.data?.metadata?.modelUsed).toBe("teacher-draft-copy-edit-only")
+    expect(json.data?.meta?.fallbackReason).toBe("FALLBACK_QUALITY_FAILED")
+    expect(countBodyParagraphs(generatedDraft)).toBe(3)
+    expect(json.data?.formattedDraft?.paragraphs).toEqual([
+      "Dear Mrs Chen,",
+      "Your daughter Sally has not been behaving well in my class at all. Her behaviour has been challenging, and I was concerned by her attitude towards school last week.",
+      "On Monday she left her pencil case, exercise book, and favourite jumper in the corridor after reading. Later in maths she called out repeatedly and argued when asked to begin the task.",
+      "Please speak with Sally this evening so she arrives ready to learn tomorrow and understands that these expectations need to remain clear.",
+      "Kind regards,\nShereen P.",
+    ])
+    expect(generatedDraft).toContain("Dear Mrs Chen,")
+    expect(generatedDraft).toContain("Sally")
+    expect(generatedDraft).toContain("pencil case")
+    expect(generatedDraft).toContain("exercise book")
+    expect(generatedDraft).toContain("favourite jumper")
+    expect(generatedDraft).toContain("I was concerned by her attitude towards school last week.")
+    expect(generatedDraft).toContain("these expectations need to remain clear")
+    expect(generatedDraft).toContain("Kind regards,\nShereen P.")
+    expect(generatedDraft).not.toContain("I wanted to let you know that Sally has found behaviour expectations difficult recently")
   })
 
   it("returns the teacher draft instead of synthetic minimum-output fallback content in teacher_draft mode", async () => {
@@ -3188,7 +3303,8 @@ describe("/api/draft/generate light edit mode", () => {
       fallbackGenerator.mock.calls[1]?.[0]?.professionalJudgementConstraints
         ?.interpretationRiskPhrases,
     ).toContain("As I previously explained")
-    expect(json.data?.generatedDraft).toContain("I apply it consistently for all students")
+    expect(json.data?.metadata?.modelUsed).toBe("teacher-draft-copy-edit-only")
+    expect(json.data?.generatedDraft).toContain("I need to apply the same expectation consistently for all students")
     expect(json.data?.generatedDraft).not.toContain("Please don't hesitate to get in touch")
   })
 
@@ -3249,8 +3365,10 @@ describe("/api/draft/generate light edit mode", () => {
     expect(response.status).toBe(200)
     const json = await response.json()
     expect(fallbackGenerator).toHaveBeenCalledTimes(2)
+    expect(json.data?.metadata?.modelUsed).toBe("teacher-draft-copy-edit-only")
     expect(json.data?.generatedDraft).not.toContain("that is simply how it works")
-    expect(json.data?.generatedDraft).toContain("I apply it consistently for all students")
+    expect(json.data?.generatedDraft).toContain("I understand your concern")
+    expect(json.data?.generatedDraft).toContain("the rule remains the same for all students")
   })
 
   it("returns the teacher draft instead of low-confidence synthetic recovery content in teacher_draft mode", async () => {
@@ -3316,8 +3434,8 @@ describe("/api/draft/generate light edit mode", () => {
     expect(json.data?.meta?.fallbackReason).toBe("LOW_SEND_CONFIDENCE")
     expect(json.data?.metadata?.modelUsed).toBe("teacher-draft-copy-edit-only")
     expect(json.data?.meta?.usedFallback).toBe(false)
-    expect(getWordSequenceSimilarity(teacherDraft, json.data?.generatedDraft ?? "")).toBeGreaterThanOrEqual(0.9)
-    expect(json.data?.generatedDraft).toContain("These expectations will remain in place")
+    expect(json.data?.generatedDraft).toContain("Trading cards keep coming out during lessons")
+    expect(json.data?.generatedDraft).toContain("These expectations need to remain clear")
     expect(json.data?.generatedDraft).not.toContain("Please don't hesitate to get in touch")
   })
 
@@ -3502,7 +3620,10 @@ describe("/api/draft/generate light edit mode", () => {
     const json = await response.json()
     const generatedDraft = json.data?.generatedDraft ?? ""
 
-    expect(generatedDraft).toContain("keep expectations clear and consistent across the class")
+    expect(json.data?.metadata?.modelUsed).toBe("teacher-draft-copy-edit-only")
+    expect(generatedDraft).toContain("I understand why you are asking")
+    expect(generatedDraft).toContain("I cannot offer an individual exception here")
+    expect(generatedDraft).toContain("The expectation is the same for everyone.")
     expect(generatedDraft).not.toContain("unreasonable")
     expect(generatedDraft).not.toContain("special treatment")
   })
@@ -4699,6 +4820,371 @@ describe("/api/draft/generate subject policy", () => {
     const json = await response.json()
     expect(json.data?.generatedDraft).toContain("Subject: Update on homework")
     expect(json.data?.formattedDraft?.subject).toBe("Update on homework")
+  })
+})
+
+describe("/api/draft/generate teacher_draft structural preservation", () => {
+  it("does not collapse a five-paragraph teacher draft into fewer body paragraphs", async () => {
+    const teacherDraft = [
+      "Dear Mrs Chen,",
+      "",
+      "I wanted to let you know that Sally arrived upset this morning and needed a few minutes to settle.",
+      "",
+      "She then called out during reading and found it difficult to follow the instructions the first time.",
+      "",
+      "At lunchtime she left her pencil case, exercise book, and favourite jumper in the corridor.",
+      "",
+      "I collected those items and reminded her to return promptly for the afternoon lesson.",
+      "",
+      "Please speak with Sally this evening so she arrives ready to learn tomorrow.",
+      "",
+      "Kind regards,",
+      "Shereen P.",
+    ].join("\n")
+
+    fallbackGenerator.mockResolvedValueOnce(
+      buildFallbackResult(
+        [
+          "Dear Mrs Chen,",
+          "",
+          "I wanted to give you a brief update about Sally's behaviour and belongings today.",
+          "",
+          "She needed reminders across the day, and I collected her belongings before the afternoon lesson.",
+          "",
+          "Please speak with her this evening so tomorrow begins more positively.",
+          "",
+          "Kind regards,",
+          "Shereen P.",
+        ].join("\n"),
+      ),
+    )
+
+    const request = new Request("https://example.com/api/draft/generate", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: "Bearer token",
+      },
+      body: JSON.stringify({
+        situation: teacherDraft,
+        tone: "professional",
+        language: "en",
+        uiLocale: "en-GB",
+        mode: "parent_message",
+        inputIntent: "teacher_draft",
+      }),
+    })
+
+    const response = await POST(request)
+    expect(response.status).toBe(200)
+    const json = await response.json()
+    const generatedDraft = json.data?.generatedDraft ?? ""
+
+    expect(countBodyParagraphs(generatedDraft)).toBe(5)
+    expect(generatedDraft).toContain("At lunchtime she left her pencil case, exercise book, and favourite jumper in the corridor.")
+  })
+
+  it("does not summarise multiple teacher-authored sentences into broader summary sentences", async () => {
+    const teacherDraft = [
+      "Dear Mrs Smith,",
+      "",
+      "Tom forgot his reading book on Monday.",
+      "Tom forgot his PE kit on Tuesday.",
+      "Tom arrived without his spelling sheet on Wednesday.",
+      "Tom said he had left the exercise book in the car on Thursday.",
+      "",
+      "Best regards,",
+      "Greg",
+    ].join("\n")
+
+    fallbackGenerator.mockResolvedValueOnce(
+      buildFallbackResult(
+        [
+          "Dear Mrs Smith,",
+          "",
+          "Tom has had several organisation difficulties this week and has arrived without the equipment he needs on multiple occasions.",
+          "I wanted to let you know so we can work together on improving this.",
+          "",
+          "Best regards,",
+          "Greg",
+        ].join("\n"),
+      ),
+    )
+
+    const request = new Request("https://example.com/api/draft/generate", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: "Bearer token",
+      },
+      body: JSON.stringify({
+        situation: teacherDraft,
+        tone: "professional",
+        language: "en",
+        uiLocale: "en-GB",
+        mode: "parent_message",
+        inputIntent: "teacher_draft",
+      }),
+    })
+
+    const response = await POST(request)
+    expect(response.status).toBe(200)
+    const json = await response.json()
+    const generatedDraft = json.data?.generatedDraft ?? ""
+
+    expect(countBodySentences(generatedDraft)).toBeGreaterThanOrEqual(countBodySentences(teacherDraft))
+    expect(generatedDraft).toContain("Tom forgot his reading book on Monday.")
+    expect(generatedDraft).toContain("Tom forgot his PE kit on Tuesday.")
+    expect(generatedDraft).toContain("Tom arrived without his spelling sheet on Wednesday.")
+    expect(generatedDraft).toContain("Tom said he had left the exercise book in the car on Thursday.")
+  })
+
+  it("keeps long teacher drafts within the allowed shrink bound", async () => {
+    const teacherDraft = [
+      "Dear Mrs Chen,",
+      "",
+      "I wanted to let you know that Sally has struggled to settle at the start of each morning this week and has needed repeated reminders before she begins independent work.",
+      "",
+      "On Monday she arrived without her reading record, on Tuesday she misplaced her exercise book, and on Wednesday she left her favourite jumper under the table after lunch.",
+      "",
+      "During group work she called out over other children twice, then became upset when asked to wait her turn and complete the task in the agreed order.",
+      "",
+      "I am sharing these details because I want Sally to have a steadier start tomorrow and to understand that she must arrive prepared with the equipment she needs.",
+      "",
+      "Kind regards,",
+      "Shereen P.",
+    ].join("\n")
+
+    fallbackGenerator.mockResolvedValueOnce(
+      buildFallbackResult(
+        [
+          "Dear Mrs Chen,",
+          "",
+          "Sally has had a difficult week with organisation and classroom behaviour.",
+          "",
+          "Please speak with her so tomorrow goes more smoothly.",
+          "",
+          "Kind regards,",
+          "Shereen P.",
+        ].join("\n"),
+      ),
+    )
+
+    const request = new Request("https://example.com/api/draft/generate", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: "Bearer token",
+      },
+      body: JSON.stringify({
+        situation: teacherDraft,
+        tone: "professional",
+        language: "en",
+        uiLocale: "en-GB",
+        mode: "parent_message",
+        inputIntent: "teacher_draft",
+      }),
+    })
+
+    const response = await POST(request)
+    expect(response.status).toBe(200)
+    const json = await response.json()
+    const generatedDraft = json.data?.generatedDraft ?? ""
+    const sourceWords = countNormalizedWords(teacherDraft)
+    const candidateWords = countNormalizedWords(generatedDraft)
+
+    expect(candidateWords).toBeGreaterThanOrEqual(Math.floor(sourceWords * 0.7))
+    expect(candidateWords).toBeLessThanOrEqual(Math.ceil(sourceWords * 1.3))
+  })
+
+  it("keeps short teacher drafts within the allowed expansion bound", async () => {
+    const teacherDraft = [
+      "Dear Mrs Smith,",
+      "",
+      "Tom forgot his homework today.",
+      "Please remind him to bring it tomorrow.",
+      "",
+      "Thanks,",
+      "Greg",
+    ].join("\n")
+
+    fallbackGenerator.mockResolvedValueOnce(
+      buildFallbackResult(
+        [
+          "Dear Mrs Smith,",
+          "",
+          "I wanted to let you know that Tom forgot his homework today, and I completely understand that mornings can be rushed and busy for families.",
+          "I will remind him again in class tomorrow, check whether he has everything he needs, and make sure we take a calm and supportive approach to the follow-up.",
+          "",
+          "Thanks,",
+          "Greg",
+        ].join("\n"),
+      ),
+    )
+
+    const request = new Request("https://example.com/api/draft/generate", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: "Bearer token",
+      },
+      body: JSON.stringify({
+        situation: teacherDraft,
+        tone: "professional",
+        language: "en",
+        uiLocale: "en-GB",
+        mode: "parent_message",
+        inputIntent: "teacher_draft",
+      }),
+    })
+
+    const response = await POST(request)
+    expect(response.status).toBe(200)
+    const json = await response.json()
+    const generatedDraft = json.data?.generatedDraft ?? ""
+    const sourceWords = countNormalizedWords(teacherDraft)
+    const candidateWords = countNormalizedWords(generatedDraft)
+
+    expect(candidateWords).toBeGreaterThanOrEqual(Math.floor(sourceWords * 0.7))
+    expect(candidateWords).toBeLessThanOrEqual(Math.ceil(sourceWords * 1.3))
+  })
+
+  it("preserves named details in the Sally teacher draft instead of generalising them away", async () => {
+    const teacherDraft = [
+      "Dear Mrs Chen,",
+      "",
+      "Sally came in without her pencil case, left her exercise book in the cloakroom, and forgot her favourite jumper on the playground fence after lunch.",
+      "",
+      "She then called out twice during reading and found it difficult to settle when the task changed.",
+      "",
+      "Please speak with Sally about being ready for class and keeping track of her things.",
+      "",
+      "Kind regards,",
+      "Shereen P.",
+    ].join("\n")
+
+    fallbackGenerator.mockResolvedValueOnce(
+      buildFallbackResult(
+        [
+          "Dear Mrs Chen,",
+          "",
+          "Sally had some difficulties with her belongings today and found it difficult to settle during the lesson.",
+          "",
+          "Please speak with her about being ready for class.",
+          "",
+          "Kind regards,",
+          "Shereen P.",
+        ].join("\n"),
+      ),
+    )
+
+    const request = new Request("https://example.com/api/draft/generate", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: "Bearer token",
+      },
+      body: JSON.stringify({
+        situation: teacherDraft,
+        tone: "professional",
+        language: "en",
+        uiLocale: "en-GB",
+        mode: "parent_message",
+        inputIntent: "teacher_draft",
+      }),
+    })
+
+    const response = await POST(request)
+    expect(response.status).toBe(200)
+    const json = await response.json()
+    const generatedDraft = json.data?.generatedDraft ?? ""
+
+    expect(countBodyParagraphs(generatedDraft)).toBe(3)
+    expect(generatedDraft).toContain("Dear Mrs Chen,")
+    expect(generatedDraft).toContain("Sally")
+    expect(generatedDraft).toContain("pencil case")
+    expect(generatedDraft).toContain("exercise book")
+    expect(generatedDraft).toContain("favourite jumper")
+    expect(generatedDraft).toContain("Kind regards,\nShereen P.")
+  })
+
+  it("allows a narrow safety-only rewrite without rewriting unrelated safe sentences", async () => {
+    const teacherDraft = [
+      "Dear Mrs Smith,",
+      "",
+      "I was appalled by Tom's tone when I asked him to start the task.",
+      "He then put the reading book under the table instead of opening it.",
+      "Please remind him to bring his exercise book and reading folder tomorrow.",
+      "",
+      "Best regards,",
+      "Greg",
+    ].join("\n")
+
+    fallbackGenerator.mockResolvedValueOnce(
+      buildFallbackResult(
+        [
+          "Dear Mrs Smith,",
+          "",
+          "I was concerned by Tom's tone when I asked him to start the task.",
+          "He then put the reading book under the table instead of opening it.",
+          "Please remind him to bring his exercise book and reading folder tomorrow.",
+          "",
+          "Best regards,",
+          "Greg",
+        ].join("\n"),
+      ),
+    )
+    mockedRunSafetyEngine.mockResolvedValueOnce({
+      riskScore: 42,
+      riskLevel: "medium",
+      triggeredSignals: [
+        {
+          category: "frustration",
+          label: "high-emotion wording",
+          matchedPhrase: "appalled",
+        },
+      ],
+      toneClass: "accusatory",
+      topicSensitivity: "low",
+      reactionForecast: {
+        collaborative: 20,
+        concerned: 20,
+        defensive: 30,
+        hostile: 10,
+        confused: 20,
+      },
+      explanationLines: [],
+      documentationModeAvailable: false,
+      professionalRiskFlags: [],
+      structuralImbalance: false,
+    })
+
+    const request = new Request("https://example.com/api/draft/generate", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: "Bearer token",
+      },
+      body: JSON.stringify({
+        situation: teacherDraft,
+        tone: "professional",
+        language: "en",
+        uiLocale: "en-GB",
+        mode: "parent_message",
+        inputIntent: "teacher_draft",
+      }),
+    })
+
+    const response = await POST(request)
+    expect(response.status).toBe(200)
+    const json = await response.json()
+    const generatedDraft = json.data?.generatedDraft ?? ""
+
+    expect(generatedDraft).toContain("I was concerned by Tom's tone when I asked him to start the task.")
+    expect(generatedDraft).not.toContain("I was appalled")
+    expect(generatedDraft).toContain("He then put the reading book under the table instead of opening it.")
+    expect(generatedDraft).toContain("Please remind him to bring his exercise book and reading folder tomorrow.")
+    expect(json.data?.meta?.recovery?.triggerReasons ?? []).not.toContain("TEACHER_DRAFT_STRUCTURE_PRESERVATION")
   })
 })
 

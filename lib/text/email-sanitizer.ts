@@ -148,7 +148,14 @@ export interface SanitizedInput {
   removedLines: string[]
 }
 
-export function sanitizeEmailText(raw?: string | null): SanitizedInput {
+interface SanitizeEmailTextOptions {
+  preserveBlankLines?: boolean
+}
+
+export function sanitizeEmailText(
+  raw?: string | null,
+  options: SanitizeEmailTextOptions = {},
+): SanitizedInput {
   if (!raw) {
     return {
       cleanText: "",
@@ -167,6 +174,13 @@ export function sanitizeEmailText(raw?: string | null): SanitizedInput {
   for (const line of lines) {
     const trimmed = normalizeLine(line)
     if (!trimmed) {
+      if (
+        options.preserveBlankLines &&
+        keptLines.length > 0 &&
+        keptLines[keptLines.length - 1] !== ""
+      ) {
+        keptLines.push("")
+      }
       continue
     }
     if (shouldDropLine(trimmed)) {
@@ -180,8 +194,8 @@ export function sanitizeEmailText(raw?: string | null): SanitizedInput {
   const fallback = normalizedRaw.trim()
   const cleanText = cleaned || fallback
   const words = cleanText.split(/\s+/).filter(Boolean)
-  const nonEmptyLines = keptLines.length
-  const substantiveLines = keptLines.filter((line) => !isGreetingOrSignature(line)).length
+  const nonEmptyLines = keptLines.filter(Boolean).length
+  const substantiveLines = keptLines.filter((line) => line && !isGreetingOrSignature(line)).length
 
   return {
     cleanText,

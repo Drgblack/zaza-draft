@@ -211,16 +211,16 @@ export function applyModeAwareSubjectLine(text: string, input: SubjectPolicyInpu
       ...input,
       existingSubject: parsed.subject,
     })
-    const body = parsed.paragraphs.join("\n\n").trim()
 
     if (resolvedSubject === "") {
-      return body
+      return normalized
     }
 
     if (!resolvedSubject) {
       return normalized
     }
 
+    const body = parsed.paragraphs.join("\n\n").trim()
     const existingSubject = normalizeDraftSubject(parsed.subject)
     if (existingSubject === resolvedSubject && parsed.subject) {
       return normalized

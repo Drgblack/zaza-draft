@@ -77,6 +77,11 @@ import {
 } from "@/lib/draft/route-recovery"
 import { calibrateLengthTarget, type LengthTarget } from "@/lib/draft/length-calibration"
 import {
+  applyTeacherDraftSentenceLevelSafetyOverrides,
+  assessTeacherDraftStructuralPreservation,
+  formatTeacherDraftLiteralStructure,
+} from "@/lib/draft/teacher-draft-structure"
+import {
   checkIntentPreservation,
   classifyTeacherIntent as classifyTeacherDraftIntent,
 } from "@/lib/draft/intent-classification"
@@ -2151,7 +2156,11 @@ export async function POST(request: Request) {
   const documentationTopic = documentationModeActive
     ? resolveDocumentationTopicLabel(situation, safetyAnalysis)
     : null
-  const sanitizedInput = sanitizeEmailText(situation)
+  const teacherDraftModeRequested =
+    mode === "parent_message" && inputIntent === "teacher_draft"
+  const sanitizedInput = sanitizeEmailText(situation, {
+    preserveBlankLines: teacherDraftModeRequested,
+  })
   const cleanedSituationText = sanitizedInput.cleanText
   const requiresSubjectDetail = Boolean(payload.context?.subject)
   const compactParentMessageAllowed =
@@ -2225,7 +2234,7 @@ export async function POST(request: Request) {
     normalizeName(
       (authContext as { decodedToken?: { name?: string | null } })?.decodedToken?.name ?? null,
     ) || undefined
-  const preserveDraftSignatureFromInput = mode === "parent_message" && inputIntent === "teacher_draft"
+  const preserveDraftSignatureFromInput = teacherDraftModeRequested
   const sourceTeacherDraftSubject = preserveDraftSignatureFromInput
     ? normalizeDraftSubject(formatDraftText(teacherDraftSourceText, language).subject ?? null)
     : undefined
@@ -2753,11 +2762,13 @@ export async function POST(request: Request) {
     }
 
     let curated = enforcePronouns(text, resolvedPronounPreference)
-    curated = enforceTeacherNameStyle(curated, {
-      firstName: studentNameForPayload || undefined,
-      pronounPreference: resolvedPronounPreference,
-      resolvedPronounPreference: resolvedPronounPreference,
-    })
+    if (!teacherDraftRequest) {
+      curated = enforceTeacherNameStyle(curated, {
+        firstName: studentNameForPayload || undefined,
+        pronounPreference: resolvedPronounPreference,
+        resolvedPronounPreference: resolvedPronounPreference,
+      })
+    }
     curated =
       teacherDraftRequest && !finalGreetingLine
         ? stripLeadingGeneratedGreeting(curated)
@@ -2930,7 +2941,11 @@ export async function POST(request: Request) {
       : currentSituation
 
   if (alreadyStrongTeacherDraft) {
-    generatedDraft = applyTeacherDraftRegisterNormalisation(finalizeWithGreeting(teacherDraftCopyEditSource))
+    const sourcePreservingDraft = applyTeacherDraftSentenceLevelSafetyOverrides(
+      teacherDraftCopyEditSource,
+      language,
+    )
+    generatedDraft = applyTeacherDraftRegisterNormalisation(finalizeWithGreeting(sourcePreservingDraft))
     providerMeta = {
       modelUsed: "teacher-draft-copy-edit-only",
       latencyMs: 0,
@@ -3000,7 +3015,10 @@ export async function POST(request: Request) {
     return removeDuplicateGreeting(guarded, finalGreetingLine)
   }
 
-  let formattedDraftStructure: DraftStructure = formatDraftText(generatedDraft, language)
+  let formattedDraftStructure: DraftStructure =
+    requestedTeacherDraftMode && mode === "parent_message"
+      ? formatTeacherDraftLiteralStructure(generatedDraft)
+      : formatDraftText(generatedDraft, language)
   let bodyParagraphCount: number = getParagraphCountExcludingGreeting(formattedDraftStructure, finalGreetingLine)
   let bodyWordCount: number = getMeaningfulParentBodyWordCount(formattedDraftStructure, finalGreetingLine)
 
@@ -3040,9 +3058,11 @@ export async function POST(request: Request) {
     generatedDraft = finalSanity.text
     generatedDraft = normalizeClosingForMode(generatedDraft)
     formattedDraftStructure =
-      mode === "report_comment"
-        ? sanitizeReportCommentStructure(formatDraftText(generatedDraft, language), language)
-        : formatDraftText(generatedDraft, language)
+      requestedTeacherDraftMode && mode === "parent_message"
+        ? formatTeacherDraftLiteralStructure(generatedDraft)
+        : mode === "report_comment"
+          ? sanitizeReportCommentStructure(formatDraftText(generatedDraft, language), language)
+          : formatDraftText(generatedDraft, language)
     if (requestedTeacherDraftMode && !formattedDraftStructure.subject) {
       formattedDraftStructure = {
         ...formattedDraftStructure,
@@ -3067,7 +3087,11 @@ export async function POST(request: Request) {
       return false
     }
 
-    generatedDraft = applyTeacherDraftRegisterNormalisation(finalizeWithGreeting(teacherDraftCopyEditSource))
+    const sourcePreservingDraft = applyTeacherDraftSentenceLevelSafetyOverrides(
+      teacherDraftCopyEditSource,
+      language,
+    )
+    generatedDraft = applyTeacherDraftRegisterNormalisation(finalizeWithGreeting(sourcePreservingDraft))
     finalizeAndFormatDraft(generatedDraft)
 
     if (
@@ -3083,7 +3107,10 @@ export async function POST(request: Request) {
       )
       if (preservedDraft !== generatedDraft) {
         generatedDraft = preservedDraft.trim()
-        formattedDraftStructure = formatDraftText(generatedDraft, language)
+        formattedDraftStructure =
+          requestedTeacherDraftMode && mode === "parent_message"
+            ? formatTeacherDraftLiteralStructure(generatedDraft)
+            : formatDraftText(generatedDraft, language)
         bodyParagraphCount = getParagraphCountExcludingGreeting(formattedDraftStructure, finalGreetingLine)
         bodyWordCount = getMeaningfulParentBodyWordCount(formattedDraftStructure, finalGreetingLine)
       }
@@ -3098,6 +3125,40 @@ export async function POST(request: Request) {
     fallbackReason = options.fallbackReason ?? fallbackReason
     pushRecoveryEvent("copy_edit_only", reason)
     return true
+  }
+
+  const preserveTeacherDraftStructureIfNeeded = (reason = "TEACHER_DRAFT_STRUCTURE_PRESERVATION") => {
+    if (!requestedTeacherDraftMode || documentationModeActive || mode !== "parent_message") {
+      return false
+    }
+
+    const assessment = assessTeacherDraftStructuralPreservation({
+      sourceText: teacherDraftSourceText,
+      candidateText: generatedDraft,
+      language,
+      greetingLine: finalGreetingLine,
+    })
+
+    if (!assessment.shouldPreserveSource) {
+      return false
+    }
+
+    console.log("[teacher-draft][structural-drift]", {
+      requestId,
+      sourceParagraphCount: assessment.sourceParagraphCount,
+      candidateParagraphCount: assessment.candidateParagraphCount,
+      sourceSentenceCount: assessment.sourceSentenceCount,
+      candidateSentenceCount: assessment.candidateSentenceCount,
+      sourceWordCount: assessment.sourceWordCount,
+      candidateWordCount: assessment.candidateWordCount,
+      missingAnchors: assessment.missingAnchors,
+      violationTypes: assessment.violations.map((violation) => violation.type),
+    })
+
+    return restoreTeacherDraftSourcePreservation(reason, {
+      fallbackErrorCode: fallbackErrorCode ?? reason,
+      fallbackReason: fallbackReason ?? "STRUCTURAL_DRIFT",
+    })
   }
 
   const enforceFinalVisibleSignoff = () => {
@@ -3126,7 +3187,10 @@ export async function POST(request: Request) {
     }
 
     generatedDraft = normalizeClosingForMode(generatedDraft)
-    formattedDraftStructure = formatDraftText(generatedDraft, language)
+    formattedDraftStructure =
+      requestedTeacherDraftMode && mode === "parent_message"
+        ? formatTeacherDraftLiteralStructure(generatedDraft)
+        : formatDraftText(generatedDraft, language)
     if (requestedTeacherDraftMode && !formattedDraftStructure.subject) {
       formattedDraftStructure = {
         ...formattedDraftStructure,
@@ -3706,15 +3770,22 @@ export async function POST(request: Request) {
       ),
     })
 
-    generatedDraft = finalizeWithGreeting(currentSituation)
-    finalizeAndFormatDraft(generatedDraft)
-    preserveTeacherDraftSignatureIfNeeded()
-    providerMeta = {
-      ...providerMeta,
-      modelUsed: "teacher-draft-copy-edit-only",
+    if (
+      !restoreTeacherDraftSourcePreservation("WORSE_THAN_SOURCE_PRESERVATION", {
+        fallbackErrorCode: null,
+        fallbackReason: "WORSE_THAN_SOURCE",
+      })
+    ) {
+      generatedDraft = finalizeWithGreeting(currentSituation)
+      finalizeAndFormatDraft(generatedDraft)
+      preserveTeacherDraftSignatureIfNeeded()
+      providerMeta = {
+        ...providerMeta,
+        modelUsed: "teacher-draft-copy-edit-only",
+      }
+      usedFallback = false
+      fallbackErrorCode = null
     }
-    usedFallback = false
-    fallbackErrorCode = null
     teacherDraftQualityResult = sourceTeacherDraftQuality
     teacherDraftQualityViolations = sourceTeacherDraftQuality.violations
 
@@ -3867,7 +3938,11 @@ export async function POST(request: Request) {
         outputSafetyAnalysis,
       )
     } else {
-      generatedDraft = finalizeWithGreeting(currentSituation)
+      const sourcePreservingDraft = applyTeacherDraftSentenceLevelSafetyOverrides(
+        teacherDraftCopyEditSource,
+        language,
+      )
+      generatedDraft = applyTeacherDraftRegisterNormalisation(finalizeWithGreeting(sourcePreservingDraft))
       finalizeAndFormatDraft(generatedDraft)
       preserveTeacherDraftSignatureIfNeeded()
       providerMeta = {
@@ -3906,6 +3981,10 @@ export async function POST(request: Request) {
   }
 
   if (!documentationModeActive && mode === "parent_message") {
+    outputSafetyAnalysis = await runSafetyAnalysis(generatedDraft, "output_safety_analysis")
+  }
+
+  if (preserveTeacherDraftStructureIfNeeded() && !documentationModeActive && mode === "parent_message") {
     outputSafetyAnalysis = await runSafetyAnalysis(generatedDraft, "output_safety_analysis")
   }
 
