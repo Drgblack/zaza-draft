@@ -13,7 +13,7 @@ import { buildUsageResponse, getCurrentMonthKey, incrementUsage } from "@/lib/us
 import { getUserEntitlements } from "@/lib/entitlements"
 import { isInternalQaUid, shouldRespectUsageLimit } from "@/lib/auth/internal-qa"
 import { resolveDraftEntitlement } from "@/lib/draft-entitlements"
-import { detectBlockedLanguage } from "@/lib/safety"
+import { detectBlockedLanguage, reframeBlockedLanguage } from "@/lib/safety"
 import { runSafetyEngine } from "@/src/lib/safetyEngine"
 
 interface TrustGradeViolation {
@@ -524,6 +524,7 @@ const mockedAuthorizeFirebaseRequest = vi.mocked(authorizeFirebaseRequest)
 const mockedResolveDraftEntitlement = vi.mocked(resolveDraftEntitlement)
 const mockedRunSafetyEngine = vi.mocked(runSafetyEngine)
 const mockedDetectBlockedLanguage = vi.mocked(detectBlockedLanguage)
+const mockedReframeBlockedLanguage = vi.mocked(reframeBlockedLanguage)
 beforeEach(() => {
   vi.clearAllMocks()
   mockedEmitSignal.mockClear()
@@ -555,11 +556,15 @@ beforeEach(() => {
   })
   mockedRunSafetyEngine.mockReset()
   mockedDetectBlockedLanguage.mockReset()
+  mockedReframeBlockedLanguage.mockReset()
   mockedDetectBlockedLanguage.mockReturnValue({
     detected: false,
     tier: null,
     matches: [],
     redactedPreview: "",
+  })
+  mockedReframeBlockedLanguage.mockReturnValue({
+    applied: false,
   })
   mockedRunSafetyEngine.mockImplementation(async ({ rawMessage, messageDirection }) => {
     if (messageDirection !== "teacher_to_parent") {
@@ -2422,7 +2427,7 @@ describe("/api/draft/generate light edit mode", () => {
     expect(generatedDraft).toContain("The expectation is that phones stay away during lessons")
   })
 
-  it("rewrites a blunt Lucy phone-exception draft with stronger teacher judgement instead of surface editing", async () => {
+  it("preserves a blunt Lucy phone-exception draft and returns advisory suggestions instead of silently rewriting it", async () => {
     const teacherDraft = [
       "Dear Lucy's Dad,",
       "",
@@ -2495,14 +2500,26 @@ describe("/api/draft/generate light edit mode", () => {
       expect.arrayContaining(["DEFENSIVE_PHRASE", "GENERIC_FILLER"]),
     )
     expect(generatedDraft).toContain("Lucy may feel more comfortable having her phone with her")
-    expect(generatedDraft).toContain("The classroom expectation is that phones are not used during lessons")
-    expect(generatedDraft).not.toContain("I can't make individual exceptions")
-    expect(generatedDraft).not.toContain("unmanageable across the class")
-    expect(generatedDraft).not.toContain("these expectations will remain in place")
+    expect(generatedDraft).toContain(
+      "classroom rules are clear that phones are not used during lessons",
+    )
+    expect(generatedDraft).toContain("I can't make individual exceptions in the moment")
+    expect(generatedDraft).toContain("unmanageable across the class")
+    expect(generatedDraft).toContain("these expectations will remain in place")
     expect(generatedDraft).not.toContain("support coordinator")
     expect(generatedDraft).not.toContain("meeting")
     expect(generatedDraft).not.toContain("Kind regards,\nDr Greg Blackburn")
     expect(generatedDraft).toContain("Regards,\nGreg")
+    expect(json.data?.suggestions).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          original:
+            "I can't make individual exceptions in the moment, as this would quickly become unmanageable across the class.",
+          suggestion: "I need to keep the same expectation in place for all students.",
+          type: "tone",
+        }),
+      ]),
+    )
   })
 
   it("retries fabricated teacher-draft context and returns a concise boundary-preserving rewrite", async () => {
@@ -2935,9 +2952,9 @@ describe("/api/draft/generate light edit mode", () => {
     expect(countBodyParagraphs(generatedDraft)).toBe(3)
     expect(json.data?.formattedDraft?.paragraphs).toEqual([
       "Dear Mrs Chen,",
-      "Your daughter Sally has not been behaving well in my class at all. Her behaviour has been challenging, and I was concerned by her attitude towards school last week.",
+      "Your daughter Sally has not been behaving well in my class at all. Her behaviour has been challenging, and I was appalled by her attitude towards school last week.",
       "On Monday she left her pencil case, exercise book, and favourite jumper in the corridor after reading. Later in maths she called out repeatedly and argued when asked to begin the task.",
-      "Please speak with Sally this evening so she arrives ready to learn tomorrow and understands that these expectations need to remain clear.",
+      "Please speak with Sally this evening so she arrives ready to learn tomorrow and understands that these expectations will remain in place.",
       "Kind regards,\nShereen P.",
     ])
     expect(generatedDraft).toContain("Dear Mrs Chen,")
@@ -2945,8 +2962,8 @@ describe("/api/draft/generate light edit mode", () => {
     expect(generatedDraft).toContain("pencil case")
     expect(generatedDraft).toContain("exercise book")
     expect(generatedDraft).toContain("favourite jumper")
-    expect(generatedDraft).toContain("I was concerned by her attitude towards school last week.")
-    expect(generatedDraft).toContain("these expectations need to remain clear")
+    expect(generatedDraft).toContain("I was appalled by her attitude towards school last week.")
+    expect(generatedDraft).toContain("these expectations will remain in place")
     expect(generatedDraft).toContain("Kind regards,\nShereen P.")
     expect(generatedDraft).not.toContain("I wanted to let you know that Sally has found behaviour expectations difficult recently")
   })
@@ -3435,7 +3452,7 @@ describe("/api/draft/generate light edit mode", () => {
     expect(json.data?.metadata?.modelUsed).toBe("teacher-draft-copy-edit-only")
     expect(json.data?.meta?.usedFallback).toBe(false)
     expect(json.data?.generatedDraft).toContain("Trading cards keep coming out during lessons")
-    expect(json.data?.generatedDraft).toContain("These expectations need to remain clear")
+    expect(json.data?.generatedDraft).toContain("These expectations will remain in place")
     expect(json.data?.generatedDraft).not.toContain("Please don't hesitate to get in touch")
   })
 
@@ -3486,7 +3503,7 @@ describe("/api/draft/generate light edit mode", () => {
     expect(fallbackGenerator).toHaveBeenCalledTimes(1)
   })
 
-  it("reduces defensiveness in a grading dispute while keeping the marking boundary", async () => {
+  it("preserves a grading-dispute teacher draft and surfaces advisory suggestions instead of silently rewriting it", async () => {
     const teacherDraft = [
       "Dear Parent/Carer,",
       "",
@@ -3550,13 +3567,31 @@ describe("/api/draft/generate light edit mode", () => {
     const json = await response.json()
     const generatedDraft = json.data?.generatedDraft ?? ""
 
-    expect(generatedDraft).toContain("marking criteria consistently and fairly")
+    expect(generatedDraft).toContain("The marking was fair and consistent, and I applied the criteria correctly.")
+    expect(generatedDraft).toContain(
+      "I do not think it is helpful to keep challenging this when the grade reflects the standard of the work.",
+    )
     expect(generatedDraft).not.toContain("There is nothing more to discuss")
-    expect(generatedDraft).not.toContain("I applied the criteria correctly")
     expect(generatedDraft).not.toContain("support coordinator")
+    expect(json.data?.suggestions).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          original: "The marking was fair and consistent, and I applied the criteria correctly.",
+          suggestion: "My aim is to apply the marking criteria consistently and fairly.",
+          type: "tone",
+        }),
+        expect.objectContaining({
+          original:
+            "I do not think it is helpful to keep challenging this when the grade reflects the standard of the work.",
+          suggestion:
+            "The grade reflects the standard of the work, and I am happy to clarify how the criteria were applied.",
+          type: "tone",
+        }),
+      ]),
+    )
   })
 
-  it("keeps the boundary but removes 'unreasonable' framing for special-treatment requests", async () => {
+  it("preserves unreasonable-framing teacher drafts and returns advisory suggestions instead of silently rewriting them", async () => {
     const teacherDraft = [
       "Dear Parent/Carer,",
       "",
@@ -3621,14 +3656,20 @@ describe("/api/draft/generate light edit mode", () => {
     const generatedDraft = json.data?.generatedDraft ?? ""
 
     expect(json.data?.metadata?.modelUsed).toBe("teacher-draft-copy-edit-only")
-    expect(generatedDraft).toContain("I understand why you are asking")
-    expect(generatedDraft).toContain("I cannot offer an individual exception here")
+    expect(generatedDraft).toContain("I think this request is unreasonable and I cannot offer special treatment here.")
     expect(generatedDraft).toContain("The expectation is the same for everyone.")
-    expect(generatedDraft).not.toContain("unreasonable")
-    expect(generatedDraft).not.toContain("special treatment")
+    expect(json.data?.suggestions).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          original: "I think this request is unreasonable and I cannot offer special treatment here.",
+          suggestion: "I understand why you are asking, and I cannot offer an individual exception here.",
+          type: "tone",
+        }),
+      ]),
+    )
   })
 
-  it("turns a tired late-night draft into calmer professional language without losing the point", async () => {
+  it("preserves a tired late-night teacher draft and returns advisory suggestions instead of silently rewriting it", async () => {
     const teacherDraft = [
       "Dear Parent/Carer,",
       "",
@@ -3724,10 +3765,27 @@ describe("/api/draft/generate light edit mode", () => {
     const json = await response.json()
     const generatedDraft = json.data?.generatedDraft ?? ""
 
-    expect(generatedDraft).toContain("expectations around homework clear and consistent")
-    expect(generatedDraft).not.toContain("I am tired of repeating this")
-    expect(generatedDraft).not.toContain("frustrating")
+    expect(generatedDraft).toContain("I am tired of repeating this and I can't keep chasing homework every week.")
+    expect(generatedDraft).toContain(
+      "Your child needs to take this seriously because this is getting frustrating.",
+    )
     expect(generatedDraft).not.toContain("Please feel free to reach out")
+    expect(json.data?.suggestions).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          original: "I am tired of repeating this and I can't keep chasing homework every week.",
+          suggestion:
+            "I need to keep the expectations around homework clear and consistent each week.",
+          type: "tone",
+        }),
+        expect.objectContaining({
+          original: "Your child needs to take this seriously because this is getting frustrating.",
+          suggestion:
+            "Please speak with your child about this so the expectation remains clear.",
+          type: "tone",
+        }),
+      ]),
+    )
   })
 
   it("preserves the teacher's existing sign-off in My draft mode when no explicit profile signature was supplied", async () => {
@@ -5108,13 +5166,13 @@ describe("/api/draft/generate teacher_draft structural preservation", () => {
     expect(generatedDraft).toContain("Kind regards,\nShereen P.")
   })
 
-  it("allows a narrow safety-only rewrite without rewriting unrelated safe sentences", async () => {
+  it("returns advisory suggestions for harsh and directive teacher-draft sentences without silently rewriting them", async () => {
     const teacherDraft = [
       "Dear Mrs Smith,",
       "",
       "I was appalled by Tom's tone when I asked him to start the task.",
       "He then put the reading book under the table instead of opening it.",
-      "Please remind him to bring his exercise book and reading folder tomorrow.",
+      "You need to recognise that he must bring his exercise book and reading folder tomorrow.",
       "",
       "Best regards,",
       "Greg",
@@ -5127,7 +5185,7 @@ describe("/api/draft/generate teacher_draft structural preservation", () => {
           "",
           "I was concerned by Tom's tone when I asked him to start the task.",
           "He then put the reading book under the table instead of opening it.",
-          "Please remind him to bring his exercise book and reading folder tomorrow.",
+          "Please recognise that he must bring his exercise book and reading folder tomorrow.",
           "",
           "Best regards,",
           "Greg",
@@ -5180,11 +5238,139 @@ describe("/api/draft/generate teacher_draft structural preservation", () => {
     const json = await response.json()
     const generatedDraft = json.data?.generatedDraft ?? ""
 
-    expect(generatedDraft).toContain("I was concerned by Tom's tone when I asked him to start the task.")
-    expect(generatedDraft).not.toContain("I was appalled")
+    expect(generatedDraft).toContain("I was appalled by Tom's tone when I asked him to start the task.")
     expect(generatedDraft).toContain("He then put the reading book under the table instead of opening it.")
-    expect(generatedDraft).toContain("Please remind him to bring his exercise book and reading folder tomorrow.")
-    expect(json.data?.meta?.recovery?.triggerReasons ?? []).not.toContain("TEACHER_DRAFT_STRUCTURE_PRESERVATION")
+    expect(generatedDraft).toContain(
+      "You need to recognise that he must bring his exercise book and reading folder tomorrow.",
+    )
+    expect(json.data?.suggestions).toEqual([
+      {
+        id: "teacher-draft-suggestion-1",
+        original: "I was appalled by Tom's tone when I asked him to start the task.",
+        suggestion: "I was concerned by Tom's tone when I asked him to start the task.",
+        type: "tone",
+      },
+      {
+        id: "teacher-draft-suggestion-2",
+        original:
+          "You need to recognise that he must bring his exercise book and reading folder tomorrow.",
+        suggestion:
+          "Please recognise that he must bring his exercise book and reading folder tomorrow.",
+        type: "professional_judgement",
+      },
+    ])
+  })
+
+  it("does not add advisory suggestions for neutral teacher-draft sentences", async () => {
+    const teacherDraft = [
+      "Dear Mrs Smith,",
+      "",
+      "Tom forgot his reading book on Monday.",
+      "Please remind him to bring it tomorrow.",
+      "",
+      "Best regards,",
+      "Greg",
+    ].join("\n")
+
+    fallbackGenerator.mockResolvedValueOnce(
+      buildFallbackResult(
+        [
+          "Dear Mrs Smith,",
+          "",
+          "I wanted to let you know that Tom forgot his reading book on Monday.",
+          "Please remind him to bring it tomorrow.",
+          "",
+          "Best regards,",
+          "Greg",
+        ].join("\n"),
+      ),
+    )
+
+    const request = new Request("https://example.com/api/draft/generate", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: "Bearer token",
+      },
+      body: JSON.stringify({
+        situation: teacherDraft,
+        tone: "professional",
+        language: "en",
+        uiLocale: "en-GB",
+        mode: "parent_message",
+        inputIntent: "teacher_draft",
+      }),
+    })
+
+    const response = await POST(request)
+    expect(response.status).toBe(200)
+    const json = await response.json()
+
+    expect(json.data?.generatedDraft).toContain("Tom forgot his reading book on Monday.")
+    expect(json.data?.suggestions).toEqual([])
+  })
+
+  it("keeps safety reframes automatic while leaving unrelated safe teacher-draft sentences unchanged", async () => {
+    const teacherDraft = [
+      "Dear Mrs Smith,",
+      "",
+      "Your child is lying about what happened in class.",
+      "He then put the reading book under the table instead of opening it.",
+      "",
+      "Best regards,",
+      "Greg",
+    ].join("\n")
+
+    const blockedLanguageDetection = {
+      detected: true,
+      tier: "tier1" as const,
+      matches: ["lying"],
+      redactedPreview: "Your child is [REDACTED TERM] about what happened in class.",
+    }
+    mockedDetectBlockedLanguage
+      .mockReturnValueOnce(blockedLanguageDetection)
+      .mockReturnValueOnce(blockedLanguageDetection)
+    mockedReframeBlockedLanguage.mockReturnValueOnce({
+      applied: true,
+      text: [
+        "Dear Mrs Smith,",
+        "",
+        "Your child gave an inaccurate account of what happened in class.",
+        "He then put the reading book under the table instead of opening it.",
+        "",
+        "Best regards,",
+        "Greg",
+      ].join("\n"),
+    })
+
+    const request = new Request("https://example.com/api/draft/generate", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: "Bearer token",
+      },
+      body: JSON.stringify({
+        situation: teacherDraft,
+        tone: "professional",
+        language: "en",
+        uiLocale: "en-GB",
+        mode: "parent_message",
+        inputIntent: "teacher_draft",
+      }),
+    })
+
+    const response = await POST(request)
+    expect(response.status).toBe(200)
+    const json = await response.json()
+    const generatedDraft = json.data?.generatedDraft ?? ""
+
+    expect(generatedDraft).toContain(
+      "Your child gave an inaccurate account of what happened in class.",
+    )
+    expect(generatedDraft).not.toContain("lying")
+    expect(generatedDraft).toContain(
+      "He then put the reading book under the table instead of opening it.",
+    )
   })
 })
 
@@ -6945,7 +7131,7 @@ describe("/api/draft/generate usage signal emission", () => {
     expect(response.status).toBe(200)
     expect(mockedEmitSignal).toHaveBeenCalledTimes(3)
     expect(mockedEmitSignal.mock.calls.map(([signal]) => signal.signalType)).toEqual([
-      "draft_generated",
+      "draft_copy_edit_only",
       "quality_verdict_emitted",
       "judgement_score_emitted",
     ])

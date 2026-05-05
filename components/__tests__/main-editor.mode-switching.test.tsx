@@ -31,6 +31,16 @@ const SHEREEN_PARENT_FACING_DRAFT = [
   "Shereen P.",
 ].join("\n")
 
+const ADVISORY_TEACHER_DRAFT = [
+  "Dear Mrs Chen,",
+  "",
+  "I was appalled by Sally's tone when I asked her to begin the task.",
+  "You need to recognise that she must bring her planner tomorrow.",
+  "",
+  "Kind regards,",
+  "Shereen P.",
+].join("\n")
+
 let mockLocale: Locale = "en-GB"
 let mockSearchParams = new URLSearchParams()
 let draftGenerateScenario: DraftGenerateScenario = "success"
@@ -280,6 +290,8 @@ const fetchMock = vi.fn(async (input: RequestInfo, init?: RequestInit) => {
     ].join("\n")
     const renderedBody = documentationMode
       ? `Documentation [${body.mode}]: ${body.situation}`
+      : body.inputIntent === "teacher_draft" && String(body.situation ?? "").includes("I was appalled")
+        ? String(body.situation)
       : body.inputIntent === "teacher_draft"
         ? teacherDraftBody
         : `Generated [${body.mode}]: ${body.situation}`
@@ -318,6 +330,24 @@ const fetchMock = vi.fn(async (input: RequestInfo, init?: RequestInit) => {
                     reasons: ["preserved_tone", "maintained_boundaries", "risk_checked"],
                   }
                 : null,
+            suggestions:
+              body.inputIntent === "teacher_draft" &&
+              String(body.situation ?? "").includes("I was appalled")
+                ? [
+                    {
+                      id: "teacher-draft-suggestion-1",
+                      original: "I was appalled by Sally's tone when I asked her to begin the task.",
+                      suggestion: "I was concerned by Sally's tone when I asked her to begin the task.",
+                      type: "tone",
+                    },
+                    {
+                      id: "teacher-draft-suggestion-2",
+                      original: "You need to recognise that she must bring her planner tomorrow.",
+                      suggestion: "Please recognise that she must bring her planner tomorrow.",
+                      type: "professional_judgement",
+                    },
+                  ]
+                : [],
             safetyAnalysis: {
               documentationModeAvailable: true,
               triggeredSignals: [],
@@ -739,6 +769,76 @@ describe("MainEditor mode switching", () => {
         "This looks like a teacher draft. Switch to My Draft mode to improve your message.",
       ),
     ).toBeNull()
+  })
+
+  it("shows advisory suggestions for a teacher draft without silently rewriting the draft body", async () => {
+    render(<MainEditor />)
+
+    fireEvent.click(within(getInputTypeTablist()).getByRole("tab", { name: "My draft" }))
+    fireEvent.change(getTextarea(), {
+      target: { value: ADVISORY_TEACHER_DRAFT },
+    })
+
+    fireEvent.click(screen.getByRole("button", { name: "Improve my draft" }))
+
+    await waitFor(() => {
+      expect(screen.getByTestId("draft-output-body")).toHaveTextContent(
+        "I was appalled by Sally's tone when I asked her to begin the task.",
+      )
+    })
+    expect(
+      screen.getAllByText((_, element) =>
+        element?.textContent?.includes(
+          "I was concerned by Sally's tone when I asked her to begin the task.",
+        ) ?? false,
+      ).length,
+    ).toBeGreaterThan(0)
+    expect(
+      screen.getAllByText("You need to recognise that she must bring her planner tomorrow.").length,
+    ).toBeGreaterThan(0)
+    expect(
+      screen.getAllByText((_, element) =>
+        element?.textContent?.includes(
+          "Please recognise that she must bring her planner tomorrow.",
+        ) ?? false,
+      ).length,
+    ).toBeGreaterThan(0)
+  })
+
+  it("applies one teacher-draft advisory suggestion client-side without calling generate again", async () => {
+    render(<MainEditor />)
+
+    fireEvent.click(within(getInputTypeTablist()).getByRole("tab", { name: "My draft" }))
+    fireEvent.change(getTextarea(), {
+      target: { value: ADVISORY_TEACHER_DRAFT },
+    })
+
+    fireEvent.click(screen.getByRole("button", { name: "Improve my draft" }))
+
+    await screen.findByTestId("draft-output-body")
+    const initialGenerateCalls = getDraftGenerateBodies().length
+
+    const suggestionCard = screen
+      .getAllByText((_, element) =>
+        element?.textContent?.includes(
+          "I was concerned by Sally's tone when I asked her to begin the task.",
+        ) ?? false,
+      )
+      .find((element) => element.tagName === "P")
+      ?.closest("div")
+    if (!suggestionCard) {
+      throw new Error("Suggestion card not found")
+    }
+
+    fireEvent.click(within(suggestionCard).getByRole("button", { name: "Apply" }))
+
+    expect(screen.getByTestId("draft-output-body")).toHaveTextContent(
+      "I was concerned by Sally's tone when I asked her to begin the task.",
+    )
+    expect(screen.getByTestId("draft-output-body")).not.toHaveTextContent(
+      "I was appalled by Sally's tone when I asked her to begin the task.",
+    )
+    expect(getDraftGenerateBodies()).toHaveLength(initialGenerateCalls)
   })
 
   it("shows the backend safe message for handled non-200 draft failures", async () => {

@@ -20,6 +20,7 @@ import type { SafeToSendAssessment } from "@/lib/safe-to-send"
 import { logClientEvent, TRUST_FUNNEL_EVENTS } from "@/lib/analytics"
 import { emitClientSignal } from "@/lib/analytics/client-signal-emitter"
 import type { TeacherDraftFeedback } from "@/lib/draft/teacher-draft-feedback"
+import type { TeacherDraftSuggestion } from "@/lib/draft/teacher-draft-advisory"
 import {
   DraftJudgementStrip,
   type DraftJudgementActionEvent,
@@ -96,11 +97,67 @@ interface DraftOutputProps {
   rewriteSummary?: string | null
   safeToSend?: SafeToSendAssessment | null
   teacherDraftFeedback?: TeacherDraftFeedback | null
+  suggestions?: TeacherDraftSuggestion[]
+  onApplySuggestion?: (suggestionId: string) => void
+  onDismissSuggestion?: (suggestionId: string) => void
   teacherDraftMode?: boolean
   professionalJudgement?: DraftProfessionalJudgementMeta | null
   professionalJudgementLoading?: boolean
   analyticsContext?: DraftClientAnalyticsContext | null
   onBeginEditSession?: (displayedAt: number) => void
+}
+
+function renderHighlightedParagraph(
+  paragraph: string,
+  suggestions: TeacherDraftSuggestion[],
+) {
+  if (!suggestions.length) {
+    return paragraph
+  }
+
+  const fragments: ReactNode[] = []
+  let cursor = 0
+
+  while (cursor < paragraph.length) {
+    let nextMatch: { start: number; end: number; suggestion: TeacherDraftSuggestion } | null = null
+
+    for (const suggestion of suggestions) {
+      const start = paragraph.indexOf(suggestion.original, cursor)
+      if (start < 0) {
+        continue
+      }
+
+      const candidate = {
+        start,
+        end: start + suggestion.original.length,
+        suggestion,
+      }
+      if (!nextMatch || candidate.start < nextMatch.start) {
+        nextMatch = candidate
+      }
+    }
+
+    if (!nextMatch) {
+      fragments.push(paragraph.slice(cursor))
+      break
+    }
+
+    if (nextMatch.start > cursor) {
+      fragments.push(paragraph.slice(cursor, nextMatch.start))
+    }
+
+    fragments.push(
+      <mark
+        key={`${nextMatch.suggestion.id}-${nextMatch.start}`}
+        className="rounded bg-amber-200/80 px-0.5 text-gray-900 dark:bg-amber-500/30 dark:text-gray-100"
+      >
+        {paragraph.slice(nextMatch.start, nextMatch.end)}
+      </mark>,
+    )
+    cursor = nextMatch.end
+  }
+
+  return fragments
 }
 
 export function DraftOutput({
@@ -127,6 +184,9 @@ export function DraftOutput({
   rewriteSummary = null,
   safeToSend,
   teacherDraftFeedback = null,
+  suggestions = [],
+  onApplySuggestion,
+  onDismissSuggestion,
   teacherDraftMode = false,
   professionalJudgement = null,
   professionalJudgementLoading = false,
@@ -334,6 +394,13 @@ export function DraftOutput({
     }
     return segments.join("\n").trim()
   }, [displaySubject, displayParagraphs, draftAttribution, signatureParagraph])
+  const suggestionsByParagraph = useMemo(
+    () =>
+      displayParagraphs.map((paragraph) =>
+        suggestions.filter((suggestion) => paragraph.includes(suggestion.original)),
+      ),
+    [displayParagraphs, suggestions],
+  )
   // Copy to clipboard with rich text support
   const handleCopy = async () => {
     try {
@@ -699,12 +766,47 @@ export function DraftOutput({
             </p>
           )}
           {displayParagraphs.map((paragraph, index) => (
-            <p
-              key={`paragraph-${index}-${paragraph.slice(0, 16)}`}
-              className="text-gray-900 dark:text-gray-100 whitespace-pre-wrap leading-relaxed text-sm sm:text-base font-normal"
-            >
-              {paragraph}
-            </p>
+            <div key={`paragraph-${index}-${paragraph.slice(0, 16)}`} className="space-y-3">
+              <p className="text-gray-900 dark:text-gray-100 whitespace-pre-wrap leading-relaxed text-sm sm:text-base font-normal">
+                {renderHighlightedParagraph(paragraph, suggestionsByParagraph[index] ?? [])}
+              </p>
+              {teacherDraftMode && (suggestionsByParagraph[index]?.length ?? 0) > 0 ? (
+                <div className="space-y-2">
+                  {suggestionsByParagraph[index].map((suggestion) => (
+                    <div
+                      key={suggestion.id}
+                      className="rounded-xl border border-amber-200 bg-amber-50/90 p-3 dark:border-amber-500/30 dark:bg-amber-950/20"
+                    >
+                      <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-amber-700 dark:text-amber-200">
+                        {suggestion.type.replace("_", " ")}
+                      </p>
+                      <p className="mt-2 text-sm text-slate-700 dark:text-slate-200">
+                        <span className="font-medium">Original:</span> {suggestion.original}
+                      </p>
+                      <p className="mt-2 text-sm text-slate-900 dark:text-slate-100">
+                        <span className="font-medium">Suggestion:</span> {suggestion.suggestion}
+                      </p>
+                      <div className="mt-3 flex gap-2">
+                        <button
+                          type="button"
+                          onClick={() => onApplySuggestion?.(suggestion.id)}
+                          className="rounded-lg bg-amber-600 px-3 py-1.5 text-sm font-medium text-white transition hover:bg-amber-700"
+                        >
+                          Apply
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => onDismissSuggestion?.(suggestion.id)}
+                          className="rounded-lg border border-amber-300 bg-white px-3 py-1.5 text-sm font-medium text-amber-900 transition hover:bg-amber-100 dark:border-amber-500/40 dark:bg-transparent dark:text-amber-100 dark:hover:bg-amber-500/10"
+                        >
+                          Dismiss
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : null}
+            </div>
           ))}
           {signatureParagraph && (
             <p className="text-sm text-gray-600 dark:text-gray-300 whitespace-pre-wrap border-t border-gray-200 dark:border-gray-600 pt-3">

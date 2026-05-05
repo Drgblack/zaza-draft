@@ -81,6 +81,7 @@ import {
   assessTeacherDraftStructuralPreservation,
   formatTeacherDraftLiteralStructure,
 } from "@/lib/draft/teacher-draft-structure"
+import { buildTeacherDraftAdvisorySuggestions } from "@/lib/draft/teacher-draft-advisory"
 import {
   checkIntentPreservation,
   classifyTeacherIntent as classifyTeacherDraftIntent,
@@ -1102,6 +1103,19 @@ function getTeacherDraftSourceBodyParagraphs(text: string, greetingLine?: string
     .map((paragraph) => paragraph.trim())
     .filter(Boolean)
     .filter((paragraph, index) => !(index === 0 && normalizedGreeting && paragraph === normalizedGreeting))
+}
+
+function hasTeacherDraftAuthoredEnvelopeForScopeBypass(
+  text: string,
+  language: DraftLanguage,
+) {
+  const greetingLine = extractTeacherDraftGreetingLine(text, language)
+  const closingBlock = extractTeacherDraftClosingBlock(text, language)
+  if (!greetingLine || !closingBlock) {
+    return false
+  }
+
+  return getTeacherDraftSourceBodyParagraphs(text, greetingLine).length > 0
 }
 
 const LIGHT_EDIT_RISK_CATEGORIES = new Set([
@@ -2460,7 +2474,9 @@ export async function POST(request: Request) {
   const sourceTeacherDraftClosingLine = sourceTeacherDraftClosing?.closingLine ?? null
   const sourceTeacherDraftSignatureLines = sourceTeacherDraftClosing?.signatureLines ?? []
   const sourceTeacherDraftClosingBlock = sourceTeacherDraftClosing?.closingBlock ?? null
-  if (!isValidDraftRequest(currentSituation, mode)) {
+  const shouldBypassScopeGuardForTeacherDraft =
+    teacherDraftRequest && hasTeacherDraftAuthoredEnvelopeForScopeBypass(sanitizedSituation, language)
+  if (!shouldBypassScopeGuardForTeacherDraft && !isValidDraftRequest(currentSituation, mode)) {
     return fail(422, "OUT_OF_SCOPE", OUT_OF_SCOPE_REDIRECT_MESSAGE)
   }
   let inputReframed = false
@@ -2935,10 +2951,7 @@ export async function POST(request: Request) {
   let generatedDraft = ""
   let providerMeta: ProviderMeta
   let forcedLanguageAttempted = false
-  const teacherDraftCopyEditSource =
-    preserveDraftSignatureFromInput && sourceTeacherDraftClosing?.bodyText
-      ? sourceTeacherDraftClosing.bodyText
-      : currentSituation
+  const teacherDraftCopyEditSource = currentSituation
 
   if (alreadyStrongTeacherDraft) {
     const sourcePreservingDraft = applyTeacherDraftSentenceLevelSafetyOverrides(
@@ -3988,6 +4001,37 @@ export async function POST(request: Request) {
     outputSafetyAnalysis = await runSafetyAnalysis(generatedDraft, "output_safety_analysis")
   }
 
+  const applyTeacherDraftAdvisoryBaselineIfNeeded = () => {
+    if (!requestedTeacherDraftMode || documentationModeActive || mode !== "parent_message") {
+      return false
+    }
+
+    const sourcePreservingDraft = applyTeacherDraftRegisterNormalisation(
+      finalizeWithGreeting(teacherDraftCopyEditSource),
+    )
+    if (generatedDraft.trim() === sourcePreservingDraft.trim()) {
+      return false
+    }
+
+    generatedDraft = sourcePreservingDraft
+    finalizeAndFormatDraft(generatedDraft)
+    preserveTeacherDraftSignatureIfNeeded()
+    providerMeta = {
+      modelUsed: "teacher-draft-copy-edit-only",
+      latencyMs: providerMeta.latencyMs,
+    }
+    usedFallback = false
+    return true
+  }
+
+  if (
+    applyTeacherDraftAdvisoryBaselineIfNeeded() &&
+    !documentationModeActive &&
+    mode === "parent_message"
+  ) {
+    outputSafetyAnalysis = await runSafetyAnalysis(generatedDraft, "output_safety_analysis")
+  }
+
   if (requestedTeacherDraftMode) {
     const sourceIntent = sourceTeacherDraftIntent ?? classifyTeacherDraftIntent(currentSituation)
     const candidateIntent = classifyTeacherDraftIntent(generatedDraft)
@@ -4051,6 +4095,9 @@ export async function POST(request: Request) {
           deescalationSummary,
         })
       : null
+  const teacherDraftSuggestions = requestedTeacherDraftMode
+    ? buildTeacherDraftAdvisorySuggestions(generatedDraft, language)
+    : []
 
   logDraftStructured("normalization", {
     ...baseDraftLog(),
@@ -4395,6 +4442,7 @@ export async function POST(request: Request) {
     safetyAnalysis,
     outputSafetyAnalysis,
     documentationModeActive,
+    suggestions: teacherDraftSuggestions,
   })
   } catch (error) {
     logAttemptError("route_unhandled", error, {

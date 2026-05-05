@@ -80,21 +80,33 @@ exports[`DraftOutput formatting > matches the snapshot for structured output 1`]
         : 
         Update on homework
       </p>
-      <p
-        class="text-gray-900 dark:text-gray-100 whitespace-pre-wrap leading-relaxed text-sm sm:text-base font-normal"
+      <div
+        class="space-y-3"
       >
-        Dear family,
-      </p>
-      <p
-        class="text-gray-900 dark:text-gray-100 whitespace-pre-wrap leading-relaxed text-sm sm:text-base font-normal"
+        <p
+          class="text-gray-900 dark:text-gray-100 whitespace-pre-wrap leading-relaxed text-sm sm:text-base font-normal"
+        >
+          Dear family,
+        </p>
+      </div>
+      <div
+        class="space-y-3"
       >
-        Johnny has been trying hard this week.
-      </p>
-      <p
-        class="text-gray-900 dark:text-gray-100 whitespace-pre-wrap leading-relaxed text-sm sm:text-base font-normal"
+        <p
+          class="text-gray-900 dark:text-gray-100 whitespace-pre-wrap leading-relaxed text-sm sm:text-base font-normal"
+        >
+          Johnny has been trying hard this week.
+        </p>
+      </div>
+      <div
+        class="space-y-3"
       >
-        He still struggles with focus, but he is making small steps.
-      </p>
+        <p
+          class="text-gray-900 dark:text-gray-100 whitespace-pre-wrap leading-relaxed text-sm sm:text-base font-normal"
+        >
+          He still struggles with focus, but he is making small steps.
+        </p>
+      </div>
       <p
         class="text-sm text-gray-600 dark:text-gray-300 whitespace-pre-wrap border-t border-gray-200 dark:border-gray-600 pt-3"
       >

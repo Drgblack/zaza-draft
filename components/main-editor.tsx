@@ -61,6 +61,7 @@ import {
   type SaferDraftCategory,
 } from "@/lib/draft/adjustment-reasons"
 import type { TeacherDraftFeedback } from "@/lib/draft/teacher-draft-feedback"
+import type { TeacherDraftSuggestion } from "@/lib/draft/teacher-draft-advisory"
 import type { DraftProfessionalJudgementMeta } from "@/components/draft-judgement-strip"
 import { assessSafeToSend } from "@/lib/safe-to-send"
 import { buildObservationOnlyRecoveryInput } from "@/lib/draft/diagnostic-recovery"
@@ -222,6 +223,43 @@ function looksLikeCompleteTeacherDraftForModeSuggestion(text: string) {
     !looksLikeIncomingParentMessage(normalized) &&
     !hasParentRelationshipSignoff
   )
+}
+
+function hasTeacherDraftAuthoredEnvelopeForScopeBypass(text: string) {
+  const normalized = text.replace(/\r/g, "").trim()
+  if (!normalized) {
+    return false
+  }
+
+  const paragraphs = normalized
+    .split(/\n\s*\n+/)
+    .map((paragraph) => paragraph.trim())
+    .filter(Boolean)
+  if (paragraphs.length < 3) {
+    return false
+  }
+
+  const firstParagraph = paragraphs.find((paragraph) => !/^(subject|betreff):/i.test(paragraph))
+  const greetingParagraph = firstParagraph
+    ? firstParagraph
+        .split("\n")
+        .map((line) => line.trim())
+        .filter(Boolean)
+        .join(" ")
+    : ""
+  const hasGreeting = /^(?:dear|hi|hello|guten tag|hallo|liebe(?:r|n)?|sehr geehrte(?:r)?)/i.test(
+    greetingParagraph,
+  )
+  const hasClosingBlock =
+    /(?:^|\n)\s*(?:Regards|Kind regards|Best regards|Best wishes|Yours sincerely|Sincerely|Mit freundlichen Gr[üu]ßen|Herzliche Gr[üu]ße|Freundliche Gr[üu]ße),?\s*\n\s*[\p{L}][\p{L}.' -]*\s*$/iu.test(
+      normalized,
+    )
+  if (!hasGreeting || !hasClosingBlock) {
+    return false
+  }
+
+  const bodyParagraphs = paragraphs.slice(1, -1)
+  return bodyParagraphs.some((paragraph) => paragraph.length > 20)
 }
 
 const LOADING_MESSAGES = [
@@ -522,6 +560,7 @@ export function MainEditor({ canExport = true }: MainEditorProps = {}) {
   const [safetyAnalysis, setSafetyAnalysis] = useState<SafetyEngineOutput | null>(null)
   const [outputSafetyAnalysis, setOutputSafetyAnalysis] = useState<SafetyEngineOutput | null>(null)
   const [teacherDraftFeedback, setTeacherDraftFeedback] = useState<TeacherDraftFeedback | null>(null)
+  const [teacherDraftSuggestions, setTeacherDraftSuggestions] = useState<TeacherDraftSuggestion[]>([])
   const [documentationModeActive, setDocumentationModeActive] = useState(false)
   const [enforcedGreeting, setEnforcedGreeting] = useState<EnforcedGreeting | null>(null)
   const [sourceFlow, setSourceFlow] = useState<SourceFlow>("safe_draft")
@@ -738,6 +777,7 @@ export function MainEditor({ canExport = true }: MainEditorProps = {}) {
     setSafetyAnalysis(null)
     setOutputSafetyAnalysis(null)
     setTeacherDraftFeedback(null)
+    setTeacherDraftSuggestions([])
     setDocumentationModeActive(false)
     setInputReframeTier(null)
     setInputWasReframed(false)
@@ -1667,8 +1707,26 @@ Examples:
 
     workflowTypeRef.current = nextWorkflowType
 
+    const selectedRequestMode: ParentInputMode | ModeKey =
+      mode === "parent_message" ? parentInputMode : mode
+    const selectedInputIntent: ParentInputMode | null =
+      mode === "parent_message"
+        ? selectedRequestMode === "teacher_draft"
+          ? "teacher_draft"
+          : "parent_message"
+        : null
+    const shouldBypassClientScopePrecheck =
+      mode === "parent_message" &&
+      selectedRequestMode === "teacher_draft" &&
+      (looksLikeTeacherAuthoredDraft(trimmedContent) ||
+        hasTeacherDraftAuthoredEnvelopeForScopeBypass(trimmedContent))
+
     const fallbackOutOfScopeMessage = t("editor.outOfScope.body")
-    if (!options.overrideSituation && !isValidDraftRequest(trimmedContent, mode)) {
+    if (
+      !options.overrideSituation &&
+      !shouldBypassClientScopePrecheck &&
+      !isValidDraftRequest(trimmedContent, mode)
+    ) {
       const precheckMessage =
         locale === "de-DE" ? fallbackOutOfScopeMessage : OUT_OF_SCOPE_REDIRECT_MESSAGE
       showOutOfScopeNotice(precheckMessage, "CLIENT_PRECHECK")
@@ -1686,6 +1744,7 @@ Examples:
     setDeescalationSummary(null)
     setInputReframeTier(null)
     setInputWasReframed(false)
+    setTeacherDraftSuggestions([])
     setDocumentationModeActive(Boolean(options.documentationMode))
     setBlockedLanguageContext(null)
     setOutOfScopeNotice(false)
@@ -1698,15 +1757,6 @@ Examples:
       autoAppendParentMessage: prefs.autoAppendSignatureParentMessage,
       autoAppendReportComment: prefs.autoAppendSignatureReportComment,
     }
-
-    const selectedRequestMode: ParentInputMode | ModeKey =
-      mode === "parent_message" ? parentInputMode : mode
-    const selectedInputIntent: ParentInputMode | null =
-      mode === "parent_message"
-        ? selectedRequestMode === "teacher_draft"
-          ? "teacher_draft"
-          : "parent_message"
-        : null
 
     const payload: Record<string, unknown> = {
       situation: requestSituation,
@@ -1933,6 +1983,7 @@ Examples:
       setSafetyAnalysis(nextSafetyOutput)
       setOutputSafetyAnalysis(nextOutputSafetyAnalysis)
       setTeacherDraftFeedback(data.data.teacherDraftFeedback ?? null)
+      setTeacherDraftSuggestions(data.data.suggestions ?? [])
       setDocumentationModeActive(nextDocumentationModeActive)
       setEnforcedGreeting(data.data.greeting ?? null)
       setLastGenerationSignature({
@@ -2126,6 +2177,41 @@ Examples:
     }
     focusEditor()
   }
+
+  const handleApplyTeacherDraftSuggestion = useCallback((suggestionId: string) => {
+    setTeacherDraftSuggestions((currentSuggestions) => {
+      const suggestion = currentSuggestions.find((item) => item.id === suggestionId)
+      if (!suggestion) {
+        return currentSuggestions
+      }
+
+      setGeneratedDraft((currentDraft) => {
+        if (!currentDraft || !currentDraft.includes(suggestion.original)) {
+          return currentDraft
+        }
+
+        const nextDraft = currentDraft.replace(suggestion.original, suggestion.suggestion)
+        setDraftStructure(null)
+        setDraftMetadata((currentMetadata) =>
+          currentMetadata
+            ? {
+                ...currentMetadata,
+                wordCount: nextDraft.trim().split(/\s+/).filter(Boolean).length,
+              }
+            : currentMetadata,
+        )
+        return nextDraft
+      })
+
+      return currentSuggestions.filter((item) => item.id !== suggestionId)
+    })
+  }, [])
+
+  const handleDismissTeacherDraftSuggestion = useCallback((suggestionId: string) => {
+    setTeacherDraftSuggestions((currentSuggestions) =>
+      currentSuggestions.filter((item) => item.id !== suggestionId),
+    )
+  }, [])
 
   const handleBeginEditSession = useCallback(
     (displayedAt: number) => {
@@ -3188,6 +3274,9 @@ Examples:
               rewriteSummary={teacherDraftFeedback ? null : draftAdjustmentSummary}
               safeToSend={safeToSendAssessment}
               teacherDraftFeedback={teacherDraftFeedback}
+              suggestions={teacherDraftSuggestions}
+              onApplySuggestion={handleApplyTeacherDraftSuggestion}
+              onDismissSuggestion={handleDismissTeacherDraftSuggestion}
               teacherDraftMode={parentInputMode === "teacher_draft"}
               professionalJudgement={draftResponseMeta?.professionalJudgement ?? null}
               professionalJudgementLoading={
