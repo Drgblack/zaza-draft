@@ -110,7 +110,7 @@ import {
   type ParentMessageInputType,
   type SourceType,
 } from "@/lib/generation/classification"
-import { applyFinalGreetingGuard } from "@/lib/draft/final-greeting"
+import { applyFinalGreetingGuard, stripLeadingGeneratedGreeting } from "@/lib/draft/final-greeting"
 import { resolveTeacherDraftFeedback } from "@/lib/draft/teacher-draft-feedback"
 import { runSafetyEngine, type SafetyEngineOutput } from "@/src/lib/safetyEngine"
 import { detectTopicKeyword } from "@/src/lib/safetyEngine/topicDetector"
@@ -1935,10 +1935,10 @@ export async function POST(request: Request) {
   }
   let greetingFinal = Boolean(payload.greetingFinal && greetingText)
   const greetingLocale: GreetingLocale = language?.toLowerCase().startsWith("de") ? "de" : "en"
-  const sourceTeacherDraftGreetingLine =
-    mode === "parent_message" && inputIntent === "teacher_draft"
-      ? extractTeacherDraftGreetingLine(situation, language)
-      : null
+  const teacherDraftRequest = mode === "parent_message" && inputIntent === "teacher_draft"
+  const sourceTeacherDraftGreetingLine = teacherDraftRequest
+    ? extractTeacherDraftGreetingLine(situation, language)
+    : null
   if (sourceTeacherDraftGreetingLine) {
     greetingText = sourceTeacherDraftGreetingLine
     greetingConfidence = "HIGH"
@@ -1952,6 +1952,13 @@ export async function POST(request: Request) {
       greetingRecipientSurname = recipient.surname
       greetingRecipientDisplayName = recipient.displayName
     }
+  }
+  if (teacherDraftRequest && !sourceTeacherDraftGreetingLine) {
+    greetingText = ""
+    greetingConfidence = "NONE"
+    greetingSource = "generic-fallback"
+    greetingName = null
+    greetingFinal = false
   }
   const requestGreetingCandidate = greetingName ?? extractNamedGreetingCandidate(greetingText, greetingLocale)
   const requestGreetingScore = requestGreetingCandidate
@@ -1983,7 +1990,7 @@ export async function POST(request: Request) {
     greetingFinal = false
   }
 
-  if (!greetingText || shouldResetGreeting) {
+  if ((!greetingText || shouldResetGreeting) && !teacherDraftRequest) {
     const resolvedGreeting = resolveGreetingFromRawText(
       payload.situationRaw ?? "",
       language,
@@ -2010,20 +2017,32 @@ export async function POST(request: Request) {
     }
   }
 
-  greetingText = enforceTitledGreetingSafeguard({
-    greeting: greetingText,
-    locale: greetingLocale,
-    mode: mode ?? undefined,
-    direction: generationTrace?.metadata.direction,
-    recipientTitle: greetingRecipientTitle,
-    recipientSurname: greetingRecipientSurname,
-  })
+  if (!teacherDraftRequest) {
+    greetingText = enforceTitledGreetingSafeguard({
+      greeting: greetingText,
+      locale: greetingLocale,
+      mode: mode ?? undefined,
+      direction: generationTrace?.metadata.direction,
+      recipientTitle: greetingRecipientTitle,
+      recipientSurname: greetingRecipientSurname,
+    })
+  }
 
-  if (!greetingFinal && greetingText && mode === "parent_message" && generationTrace?.metadata.direction !== "report_comment") {
+  if (
+    !teacherDraftRequest &&
+    !greetingFinal &&
+    greetingText &&
+    mode === "parent_message" &&
+    generationTrace?.metadata.direction !== "report_comment"
+  ) {
     greetingFinal = true
   }
 
-  const finalGreetingLine = greetingFinal ? greetingText : null
+  const finalGreetingLine = teacherDraftRequest
+    ? sourceTeacherDraftGreetingLine
+    : greetingFinal
+      ? greetingText
+      : null
   if (payload.greetingFinal && !greetingText && debugEnabled) {
     DEBUG_DRAFT_LOGS && console.debug("[draft] greetingFinal was true but greeting text missing; ignoring final flag", {
       scanId: payload.scanId ?? null,
@@ -2739,7 +2758,10 @@ export async function POST(request: Request) {
       pronounPreference: resolvedPronounPreference,
       resolvedPronounPreference: resolvedPronounPreference,
     })
-    curated = applyFinalGreetingGuard(curated, finalGreetingLine)
+    curated =
+      teacherDraftRequest && !finalGreetingLine
+        ? stripLeadingGeneratedGreeting(curated)
+        : applyFinalGreetingGuard(curated, finalGreetingLine)
     if (mode === "report_comment") {
       curated = sanitizeReportCommentText(curated)
     }

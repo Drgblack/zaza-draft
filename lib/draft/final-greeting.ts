@@ -92,3 +92,40 @@ export function applyFinalGreetingGuard(body: string, greetingLine?: string | nu
   }
   return enforceGreetingLine(body, greetingLine)
 }
+
+function isGreetingStarter(line: string) {
+  return /^(?:dear|hi|hello|guten tag|hallo|sehr geehrte|sehr geehrter)\b/i.test(line.trim())
+}
+
+export function stripLeadingGeneratedGreeting(body: string) {
+  const lines = body.split(/\r?\n/)
+  let index = 0
+
+  while (index < lines.length && !lines[index].trim()) {
+    index += 1
+  }
+
+  if (index >= lines.length) {
+    return body
+  }
+
+  const firstLine = lines[index].trim()
+  if (!isGreetingStarter(firstLine)) {
+    return body
+  }
+
+  const firstCommaIndex = firstLine.indexOf(",")
+  if (firstCommaIndex >= 0) {
+    const remainder = firstLine.slice(firstCommaIndex + 1).trim()
+    if (remainder) {
+      lines[index] = remainder
+      return lines.join("\n")
+    }
+  }
+
+  lines.splice(index, 1)
+  while (index < lines.length && !lines[index].trim()) {
+    lines.splice(index, 1)
+  }
+  return lines.join("\n").trimStart()
+}

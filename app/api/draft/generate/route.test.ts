@@ -3934,6 +3934,54 @@ describe("/api/draft/generate light edit mode", () => {
     expect(json.data.generatedDraft).toContain(typedGreeting)
     expect(json.data.generatedDraft).not.toContain("Dear Parent/Carer,")
   })
+
+  it("does not generate a greeting in My draft mode when the teacher did not type one", async () => {
+    const teacherDraft = [
+      "Tom has been struggling to focus during reading time this week.",
+      "He was distracted on three occasions and I wanted to let you know.",
+      "",
+      "Best regards,",
+      "Greg",
+    ].join("\n")
+
+    fallbackGenerator.mockResolvedValueOnce(
+      buildFallbackResult(
+        [
+          "Dear Parent/Carer,",
+          "",
+          "Tom has been struggling to focus during reading time this week. He was distracted on three occasions and I wanted to let you know.",
+          "",
+          "Best regards,",
+          "Greg",
+        ].join("\n"),
+      ),
+    )
+
+    const request = new Request("https://example.com/api/draft/generate", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: "Bearer token",
+      },
+      body: JSON.stringify({
+        situation: teacherDraft,
+        tone: "professional",
+        language: "en",
+        uiLocale: "en-GB",
+        mode: "parent_message",
+        inputIntent: "teacher_draft",
+      }),
+    })
+
+    const response = await POST(request)
+    expect(response.status).toBe(200)
+    const json = await response.json()
+
+    expect(json.data.generatedDraft).not.toContain("Dear Parent/Carer,")
+    expect(json.data.generatedDraft).not.toContain("Hello,")
+    expect(json.data.generatedDraft).toContain("Tom has been struggling to focus during reading time this week.")
+    expect(json.data.generatedDraft).toContain("Best regards,\nGreg")
+  })
 })
 
 describe("/api/draft/generate closing normalization", () => {
