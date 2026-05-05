@@ -222,6 +222,23 @@ vi.mock("@/lib/draft/language", () => ({
   canonicalizeLocaleIdentifier: () => "en-GB",
 }))
 
+vi.mock("@/src/lib/safetyEngine", () => ({
+  runSafetyEngine: vi.fn(async () => ({
+    riskLevel: "low",
+    escalationRisk: 0,
+    triggeredSignals: [],
+    professionalRiskFlags: [],
+    documentationModeAvailable: false,
+    reactionForecast: {
+      likelyParentReaction: "receptive",
+      rationale: "",
+      riskLevel: "low",
+    },
+    explanation: null,
+    metadata: null,
+  })),
+}))
+
 const sampleSituation =
   "Ich melde mich wegen einer Rückfrage zum Unterricht. Ein Elternteil berichtet, dass das Kind seit mehreren Tagen besorgt nach Hause kommt und sich über die Hausaufgabenmenge beklagt. Bitte helfen Sie mir, ruhig und professionell zu antworten, um die nächsten Schritte zu klären."
 

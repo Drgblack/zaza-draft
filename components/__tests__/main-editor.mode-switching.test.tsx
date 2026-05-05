@@ -41,6 +41,15 @@ const ADVISORY_TEACHER_DRAFT = [
   "Shereen P.",
 ].join("\n")
 
+const ROOT_SHAPE_ADVISORY_TEACHER_DRAFT = [
+  "Dear Mrs Chen,",
+  "",
+  "I was appalled by Sally's tone when I asked her to begin the task.",
+  "",
+  "Kind regards,",
+  "Shereen P.",
+].join("\n")
+
 let mockLocale: Locale = "en-GB"
 let mockSearchParams = new URLSearchParams()
 let draftGenerateScenario: DraftGenerateScenario = "success"
@@ -280,6 +289,43 @@ const fetchMock = vi.fn(async (input: RequestInfo, init?: RequestInit) => {
       body.inputIntent === "teacher_draft" &&
       (String(body.situation ?? "").includes("I was appalled") ||
         String(body.situation ?? "").includes("Your daughter Sally has not been behaving well"))
+    const useRootSuggestionShape = String(body.situation ?? "").includes(
+      "I was appalled by Sally's tone when I asked her to begin the task.",
+    )
+    const advisorySuggestions = isAdvisoryTeacherDraft
+      ? String(body.situation ?? "").includes("I was appalled")
+        ? [
+            {
+              id: "teacher-draft-suggestion-1",
+              original: "I was appalled by Sally's tone when I asked her to begin the task.",
+              suggestion: "I was concerned by Sally's tone when I asked her to begin the task.",
+              type: "tone",
+            },
+            {
+              id: "teacher-draft-suggestion-2",
+              original: "You need to recognise that she must bring her planner tomorrow.",
+              suggestion: "Please recognise that she must bring her planner tomorrow.",
+              type: "professional_judgement",
+            },
+          ]
+        : [
+            {
+              id: "teacher-draft-suggestion-1",
+              original: "Your daughter Sally has not been behaving well in my class at all.",
+              suggestion:
+                "Your daughter Sally has been finding it difficult to meet expectations in my class.",
+              type: "tone",
+            },
+            {
+              id: "teacher-draft-suggestion-2",
+              original:
+                "Her behaviour has been challenging, and I have realised that her attitude towards school has worsened considerably this term.",
+              suggestion:
+                "Her behaviour has been difficult recently, and I have become concerned that her attitude towards school has worsened this term.",
+              type: "tone",
+            },
+          ]
+      : []
     const teacherDraftBody = [
       "Subject: Classroom update",
       "",
@@ -334,40 +380,7 @@ const fetchMock = vi.fn(async (input: RequestInfo, init?: RequestInit) => {
                     reasons: ["preserved_tone", "maintained_boundaries", "risk_checked"],
                   }
                 : null,
-            suggestions: isAdvisoryTeacherDraft
-              ? String(body.situation ?? "").includes("I was appalled")
-                ? [
-                    {
-                      id: "teacher-draft-suggestion-1",
-                      original: "I was appalled by Sally's tone when I asked her to begin the task.",
-                      suggestion: "I was concerned by Sally's tone when I asked her to begin the task.",
-                      type: "tone",
-                    },
-                    {
-                      id: "teacher-draft-suggestion-2",
-                      original: "You need to recognise that she must bring her planner tomorrow.",
-                      suggestion: "Please recognise that she must bring her planner tomorrow.",
-                      type: "professional_judgement",
-                    },
-                  ]
-                : [
-                    {
-                      id: "teacher-draft-suggestion-1",
-                      original: "Your daughter Sally has not been behaving well in my class at all.",
-                      suggestion:
-                        "Your daughter Sally has been finding it difficult to meet expectations in my class.",
-                      type: "tone",
-                    },
-                    {
-                      id: "teacher-draft-suggestion-2",
-                      original:
-                        "Her behaviour has been challenging, and I have realised that her attitude towards school has worsened considerably this term.",
-                      suggestion:
-                        "Her behaviour has been difficult recently, and I have become concerned that her attitude towards school has worsened this term.",
-                      type: "tone",
-                    },
-                  ]
-                : [],
+            suggestions: useRootSuggestionShape ? undefined : advisorySuggestions,
             safetyAnalysis: {
               documentationModeAvailable: true,
               triggeredSignals: [],
@@ -385,6 +398,7 @@ const fetchMock = vi.fn(async (input: RequestInfo, init?: RequestInit) => {
             documentationModeActive: documentationMode,
             meta: {},
           },
+          ...(useRootSuggestionShape ? { suggestions: advisorySuggestions } : {}),
         }),
     } as Response
   }
@@ -849,6 +863,29 @@ describe("MainEditor mode switching", () => {
       screen.getAllByText((_, element) =>
         element?.textContent?.includes(
           "Your daughter Sally has been finding it difficult to meet expectations in my class.",
+        ) ?? false,
+      ).length,
+    ).toBeGreaterThan(0)
+  })
+
+  it("renders the advisory panel when suggestions are returned at the root response shape", async () => {
+    render(<MainEditor />)
+
+    fireEvent.click(within(getInputTypeTablist()).getByRole("tab", { name: "My draft" }))
+    fireEvent.change(getTextarea(), {
+      target: { value: ROOT_SHAPE_ADVISORY_TEACHER_DRAFT },
+    })
+
+    fireEvent.click(screen.getByRole("button", { name: "Improve my draft" }))
+
+    await waitFor(() => {
+      expect(screen.getByText("Suggestions before you send (2)")).toBeInTheDocument()
+    })
+    expect(screen.getByText("⚠ 2 suggestions to reduce escalation risk")).toBeInTheDocument()
+    expect(
+      screen.getAllByText((_, element) =>
+        element?.textContent?.includes(
+          "I was concerned by Sally's tone when I asked her to begin the task.",
         ) ?? false,
       ).length,
     ).toBeGreaterThan(0)

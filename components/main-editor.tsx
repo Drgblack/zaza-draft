@@ -1867,6 +1867,11 @@ Examples:
           data = null
         }
       }
+      const responseSuggestions = Array.isArray(data?.data?.suggestions)
+        ? data.data.suggestions
+        : Array.isArray(data?.suggestions)
+          ? data.suggestions
+          : []
       const responseMeta = data?.data?.meta ?? null
 
       if (response.status === 401) {
@@ -1983,7 +1988,7 @@ Examples:
       setSafetyAnalysis(nextSafetyOutput)
       setOutputSafetyAnalysis(nextOutputSafetyAnalysis)
       setTeacherDraftFeedback(data.data.teacherDraftFeedback ?? null)
-      setTeacherDraftSuggestions(data.data.suggestions ?? [])
+      setTeacherDraftSuggestions(responseSuggestions)
       setDocumentationModeActive(nextDocumentationModeActive)
       setEnforcedGreeting(data.data.greeting ?? null)
       setLastGenerationSignature({
