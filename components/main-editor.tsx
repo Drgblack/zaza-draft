@@ -782,6 +782,7 @@ export function MainEditor({ canExport = true }: MainEditorProps = {}) {
   const [onboardingStepIndex, setOnboardingStepIndex] = useState(0)
   const [onboardingForm, setOnboardingForm] = useState<OnboardingProfile>(EMPTY_ONBOARDING_PROFILE)
   const welcomeEmailRequestedRef = useRef(false)
+  const onboardingBannerLoggedRef = useRef<string | null>(null)
   const [firstValueSampleLoaded, setFirstValueSampleLoaded] = useState(false)
   const [firstValueSampleSeen, setFirstValueSampleSeen] = useState(false)
   const firstValueSample = useMemo(
@@ -1429,6 +1430,12 @@ Examples:
     if (!showWelcomeBox || !user?.uid || !onboardingState?.firstLogin) {
       return
     }
+
+    if (onboardingBannerLoggedRef.current === user.uid) {
+      return
+    }
+
+    onboardingBannerLoggedRef.current = user.uid
 
     logClientEventOnce(TRUST_FUNNEL_EVENTS.onboardingBannerShown, {
       payload: {
