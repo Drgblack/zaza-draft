@@ -401,7 +401,7 @@ export function DraftOutput({
       ),
     [displayParagraphs, suggestions],
   )
-  const showTeacherDraftSuggestions = teacherDraftMode && suggestions.length > 0
+  const showTeacherDraftSuggestions = suggestions.length > 0
   // Copy to clipboard with rich text support
   const handleCopy = async () => {
     try {

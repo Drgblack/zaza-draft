@@ -501,6 +501,32 @@ Shereen P.`}
     expect(screen.getByText("I was concerned by Sally's behaviour in class.")).toBeInTheDocument()
   })
 
+  it("renders advisory suggestions when the response includes them even if teacherDraftMode is false", () => {
+    render(
+      <DraftOutput
+        {...baseProps}
+        draftText={`Dear Mrs Chen,
+
+I was appalled by Sally's behaviour in class.
+
+Kind regards,
+Shereen P.`}
+        suggestions={[
+          {
+            id: "tone-1",
+            original: "I was appalled by Sally's behaviour in class.",
+            suggestion: "I was concerned by Sally's behaviour in class.",
+            type: "tone",
+          },
+        ]}
+        teacherDraftMode={false}
+      />,
+    )
+
+    expect(screen.getByText("Suggestions before you send (1)")).toBeInTheDocument()
+    expect(screen.getByText("I was concerned by Sally's behaviour in class.")).toBeInTheDocument()
+  })
+
   it("exports the exact typed Thanks, Greg sign-off to PDF", async () => {
     const fetchMock = vi.fn().mockResolvedValue(
       new Response("pdf-data", {
