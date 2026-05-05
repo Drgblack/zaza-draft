@@ -67,6 +67,20 @@ describe("ensureSingleSignOff", () => {
     expect((out.match(/Kind regards,/gi) ?? []).length).toBe(1)
   })
 
+  it("preserves a teacher-authored Best wishes closing block without duplicating it", () => {
+    const input =
+      "Hello family,\n\nQuick update.\n\nBest wishes,\nMr Blackburn"
+    const out = normalizeClosingBlock(input, {
+      locale: "en",
+      closingLineOverride: "Best wishes,",
+      signatureLines: ["Mr Blackburn"],
+    })
+
+    expect(out.endsWith("Best wishes,\nMr Blackburn")).toBe(true)
+    expect((out.match(/Best wishes,/gi) ?? []).length).toBe(1)
+    expect(out).not.toContain("Kind regards,")
+  })
+
   it("removes closings entirely when requested", () => {
     const input = "Report text.\n\nBest regards,\nDr Greg Blackburn"
     const out = normalizeClosingBlock(input, { locale: "en", omit: true })

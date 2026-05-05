@@ -3748,6 +3748,54 @@ describe("/api/draft/generate light edit mode", () => {
     expect(json.data.generatedDraft).not.toContain("Dear Parent/Carer,")
   })
 
+  it("preserves a typed multi-line Best wishes sign-off in My draft mode without duplicating it", async () => {
+    const teacherDraft = [
+      "Dear Mr Jones,",
+      "",
+      "I wanted to let you know that Tom forgot his reading diary again today.",
+      "",
+      "Best wishes,",
+      "Mr Blackburn",
+    ].join("\n")
+
+    fallbackGenerator.mockResolvedValueOnce(
+      buildFallbackResult(
+        [
+          "Dear Mr Jones,",
+          "",
+          "I wanted to let you know that Tom forgot his reading diary again today.",
+          "",
+          "Best wishes,",
+          "Mr Blackburn",
+        ].join("\n"),
+      ),
+    )
+
+    const request = new Request("https://example.com/api/draft/generate", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: "Bearer token",
+      },
+      body: JSON.stringify({
+        situation: teacherDraft,
+        tone: "professional",
+        language: "en",
+        uiLocale: "en-GB",
+        mode: "parent_message",
+        inputIntent: "teacher_draft",
+      }),
+    })
+
+    const response = await POST(request)
+    expect(response.status).toBe(200)
+    const json = await response.json()
+
+    expect(json.data.generatedDraft).toContain("Best wishes,\nMr Blackburn")
+    expect((json.data.generatedDraft.match(/Best wishes,\nMr Blackburn/g) ?? []).length).toBe(1)
+    expect(json.data.generatedDraft).not.toContain("Kind regards,")
+  })
+
   it("preserves a typed multi-line Kind regards sign-off with an abbreviated surname in My draft mode", async () => {
     const teacherDraft = [
       "Dear Mrs Chen,",
