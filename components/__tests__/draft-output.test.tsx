@@ -466,6 +466,41 @@ Shereen P.`
     expect(payload.draftText).not.toContain("Drafted with the help of Zaza Draft.")
   })
 
+  it("renders a prominent advisory banner and grouped suggestion cards for teacher drafts", () => {
+    render(
+      <DraftOutput
+        {...baseProps}
+        metadata={{
+          ...baseProps.metadata,
+          modeUsed: "parent_message" as DraftMode,
+        }}
+        draftText={`Dear Mrs Chen,
+
+I was appalled by Sally's behaviour in class.
+
+Kind regards,
+Shereen P.`}
+        suggestions={[
+          {
+            id: "tone-1",
+            original: "I was appalled by Sally's behaviour in class.",
+            suggestion: "I was concerned by Sally's behaviour in class.",
+            type: "tone",
+          },
+        ]}
+        teacherDraftMode={true}
+      />,
+    )
+
+    expect(screen.getByText("⚠ 1 suggestion to reduce escalation risk")).toBeInTheDocument()
+    expect(screen.getByText("Suggestions before you send (1)")).toBeInTheDocument()
+    expect(screen.getByText("1 flagged")).toBeInTheDocument()
+    expect(screen.getByText("Original sentence")).toBeInTheDocument()
+    expect(screen.getByText("Suggested rewrite")).toBeInTheDocument()
+    expect(screen.getAllByText("I was appalled by Sally's behaviour in class.").length).toBeGreaterThan(0)
+    expect(screen.getByText("I was concerned by Sally's behaviour in class.")).toBeInTheDocument()
+  })
+
   it("exports the exact typed Thanks, Greg sign-off to PDF", async () => {
     const fetchMock = vi.fn().mockResolvedValue(
       new Response("pdf-data", {

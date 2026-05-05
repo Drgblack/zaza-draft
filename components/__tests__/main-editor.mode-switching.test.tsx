@@ -818,19 +818,7 @@ describe("MainEditor mode switching", () => {
     await screen.findByTestId("draft-output-body")
     const initialGenerateCalls = getDraftGenerateBodies().length
 
-    const suggestionCard = screen
-      .getAllByText((_, element) =>
-        element?.textContent?.includes(
-          "I was concerned by Sally's tone when I asked her to begin the task.",
-        ) ?? false,
-      )
-      .find((element) => element.tagName === "P")
-      ?.closest("div")
-    if (!suggestionCard) {
-      throw new Error("Suggestion card not found")
-    }
-
-    fireEvent.click(within(suggestionCard).getByRole("button", { name: "Apply" }))
+    fireEvent.click(screen.getAllByRole("button", { name: "Apply" })[0])
 
     expect(screen.getByTestId("draft-output-body")).toHaveTextContent(
       "I was concerned by Sally's tone when I asked her to begin the task.",

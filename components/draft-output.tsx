@@ -401,6 +401,7 @@ export function DraftOutput({
       ),
     [displayParagraphs, suggestions],
   )
+  const showTeacherDraftSuggestions = teacherDraftMode && suggestions.length > 0
   // Copy to clipboard with rich text support
   const handleCopy = async () => {
     try {
@@ -755,6 +756,14 @@ export function DraftOutput({
           </div>
         ) : null}
 
+        {showTeacherDraftSuggestions ? (
+          <div className="mb-4 rounded-xl border border-amber-300/70 bg-amber-100/85 px-4 py-3 shadow-sm dark:border-amber-500/30 dark:bg-amber-950/30">
+            <p className="text-sm font-semibold text-amber-950 dark:text-amber-100">
+              {`⚠ ${suggestions.length} suggestion${suggestions.length === 1 ? "" : "s"} to reduce escalation risk`}
+            </p>
+          </div>
+        ) : null}
+
         {/* Generated Text */}
         <div
           className="bg-gray-50 dark:bg-gray-700 rounded-lg p-4 mb-4 space-y-4 sm:space-y-5 font-normal"
@@ -770,42 +779,6 @@ export function DraftOutput({
               <p className="text-gray-900 dark:text-gray-100 whitespace-pre-wrap leading-relaxed text-sm sm:text-base font-normal">
                 {renderHighlightedParagraph(paragraph, suggestionsByParagraph[index] ?? [])}
               </p>
-              {teacherDraftMode && (suggestionsByParagraph[index]?.length ?? 0) > 0 ? (
-                <div className="space-y-2">
-                  {suggestionsByParagraph[index].map((suggestion) => (
-                    <div
-                      key={suggestion.id}
-                      className="rounded-xl border border-amber-200 bg-amber-50/90 p-3 dark:border-amber-500/30 dark:bg-amber-950/20"
-                    >
-                      <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-amber-700 dark:text-amber-200">
-                        {suggestion.type.replace("_", " ")}
-                      </p>
-                      <p className="mt-2 text-sm text-slate-700 dark:text-slate-200">
-                        <span className="font-medium">Original:</span> {suggestion.original}
-                      </p>
-                      <p className="mt-2 text-sm text-slate-900 dark:text-slate-100">
-                        <span className="font-medium">Suggestion:</span> {suggestion.suggestion}
-                      </p>
-                      <div className="mt-3 flex gap-2">
-                        <button
-                          type="button"
-                          onClick={() => onApplySuggestion?.(suggestion.id)}
-                          className="rounded-lg bg-amber-600 px-3 py-1.5 text-sm font-medium text-white transition hover:bg-amber-700"
-                        >
-                          Apply
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => onDismissSuggestion?.(suggestion.id)}
-                          className="rounded-lg border border-amber-300 bg-white px-3 py-1.5 text-sm font-medium text-amber-900 transition hover:bg-amber-100 dark:border-amber-500/40 dark:bg-transparent dark:text-amber-100 dark:hover:bg-amber-500/10"
-                        >
-                          Dismiss
-                        </button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : null}
             </div>
           ))}
           {signatureParagraph && (
@@ -819,6 +792,65 @@ export function DraftOutput({
             </p>
           )}
         </div>
+
+        {showTeacherDraftSuggestions ? (
+          <div className="mb-4 rounded-2xl border border-amber-200/90 bg-amber-50/90 p-4 shadow-sm dark:border-amber-500/30 dark:bg-amber-950/20">
+            <div className="mb-4 flex flex-wrap items-center gap-2">
+              <h4 className="text-base font-semibold text-slate-900 dark:text-slate-100">
+                {`Suggestions before you send (${suggestions.length})`}
+              </h4>
+              <span className="rounded-full bg-amber-200/80 px-2.5 py-0.5 text-xs font-semibold text-amber-900 dark:bg-amber-500/20 dark:text-amber-100">
+                {`${suggestions.length} flagged`}
+              </span>
+            </div>
+            <div className="space-y-3">
+              {suggestions.map((suggestion) => (
+                <div
+                  key={suggestion.id}
+                  className="rounded-xl border border-amber-200 bg-white/85 p-4 shadow-sm dark:border-amber-500/30 dark:bg-slate-900/50"
+                >
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-amber-700 dark:text-amber-200">
+                    {suggestion.type.replace("_", " ")}
+                  </p>
+                  <div className="mt-3 space-y-3">
+                    <div className="rounded-lg border border-slate-200 bg-slate-50/90 p-3 dark:border-slate-700 dark:bg-slate-900/60">
+                      <p className="text-xs font-semibold uppercase tracking-[0.08em] text-slate-500 dark:text-slate-400">
+                        Original sentence
+                      </p>
+                      <p className="mt-1 text-sm leading-relaxed text-slate-800 dark:text-slate-100">
+                        {suggestion.original}
+                      </p>
+                    </div>
+                    <div className="rounded-lg border border-emerald-200 bg-emerald-50/90 p-3 dark:border-emerald-500/30 dark:bg-emerald-950/30">
+                      <p className="text-xs font-semibold uppercase tracking-[0.08em] text-emerald-700 dark:text-emerald-200">
+                        Suggested rewrite
+                      </p>
+                      <p className="mt-1 text-sm leading-relaxed text-slate-900 dark:text-slate-50">
+                        {suggestion.suggestion}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="mt-4 flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => onApplySuggestion?.(suggestion.id)}
+                      className="rounded-lg bg-amber-600 px-3 py-1.5 text-sm font-medium text-white transition hover:bg-amber-700"
+                    >
+                      Apply
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => onDismissSuggestion?.(suggestion.id)}
+                      className="rounded-lg border border-amber-300 bg-white px-3 py-1.5 text-sm font-medium text-amber-900 transition hover:bg-amber-100 dark:border-amber-500/40 dark:bg-transparent dark:text-amber-100 dark:hover:bg-amber-500/10"
+                    >
+                      Dismiss
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        ) : null}
 
         {shouldShowJudgementStrip ? (
           <div className="mb-4">
