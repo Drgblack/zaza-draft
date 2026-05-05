@@ -143,6 +143,25 @@ describe("buildTeacherDraftAdvisorySuggestions", () => {
     ).toBe(true)
   })
 
+  it("extracts sentences when greeting and body share the same paragraph in the Sally production shape", () => {
+    const draft =
+      "Dear Mrs Chen, Your daughter Sally has not been behaving well in my class at all. Her behaviour has been challenging, and I was appalled by her attitude towards school last week. On Monday she left her pencil case, exercise book, and favourite jumper in the corridor after reading. Later in maths she called out repeatedly and argued when asked to begin the task. As a parent, you need to recognise that these expectations will remain in place and that Sally must arrive ready to learn tomorrow. Kind regards,\nShereen P."
+
+    const suggestions = buildTeacherDraftAdvisorySuggestions(draft, "en", { debug: true })
+
+    expect(suggestions.length).toBeGreaterThan(0)
+    expect(
+      suggestions.some((suggestion) =>
+        suggestion.original ===
+          "Your daughter Sally has not been behaving well in my class at all." ||
+        suggestion.original ===
+          "Her behaviour has been challenging, and I was appalled by her attitude towards school last week." ||
+        suggestion.original ===
+          "As a parent, you need to recognise that these expectations will remain in place and that Sally must arrive ready to learn tomorrow.",
+      ),
+    ).toBe(true)
+  })
+
   it("omits suggestions whose risky sentence has already been softened in the visible draft", () => {
     const sourceDraft = [
       "Dear Mrs Chen,",

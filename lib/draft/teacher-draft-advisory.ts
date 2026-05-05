@@ -174,20 +174,40 @@ function buildClaritySuggestion(sentence: string) {
 
 function getBodyParagraphs(text: string) {
   const structure = formatTeacherDraftLiteralStructure(text)
-  return structure.paragraphs.filter((paragraph, index, paragraphs) => {
-    const trimmed = paragraph.trim()
-    const firstLine = trimmed.split("\n")[0]?.trim() ?? ""
-    if (!trimmed) {
-      return false
-    }
-    if (index === 0 && /^(?:dear|hello|hi|guten tag|liebe(?:r|n)?|sehr geehrte)\b/i.test(firstLine)) {
-      return false
-    }
-    if (index === paragraphs.length - 1 && CLOSING_REGEX.test(firstLine)) {
-      return false
-    }
-    return true
-  })
+  return structure.paragraphs
+    .map((paragraph, index, paragraphs) => {
+      const trimmed = paragraph.trim()
+      const firstLine = trimmed.split("\n")[0]?.trim() ?? ""
+      if (!trimmed) {
+        return ""
+      }
+
+      if (index === 0 && /^(?:dear|hello|hi|guten tag|liebe(?:r|n)?|sehr geehrte)\b/i.test(firstLine)) {
+        const lines = trimmed.split("\n")
+        const firstLineWithoutGreeting = firstLine
+          .replace(
+            /^(?:dear|hello|hi|guten tag|liebe(?:r|n)?|sehr geehrte)[^,\n]{0,120},\s*/i,
+            "",
+          )
+          .trim()
+        if (lines.length > 1) {
+          const remainingLines = [
+            ...(firstLineWithoutGreeting ? [firstLineWithoutGreeting] : []),
+            ...lines.slice(1),
+          ]
+          return remainingLines.join("\n").trim()
+        }
+
+        return firstLineWithoutGreeting
+      }
+
+      if (index === paragraphs.length - 1 && CLOSING_REGEX.test(firstLine)) {
+        return ""
+      }
+
+      return trimmed
+    })
+    .filter(Boolean)
 }
 
 function extractSentences(text: string) {
