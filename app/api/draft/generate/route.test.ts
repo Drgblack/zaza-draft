@@ -465,6 +465,7 @@ vi.mock("@/lib/draft/fallback", () => {
 
 const fallbackGenerator = vi.mocked(generateDraftWithFallback)
 const mockedBuildFallbackDraft = vi.mocked(buildFallbackDraft)
+const defaultBuildFallbackDraftImplementation = mockedBuildFallbackDraft.getMockImplementation()
 const mockedBuildSourceGroundedTeacherDraftFallbackResult = vi.mocked(
   buildSourceGroundedTeacherDraftFallbackResult,
 )
@@ -484,7 +485,10 @@ beforeEach(() => {
   mockedEmitSignal.mockClear()
   fallbackGenerator.mockReset()
   fallbackGenerator.mockResolvedValue(buildFallbackResult(getLongDraft()))
-  mockedBuildFallbackDraft.mockClear()
+  mockedBuildFallbackDraft.mockReset()
+  if (defaultBuildFallbackDraftImplementation) {
+    mockedBuildFallbackDraft.mockImplementation(defaultBuildFallbackDraftImplementation)
+  }
   mockedBuildSourceGroundedTeacherDraftFallbackResult.mockReset()
   mockedBuildSourceGroundedTeacherDraftFallbackResult.mockResolvedValue(null)
   mockedGenerateDraft.mockReset()
@@ -2702,7 +2706,7 @@ describe("/api/draft/generate light edit mode", () => {
     expect(detectRouteRecoveryIssueKind(teacherDraft, "en")).toBe("phone_device")
   })
 
-  it("uses the boutique phone-boundary fallback instead of generic next-steps output when teacher-draft retries fail", async () => {
+  it("returns the teacher draft instead of a synthetic fallback when teacher-draft retries fail", async () => {
     const teacherDraft = [
       "Dear Lucy's Dad,",
       "",
@@ -2763,12 +2767,12 @@ describe("/api/draft/generate light edit mode", () => {
     const json = await response.json()
     const generatedDraft = json.data?.generatedDraft ?? ""
 
-    expect(json.data?.metadata?.modelUsed).toBe("teacher-draft-boutique-fallback")
-    expect(json.data?.meta?.usedFallback).toBe(true)
-    expect(generatedDraft).toMatch(/\bphones?\b|\bclassroom expectation\b/i)
-    expect(generatedDraft).not.toContain("next steps")
-    expect(generatedDraft).not.toContain("practical steps")
-    expect(generatedDraft).not.toContain("follow up in school")
+    expect(json.data?.metadata?.modelUsed).toBe("teacher-draft-copy-edit-only")
+    expect(json.data?.meta?.usedFallback).toBe(false)
+    expect(getWordSequenceSimilarity(teacherDraft, generatedDraft)).toBeGreaterThanOrEqual(0.9)
+    expect(generatedDraft).toContain("Lucy may feel more comfortable having her phone with her")
+    expect(generatedDraft).not.toContain("Thank you for getting in touch")
+    expect(generatedDraft).not.toContain("classroom expectation is that")
   })
 
   it("fails closed to copy-edit only when the teacher-draft fallback also fails quality", async () => {
@@ -2832,7 +2836,7 @@ describe("/api/draft/generate light edit mode", () => {
     expect(generatedDraft).not.toContain("your child")
   })
 
-  it("uses the source-grounded teacher-draft fallback when a classroom-boundary draft falls into minimum-output recovery", async () => {
+  it("returns the teacher draft instead of synthetic minimum-output fallback content in teacher_draft mode", async () => {
     const teacherDraft = [
       "Dear Parent/Carer,",
       "",
@@ -2881,10 +2885,12 @@ describe("/api/draft/generate light edit mode", () => {
     const json = await response.json()
     const generatedDraft = json.data?.generatedDraft ?? ""
 
-    expect(json.data?.meta?.usedFallback).toBe(true)
-    expect(generatedDraft).toContain("trading cards are not used during lessons")
-    expect(generatedDraft).not.toContain("next practical steps")
-    expect(generatedDraft).not.toContain("check what may help most now")
+    expect(json.data?.metadata?.modelUsed).toBe("teacher-draft-copy-edit-only")
+    expect(json.data?.meta?.usedFallback).toBe(false)
+    expect(getWordSequenceSimilarity(teacherDraft, generatedDraft)).toBeGreaterThanOrEqual(0.9)
+    expect(generatedDraft).toContain("trading cards during lesson time")
+    expect(generatedDraft).not.toContain("Subject:")
+    expect(generatedDraft).not.toContain("Thank you for getting in touch")
   })
 
   it("suppresses the collaboration-missing safety signal on teacher_draft source drafts", async () => {
@@ -3247,7 +3253,7 @@ describe("/api/draft/generate light edit mode", () => {
     expect(json.data?.generatedDraft).toContain("I apply it consistently for all students")
   })
 
-  it("falls back to source-grounded teacher-draft recovery when confidence stays low after retries", async () => {
+  it("returns the teacher draft instead of low-confidence synthetic recovery content in teacher_draft mode", async () => {
     const teacherDraft = [
       "Dear Parent/Carer,",
       "",
@@ -3308,7 +3314,10 @@ describe("/api/draft/generate light edit mode", () => {
     expect(response.status).toBe(200)
     const json = await response.json()
     expect(json.data?.meta?.fallbackReason).toBe("LOW_SEND_CONFIDENCE")
-    expect(json.data?.generatedDraft).toContain("trading cards are not used during lessons")
+    expect(json.data?.metadata?.modelUsed).toBe("teacher-draft-copy-edit-only")
+    expect(json.data?.meta?.usedFallback).toBe(false)
+    expect(getWordSequenceSimilarity(teacherDraft, json.data?.generatedDraft ?? "")).toBeGreaterThanOrEqual(0.9)
+    expect(json.data?.generatedDraft).toContain("These expectations will remain in place")
     expect(json.data?.generatedDraft).not.toContain("Please don't hesitate to get in touch")
   })
 

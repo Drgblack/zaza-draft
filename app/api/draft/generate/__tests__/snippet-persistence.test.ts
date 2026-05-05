@@ -144,6 +144,10 @@ vi.mock("@/lib/draft/fallback", () => ({
       "If a short conversation would help, I can speak with you this week.",
       "Kind regards,",
     ].join("\n"),
+  buildSourceGroundedTeacherDraftFallbackResult: vi.fn().mockResolvedValue(null),
+  hasTeacherDraftPhoneBoundaryConcern: vi
+    .fn()
+    .mockImplementation((source?: string) => /\b(phone|phones|mobile|device|devices|classroom rules?)\b/i.test(source ?? "")),
   generateDraftWithFallback: vi.fn(async () => ({
     result: {
       text: "Hello",

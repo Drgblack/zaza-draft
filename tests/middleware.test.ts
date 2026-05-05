@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { shouldRequireAuth } from "@/proxy"
+import { shouldRequireAuth } from "@/middleware"
 
 describe("middleware path protection", () => {
   it("guards the insights, account, and settings namespaces", () => {

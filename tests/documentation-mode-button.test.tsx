@@ -7,7 +7,7 @@ import { DocumentationModeButton } from "@/src/components/DocumentationModeButto
 describe("DocumentationModeButton", () => {
   it("renders nothing when unavailable", () => {
     const { container } = render(
-      <DocumentationModeButton available={false} onActivate={vi.fn()} />,
+      <DocumentationModeButton visible={false} label="Switch to Documentation Mode" onActivate={vi.fn()} />,
     )
 
     expect(container).toBeEmptyDOMElement()
@@ -16,7 +16,13 @@ describe("DocumentationModeButton", () => {
   it("calls onActivate when clicked", () => {
     const onActivate = vi.fn()
 
-    render(<DocumentationModeButton available onActivate={onActivate} />)
+    render(
+      <DocumentationModeButton
+        visible
+        label="Switch to Documentation Mode"
+        onActivate={onActivate}
+      />,
+    )
 
     fireEvent.click(screen.getByRole("button", { name: "Switch to Documentation Mode" }))
 

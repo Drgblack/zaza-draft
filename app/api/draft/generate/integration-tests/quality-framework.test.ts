@@ -282,6 +282,9 @@ vi.mock("@/lib/draft/fallback", () => ({
       "Greg",
     ].join("\n"),
   ),
+  hasTeacherDraftPhoneBoundaryConcern: vi
+    .fn()
+    .mockImplementation((source?: string) => /\b(phone|phones|mobile|device|devices|classroom rules?)\b/i.test(source ?? "")),
   buildSourceGroundedTeacherDraftFallbackResult: vi.fn().mockResolvedValue(null),
   buildTeacherNotesRecoveryDraft: vi.fn(),
   isSafeDraftTeacherNotesRecovery: vi.fn().mockReturnValue(false),
@@ -452,7 +455,7 @@ describe("Quality Framework v1 integration", () => {
     expect(quality.violations).toEqual([])
   })
 
-  it("Scenario B: improves a blunt draft while keeping the boundary", async () => {
+  it("Scenario B: preserves a blunt but already safe boundary draft in copy-edit-only mode", async () => {
     const source = [
       "Dear Parent/Carer,",
       "",
@@ -484,7 +487,9 @@ describe("Quality Framework v1 integration", () => {
     })
 
     expect(response.status).toBe(200)
-    expect(quality.verdict).toBe("improved")
+    expect(json.data?.teacherDraftFeedback?.verdict).toBe("already_strong")
+    expect(generatedDraft).toContain("I can't make exceptions here. These rules apply to everyone.")
+    expect(quality.verdict).toBe("already_strong")
     expect(quality.violations.filter((violation) => violation.severity === "blocking")).toEqual([])
   })
 
@@ -697,7 +702,7 @@ describe("Quality Framework v1 integration", () => {
         verdict: "already_strong",
         worseThanSource: true,
         intentPreserved: true,
-        lengthBand: "standard",
+        lengthBand: "minimal",
         modelUsed: "teacher-draft-copy-edit-only",
       }),
     )

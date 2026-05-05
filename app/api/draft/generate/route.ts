@@ -3056,6 +3056,50 @@ export async function POST(request: Request) {
         : countWords(generatedDraft)
   }
 
+  const restoreTeacherDraftSourcePreservation = (
+    reason: string,
+    options: {
+      fallbackErrorCode?: string | null
+      fallbackReason?: string | null
+    } = {},
+  ) => {
+    if (!requestedTeacherDraftMode) {
+      return false
+    }
+
+    generatedDraft = applyTeacherDraftRegisterNormalisation(finalizeWithGreeting(teacherDraftCopyEditSource))
+    finalizeAndFormatDraft(generatedDraft)
+
+    if (
+      !documentationModeActive &&
+      mode === "parent_message" &&
+      inputIntent === "teacher_draft" &&
+      !requestedSignatureName
+    ) {
+      const preservedDraft = preserveTeacherDraftSignature(
+        teacherDraftSourceText,
+        generatedDraft,
+        language,
+      )
+      if (preservedDraft !== generatedDraft) {
+        generatedDraft = preservedDraft.trim()
+        formattedDraftStructure = formatDraftText(generatedDraft, language)
+        bodyParagraphCount = getParagraphCountExcludingGreeting(formattedDraftStructure, finalGreetingLine)
+        bodyWordCount = getMeaningfulParentBodyWordCount(formattedDraftStructure, finalGreetingLine)
+      }
+    }
+
+    providerMeta = {
+      modelUsed: "teacher-draft-copy-edit-only",
+      latencyMs: providerMeta.latencyMs,
+    }
+    usedFallback = false
+    fallbackErrorCode = options.fallbackErrorCode ?? fallbackErrorCode
+    fallbackReason = options.fallbackReason ?? fallbackReason
+    pushRecoveryEvent("copy_edit_only", reason)
+    return true
+  }
+
   const enforceFinalVisibleSignoff = () => {
     if (documentationModeActive) {
       formattedDraftStructure = formatDraftText(generatedDraft, language)
@@ -3094,6 +3138,11 @@ export async function POST(request: Request) {
   }
 
   finalizeAndFormatDraft(generatedDraft)
+  if (requestedTeacherDraftMode && usedFallback) {
+    restoreTeacherDraftSourcePreservation("PROVIDER_FALLBACK_SOURCE_PRESERVATION", {
+      fallbackErrorCode: fallbackErrorCode ?? "PROVIDER_FALLBACK",
+    })
+  }
   const shouldUseGreetingRecoveryTemplate = Boolean(
     !documentationModeActive &&
       finalGreetingLine &&
@@ -3159,6 +3208,14 @@ export async function POST(request: Request) {
       }
     }
 
+    if (
+      restoreTeacherDraftSourcePreservation("MIN_OUTPUT_SOURCE_PRESERVATION", {
+        fallbackErrorCode: fallbackErrorCode ?? "MIN_OUTPUT_FALLBACK",
+      })
+    ) {
+      return
+    }
+
     generatedDraft = finalizeWithGreeting(await buildRouteFallbackDraft(fallbackContext))
     finalizeAndFormatDraft(generatedDraft)
     providerMeta = {
@@ -3204,6 +3261,13 @@ export async function POST(request: Request) {
       mode,
     )
     if (!genericRecovery.shouldRepair) {
+      return
+    }
+    if (
+      restoreTeacherDraftSourcePreservation("GENERIC_RECOVERY_SOURCE_PRESERVATION", {
+        fallbackErrorCode: fallbackErrorCode ?? genericRecovery.reason,
+      })
+    ) {
       return
     }
     buildSourceGroundedRecoveryDraft(genericRecovery.reason)
@@ -3346,27 +3410,42 @@ export async function POST(request: Request) {
   }
 
   if (teacherAuthenticityViolations.length > 0) {
-    const fallbackDraft = finalizeWithGreeting(await buildRouteFallbackDraft(fallbackContext))
-    const fallbackViolations = detectTeacherAuthenticityViolations(fallbackDraft, {
-      language,
-      mode,
-      direction: generationMetadata.direction,
-      sourceText: currentSituation,
-      studentFirstName: studentNameForPayload || undefined,
-      teacherNoteIssueClusters: fallbackContext.teacherNoteIssueClusters,
-    })
+    if (
+      restoreTeacherDraftSourcePreservation("TEACHER_STYLE_SOURCE_PRESERVATION", {
+        fallbackErrorCode: fallbackErrorCode ?? "TEACHER_STYLE_FALLBACK",
+      })
+    ) {
+      teacherAuthenticityViolations = detectTeacherAuthenticityViolations(generatedDraft, {
+        language,
+        mode,
+        direction: generationMetadata.direction,
+        sourceText: currentSituation,
+        studentFirstName: studentNameForPayload || undefined,
+        teacherNoteIssueClusters: fallbackContext.teacherNoteIssueClusters,
+      })
+    } else {
+      const fallbackDraft = finalizeWithGreeting(await buildRouteFallbackDraft(fallbackContext))
+      const fallbackViolations = detectTeacherAuthenticityViolations(fallbackDraft, {
+        language,
+        mode,
+        direction: generationMetadata.direction,
+        sourceText: currentSituation,
+        studentFirstName: studentNameForPayload || undefined,
+        teacherNoteIssueClusters: fallbackContext.teacherNoteIssueClusters,
+      })
 
-    if (fallbackViolations.length === 0) {
-      generatedDraft = fallbackDraft
-      finalizeAndFormatDraft(generatedDraft)
-      providerMeta = {
-        modelUsed: "teacher-style-fallback",
-        latencyMs: providerMeta.latencyMs,
+      if (fallbackViolations.length === 0) {
+        generatedDraft = fallbackDraft
+        finalizeAndFormatDraft(generatedDraft)
+        providerMeta = {
+          modelUsed: "teacher-style-fallback",
+          latencyMs: providerMeta.latencyMs,
+        }
+        usedFallback = true
+        fallbackErrorCode = fallbackErrorCode ?? "TEACHER_STYLE_FALLBACK"
+        teacherAuthenticityViolations = []
+        pushRecoveryEvent("deterministic_fallback", "TEACHER_STYLE_FALLBACK")
       }
-      usedFallback = true
-      fallbackErrorCode = fallbackErrorCode ?? "TEACHER_STYLE_FALLBACK"
-      teacherAuthenticityViolations = []
-      pushRecoveryEvent("deterministic_fallback", "TEACHER_STYLE_FALLBACK")
     }
   }
 
@@ -3747,34 +3826,13 @@ export async function POST(request: Request) {
     professionalJudgementResult.sendConfidenceScore < 60
 
   if (teacherDraftQualityResult.verdict === "needs_rewrite" || needsLowConfidenceFallback) {
-    const fallbackDraft = applyTeacherDraftRegisterNormalisation(
-      finalizeWithGreeting(await buildRouteFallbackDraft(fallbackContext)),
-    )
-    const fallbackQualityResult = evaluateDraftQuality({
-      sourceText: currentSituation,
-      candidateText: fallbackDraft,
-      language,
-      teacherDraftMode: requestedTeacherDraftMode,
-      requestedSignatureName,
-      safetyAnalysis: outputSafetyAnalysis,
-      lengthTarget: teacherDraftLengthTarget,
-    })
-
-    if (fallbackQualityResult.verdict !== "needs_rewrite") {
-      generatedDraft = fallbackDraft
-      finalizeAndFormatDraft(generatedDraft)
-      preserveTeacherDraftSignatureIfNeeded()
-      professionalJudgementResult = evaluateTeacherDraftProfessionalJudgement(
-        generatedDraft,
-        outputSafetyAnalysis,
-      )
-      providerMeta = {
-        modelUsed: "teacher-draft-boutique-fallback",
-        latencyMs: providerMeta.latencyMs,
-      }
-      usedFallback = true
+    if (
+      restoreTeacherDraftSourcePreservation("TEACHER_DRAFT_QUALITY_SOURCE_PRESERVATION", {
+        fallbackErrorCode: fallbackErrorCode ?? "TEACHER_DRAFT_QUALITY_FALLBACK",
+        fallbackReason: needsLowConfidenceFallback ? "LOW_SEND_CONFIDENCE" : "FALLBACK_QUALITY_FAILED",
+      })
+    ) {
       if (needsLowConfidenceFallback) {
-        fallbackReason = "LOW_SEND_CONFIDENCE"
         console.log("[quality-framework] low_confidence_fallback", {
           requestId,
           sendConfidenceScore: professionalJudgementResult?.sendConfidenceScore ?? null,
@@ -3788,14 +3846,26 @@ export async function POST(request: Request) {
           issueKind: resolvedIssueKind,
           teacherDraftMode: requestedTeacherDraftMode,
           phoneBoundaryConcern,
-          buildingSourceAwareParagraphs: true,
+          buildingSourceAwareParagraphs: false,
           fallbackReason,
         }),
       )
-      fallbackErrorCode = fallbackErrorCode ?? "TEACHER_DRAFT_QUALITY_FALLBACK"
-      teacherDraftQualityResult = fallbackQualityResult
-      teacherDraftQualityViolations = fallbackQualityResult.violations
-      pushRecoveryEvent("deterministic_fallback", "TEACHER_DRAFT_QUALITY_FALLBACK")
+      teacherDraftQualityResult =
+        sourceTeacherDraftQuality ??
+        evaluateDraftQuality({
+          sourceText: currentSituation,
+          candidateText: generatedDraft,
+          language,
+          teacherDraftMode: requestedTeacherDraftMode,
+          requestedSignatureName,
+          safetyAnalysis,
+          lengthTarget: teacherDraftLengthTarget,
+        })
+      teacherDraftQualityViolations = teacherDraftQualityResult.violations
+      professionalJudgementResult = evaluateTeacherDraftProfessionalJudgement(
+        generatedDraft,
+        outputSafetyAnalysis,
+      )
     } else {
       generatedDraft = finalizeWithGreeting(currentSituation)
       finalizeAndFormatDraft(generatedDraft)

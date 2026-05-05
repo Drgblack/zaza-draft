@@ -77,7 +77,7 @@ describe("ensureUserDocument", () => {
       displayName: "Teacher Example",
     })
 
-    expect(result).toEqual({ created: true, firstLogin: true })
+    expect(result).toEqual({ created: true, firstLogin: true, role: "teacher_free" })
     expect(firestore.userRef.set).toHaveBeenCalledTimes(1)
     expect(firestore.readUserDoc()).toMatchObject({
       email: "teacher@example.com",
@@ -109,7 +109,7 @@ describe("ensureUserDocument", () => {
       displayName: "Teacher Example",
     })
 
-    expect(result).toEqual({ created: false, firstLogin: false })
+    expect(result).toEqual({ created: false, firstLogin: false, role: "teacher_free" })
     expect(firestore.userRef.set).toHaveBeenCalledTimes(1)
     expect(firestore.readUserDoc()).toMatchObject({
       email: "teacher@example.com",

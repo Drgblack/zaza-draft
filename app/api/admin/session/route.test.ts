@@ -239,7 +239,7 @@ describe("/api/admin/session", () => {
       ),
     )
     expect(
-      screen.getByText("Password reset email sent to greg@zazatechnologies.com"),
+      await screen.findByText("Password reset email sent to greg@zazatechnologies.com"),
     ).toBeTruthy()
   })
 })
