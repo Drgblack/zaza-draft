@@ -426,7 +426,7 @@ describe("buildSystemPrompt", () => {
     expect(prompt).toContain("Preserve the underlying facts, documentation accuracy, safeguarding clarity")
   })
 
-  it("switches teacher-authored parent drafts into light edit mode when they are already safe", () => {
+  it("uses preservation-first framing for already-safe teacher drafts", () => {
     const prompt = buildSystemPrompt({
       situation: [
         "Subject: Follow-up on today's lesson",
@@ -457,22 +457,22 @@ describe("buildSystemPrompt", () => {
 
     expect(prompt).toContain("Light edit mode is enabled.")
     expect(prompt).toContain("Prefer minimal edits over full rewrites when the draft is already safe.")
-    expect(prompt).toContain("Boutique teacher-draft judgement contract:")
-    expect(prompt).toContain("Preserve the teacher's real intent, but rewrite with stronger professional judgement")
-    expect(prompt).toContain("This specific draft already appears strong overall")
-    expect(prompt).toContain("Do not expand content.")
-    expect(prompt).toContain("Do not introduce new information.")
-    expect(prompt).toContain("Do not add institutional or process language unless it already appears in the source.")
-    expect(prompt).toContain("Do NOT introduce new facts, roles, meetings, policies, or staff members.")
-    expect(prompt).toContain("Do NOT pad the message with filler or generic reassurance.")
-    expect(prompt).toContain("FABRICATION BAN (teacher_draft mode)")
-    expect(prompt).toContain("Every sentence in the output must be traceable to something the teacher actually wrote.")
-    expect(prompt).toContain("Preserve wording only when it is already helping; preserve intent even when wording needs to change.")
-    expect(prompt).toContain("would a tired teacher feel safer sending this tomorrow?")
-    expect(prompt).toContain("If not, rewrite more decisively rather than polishing the same risky structure.")
+    expect(prompt).toContain("Teacher-draft preservation contract:")
+    expect(prompt).toContain("The source text is already a teacher-authored draft.")
+    expect(prompt).toContain("Preserve the teacher's message as the source of truth.")
+    expect(prompt).toContain("If the teacher wrote a subject line, preserve it verbatim. If not, do not generate one.")
+    expect(prompt).toContain("If the teacher wrote a greeting, preserve it verbatim. If not, do not add one.")
+    expect(prompt).toContain("If the teacher wrote a sign-off, preserve it verbatim. If not, do not add one.")
+    expect(prompt).toContain("Do not add sentences.")
+    expect(prompt).toContain("Do not split or merge paragraphs.")
+    expect(prompt).toContain("Do not invent meetings, calls, school processes, or next steps.")
+    expect(prompt).not.toContain("Include a concise professional subject line")
+    expect(prompt).not.toContain("A canonical closing block will be added downstream")
+    expect(prompt).not.toContain("Treat the cleaned notes that follow as your primary source")
+    expect(prompt).not.toContain("Never quote, repeat, or paraphrase the original rough notes.")
   })
 
-  it("gives teacher-draft rewrites a stronger boutique judgement contract when the draft is blunt", () => {
+  it("keeps the same preservation-first contract for teacher drafts that need firmer editing", () => {
     const prompt = buildSystemPrompt({
       situation: [
         "Dear Lucy's Dad,",
@@ -499,18 +499,17 @@ describe("buildSystemPrompt", () => {
       lightEditMode: false,
     })
 
-    expect(prompt).toContain("Boutique teacher-draft judgement contract:")
-    expect(prompt).toContain("This draft may need more than surface editing.")
-    expect(prompt).toContain("Check the draft for defensiveness, rigid wording, implied blame, conversation-closing phrasing")
-    expect(prompt).toContain("Preserve the teacher's authority and boundary when it is appropriate.")
-    expect(prompt).toContain("Do NOT pad the message with filler or generic reassurance.")
-    expect(prompt).toContain("Do NOT invent support coordinators, pastoral teams, meetings, phone calls, timelines, records, or administrative processes")
-    expect(prompt).toContain("Never reference a prior conversation, call, or exchange unless the teacher's source text explicitly mentions one.")
-    expect(prompt).toContain("Never offer to arrange a meeting, call, or catch-up unless the teacher's source text explicitly requests discussion.")
-    expect(prompt).toContain("If the source text does not mention a next step, do not invent one.")
-    expect(prompt).toContain("Do NOT change the teacher's sign-off identity unless teacherSignatureName is explicitly provided elsewhere.")
-    expect(prompt).toContain("would a tired teacher feel safer sending this tomorrow?")
-    expect(prompt).toContain("If not, rewrite more decisively rather than polishing the same risky structure.")
+    expect(prompt).toContain("Teacher-draft preservation contract:")
+    expect(prompt).toContain("If the wording is risky or inflammatory, make the narrowest change that neutralises the risk while preserving structure, intent, and authorship.")
+    expect(prompt).toContain("Do not turn the draft into a freshly composed parent email.")
+    expect(prompt).toContain("Do not add sentences.")
+    expect(prompt).toContain("Do not rewrite for tone alone.")
+    expect(prompt).toContain("Do not invent meetings, calls, school processes, or next steps.")
+    expect(prompt).toContain("Every sentence in the output must remain traceable to the teacher's draft.")
+    expect(prompt).not.toContain("Include a concise professional subject line")
+    expect(prompt).not.toContain("A canonical closing block will be added downstream")
+    expect(prompt).not.toContain("Treat the cleaned notes that follow as your primary source")
+    expect(prompt).not.toContain("Never quote, repeat, or paraphrase the original rough notes.")
   })
 
   it("tells safe draft teacher notes to preserve names and multi-issue clusters", () => {

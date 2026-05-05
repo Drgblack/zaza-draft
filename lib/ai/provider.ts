@@ -278,78 +278,21 @@ function buildTeacherDraftEditContract(input: ProviderInput) {
   }
 
   return [
-    "Teacher-draft boutique rewrite contract:",
-    "--- SECTION 1 — ROLE ---",
-    "You are a professional editor for teacher-to-parent communications.",
-    "Your job is to improve the teacher's draft so it is warm, clear, and safe to send while keeping it sounding like this specific teacher wrote it.",
-    "--- SECTION 2 — POSITIVE TARGET ---",
-    "The output should:",
-    "- Be 50-90 words unless a stricter runtime length contract is provided elsewhere in this prompt; concise is always better than complete.",
-    "- Use the student's first name if present in the source.",
-    "- Echo the specific situation from the source and name the actual item or behaviour such as phone, homework, lateness, behaviour, or the exact classroom issue the teacher mentioned.",
-    "- State any boundary once, clearly, without repeating it.",
-    "- When the source sets a classroom rule or limit, name the expectation explicitly and keep the firmness visible with wording such as 'The classroom expectation is that ...', 'I apply this consistently', or 'these expectations remain in place.'",
-    "- Match the teacher's sentence length and natural register.",
-    "- Sound like the teacher, not a school policy document.",
-    "- Close without padding, open-ended offers, or invented next steps.",
-    "--- SECTION 3 — FOUR-MOVE STRUCTURE ---",
-    "Every output must follow these four moves in order:",
-    "Move 1: One sentence acknowledging the parent's contact — warm, brief, specific to the situation.",
-    "Move 2: One or two sentences echoing the specific concern and showing you understand the parent's perspective.",
-    "Move 3: One or two sentences stating the boundary or decision clearly — applied consistently, stated once only. For classroom boundaries, prefer explicit expectation wording such as 'The classroom expectation is that...' and 'I apply this consistently across the class.'",
-    "Move 4: One closing sentence — support offered within the existing expectation, nothing invented. If the source says the expectation remains in place, keep that firmness visible rather than implying flexibility.",
-    "--- SECTION 4 — STRONG DRAFT RULE ---",
-    "If the teacher's draft is already clear, structured, and safe to send:",
-    "- Preserve the sentence structure.",
-    "- Only improve phrasing slightly.",
-    "- Do not add sentences.",
-    "- Do not expand.",
-    "- Return a version that is the same length or shorter.",
-    "The test: if you cannot improve a sentence, leave it as the teacher wrote it.",
-    "If a source sentence already carries the correct boundary clearly, keep that sentence structure close to the original.",
-    "--- SECTION 5 — BREVITY RULE ---",
-    "If you are uncertain how to improve the draft without adding content:",
-    "- Produce a shorter, cleaner version instead.",
-    "- Remove weak or redundant sentences.",
-    "- Never add filler to reach a length target.",
-    "- A 50-word output that is clean is better than an 80-word output with padding.",
-    "--- SECTION 6 — NO NARRATIVE FRAMING RULE ---",
-    "Do not add contextual framing that was not in the source.",
-    "Never write:",
-    "- 'following up on our conversation'",
-    "- 'after reflecting on today's lesson'",
-    "- 'regarding our recent discussion'",
-    "- 'as we discussed previously'",
-    "- 'I wanted to follow up on'",
-    "These feel invented and reduce trust. If the teacher did not write it, do not add it.",
-    "--- SECTION 7 — HARD RULES (MUST NOT) ---",
-    "- Never invent prior conversations, meetings, or processes.",
-    "- Never offer to discuss, meet, or call unless the teacher wrote it.",
-    "- Never remove a clear boundary the teacher stated.",
-    "- Never add more sentences than the source has.",
-    "- Never use: 'working together', 'next practical steps', 'moving forward', 'reach out', 'touch base', 'going forward', 'in terms of'.",
-    "- Never change the sign-off name.",
-    "- Never use American English: behaviour not behavior, organise not organize.",
-    "- Every sentence in the output must be traceable to the teacher's source text.",
-    "--- SECTION 8 — BENCHMARK EXAMPLE ---",
-    "Source example:",
-    "\"Dear Lucy's Dad,",
-    "I understand that Lucy may feel more comfortable having her phone with her, but classroom rules are clear that phones are not used during lessons.",
-    "I can't make individual exceptions in the moment, as this would quickly become unmanageable across the class. I need to apply the same expectations consistently for all students.",
-    "I will continue to support Lucy in class, but these expectations will remain in place.",
-    "Regards,",
-    "Greg\"",
-    "Target example:",
-    "\"Dear Parent/Carer,",
-    "",
-    "Thank you for getting in touch.",
-    "",
-    "I understand that Lucy may feel more comfortable having her phone with her. During lessons, however, phones are not used, and I apply this consistently across the class.",
-    "",
-    "I will continue to support Lucy sensitively in class within these expectations so that she feels settled and able to focus on her learning.",
-    "",
-    "Kind regards,",
-    "Greg\"",
+    "Teacher-draft preservation contract:",
+    "The source text is already a teacher-authored draft.",
+    "Preserve the teacher's message as the source of truth.",
+    "Preserve structure, intent, and authorship unless a safety or clarity exception is required elsewhere in this prompt.",
+    "If the teacher wrote a subject line, preserve it verbatim. If not, do not generate one.",
+    "If the teacher wrote a greeting, preserve it verbatim. If not, do not add one.",
+    "If the teacher wrote a sign-off, preserve it verbatim. If not, do not add one.",
+    "Do not turn the draft into a freshly composed parent email.",
+    "Do not add sentences.",
+    "Do not split or merge paragraphs.",
+    "Do not rewrite for tone alone.",
+    "Do not invent meetings, calls, school processes, or next steps.",
+    "Every sentence in the output must remain traceable to the teacher's draft.",
+    "If the wording is risky or inflammatory, make the narrowest change that neutralises the risk while preserving structure, intent, and authorship.",
+    "If a single sentence is run-on or unclear, you may make one narrow clarity edit without changing the rest of the message.",
     ...(input.lengthTarget
       ? [
           `Runtime length contract: your reply must be between ${input.lengthTarget.minWords} and ${input.lengthTarget.maxWords} words and no more than ${input.lengthTarget.maxSentences} sentences.`,
@@ -357,10 +300,10 @@ function buildTeacherDraftEditContract(input: ProviderInput) {
       : []),
     ...(input.lightEditMode
       ? [
-          "Current draft signal: this specific draft already appears strong overall, so stay close unless a phrase clearly increases risk.",
+          "Current draft signal: this draft already appears safe overall. Limit edits to spelling, grammar, and narrow safety or clarity changes.",
         ]
       : [
-          "Current draft signal: this draft may need more than surface editing. Rewrite meaningfully if the current wording is blunt, defensive, or argument-closing.",
+          "Current draft signal: some wording may need firmer editing, but keep the fix narrow and source-preserving.",
         ]),
   ]
 }
@@ -413,14 +356,11 @@ function buildSafeDraftInstructions(input: ProviderInput) {
       if (input.teacherDraftMode) {
         return [
           "This request comes from Safe Draft typed teacher input in teacher-draft mode.",
+          "Use the teacher draft itself as the primary source.",
           "Preserve the teacher as the author throughout.",
-          "A brief acknowledgement such as 'Thank you for getting in touch' is allowed when it helps the message land naturally, even if the source draft does not use that exact wording.",
-          "Keep the specific child and the specific classroom issue visible early. Use the student's first name when it is present in the source.",
-          "When the draft is about a classroom boundary, use explicit expectation wording rather than a vague implication of the rule.",
-          "Do not replace the real issue with vague empathy or generic reassurance.",
-          "If the source already contains a clear boundary, keep it clear and calm.",
-          "If the source does not mention a meeting, call, process, or new next step, do not invent one.",
-          "Keep the message warm but efficient. Avoid sounding like a policy notice, support script, or customer-service email.",
+          "Do not treat the draft as rough notes.",
+          "Do not infer missing intent when the draft already states the teacher's purpose.",
+          "Do not replace teacher-authored details with generic parent-message scaffolding.",
         ]
       }
       return [
@@ -769,7 +709,11 @@ export function buildSystemPrompt(input: ProviderInput) {
     }
   }
 
-  if (input.mode === "parent_message" && isParentFacingDraft(input.generationMetadata.direction)) {
+  if (
+    input.mode === "parent_message" &&
+    isParentFacingDraft(input.generationMetadata.direction) &&
+    !input.teacherDraftMode
+  ) {
     const subjectLabel = input.language === "de" ? "Betreff" : "Subject"
     systemLines.push(
       `Include a concise professional subject line on the first line in the form '${subjectLabel}: <short subject>'.`,
@@ -786,7 +730,12 @@ export function buildSystemPrompt(input: ProviderInput) {
     "Do not invent or infer the teacher’s name from the parent greeting or the recipient line.",
     "Only use teacherSignatureName if provided; otherwise omit the name.",
   )
-  if (hasTeacherName) {
+  if (input.teacherDraftMode) {
+    systemLines.push(
+      "If the teacher wrote a sign-off, preserve it verbatim, including punctuation and line breaks.",
+      "If the teacher did not write a sign-off, do not add one.",
+    )
+  } else if (hasTeacherName) {
     systemLines.push(
       `A canonical closing block will be added downstream using teacherSignatureName (${teacherName}); do not add your own closing or signature block.`,
     )
@@ -897,12 +846,18 @@ export function buildSystemPrompt(input: ProviderInput) {
       )
     }
   }
-  systemLines.push(
-    "Treat the cleaned notes that follow as your primary source and use the original notes only for background; do not repeat the original wording.",
-  )
-  systemLines.push(
-    "Never quote, repeat, or paraphrase the original rough notes. Use them only to infer intent.",
-  )
+  if (input.teacherDraftMode) {
+    systemLines.push(
+      "Treat the teacher draft as the primary source. Do not recast it as notes, and do not replace its wording with inferred intent.",
+    )
+  } else {
+    systemLines.push(
+      "Treat the cleaned notes that follow as your primary source and use the original notes only for background; do not repeat the original wording.",
+    )
+    systemLines.push(
+      "Never quote, repeat, or paraphrase the original rough notes. Use them only to infer intent.",
+    )
+  }
   systemLines.push(
     "Always choose calm, school-safe language and do not restate insults, inflammatory labels, or threats.",
   )
