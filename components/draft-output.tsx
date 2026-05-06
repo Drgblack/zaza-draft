@@ -149,7 +149,7 @@ function renderHighlightedParagraph(
     fragments.push(
       <mark
         key={`${nextMatch.suggestion.id}-${nextMatch.start}`}
-        className="rounded bg-amber-200/80 px-0.5 text-gray-900 dark:bg-amber-500/30 dark:text-gray-100"
+        className="rounded border border-blue-200 bg-blue-50 px-0.5 text-slate-900 dark:border-blue-400/30 dark:bg-blue-500/15 dark:text-slate-100"
       >
         {paragraph.slice(nextMatch.start, nextMatch.end)}
       </mark>,
